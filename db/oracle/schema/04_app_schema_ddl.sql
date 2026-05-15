@@ -11,6 +11,10 @@ create sequence seq_competition_organizers start with 1 increment by 1;
 create sequence seq_competition_participants start with 1 increment by 1;
 create sequence seq_checkpoints start with 1 increment by 1;
 create sequence seq_questions start with 1 increment by 1;
+create sequence seq_question_texts start with 1 increment by 1;
+create sequence seq_question_options start with 1 increment by 1;
+create sequence seq_question_option_texts start with 1 increment by 1;
+create sequence seq_question_answers start with 1 increment by 1;
 create sequence seq_submissions start with 1 increment by 1;
 create sequence seq_materials start with 1 increment by 1;
 create sequence seq_audit_log start with 1 increment by 1;
@@ -57,6 +61,8 @@ create table competitions (
   name varchar2(200) not null,
   description varchar2(2000),
   status varchar2(30) not null,
+  use_location varchar2(1) default 'N' not null,
+  radius_m number,
   starts_at timestamp,
   ends_at timestamp,
   start_date date default trunc(sysdate) not null,
@@ -67,7 +73,9 @@ create table competitions (
   updated_at timestamp,
   constraint fk_comp_created_by foreign key (created_by) references users(user_id),
   constraint fk_comp_updated_by foreign key (updated_by) references users(user_id),
-  constraint chk_comp_dates check (end_date is null or end_date >= start_date)
+  constraint chk_comp_dates check (end_date is null or end_date >= start_date),
+  constraint chk_comp_use_location check (use_location in ('Y','N')),
+  constraint chk_comp_radius check (radius_m is null or radius_m > 0)
 );
 
 create table competition_access_codes (
@@ -120,8 +128,12 @@ create table checkpoints (
   checkpoint_id number primary key,
   competition_id number not null,
   title varchar2(200) not null,
-  order_no number not null,
+  order_no number,
   location_hint varchar2(500),
+  latitude number(9,6),
+  longitude number(9,6),
+  radius_m number,
+  location_required varchar2(1) default 'N' not null,
   start_date date default trunc(sysdate) not null,
   end_date date,
   created_by number,
@@ -131,16 +143,23 @@ create table checkpoints (
   constraint fk_chk_comp foreign key (competition_id) references competitions(competition_id),
   constraint fk_chk_created_by foreign key (created_by) references users(user_id),
   constraint fk_chk_updated_by foreign key (updated_by) references users(user_id),
-  constraint chk_checkpoints_dates check (end_date is null or end_date >= start_date)
+  constraint chk_checkpoints_dates check (end_date is null or end_date >= start_date),
+  constraint chk_cp_lat check (latitude is null or (latitude between -90 and 90)),
+  constraint chk_cp_lon check (longitude is null or (longitude between -180 and 180)),
+  constraint chk_cp_radius check (radius_m is null or radius_m > 0),
+  constraint chk_cp_location_required check (location_required in ('Y','N'))
 );
 
 create table questions (
   question_id number primary key,
   checkpoint_id number not null,
-  question_text varchar2(4000) not null,
   question_type varchar2(30) not null,
+  input_type varchar2(30),
+  input_max_length number,
+  input_pattern varchar2(300),
+  placeholder_key varchar2(300),
+  help_text_key varchar2(300),
   points number default 0 not null,
-  order_no number not null,
   status varchar2(30) not null,
   start_date date default trunc(sysdate) not null,
   end_date date,
@@ -151,7 +170,85 @@ create table questions (
   constraint fk_q_chk foreign key (checkpoint_id) references checkpoints(checkpoint_id),
   constraint fk_q_created_by foreign key (created_by) references users(user_id),
   constraint fk_q_updated_by foreign key (updated_by) references users(user_id),
-  constraint chk_questions_dates check (end_date is null or end_date >= start_date)
+  constraint chk_questions_dates check (end_date is null or end_date >= start_date),
+  constraint chk_question_type check (question_type in ('TEXT', 'SINGLE_CHOICE')),
+  constraint chk_input_type check (input_type is null or input_type in ('TEXT', 'NUMERIC')),
+  constraint chk_input_max_length check (input_max_length is null or input_max_length > 0)
+);
+
+create table question_texts (
+  question_text_id number primary key,
+  question_id number not null,
+  lang_code varchar2(10) not null,
+  question_text varchar2(4000) not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_qt_question foreign key (question_id) references questions(question_id),
+  constraint fk_qt_created_by foreign key (created_by) references users(user_id),
+  constraint fk_qt_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_qt_dates check (end_date is null or end_date >= start_date),
+  constraint chk_qt_lang check (regexp_like(lang_code, '^[a-z]{2}(-[A-Z]{2})?$'))
+);
+
+create table question_options (
+  option_id number primary key,
+  question_id number not null,
+  option_code varchar2(80) not null,
+  order_no number not null,
+  is_correct varchar2(1) default 'N' not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_qo_question foreign key (question_id) references questions(question_id),
+  constraint fk_qo_created_by foreign key (created_by) references users(user_id),
+  constraint fk_qo_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_qo_dates check (end_date is null or end_date >= start_date),
+  constraint chk_qo_is_correct check (is_correct in ('Y', 'N'))
+);
+
+create table question_option_texts (
+  question_option_text_id number primary key,
+  option_id number not null,
+  lang_code varchar2(10) not null,
+  option_text varchar2(4000) not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_qot_option foreign key (option_id) references question_options(option_id),
+  constraint fk_qot_created_by foreign key (created_by) references users(user_id),
+  constraint fk_qot_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_qot_dates check (end_date is null or end_date >= start_date),
+  constraint chk_qot_lang check (regexp_like(lang_code, '^[a-z]{2}(-[A-Z]{2})?$'))
+);
+
+create table question_answers (
+  answer_id number primary key,
+  question_id number not null,
+  answer_value varchar2(4000) not null,
+  is_correct varchar2(1) default 'Y' not null,
+  normalize_mode varchar2(30) default 'EXACT' not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_qa_question foreign key (question_id) references questions(question_id),
+  constraint fk_qa_created_by foreign key (created_by) references users(user_id),
+  constraint fk_qa_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_qa_dates check (end_date is null or end_date >= start_date),
+  constraint chk_qa_is_correct check (is_correct in ('Y', 'N')),
+  constraint chk_qa_normalize_mode check (normalize_mode in ('EXACT', 'TRIM_UPPER', 'LOWER_TRIM', 'NUMERIC'))
 );
 
 create table submissions (
@@ -161,6 +258,7 @@ create table submissions (
   question_id number not null,
   user_id number not null,
   answer_text clob,
+  selected_option_id number,
   awarded_points number,
   is_correct varchar2(1),
   submitted_at timestamp default systimestamp not null,
@@ -171,6 +269,7 @@ create table submissions (
   constraint fk_s_comp foreign key (competition_id) references competitions(competition_id),
   constraint fk_s_chk foreign key (checkpoint_id) references checkpoints(checkpoint_id),
   constraint fk_s_q foreign key (question_id) references questions(question_id),
+  constraint fk_s_selected_option foreign key (selected_option_id) references question_options(option_id),
   constraint fk_s_user foreign key (user_id) references users(user_id),
   constraint fk_s_eval_by foreign key (evaluated_by) references users(user_id),
   constraint chk_submissions_dates check (end_date is null or end_date >= start_date)
@@ -234,13 +333,28 @@ create unique index ux_active_comp_organizer on competition_organizers (
 );
 
 create unique index ux_active_cp_order on checkpoints (
-  case when end_date is null then competition_id end,
+  case when end_date is null and order_no is not null then competition_id end,
+  case when end_date is null and order_no is not null then order_no end
+);
+
+create unique index ux_active_qt_lang on question_texts (
+  case when end_date is null then question_id end,
+  case when end_date is null then lower(lang_code) end
+);
+
+create unique index ux_active_qo_code on question_options (
+  case when end_date is null then question_id end,
+  case when end_date is null then option_code end
+);
+
+create unique index ux_active_qo_order on question_options (
+  case when end_date is null then question_id end,
   case when end_date is null then order_no end
 );
 
-create unique index ux_active_q_order on questions (
-  case when end_date is null then checkpoint_id end,
-  case when end_date is null then order_no end
+create unique index ux_active_qot_lang on question_option_texts (
+  case when end_date is null then option_id end,
+  case when end_date is null then lower(lang_code) end
 );
 
 -- Seed roles

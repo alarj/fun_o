@@ -1,14 +1,12 @@
-﻿# Andmemudeli ERD (v2)
+# Andmemudeli ERD (v3)
 
-Allolev ERD arvestab rolle, ORDS-protseduuripõhist backendi, audit-logi ja ajalisi kirjeid (`start_date`, `end_date`).
+Allolev ERD arvestab rolle, ORDS-protseduuripohist backendi, i18n tekste ja ajalisi kirjeid (`start_date`, `end_date`).
 
 ## Aktiivse kirje reegel
 
 Aktiivne kirje on kirje, kus:
-- `end_date IS NULL` **või**
+- `end_date IS NULL` **voi**
 - `end_date > SYSDATE`
-
-See reegel kehtib kõigis ärireeglites, kus kontrollitakse unikaalsust või kehtivust.
 
 ## ERD
 
@@ -112,11 +110,82 @@ erDiagram
     QUESTIONS {
         number question_id PK
         number checkpoint_id FK
-        varchar2 question_text
         varchar2 question_type
+        varchar2 input_type
+        number input_max_length
+        varchar2 input_pattern
+        varchar2 placeholder_key
+        varchar2 help_text_key
         number points
         number order_no
         varchar2 status
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    QUESTION_TEXTS {
+        number question_text_id PK
+        number question_id FK
+        varchar2 lang_code
+        varchar2 question_text
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    QUESTION_OPTIONS {
+        number option_id PK
+        number question_id FK
+        varchar2 option_code
+        number order_no
+        varchar2 is_correct
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    QUESTION_OPTION_TEXTS {
+        number question_option_text_id PK
+        number option_id FK
+        varchar2 lang_code
+        varchar2 option_text
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    QUESTION_ANSWERS {
+        number answer_id PK
+        number question_id FK
+        varchar2 answer_value
+        varchar2 is_correct
+        varchar2 normalize_mode
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TRANSLATIONS {
+        number translation_id PK
+        varchar2 translation_key
+        varchar2 lang_code
+        varchar2 text_value
         date start_date
         date end_date
         number created_by
@@ -132,6 +201,7 @@ erDiagram
         number question_id FK
         number user_id FK
         clob answer_text
+        number selected_option_id FK
         number awarded_points
         varchar2 is_correct
         timestamp submitted_at
@@ -180,18 +250,25 @@ erDiagram
 
     COMPETITIONS ||--o{ CHECKPOINTS : has
     CHECKPOINTS ||--o{ QUESTIONS : has
+
+    QUESTIONS ||--o{ QUESTION_TEXTS : has_i18n_texts
+    QUESTIONS ||--o{ QUESTION_OPTIONS : has_options
+    QUESTION_OPTIONS ||--o{ QUESTION_OPTION_TEXTS : has_i18n_texts
+    QUESTIONS ||--o{ QUESTION_ANSWERS : has_text_or_numeric_answers
+
     QUESTIONS ||--o{ SUBMISSIONS : receives
+    QUESTION_OPTIONS ||--o{ SUBMISSIONS : selected_by_optional
     USERS ||--o{ SUBMISSIONS : submits
 
     COMPETITIONS ||--o{ MATERIALS : has
     CHECKPOINTS ||--o{ MATERIALS : has_optional
 ```
 
-## Ärireeglid (kokkuvõte)
+## Arireeglid (kokkuvote)
 
-1. Füüsilist kustutamist ei tehta; kirje "kustutamine" tähendab `end_date` täitmist.
-2. Aktiivne kirje: `end_date IS NULL OR end_date > SYSDATE`.
-3. Sama isik võib samal võistlusel olla korraga nii korraldaja kui osaleja.
-4. Osaleja topeltliitumine samale võistlusele on keelatud aktiivsete kirjete lõikes.
-5. Korraldaja topeltmääramine samale võistlusele on keelatud aktiivsete kirjete lõikes.
-6. Võistlusega liitumine toimub koodi alusel; võistlustel on erinevad koodid.
+1. Kusimuse liik on kas `TEXT` voi `SINGLE_CHOICE`.
+2. `SINGLE_CHOICE` puhul voib olla mitu oiget varianti (`question_options.is_correct = 'Y'`).
+3. UI voib praegu pakkuda ainult uht valikut, kuid andmemudel lubab mitu oiget varianti.
+4. `TEXT`/`NUMERIC` vastuste hindamine toimub `question_answers` kirjetega.
+5. `translations` tabel on UI tolkesonastikule ja seda ei pea audit logis eraldi kajastama.
+6. Kui valitud keelt ei leita, kasutatakse `et`; kui `et` puudub, kuvatakse translation key.

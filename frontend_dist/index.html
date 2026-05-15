@@ -1,13 +1,838 @@
-# local dev placeholder
-# build output of your PWA should be copied here (index.html + assets)
-<html>
+﻿<!doctype html>
+<html lang="et">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>fun_o</title>
+    <title>fun_o võistleja</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      :root {
+        --bg: #f2f5ef;
+        --card: #ffffff;
+        --ink: #132027;
+        --line: #d4ddd2;
+        --accent: #197c87;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Segoe UI", Tahoma, sans-serif; }
+      .wrap { max-width: 620px; margin: 0 auto; padding: 12px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+      h1 { margin: 0 0 12px 0; font-size: 30px; }
+      h2 { margin: 0 0 12px 0; font-size: 28px; }
+      label { display: block; margin: 8px 0 6px; font-weight: 700; font-size: 16px; }
+      input, select, textarea, button {
+        width: 100%; border-radius: 10px; border: 1px solid #c9d4c8; padding: 12px; font-size: 22px;
+      }
+      textarea { min-height: 110px; }
+      button { background: var(--accent); color: #fff; border: 0; font-weight: 700; cursor: pointer; }
+      button.secondary { background: #6f9498; }
+      button:disabled { opacity: 0.5; }
+      .msg { margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid transparent; font-size: 19px; }
+      .ok { background: #e3f9e9; border-color: #8fd0a0; }
+      .err { background: #ffe5e5; border-color: #e4aaaa; }
+      #answerMsg.msg {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 23px;
+        font-weight: 800;
+      }
+      .topRow { display: flex; gap: 8px; align-items: center; }
+      .grow { flex: 1; }
+      .small { width: 120px; }
+      .headline { font-size: 23px; font-weight: 700; margin-bottom: 6px; }
+      .subline { font-size: 19px; color: #4f5a61; margin-bottom: 10px; }
+      .answerCardBig { padding: 18px; }
+      .optionBtn { margin-bottom: 10px; text-align: left; font-size: 24px; font-weight: 700; padding: 16px; }
+      .opt0 { background: #dff7e4; color: #13321a; }
+      .opt1 { background: #ffe8c2; color: #3a2a08; }
+      .opt2 { background: #dcefff; color: #102a44; }
+      .opt3 { background: #f8dcff; color: #34103f; }
+      .opt4 { background: #ffe1dc; color: #461a10; }
+      .opt5 { background: #ebffd6; color: #1f3811; }
+
+      .modalBackdrop {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 999;
+      }
+      .modal {
+        width: 100%; max-width: 560px; background: #fff; border-radius: 14px; padding: 16px;
+      }
+      .modal h3 { margin: 0 0 10px 0; font-size: 28px; }
+      .feedback-ok { background: #00b24f; color: #fff; }
+      .feedback-err { background: #d92424; color: #fff; }
+      .feedback-ok button, .feedback-err button { background: #fff; color: #000; }
+      .mapBackdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.72);
+        display: none;
+        z-index: 1200;
+      }
+      .mapPanel {
+        position: absolute;
+        inset: 0;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+      }
+      #compMapCanvas { flex: 1; min-height: 260px; }
+      .mapActions {
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+        border-top: 1px solid #d4ddd2;
+      }
+      .mapActions button {
+        width: auto;
+        min-width: 0;
+        padding: 8px 12px;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+    </style>
   </head>
   <body>
-    <h1>fun_o PWA placeholder</h1>
-    <p>If you see this, nginx static hosting works.</p>
+    <div class="wrap">
+      <div class="card" id="authCard">
+        <h1>fun_o võistleja</h1>
+        <label for="devEmail">Email (dev login)</label>
+        <input id="devEmail" type="email" value="test@funo.local" />
+        <div style="height:8px"></div>
+        <button id="devLoginBtn">Logi sisse</button>
+        <div id="authMsg"></div>
+      </div>
+
+      <div class="card" id="mainCard" style="display:none;">
+        <div class="topRow" style="margin-bottom:8px;">
+          <button id="switchCompetitionBtn" style="width:190px;">Vaheta võistlust</button>
+          <div class="grow"></div>
+          <select id="langSelect" class="small">
+            <option value="et">ET</option>
+            <option value="en">EN</option>
+          </select>
+        </div>
+        <div class="headline" id="userLine">-</div>
+        <div class="subline" id="competitionLine">-</div>
+      </div>
+
+      <div class="card answerCardBig" id="answerCard" style="display:none;">
+        <div class="topRow" style="margin-bottom:10px;">
+          <button id="showKpBtn" style="width:190px;">Kuva KP-d</button>
+          <button id="mapBtn" style="width:190px; display:none;">Kaart</button>
+          <div class="grow"></div>
+        </div>
+        <label for="checkpointSelect">Vali KP (vastamata)</label>
+        <select id="checkpointSelect"></select>
+
+        <div id="questionBlock" style="display:none; margin-top:14px;">
+          <div id="answerMsg"></div>
+          <h2 id="questionText">-</h2>
+          <div style="font-size:20px; color:#4f5a61; margin-bottom:10px;" id="questionMeta">-</div>
+
+          <div id="singleChoiceBlock" style="display:none;"></div>
+
+          <div id="textBlock" style="display:none;">
+            <textarea id="textAnswer" rows="4" placeholder="Sisesta vastus"></textarea>
+            <div style="height:10px"></div>
+            <button id="textSubmitBtn">Saada vastus</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="competitionPickerBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3>Vali võistlus</h3>
+        <label for="competitionSelectModal">Võistlus</label>
+        <select id="competitionSelectModal"></select>
+        <div style="height:8px"></div>
+        <button id="pickCompetitionConfirmBtn">Vali</button>
+        <div style="height:8px"></div>
+        <button id="openJoinByCodeBtn" class="secondary">Liitu koodiga</button>
+        <div style="height:8px"></div>
+        <button id="closeCompetitionPickerBtn" class="secondary">Sulge</button>
+      </div>
+    </div>
+
+    <div id="joinByCodeBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3>Liitu võistlusega</h3>
+        <label for="joinCode">Võistleja kood</label>
+        <input id="joinCode" type="text" />
+        <div style="height:8px"></div>
+        <button id="joinBtn">Liitu koodiga</button>
+        <div style="height:8px"></div>
+        <button id="closeJoinByCodeBtn" class="secondary">Sulge</button>
+        <div id="joinMsg"></div>
+      </div>
+    </div>
+
+    <div id="feedbackBackdrop" class="modalBackdrop">
+      <div id="feedbackModal" class="modal feedback-ok">
+        <h3 id="feedbackTitle">Õige vastus!</h3>
+        <p id="feedbackBody" style="font-size:24px;"></p>
+        <button id="feedbackCloseBtn">Sulge</button>
+      </div>
+    </div>
+
+    <div id="compMapBackdrop" class="mapBackdrop">
+      <div class="mapPanel">
+        <div id="compMapCanvas"></div>
+        <div class="mapActions">
+          <button id="compMapShowKpBtn">KP-d</button>
+          <button id="compMapFollowBtn" class="secondary">Jälgi mind: ON</button>
+          <button id="compMapInfoBtn" class="secondary">Info</button>
+          <button id="compMapCloseBtn" class="secondary">Sulge</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const state = {
+        userId: null,
+        userEmail: null,
+        competitions: [],
+        selectedCompetitionId: null,
+        openItems: [],
+        feedbackOpen: false,
+        geo: {
+          enabled: false,
+          latitude: null,
+          longitude: null,
+          radius_m: null,
+          error: null,
+        },
+        mapItems: [],
+      };
+      let compMap = null;
+      let compMapLayer = null;
+      let userPosMarker = null;
+      let mapInfoVisible = false;
+      let mapRings = [];
+      let mapLabels = [];
+      let geoWatchId = null;
+      let mapFollowUser = true;
+      let mapProgrammaticMove = false;
+      const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
+      let openCheckpointsClientCache = { key: "", ts: 0, items: [] };
+
+      const el = (id) => document.getElementById(id);
+
+      function setMsg(targetId, text, ok) {
+        const box = el(targetId);
+        if (!text) { box.className = ""; box.textContent = ""; return; }
+        box.className = "msg " + (ok ? "ok" : "err");
+        box.textContent = text;
+      }
+
+      function setCookie(name, value, days = 30) {
+        const d = new Date();
+        d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/`;
+      }
+      function getCookie(name) {
+        const prefix = name + "=";
+        const part = document.cookie.split(";").map((x) => x.trim()).find((x) => x.startsWith(prefix));
+        return part ? decodeURIComponent(part.substring(prefix.length)) : null;
+      }
+
+      async function apiGet(url) {
+        const r = await fetch(url);
+        const data = await r.json().catch(() => ({}));
+        return { ok: r.ok, status: r.status, data };
+      }
+      async function apiPost(url, payload) {
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {}),
+        });
+        const data = await r.json().catch(() => ({}));
+        return { ok: r.ok, status: r.status, data };
+      }
+
+      function getGeoQueryParams() {
+        if (!state.geo.enabled || state.geo.latitude == null || state.geo.longitude == null) return "";
+        const p = new URLSearchParams();
+        p.set("latitude", String(state.geo.latitude));
+        p.set("longitude", String(state.geo.longitude));
+        if (state.geo.radius_m != null) p.set("radius_m", String(state.geo.radius_m));
+        return "&" + p.toString();
+      }
+
+      async function requestGeolocation() {
+        if (!navigator.geolocation) {
+          state.geo.enabled = false;
+          state.geo.error = "Asukoha teenus pole seadmes saadaval.";
+          return false;
+        }
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              state.geo.enabled = true;
+              state.geo.latitude = Number(pos.coords.latitude);
+              state.geo.longitude = Number(pos.coords.longitude);
+              state.geo.radius_m = Number(pos.coords.accuracy);
+              state.geo.error = null;
+              resolve(true);
+            },
+            () => {
+              state.geo.enabled = false;
+              state.geo.latitude = null;
+              state.geo.longitude = null;
+              state.geo.radius_m = null;
+              state.geo.error = "Asukoha kasutamine on keelatud või ebaõnnestus.";
+              resolve(false);
+            },
+            { enableHighAccuracy: true, timeout: 7000, maximumAge: 15000 }
+          );
+        });
+      }
+
+      function pickDefaultCompetition(items) {
+        if (!items.length) return null;
+        const cookieName = state.userId ? `funo_last_competitor_comp_u${state.userId}` : null;
+        if (cookieName) {
+          const last = Number(getCookie(cookieName));
+          if (last && items.some((x) => x.competition_id === last)) return last;
+        }
+        return items[0].competition_id;
+      }
+
+      function renderCompetitionText() {
+        const c = state.competitions.find((x) => x.competition_id === state.selectedCompetitionId);
+        el("userLine").textContent = state.userEmail || "Võistleja";
+        el("competitionLine").textContent = c ? c.name : "-";
+      }
+
+      function getSelectedCompetition() {
+        return state.competitions.find((x) => x.competition_id === state.selectedCompetitionId) || null;
+      }
+
+      function selectedCompetitionUsesLocation() {
+        const c = getSelectedCompetition();
+        return String(c?.use_location || "N").toUpperCase() === "Y";
+      }
+
+      function renderCompetitionPicker() {
+        const s = el("competitionSelectModal");
+        s.innerHTML = "";
+        state.competitions.forEach((c) => {
+          const o = document.createElement("option");
+          o.value = String(c.competition_id);
+          o.textContent = `${c.name} (id=${c.competition_id})`;
+          s.appendChild(o);
+        });
+        if (state.selectedCompetitionId) s.value = String(state.selectedCompetitionId);
+      }
+
+      function renderCheckpointSelect() {
+        const s = el("checkpointSelect");
+        s.innerHTML = "";
+        if (!state.openItems.length) {
+          const o = document.createElement("option");
+          o.value = "";
+          o.textContent = "Kõik KP-d on vastatud";
+          s.appendChild(o);
+          s.disabled = true;
+          el("questionBlock").style.display = "none";
+          return;
+        }
+        s.disabled = false;
+        state.openItems.forEach((item, idx) => {
+          const o = document.createElement("option");
+          o.value = String(item.checkpoint_id);
+          const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "📍 " : "";
+          o.textContent = `${pin}${item.checkpoint_title} (${item.points || 0} p)`;
+          if (idx === 0) o.selected = true;
+          s.appendChild(o);
+        });
+        renderQuestionForSelectedCheckpoint();
+      }
+
+      function getSelectedOpenItem() {
+        const cpId = Number(el("checkpointSelect").value);
+        return state.openItems.find((x) => x.checkpoint_id === cpId) || null;
+      }
+
+      function optionLabel(opt) {
+        const t = (opt.text_et || "").trim() || (opt.text_en || "").trim();
+        return t || `[${opt.option_code || "?"}]`;
+      }
+
+      function renderQuestionForSelectedCheckpoint() {
+        const item = getSelectedOpenItem();
+        setMsg("answerMsg", "", true);
+        if (!item) {
+          el("questionBlock").style.display = "none";
+          return;
+        }
+        el("questionBlock").style.display = "block";
+        el("questionText").textContent = item.text_et || item.text_en || "(küsimuse tekst puudub)";
+        const inputType = (item.input_type || "").toUpperCase();
+        const maxLen = Number(item.input_max_length || 0);
+        let promptText = "Sisesta vastus";
+        if ((item.question_type || "").toUpperCase() === "SINGLE_CHOICE") {
+          promptText = "Vali vastus";
+        } else if (inputType === "NUMERIC") {
+          promptText = maxLen > 0 ? `Sisesta number (kuni ${maxLen} numbrit)` : "Sisesta number";
+        } else {
+          promptText = maxLen > 0 ? `Sisesta vastus (kuni ${maxLen} märki)` : "Sisesta vastus";
+        }
+        el("questionMeta").textContent = promptText;
+        el("singleChoiceBlock").style.display = "none";
+        el("textBlock").style.display = "none";
+
+        if (item.question_type === "SINGLE_CHOICE") {
+          const box = el("singleChoiceBlock");
+          box.innerHTML = "";
+          const opts = Array.isArray(item.options) ? item.options : [];
+          opts.forEach((opt, idx) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = `optionBtn opt${idx % 6}`;
+            b.textContent = optionLabel(opt);
+            b.onclick = () => submitAnswer(item, { selected_option_id: opt.option_id });
+            box.appendChild(b);
+          });
+          box.style.display = "block";
+        } else {
+          el("textAnswer").value = "";
+          el("textBlock").style.display = "block";
+        }
+      }
+
+      function showFeedback(ok, points, total) {
+        state.feedbackOpen = true;
+        const modal = el("feedbackModal");
+        modal.className = "modal " + (ok ? "feedback-ok" : "feedback-err");
+        el("feedbackTitle").textContent = ok ? "Õige vastus!" : "Vale vastus!";
+        el("feedbackBody").textContent = `${points} punkti (kokku ${total}).`;
+        el("feedbackBackdrop").style.display = "flex";
+      }
+
+      async function submitAnswer(item, extra) {
+        if (state.feedbackOpen) return;
+        setMsg("answerMsg", "", true);
+        const payload = {
+          competition_id: state.selectedCompetitionId,
+          checkpoint_id: item.checkpoint_id,
+          question_id: item.question_id,
+          latitude: state.geo.enabled ? state.geo.latitude : null,
+          longitude: state.geo.enabled ? state.geo.longitude : null,
+          radius_m: state.geo.enabled ? state.geo.radius_m : null,
+          ...extra,
+        };
+        const res = await apiPost("/api/submissions", payload);
+        if (!res.ok) {
+          setMsg("answerMsg", res.data?.detail?.message || "Vastuse saatmine ebaõnnestus", false);
+          return;
+        }
+        const d = res.data || {};
+        showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
+      }
+
+      async function closeFeedback() {
+        state.feedbackOpen = false;
+        el("feedbackBackdrop").style.display = "none";
+        await loadOpenCheckpoints();
+      }
+
+      async function loadOpenCheckpoints() {
+        if (!state.selectedCompetitionId) return;
+        const geoParams = getGeoQueryParams();
+        const requestKey = `${state.selectedCompetitionId}|${geoParams}`;
+        const now = Date.now();
+
+        if (
+          openCheckpointsClientCache.key === requestKey &&
+          now - openCheckpointsClientCache.ts < OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS
+        ) {
+          state.openItems = [...openCheckpointsClientCache.items];
+          renderCheckpointSelect();
+          return;
+        }
+
+        const res = await apiGet(`/api/competitor/open-checkpoints?competition_id=${state.selectedCompetitionId}${geoParams}`);
+        if (!res.ok) {
+          state.openItems = [];
+          renderCheckpointSelect();
+          return;
+        }
+        state.openItems = Array.isArray(res.data.items) ? res.data.items : [];
+        openCheckpointsClientCache = {
+          key: requestKey,
+          ts: now,
+          items: [...state.openItems],
+        };
+        renderCheckpointSelect();
+      }
+
+      async function loadMapCheckpoints() {
+        if (!state.selectedCompetitionId) return [];
+        const res = await apiGet(`/api/competitor/map-checkpoints?competition_id=${state.selectedCompetitionId}`);
+        if (!res.ok) return [];
+        const items = Array.isArray(res.data.items) ? res.data.items : [];
+        return items.filter((x) => x && x.latitude != null && x.longitude != null);
+      }
+
+      function getMapViewCookieKey() {
+        const cid = Number(state.selectedCompetitionId || 0);
+        return cid > 0 ? `funo_comp_map_view_c${cid}` : "funo_comp_map_view";
+      }
+
+      function saveCompMapView() {
+        if (!compMap) return;
+        const c = compMap.getCenter();
+        const z = compMap.getZoom();
+        setCookie(getMapViewCookieKey(), `${c.lat.toFixed(7)},${c.lng.toFixed(7)},${z}`, 30);
+      }
+
+      function restoreCompMapView() {
+        const raw = getCookie(getMapViewCookieKey());
+        if (!raw) return false;
+        const parts = raw.split(",");
+        if (parts.length !== 3) return false;
+        const lat = Number(parts[0]);
+        const lng = Number(parts[1]);
+        const zoom = Number(parts[2]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(zoom)) return false;
+        compMap.setView([lat, lng], zoom);
+        return true;
+      }
+
+      function ensureCompMapInit() {
+        if (compMap) return;
+        compMap = L.map("compMapCanvas", { zoomControl: true }).setView([58.8, 25.4], 8);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(compMap);
+        compMapLayer = L.layerGroup().addTo(compMap);
+        compMap.on("moveend zoomend", () => saveCompMapView());
+        compMap.on("movestart", () => {
+          if (!mapProgrammaticMove) {
+            mapFollowUser = false;
+            updateFollowButton();
+          }
+        });
+      }
+
+      function updateFollowButton() {
+        const btn = el("compMapFollowBtn");
+        if (!btn) return;
+        btn.textContent = mapFollowUser ? "Jälgi mind: ON" : "Jälgi mind: OFF";
+      }
+
+      function setMapInfoVisibility(show) {
+        mapInfoVisible = !!show;
+        mapLabels.forEach((label) => {
+          if (mapInfoVisible) label.addTo(compMap);
+          else if (compMap.hasLayer(label)) compMap.removeLayer(label);
+        });
+        const infoBtn = el("compMapInfoBtn");
+        if (infoBtn) infoBtn.textContent = mapInfoVisible ? "Info peida" : "Info";
+      }
+
+      function renderCompMap(items) {
+        ensureCompMapInit();
+        compMapLayer.clearLayers();
+        mapRings = [];
+        mapLabels.forEach((label) => {
+          if (compMap && compMap.hasLayer(label)) compMap.removeLayer(label);
+        });
+        mapLabels = [];
+        if (userPosMarker) {
+          compMap.removeLayer(userPosMarker);
+          userPosMarker = null;
+        }
+        const bounds = [];
+        items.forEach((cp) => {
+          const lat = Number(cp.latitude);
+          const lon = Number(cp.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+          const req = String(cp.location_required || "N").toUpperCase() === "Y";
+          const stroke = req ? "#d02d2d" : "#7a43c6";
+          const ring = L.circleMarker([lat, lon], {
+            radius: 15,
+            color: stroke,
+            weight: 3,
+            fillOpacity: 0,
+          }).addTo(compMapLayer);
+          ring.bindPopup(cp.checkpoint_title || "KP");
+          mapRings.push(ring);
+          mapLabels.push(
+            L.tooltip({
+              permanent: true,
+              direction: "top",
+              opacity: 0.95,
+              offset: [0, -16],
+              className: "cp-map-label",
+            })
+              .setLatLng([lat, lon])
+              .setContent(cp.checkpoint_title || "KP")
+          );
+          bounds.push([lat, lon]);
+        });
+        if (state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
+          userPosMarker = L.circleMarker([state.geo.latitude, state.geo.longitude], {
+            radius: 7,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: "#2f8cff",
+            fillOpacity: 1,
+          }).addTo(compMap);
+          userPosMarker.bindPopup("Sinu asukoht");
+          bounds.push([state.geo.latitude, state.geo.longitude]);
+        }
+        const restored = restoreCompMapView();
+        if (!restored && bounds.length) {
+          compMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 });
+        }
+        if (state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
+          compMap.setView([state.geo.latitude, state.geo.longitude], compMap.getZoom(), { animate: false });
+        }
+        setMapInfoVisibility(mapInfoVisible);
+        setTimeout(() => compMap.invalidateSize(), 50);
+      }
+
+      function updateUserPositionMarker(lat, lon, accuracy) {
+        state.geo.enabled = true;
+        state.geo.latitude = Number(lat);
+        state.geo.longitude = Number(lon);
+        state.geo.radius_m = Number(accuracy);
+        state.geo.error = null;
+        if (!compMap) return;
+        if (!userPosMarker) {
+          userPosMarker = L.circleMarker([lat, lon], {
+            radius: 7,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: "#2f8cff",
+            fillOpacity: 1,
+          }).addTo(compMap);
+          userPosMarker.bindPopup("Sinu asukoht");
+        } else {
+          userPosMarker.setLatLng([lat, lon]);
+        }
+        if (mapFollowUser && compMap) {
+          mapProgrammaticMove = true;
+          compMap.panTo([lat, lon], { animate: true });
+          setTimeout(() => { mapProgrammaticMove = false; }, 250);
+        }
+      }
+
+      function startMapGeolocationWatch() {
+        if (!navigator.geolocation) return;
+        stopMapGeolocationWatch();
+        geoWatchId = navigator.geolocation.watchPosition(
+          (pos) => updateUserPositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          () => {},
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+      }
+
+      function stopMapGeolocationWatch() {
+        if (geoWatchId != null && navigator.geolocation) {
+          navigator.geolocation.clearWatch(geoWatchId);
+        }
+        geoWatchId = null;
+      }
+
+      async function openCompMapModal() {
+        mapFollowUser = true;
+        updateFollowButton();
+        await requestGeolocation();
+        state.mapItems = await loadMapCheckpoints();
+        el("compMapBackdrop").style.display = "block";
+        renderCompMap(state.mapItems);
+        startMapGeolocationWatch();
+      }
+
+      function closeCompMapModal() {
+        saveCompMapView();
+        stopMapGeolocationWatch();
+        el("compMapBackdrop").style.display = "none";
+      }
+
+      async function applyCheckpointLoadingMode() {
+        const needsLocation = selectedCompetitionUsesLocation();
+        el("showKpBtn").style.display = needsLocation ? "inline-block" : "none";
+        el("mapBtn").style.display = needsLocation ? "inline-block" : "none";
+        state.openItems = [];
+        renderCheckpointSelect();
+        if (!needsLocation) {
+          state.geo.enabled = false;
+          state.geo.latitude = null;
+          state.geo.longitude = null;
+          state.geo.radius_m = null;
+          state.geo.error = null;
+          setMsg("answerMsg", "", true);
+          await loadOpenCheckpoints();
+        }
+      }
+
+      async function loadCompetitions(preferredCompetitionId = null) {
+        const res = await apiGet("/api/competitor/competitions");
+        if (!res.ok || !Array.isArray(res.data.items) || !res.data.items.length) {
+          state.competitions = [];
+          state.selectedCompetitionId = null;
+          el("mainCard").style.display = "none";
+          el("answerCard").style.display = "none";
+          el("competitionPickerBackdrop").style.display = "flex";
+          return;
+        }
+
+        state.competitions = res.data.items;
+        if (preferredCompetitionId && state.competitions.some((x) => x.competition_id === preferredCompetitionId)) {
+          state.selectedCompetitionId = preferredCompetitionId;
+        } else if (!state.selectedCompetitionId || !state.competitions.some((x) => x.competition_id === state.selectedCompetitionId)) {
+          state.selectedCompetitionId = pickDefaultCompetition(state.competitions);
+        }
+        if (state.userId && state.selectedCompetitionId) {
+          setCookie(`funo_last_competitor_comp_u${state.userId}`, String(state.selectedCompetitionId));
+        }
+
+        renderCompetitionText();
+        renderCompetitionPicker();
+        el("mainCard").style.display = "block";
+        el("answerCard").style.display = "block";
+        await applyCheckpointLoadingMode();
+      }
+
+      async function doDevLogin() {
+        setMsg("authMsg", "", true);
+        const email = el("devEmail").value.trim();
+        const res = await apiPost("/api/dev/login", { email });
+        if (!res.ok) {
+          setMsg("authMsg", res.data?.detail?.message || "Sisselogimine ebaõnnestus", false);
+          return;
+        }
+        state.userId = res.data.user_id;
+        state.userEmail = email;
+        setMsg("authMsg", `Sisselogimine OK, user_id=${state.userId}`, true);
+        el("authCard").style.display = "none";
+        await loadCompetitions();
+      }
+
+      async function joinCompetition() {
+        setMsg("joinMsg", "", true);
+        const accessCode = el("joinCode").value.trim();
+        if (!accessCode) {
+          setMsg("joinMsg", "Sisesta kood", false);
+          return;
+        }
+        const res = await apiPost("/api/competitions/register", { access_code: accessCode });
+        if (!res.ok) {
+          const code = res.data?.detail?.code;
+          if (code === "ALREADY_REGISTERED") setMsg("joinMsg", "Oled juba võistlusega liitunud.", false);
+          else setMsg("joinMsg", "Tundmatu kood.", false);
+          return;
+        }
+        const joinedCompetitionId = Number(res.data?.competition_id || 0) || null;
+        await loadCompetitions(joinedCompetitionId);
+        el("joinByCodeBackdrop").style.display = "none";
+        el("competitionPickerBackdrop").style.display = "none";
+        setMsg("joinMsg", "Liitumine õnnestus.", true);
+      }
+
+      function init() {
+        el("devLoginBtn").addEventListener("click", doDevLogin);
+        el("switchCompetitionBtn").addEventListener("click", () => {
+          renderCompetitionPicker();
+          el("competitionPickerBackdrop").style.display = "flex";
+        });
+        el("pickCompetitionConfirmBtn").addEventListener("click", async () => {
+          const cid = Number(el("competitionSelectModal").value);
+          if (cid) {
+            state.selectedCompetitionId = cid;
+            if (state.userId) setCookie(`funo_last_competitor_comp_u${state.userId}`, String(cid));
+            renderCompetitionText();
+            await applyCheckpointLoadingMode();
+          }
+          el("competitionPickerBackdrop").style.display = "none";
+        });
+        el("closeCompetitionPickerBtn").addEventListener("click", () => {
+          el("competitionPickerBackdrop").style.display = "none";
+        });
+        el("openJoinByCodeBtn").addEventListener("click", () => {
+          setMsg("joinMsg", "", true);
+          el("competitionPickerBackdrop").style.display = "none";
+          el("joinByCodeBackdrop").style.display = "flex";
+        });
+        el("closeJoinByCodeBtn").addEventListener("click", () => {
+          el("joinByCodeBackdrop").style.display = "none";
+        });
+        el("mapBtn").addEventListener("click", openCompMapModal);
+        el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
+        el("compMapInfoBtn").addEventListener("click", () => {
+          setMapInfoVisibility(!mapInfoVisible);
+        });
+        el("compMapFollowBtn").addEventListener("click", () => {
+          mapFollowUser = !mapFollowUser;
+          updateFollowButton();
+          if (mapFollowUser && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null && compMap) {
+            mapProgrammaticMove = true;
+            compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: true });
+            setTimeout(() => { mapProgrammaticMove = false; }, 250);
+          }
+        });
+        el("compMapShowKpBtn").addEventListener("click", async () => {
+          closeCompMapModal();
+          const selectedCompetition = getSelectedCompetition();
+          const useLocation = String(selectedCompetition?.use_location || "N").toUpperCase() === "Y";
+          if (useLocation) {
+            await requestGeolocation();
+            if (state.geo.error) setMsg("answerMsg", state.geo.error, false);
+          }
+          if (state.selectedCompetitionId) await loadOpenCheckpoints();
+        });
+        el("showKpBtn").addEventListener("click", async () => {
+          const selectedCompetition = getSelectedCompetition();
+          const useLocation = String(selectedCompetition?.use_location || "N").toUpperCase() === "Y";
+          if (useLocation) {
+            await requestGeolocation();
+            if (state.geo.error) setMsg("answerMsg", state.geo.error, false);
+          } else {
+            state.geo.enabled = false;
+            state.geo.latitude = null;
+            state.geo.longitude = null;
+            state.geo.radius_m = null;
+            state.geo.error = null;
+            setMsg("answerMsg", "", true);
+          }
+          if (state.selectedCompetitionId) await loadOpenCheckpoints();
+        });
+        el("joinBtn").addEventListener("click", joinCompetition);
+        el("checkpointSelect").addEventListener("change", renderQuestionForSelectedCheckpoint);
+        el("textSubmitBtn").addEventListener("click", () => {
+          const item = getSelectedOpenItem();
+          if (!item) return;
+          const answer = el("textAnswer").value;
+          const trimmed = (answer || "").trim();
+          if (!trimmed) return;
+
+          const inputType = (item.input_type || "").toUpperCase();
+          const maxLen = Number(item.input_max_length || 0);
+          if (inputType === "NUMERIC" && !/^-?\d+$/.test(trimmed)) {
+            setMsg("answerMsg", "Vastus peab olema number.", false);
+            return;
+          }
+          if (maxLen > 0 && trimmed.length > maxLen) {
+            setMsg("answerMsg", `Vastus on liiga pikk (max ${maxLen} märki).`, false);
+            return;
+          }
+          submitAnswer(item, { answer_text: trimmed });
+        });
+        el("feedbackCloseBtn").addEventListener("click", closeFeedback);
+        el("langSelect").addEventListener("change", (e) => {
+          setCookie("funo_ui_lang", e.target.value);
+        });
+
+        const savedLang = getCookie("funo_ui_lang");
+        if (savedLang && ["et", "en"].includes(savedLang)) el("langSelect").value = savedLang;
+      }
+
+      init();
+    </script>
   </body>
 </html>

@@ -1,0 +1,1716 @@
+﻿<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fun_o Admin</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: #f2f2ed; color: #1e1e1e; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 18px; }
+    .card { background: #fff; border: 1px solid #d9d9d9; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .hidden { display: none; }
+    h1, h2, h3 { margin: 0 0 10px; font-size: 24px; font-weight: 700; line-height: 1.2; }
+    .row { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+    .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .tools { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ended-option { font-style: italic; }
+    .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .q-options-table col.code-col { width: 110px; }
+    .q-options-table col.correct-col { width: 90px; }
+    .q-options-table col.action-col { width: 120px; }
+    .table th, .table td { border-bottom: 1px solid #ececec; padding: 8px 6px; text-align: left; vertical-align: top; }
+    .table th { font-weight: 700; font-size: 14px; }
+    .table td, .row label, .row input, .row select, .row textarea, .muted, .card div, .card label { font-size: 14px; }
+    .q-col { white-space: normal; }
+    .q-cell-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.35;
+      max-height: 4.05em;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    .actions-col { white-space: nowrap; }
+    .muted { color: #666; }
+    .ok, .err { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
+    .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
+    .err { background: #ffecec; border: 1px solid #e5a6a6; }
+    input, select, textarea, button { width: 100%; max-width: 100%; border: 1px solid #cfcfcf; border-radius: 7px; padding: 7px 9px; font-size: 14px; line-height: 1.25; }
+    textarea { min-height: 70px; }
+    input.compact-dt { max-width: 240px; padding: 6px 8px; font-size: 13px; border-radius: 6px; }
+    button { background: #2f7f87; color: #fff; font-weight: 700; border: 0; cursor: pointer; width: auto; padding: 8px 12px; }
+    button.secondary { background: #5a8f95; }
+    button.warn { background: #b74545; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    dialog { border: 0; border-radius: 10px; width: min(840px, 95vw); max-height: 90vh; overflow: auto; }
+    #cpDialog { width: min(1080px, 98vw); }
+    #cpDialog.fullscreen {
+      width: 98vw !important;
+      max-width: 98vw !important;
+      height: 96vh;
+      max-height: 96vh;
+      margin: 2vh auto;
+      display: flex;
+      flex-direction: column;
+    }
+    #cpOverviewMapDialog { width: min(1200px, 98vw); max-width: 98vw; }
+    #cpOverviewMapDialog.fullscreen {
+      width: 98vw !important;
+      max-width: 98vw !important;
+      height: 96vh;
+      max-height: 96vh;
+      margin: 2vh auto;
+      display: flex;
+      flex-direction: column;
+    }
+    #cpMap { width: 100%; height: 280px; border: 1px solid #d9d9d9; border-radius: 8px; margin-bottom: 8px; }
+    #cpDialog.fullscreen #cpMap {
+      height: calc(96vh - 470px);
+      min-height: 380px;
+    }
+    #cpOverviewMap { width: 100%; height: 560px; border: 1px solid #d9d9d9; border-radius: 8px; margin-bottom: 8px; }
+    #cpOverviewMapDialog.fullscreen #cpOverviewMap {
+      flex: 1;
+      height: auto;
+      min-height: 320px;
+    }
+    .dialog-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .dialog-right { display: flex; gap: 8px; }
+
+    @media (max-width: 900px) {
+      .wrap { padding: 10px; }
+      .card { padding: 12px; }
+      .cols { grid-template-columns: 1fr; gap: 10px; }
+      .row { grid-template-columns: 1fr; gap: 6px; }
+      #loginCard .row .tools { grid-template-columns: 1fr 90px !important; }
+      .tools { gap: 6px; }
+      h1, h2, h3 { font-size: 20px; }
+
+      /* Mobile/tablet: keep table usable via horizontal scroll instead of breaking layout */
+      #checkpointsCard { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      #checkpointsCard .table { min-width: 760px; table-layout: auto; }
+      #checkpointsCard .table th:nth-child(3) { width: 260px !important; }
+      #checkpointsCard .table th:last-child { width: 180px !important; }
+      .actions-col { white-space: normal; }
+
+      dialog {
+        width: 96vw;
+        max-width: 96vw;
+        max-height: 92vh;
+        padding: 10px;
+        margin: 2vh auto;
+      }
+      .dialog-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .dialog-right {
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+
+      #qDialog,
+      #cpDialog,
+      #metaDialog {
+        overflow: auto;
+      }
+      #qDialog .dialog-actions,
+      #cpDialog .dialog-actions {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      #qDialog .dialog-actions {
+        flex-wrap: wrap;
+      }
+      #qDialog .dialog-right {
+        width: auto;
+        flex-wrap: nowrap;
+        margin-left: auto;
+      }
+      #qDialog #qDelete {
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+      #qDialog {
+        width: 96vw;
+        max-width: 96vw;
+      }
+      #qDialog .table {
+        width: 100%;
+        min-width: 0 !important;
+        table-layout: fixed;
+      }
+      #singleChoiceBlock { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      #singleChoiceBlock .table {
+        min-width: 640px !important;
+        table-layout: auto;
+      }
+      #qDialog input,
+      #qDialog select,
+      #qDialog textarea {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="loginCard">
+      <h2 data-i18n="admin.login.heading">Admin sisselogimine (dev)</h2>
+      <div class="row">
+        <label data-i18n="admin.login.email_label">Email</label>
+        <div class="tools" style="display:grid; grid-template-columns: 1fr 100px; gap:8px;">
+          <input id="loginEmail" value="test@funo.local" />
+          <select id="uiLang"></select>
+        </div>
+      </div>
+      <div class="tools">
+        <button id="loginBtn" data-i18n="admin.login.login_btn">Logi sisse</button>
+      </div>
+      <div id="loginMsg"></div>
+    </div>
+
+    <div id="appArea" class="hidden">
+      <div class="card hidden" id="noOrgCard">
+        <h3 data-i18n="admin.no_org.heading">Sa ei ole ühegi võistluse korraldaja.</h3>
+        <div class="row">
+          <label data-i18n="admin.no_org.code_label">Sisesta võistluse kood, mida korraldad</label>
+          <input id="organizerJoinCodeNoComp" />
+        </div>
+        <div class="tools">
+          <button id="organizerJoinCancelNoComp" class="secondary" data-i18n="admin.no_org.cancel_btn">Katkesta</button>
+          <button id="organizerJoinSaveNoComp" data-i18n="admin.no_org.save_btn">Salvesta</button>
+        </div>
+        <div id="noOrgMsg"></div>
+      </div>
+
+      <div class="card" id="competitionOverviewCard">
+        <div class="tools" style="justify-content:space-between; align-items:center;">
+          <div class="tools" style="align-items:center;">
+            <h1 id="cName">-</h1>
+            <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">📍</span>
+            <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda võistlust</button>
+          </div>
+          <div class="tools">
+            <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
+            <button id="openJoinByCodeBtn" data-i18n="admin.comp.join_code_btn">Liitu koodiga</button>
+          </div>
+        </div>
+        <div id="cDesc" style="margin-bottom:6px;"></div>
+        <div class="cols" style="margin-top:10px;">
+          <div><strong data-i18n="admin.comp.status_label">Staatus</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="cStatus" style="min-width:72px;">-</div></div></div>
+          <div><strong data-i18n="admin.comp.created_label">Loodud</strong><div id="cCreated">-</div></div>
+          <div><strong data-i18n="admin.comp.updated_label">Muudetud</strong><div id="cUpdated">-</div></div>
+        </div>
+        <div class="cols" style="margin-top:10px;">
+          <div>
+            <strong data-i18n="admin.comp.starts_label">Võistluse algus</strong>
+            <div id="cStarts" style="margin-top:4px;">-</div>
+          </div>
+          <div>
+            <strong data-i18n="admin.comp.ends_label">Võistluse lõpp</strong>
+            <div id="cEnds2" style="margin-top:4px;">-</div>
+          </div>
+          <div></div>
+        </div>
+        <div class="cols" style="margin-top:14px;">
+          <div><strong data-i18n="admin.comp.competitor_code_label">Võistlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.organizers_label">Korraldajad</strong><div id="organizers" class="muted">-</div></div>
+        </div>
+        <div id="topMsg"></div>
+      </div>
+
+      <div class="card" id="checkpointsCard">
+        <div class="tools" style="justify-content:space-between;">
+          <h3 data-i18n="admin.cp_table.heading">Kontrollpunktid</h3>
+          <div class="tools">
+            <button id="showCheckpointMapBtn" class="secondary hidden">Näita kaardil</button>
+            <button id="newCheckpointBtn" data-i18n="admin.cp_table.new_cp_btn">+ Uus kontrollpunkt</button>
+            <button id="newQuestionBtn" data-i18n="admin.cp_table.new_q_btn">+ Uus küsimus</button>
+          </div>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:90px;"><strong data-i18n="admin.cp_table.cp_title_col">KP title</strong> <button type="button" id="sortByTitleIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">☰</button></th>
+              <th style="width:72px;"><strong data-i18n="admin.cp_table.points_col">Punktid</strong> <button type="button" id="sortByPointsIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">☰</button></th>
+              <th style="width:320px;"><strong data-i18n="admin.cp_table.question_et_col">Küsimus (et)</strong> <button type="button" id="sortByQuestionEtIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">☰</button></th>
+              <th style="width:130px;" data-i18n="admin.cp_table.qtype_col">Küsimuse tüüp</th>
+              <th id="cpLocationColHead" style="width:120px;" title="Asukoht">📍</th>
+              <th style="width:240px;"></th>
+            </tr>
+          </thead>
+          <tbody id="cpRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="cpDialog">
+    <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h3 id="cpTitle" style="margin:0;">Kontrollpunkt</h3>
+      <button id="cpMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+    </div>
+    <input id="cpId" type="hidden" />
+    <div id="cpMap"></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.title_label">Title *</label><input id="cpName" /></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.location_label">Location hint</label><input id="cpLocation" /></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.order_label">Order no</label><input id="cpOrder" type="number" /></div>
+    <div class="row cp-gps-row"><label>Laiuskraad</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
+    <div class="row cp-gps-row"><label>Pikkuskraad</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
+    <div class="row cp-gps-row"><label>KP raadius (m)</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
+    <div class="row cp-gps-row"><label>Asukoht kohustuslik</label><select id="cpLocationRequired"><option value="N">N</option><option value="Y">Y</option></select></div>
+    <div class="dialog-actions">
+      <button id="cpDelete" class="warn" type="button" data-i18n="admin.cp_dialog.delete_btn">Kustuta KP</button>
+      <div class="dialog-right">
+        <button id="cpOpenQuestion" class="secondary" type="button">Uus küsimus</button>
+        <button id="cpCancel" class="secondary" type="button" data-i18n="admin.cp_dialog.close_btn">Sulge</button>
+        <button id="cpSave" type="button" data-i18n="admin.cp_dialog.save_btn">Salvesta</button>
+      </div>
+    </div>
+    <div id="cpMsg"></div>
+  </dialog>
+
+  <dialog id="qDialog">
+    <h3 id="qTitle">Küsimus</h3>
+    <input id="qId" type="hidden" />
+    <div class="row"><label data-i18n="admin.q_dialog.checkpoint_label">Kontrollpunkt *</label><select id="qCheckpoint"></select></div>
+    <div id="questionLangRows"></div>
+    <div class="row"><label data-i18n="admin.q_dialog.type_label">Küsimuse tüüp *</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
+    <div class="row"><label data-i18n="admin.q_dialog.points_label">Punktid</label><input id="qPoints" type="number" value="0" /></div>
+    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">Sisestuse tüüp</label><select id="qInputType"><option value="">(puudub)</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
+    <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">Sisestuse max pikkus</label><input id="qInputMax" type="number" /></div>
+
+    <div id="singleChoiceBlock">
+      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.options_heading">Valikvastused</h4>
+      <table class="table q-options-table">
+        <colgroup>
+          <col class="code-col" />
+          <col />
+          <col class="correct-col" />
+          <col class="action-col" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th data-i18n="admin.q_dialog.options_code_col">Kood</th>
+            <th id="optionLangHead"></th>
+            <th data-i18n="admin.q_dialog.options_correct_col">Õige</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="optionRows"></tbody>
+      </table>
+      <div class="tools"><button id="addOptionBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_option_btn">+ Lisa variant</button></div>
+    </div>
+
+    <div id="textAnswersBlock" class="hidden">
+      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.answers_heading">Õiged vastused (TEXT)</h4>
+      <table class="table">
+        <thead>
+          <tr>
+            <th data-i18n="admin.q_dialog.answers_value_col">Vastus *</th>
+            <th data-i18n="admin.q_dialog.answers_mode_col">Normalize mode</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="answerRows"></tbody>
+      </table>
+      <div class="tools"><button id="addAnswerBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_answer_btn">+ Lisa vastus</button></div>
+    </div>
+
+    <div class="dialog-actions">
+      <button id="qDelete" class="warn" type="button" data-i18n="admin.q_dialog.delete_btn">Kustuta küsimus</button>
+      <div class="dialog-right">
+        <button id="qCancel" class="secondary" type="button" data-i18n="admin.q_dialog.close_btn">Sulge</button>
+        <button id="qSave" type="button" data-i18n="admin.q_dialog.save_btn">Salvesta</button>
+      </div>
+    </div>
+    <div id="qMsg"></div>
+  </dialog>
+
+  <dialog id="cpOverviewMapDialog">
+    <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h3 style="margin:0;">Näita kaardil</h3>
+      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+    </div>
+    <div id="cpOverviewMap"></div>
+    <div class="dialog-actions">
+      <div class="dialog-right">
+        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button">Ava tähised</button>
+        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button">Sule tähised</button>
+      </div>
+      <div class="dialog-right">
+        <button id="cpOverviewMapCloseBtn" class="secondary" type="button">Sulge</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="competitionPickerDialog">
+    <h3 data-i18n="admin.comp_picker.heading">Vali võistlus</h3>
+    <div class="row"><label data-i18n="admin.comp_picker.label">Võistlus</label><select id="competitionSelect"></select></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="competitionPickerCancel" class="secondary" type="button" data-i18n="admin.comp_picker.close_btn">Sulge</button>
+        <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">Vali</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="joinByCodeDialog">
+    <h3 data-i18n="admin.join_code.heading">Liitu korraldajana koodiga</h3>
+    <div class="row">
+      <label data-i18n="admin.join_code.label">Sisesta korraldaja kood</label>
+      <input id="organizerJoinCode" />
+    </div>
+    <div id="joinByCodeMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="organizerJoinCancel" class="secondary" type="button" data-i18n="admin.join_code.cancel_btn">Katkesta</button>
+        <button id="organizerJoinSave" type="button" data-i18n="admin.join_code.save_btn">Salvesta</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="metaDialog">
+    <h3 id="metaDialogTitle" data-i18n="admin.meta.edit_comp_title">Muuda võistlust</h3>
+    <div class="row"><label data-i18n="admin.meta.name_label">Nimi</label><input id="metaNameInput" /></div>
+    <div class="row"><label data-i18n="admin.meta.desc_label">Kirjeldus</label><textarea id="metaDescInput"></textarea></div>
+    <div class="row"><label data-i18n="admin.meta.status_label">Staatus</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
+    <div class="row"><label>Kasuta asukohta</label><select id="metaUseLocationInput"><option value="N">N</option><option value="Y">Y</option></select></div>
+    <div class="row"><label>Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
+    <div class="row"><label data-i18n="admin.dates.start_label">Võistluse algus (dd.mm.yyyy hh:mm)</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
+    <div class="row"><label data-i18n="admin.dates.end_label">Võistluse lõpp (dd.mm.yyyy hh:mm)</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div id="metaMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="metaCancel" class="secondary" type="button" data-i18n="admin.meta.cancel_btn">Katkesta</button>
+        <button id="metaSave" type="button" data-i18n="admin.meta.save_btn">Salvesta</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="codeConfirmDialog">
+    <h3 data-i18n="admin.code_confirm.heading">Koodi muutmine</h3>
+    <div id="codeConfirmText"></div>
+    <div style="margin-top:10px;">
+      <span data-i18n="admin.code_confirm.line1">Arvesta, et senised koodid kaotavad kehtivuse.</span><br>
+      <span data-i18n="admin.code_confirm.line2">Kõikidele seni liitunud kasutajatele jääb ligipääs alles, aga uued liitumised on võimalikud vaid uue koodiga.</span>
+    </div>
+    <div style="margin-top:10px;"><strong data-i18n="admin.code_confirm.ask">Muudad koodi?</strong></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="codeConfirmNo" class="secondary" type="button" data-i18n="admin.code_confirm.no_btn">Ei</button>
+        <button id="codeConfirmYes" type="button" data-i18n="admin.code_confirm.yes_btn">Jah</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="codeResultDialog">
+    <h3 data-i18n="admin.code_result.heading">Kood muudetud</h3>
+    <div id="codeResultText"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="codeResultOk" type="button">OK</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="cpDeleteDialog">
+    <h3 data-i18n="admin.cp_delete.heading">Kustuta kontrollpunkt</h3>
+    <div data-i18n="admin.cp_delete.confirm">Oled kindel, et kustutad kontrollpunkti?</div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="cpDeleteNo" class="secondary" type="button" data-i18n="admin.cp_delete.cancel_btn">Katkesta</button>
+        <button id="cpDeleteYes" class="warn" type="button" data-i18n="admin.cp_delete.delete_btn">Kustuta</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="qDeleteDialog">
+    <h3 data-i18n="admin.q_delete.heading">Kustuta küsimus</h3>
+    <div data-i18n="admin.q_delete.confirm">Oled kindel, et kustutad küsimuse?</div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="qDeleteNo" class="secondary" type="button" data-i18n="admin.q_delete.cancel_btn">Katkesta</button>
+        <button id="qDeleteYes" class="warn" type="button" data-i18n="admin.q_delete.delete_btn">Kustuta</button>
+      </div>
+    </div>
+  </dialog>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script>
+  const byId = (id) => document.getElementById(id);
+  const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+  let checkpointsData = [];
+  let competitionsData = [];
+  let i18nItems = {};
+  let sortKey = "checkpoint_title";
+  let sortDir = "asc";
+  let currentUserId = null;
+  let currentUiLang = "et";
+  let availableLangs = ["et", "en"];
+  let defaultLang = "et";
+
+  const tr = (key, fallback = "") => i18nItems[key] || fallback || key;
+  const applyI18n = () => {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const key = el.getAttribute("data-i18n");
+      el.textContent = tr(key, el.textContent);
+    });
+  };
+  const showMsg = (id, ok, text) => {
+    const el = byId(id);
+    el.className = ok ? "ok" : "err";
+    el.textContent = text;
+  };
+  const humanizeError = (raw) => {
+    const msg = (raw || "").toString().trim();
+    if (!msg) return tr("admin.msg.error_generic", "Toiming ebaõnnestus.");
+    if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code", "Sisestatud kood ei ole kasutusel.");
+    if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer", "Oled juba selle võistluse korraldaja.");
+    if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated", "Sessioon puudub. Logi sisse.");
+    return msg;
+  };
+  const qTextId = (lang) => `qText_${lang}`;
+  const langLabel = (code) => (code || "").toLowerCase() === "en" ? "EN" : "ET";
+  const uiLangCookieName = "funo_ui_lang";
+  const lastCompCookieName = () => currentUserId ? `funo_last_competition_u${currentUserId}` : null;
+  const setCookie = (name, value, days = 365) => {
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+  };
+  const getCookie = (name) => {
+    const prefix = `${name}=`;
+    const parts = (document.cookie || "").split(";");
+    for (const part of parts) {
+      const p = part.trim();
+      if (p.startsWith(prefix)) return decodeURIComponent(p.slice(prefix.length));
+    }
+    return null;
+  };
+
+  async function get(url) {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d?.detail?.message || d?.detail?.code || "Viga");
+    return d;
+  }
+  async function post(url, body) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d?.detail?.message || d?.detail?.code || "Viga");
+    return d;
+  }
+
+  async function loadI18nMeta() {
+    try {
+      const d = await get("/api/i18n/meta");
+      const langs = Array.isArray(d.available_langs) ? d.available_langs.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+      defaultLang = (d.default_lang || "et").toString().trim().toLowerCase() || "et";
+      availableLangs = langs.length ? langs : [defaultLang];
+      if (!availableLangs.includes(defaultLang)) availableLangs.unshift(defaultLang);
+    } catch (_e) {
+      availableLangs = ["et", "en"];
+      defaultLang = "et";
+    }
+    const selectedLang = byId("uiLang")?.value;
+    const rememberedLang = getCookie(uiLangCookieName);
+    const browserLang = ((navigator.language || defaultLang).toLowerCase().startsWith("en")) ? "en" : defaultLang;
+    if (selectedLang && availableLangs.includes(selectedLang)) {
+      currentUiLang = selectedLang;
+    } else if (rememberedLang && availableLangs.includes(rememberedLang)) {
+      currentUiLang = rememberedLang;
+    } else {
+      currentUiLang = availableLangs.includes(browserLang) ? browserLang : defaultLang;
+    }
+    renderLangSelector();
+    await loadTranslations(currentUiLang);
+    renderQuestionLangRows();
+    renderOptionLangHead();
+  }
+
+  function renderLangSelector() {
+    const sel = byId("uiLang");
+    if (!sel) return;
+    sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
+    sel.value = currentUiLang;
+  }
+
+  async function loadTranslations(lang) {
+    try {
+      const tdata = await get(`/api/i18n/translations?lang=${encodeURIComponent(lang)}`);
+      i18nItems = tdata?.items || {};
+    } catch (_e) {
+      i18nItems = {};
+    }
+    applyI18n();
+  }
+
+  const compId = () => Number(byId("competitionSelect").value);
+  let currentCompetitionActive = true;
+  const fmtDateEt = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return v;
+    const p2 = (n) => String(n).padStart(2, "0");
+    return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} ${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
+  };
+  const fmtDateEtShort = (v) => {
+    if (!v) return "-";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return "-";
+    const p2 = (n) => String(n).padStart(2, "0");
+    return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
+  };
+  const fmtEtInput = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return "";
+    const p2 = (n) => String(n).padStart(2, "0");
+    return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  };
+  const parseEtInput = (v) => {
+    const t = (v || "").trim();
+    if (!t) return null;
+    const m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (!m) return { error: tr("admin.msg.date_format_error", "Kuupäeva formaat peab olema dd.mm.yyyy hh:mm") };
+    const [, dd, mm, yyyy, hh, mi] = m;
+    const month = Number(mm);
+    const day = Number(dd);
+    const hour = Number(hh);
+    const minute = Number(mi);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+      return { error: tr("admin.msg.date_value_error", "Kuupäeva väärtus ei ole korrektne") };
+    }
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:00`;
+  };
+  const generate6DigitCode = () => String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
+  const nextOptionCode = (idx) => String.fromCharCode(65 + (idx % 26));
+  let pendingCodeType = null;
+  let pendingOldCode = null;
+  let pendingDeleteCheckpointId = null;
+  let pendingDeleteQuestionId = null;
+  let currentCompetitionUseLocation = "N";
+  let cpMap = null;
+  let cpMarker = null;
+  let cpRadiusCircle = null;
+  let cpOverviewMap = null;
+  let cpOverviewLayer = null;
+  let cpOverviewMarkers = [];
+  let cpOverviewFullscreen = false;
+  let cpDialogFullscreen = false;
+  let cpDialogInitialState = "";
+  let cpDialogCheckpointId = null;
+  const lastCpCoordKey = () => `funo_last_cp_coord_c${compId()}`;
+
+  function initCheckpointMap() {
+    if (cpMap) return;
+    cpMap = L.map("cpMap").setView([58.6, 25.0], 7);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(cpMap);
+    cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
+  }
+
+  function initCheckpointOverviewMap() {
+    if (cpOverviewMap) return;
+    cpOverviewMap = L.map("cpOverviewMap", { zoomControl: true, dragging: true, scrollWheelZoom: true });
+    cpOverviewMap.setView([58.6, 25.0], 7);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(cpOverviewMap);
+    cpOverviewLayer = L.layerGroup().addTo(cpOverviewMap);
+  }
+
+  function openCheckpointOverviewMap() {
+    initCheckpointOverviewMap();
+    cpOverviewLayer.clearLayers();
+    cpOverviewMarkers = [];
+    const points = checkpointsData
+      .filter((r) => Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude)))
+      .map((r) => ({
+        title: r.checkpoint_title || "",
+        lat: Number(r.latitude),
+        lon: Number(r.longitude),
+        radius: Number(r.radius_m),
+        locationRequired: String(r.location_required || "N").toUpperCase() === "Y"
+      }));
+    if (points.length === 0) {
+      cpOverviewMap.setView([58.6, 25.0], 7);
+    } else {
+      const bounds = [];
+      points.forEach((p) => {
+        const markerColor = p.locationRequired ? "#c0392b" : "#7d3c98";
+        const m = L.circleMarker([p.lat, p.lon], {
+          radius: 15,
+          color: markerColor,
+          weight: 3,
+          fillOpacity: 0
+        }).addTo(cpOverviewLayer);
+        const popup = `${esc(p.title)}${Number.isFinite(p.radius) && p.radius > 0 ? ` (${p.radius} m)` : ""}`;
+        m.bindPopup(popup, { autoClose: false, closeOnClick: false });
+        cpOverviewMarkers.push(m);
+        if (Number.isFinite(p.radius) && p.radius > 0) {
+          L.circle([p.lat, p.lon], {
+            radius: p.radius,
+            color: "#2f7f87",
+            weight: 2,
+            fillColor: "#2f7f87",
+            fillOpacity: 0.12,
+            interactive: false
+          }).addTo(cpOverviewLayer);
+        }
+        bounds.push([p.lat, p.lon]);
+      });
+      cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+    }
+    byId("cpOverviewMapDialog").showModal();
+    setTimeout(() => cpOverviewMap.invalidateSize(), 50);
+  }
+
+  function setCheckpointOverviewSize(fullscreen) {
+    cpOverviewFullscreen = !!fullscreen;
+    const dlg = byId("cpOverviewMapDialog");
+    dlg.classList.toggle("fullscreen", cpOverviewFullscreen);
+    byId("cpOverviewMapToggleSizeBtn").textContent = cpOverviewFullscreen ? "Taasta" : "Suurenda";
+    setTimeout(() => {
+      if (cpOverviewMap) cpOverviewMap.invalidateSize();
+    }, 30);
+  }
+
+  function setCheckpointDialogSize(fullscreen) {
+    cpDialogFullscreen = !!fullscreen;
+    const dlg = byId("cpDialog");
+    dlg.classList.toggle("fullscreen", cpDialogFullscreen);
+    byId("cpMapToggleSizeBtn").textContent = cpDialogFullscreen ? "Taasta" : "Suurenda";
+    setTimeout(() => {
+      if (cpMap) cpMap.invalidateSize();
+    }, 30);
+  }
+
+  function openAllCheckpointLabels() {
+    cpOverviewMarkers.forEach((m) => m.openPopup());
+  }
+
+  function closeAllCheckpointLabels() {
+    cpOverviewMarkers.forEach((m) => m.closePopup());
+  }
+
+  function effectiveRadiusMeters() {
+    const cpRaw = (byId("cpRadiusM").value || "").trim();
+    if (cpRaw !== "") {
+      const cpVal = Number(cpRaw);
+      if (Number.isFinite(cpVal) && cpVal > 0) return cpVal;
+    }
+    const compVal = Number(window.__lastCompetitionRadiusM);
+    if (Number.isFinite(compVal) && compVal > 0) return compVal;
+    return null;
+  }
+
+  function syncRadiusCircle() {
+    if (!cpMap || !cpMarker || currentCompetitionUseLocation !== "Y") return;
+    const r = effectiveRadiusMeters();
+    if (!r) {
+      if (cpRadiusCircle) {
+        cpMap.removeLayer(cpRadiusCircle);
+        cpRadiusCircle = null;
+      }
+      return;
+    }
+    const center = cpMarker.getLatLng();
+    if (!cpRadiusCircle) {
+      cpRadiusCircle = L.circle(center, {
+        radius: r,
+        color: "#2f7f87",
+        weight: 2,
+        fillColor: "#2f7f87",
+        fillOpacity: 0.15
+      }).addTo(cpMap);
+    } else {
+      cpRadiusCircle.setLatLng(center);
+      cpRadiusCircle.setRadius(r);
+    }
+  }
+
+  function setCpCoordinates(lat, lon, moveMap = false) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const lat6 = Number(lat).toFixed(6);
+    const lon6 = Number(lon).toFixed(6);
+    byId("cpLatitude").value = lat6;
+    byId("cpLongitude").value = lon6;
+    if (!cpMap) return;
+    if (!cpMarker) {
+      cpMarker = L.marker([Number(lat6), Number(lon6)], { draggable: true }).addTo(cpMap);
+      cpMarker.on("dragend", () => {
+        const p = cpMarker.getLatLng();
+        setCpCoordinates(p.lat, p.lng, false);
+      });
+    } else {
+      cpMarker.setLatLng([Number(lat6), Number(lon6)]);
+    }
+    syncRadiusCircle();
+    if (moveMap) cpMap.setView([Number(lat6), Number(lon6)], Math.max(cpMap.getZoom(), 15));
+  }
+
+  function syncMapFromCoordInputs() {
+    const lat = Number(byId("cpLatitude").value);
+    const lon = Number(byId("cpLongitude").value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    setCpCoordinates(lat, lon, false);
+  }
+
+  function readLastCpCoord() {
+    try {
+      const raw = localStorage.getItem(lastCpCoordKey());
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !Number.isFinite(Number(d.lat)) || !Number.isFinite(Number(d.lon))) return null;
+      return { lat: Number(d.lat), lon: Number(d.lon) };
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function writeLastCpCoord(lat, lon) {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return;
+    localStorage.setItem(lastCpCoordKey(), JSON.stringify({ lat: Number(lat), lon: Number(lon) }));
+  }
+
+  function cpDialogStateSnapshot() {
+    return JSON.stringify({
+      title: byId("cpName").value,
+      location: byId("cpLocation").value,
+      order: byId("cpOrder").value,
+      lat: byId("cpLatitude").value,
+      lon: byId("cpLongitude").value,
+      radius: byId("cpRadiusM").value,
+      required: byId("cpLocationRequired").value
+    });
+  }
+
+  function syncCpQuestionButton() {
+    const btn = byId("cpOpenQuestion");
+    if (!btn) return;
+    if (!cpDialogCheckpointId) {
+      btn.textContent = tr("admin.cp_dialog.open_question_new", "Uus küsimus");
+      btn.disabled = true;
+      return;
+    }
+    const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+    const hasQuestion = !!row?.question_id;
+    btn.textContent = hasQuestion
+      ? tr("admin.cp_dialog.open_question_edit", "Muuda küsimust")
+      : tr("admin.cp_dialog.open_question_new", "Uus küsimus");
+    const dirty = cpDialogStateSnapshot() !== cpDialogInitialState;
+    btn.disabled = dirty;
+  }
+  function setEditModeByCompetition(isActive) {
+    currentCompetitionActive = isActive;
+    ["regenCompetitor","regenOrganizer","newCheckpointBtn","newQuestionBtn","openCompetitionEditBtn"].forEach((id) => {
+      const el = byId(id);
+      if (el) el.disabled = !isActive;
+    });
+  }
+
+  async function devLogin() {
+    const d = await post("/api/dev/login", { email: byId("loginEmail").value.trim() });
+    currentUserId = d.user_id || null;
+    showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix", "Sisselogimine OK, user_id=")}${d.user_id}`);
+    await loadI18nMeta();
+    byId("appArea").classList.remove("hidden");
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions) {
+      await loadView();
+    }
+  }
+
+  async function loadCompetitions() {
+    const d = await get("/api/admin/competitions");
+    const items = Array.isArray(d.items) ? d.items : [];
+    competitionsData = items;
+    if (items.length === 0) {
+      byId("competitionSelect").innerHTML = "";
+      byId("competitionOverviewCard").classList.add("hidden");
+      byId("noOrgCard").classList.remove("hidden");
+      byId("checkpointsCard").classList.add("hidden");
+      byId("topMsg").textContent = "";
+      byId("topMsg").className = "";
+      byId("cName").textContent = "-";
+      byId("cDesc").textContent = "";
+      byId("cStatus").textContent = "";
+      byId("cCreated").textContent = "";
+      byId("cUpdated").textContent = "";
+      byId("cStarts").textContent = "-";
+      byId("cEnds2").textContent = "-";
+      byId("codeCompetitor").textContent = "-";
+      byId("codeOrganizer").textContent = "-";
+      byId("organizers").textContent = "-";
+      currentCompetitionUseLocation = "N";
+      checkpointsData = [];
+      renderRows();
+      setEditModeByCompetition(false);
+      return false;
+    }
+    byId("noOrgCard").classList.add("hidden");
+    byId("competitionOverviewCard").classList.remove("hidden");
+    byId("checkpointsCard").classList.remove("hidden");
+    byId("topMsg").textContent = "";
+    byId("topMsg").className = "";
+    renderCompetitionOptions();
+    const rememberedName = lastCompCookieName();
+    const rememberedId = rememberedName ? getCookie(rememberedName) : null;
+    if (rememberedId && competitionsData.some((x) => String(x.competition_id) === String(rememberedId))) {
+      byId("competitionSelect").value = String(rememberedId);
+      return true;
+    }
+    const active = competitionsData
+      .filter((x) => x.is_active === "Y")
+      .sort((a, b) => {
+        const av = a?.starts_at ? new Date(a.starts_at).getTime() : 8640000000000000;
+        const bv = b?.starts_at ? new Date(b.starts_at).getTime() : 8640000000000000;
+        return av - bv;
+      });
+    if (active.length > 0) {
+      byId("competitionSelect").value = String(active[0].competition_id);
+    }
+    return true;
+  }
+
+  function renderCompetitionOptions() {
+    const selected = byId("competitionSelect").value;
+    const sorted = [...competitionsData].sort((a, b) => {
+      const av = a?.starts_at ? new Date(a.starts_at).getTime() : -8640000000000000;
+      const bv = b?.starts_at ? new Date(b.starts_at).getTime() : -8640000000000000;
+      return av - bv;
+    });
+    byId("competitionSelect").innerHTML = sorted.map((c) => {
+      const isEndedByDate = c?.ends_at ? (new Date(c.ends_at) < new Date()) : false;
+      const ended = c?.status !== "ACTIVE" || isEndedByDate;
+      const label = `${esc(c.name)} (id=${c.competition_id}) • ${fmtDateEtShort(c.starts_at)} - ${fmtDateEtShort(c.ends_at)}`;
+      return `<option value="${c.competition_id}" ${ended ? "style=\"font-style:italic;\"" : ""}>${label}</option>`;
+    }).join("");
+    if (selected && sorted.some((x) => String(x.competition_id) === String(selected))) {
+      byId("competitionSelect").value = selected;
+    }
+  }
+
+  async function loadView() {
+    if (!byId("competitionSelect").value) return;
+    const rememberedName = lastCompCookieName();
+    if (rememberedName) setCookie(rememberedName, byId("competitionSelect").value);
+    const ov = await get(`/api/admin/competition-overview?competition_id=${compId()}`);
+    const v = ov.data || {};
+    byId("cName").textContent = `${v.name || "-"} (id=${v.competition_id || "-"})`;
+    const locBadge = byId("cLocationBadge");
+    if ((v.use_location || "N") === "Y") {
+      const r = v.radius_m != null ? ` (${Number(v.radius_m)} m)` : "";
+      locBadge.textContent = `📍${r}`;
+      locBadge.classList.remove("hidden");
+    } else {
+      locBadge.classList.add("hidden");
+      locBadge.textContent = "";
+    }
+    byId("cDesc").textContent = v.description || "";
+    byId("cStatus").textContent = v.status || "";
+    window.__lastCompetitionName = v.name || "";
+    window.__lastCompetitionDescription = v.description || "";
+    window.__lastCompetitionStatus = v.status || "ACTIVE";
+    window.__lastCompetitionUseLocation = v.use_location || "N";
+    window.__lastCompetitionRadiusM = v.radius_m ?? null;
+    currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
+    byId("cCreated").textContent = fmtDateEt(v.created_at) || "";
+    byId("cUpdated").textContent = fmtDateEt(v.updated_at) || "-";
+    byId("cStarts").textContent = fmtDateEt(v.starts_at) || "-";
+    byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
+    window.__lastStartsAt = v.starts_at || null;
+    window.__lastEndsAt = v.ends_at || null;
+    setEditModeByCompetition(!v.ends_at || (new Date(v.ends_at) > new Date()));
+    byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
+    byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
+    const org = Array.isArray(v.organizers) ? v.organizers : [];
+    byId("organizers").innerHTML = org.length ? org.map((o) => `${esc(o.full_name || "-")} (${esc(o.email || "-")})`).join("<br>") : tr("admin.msg.missing_value", "Puudub");
+
+    const q = await get(`/api/admin/questions-overview?competition_id=${compId()}`);
+    const rawItems = Array.isArray(q.items) ? q.items : [];
+    checkpointsData = rawItems.map((it) => {
+      const row = { ...it };
+      if (typeof row.options === "string") {
+        try { row.options = JSON.parse(row.options); } catch (_e) { row.options = []; }
+      }
+      if (!Array.isArray(row.options)) row.options = [];
+      if (typeof row.answers === "string") {
+        try { row.answers = JSON.parse(row.answers); } catch (_e) { row.answers = []; }
+      }
+      if (!Array.isArray(row.answers)) row.answers = [];
+      return row;
+    });
+    renderRows();
+    fillCheckpointSelect();
+  }
+
+  function renderRows() {
+    const sorted = [...checkpointsData].sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortKey === "points") {
+        const av = Number(a?.points ?? 0);
+        const bv = Number(b?.points ?? 0);
+        return (av - bv) * dir;
+      }
+      const av = String(a?.[sortKey] ?? "");
+      const bv = String(b?.[sortKey] ?? "");
+      return av.localeCompare(bv, "et", { sensitivity: "base" }) * dir;
+    });
+
+    byId("cpRows").innerHTML = sorted.map((r) => {
+      const hasQuestion = !!r.question_id;
+      const qText = currentUiLang === "en"
+        ? (r.text_en || r.text_et || "")
+        : (r.text_et || r.text_en || "");
+      return `<tr>
+        <td>${esc(r.checkpoint_title || "")}</td>
+        <td>${r.points ?? ""}</td>
+        <td class="q-col"><span class="q-cell-text" title="${esc(qText)}">${esc(qText)}</span></td>
+        <td>${esc(r.question_type || "")}</td>
+        <td class="cp-loc-col">${
+          (r.location_required === "Y" ? '<span style="color:#1f9d55;font-weight:700;">✓</span>' : '-')
+          + ((r.latitude != null && r.longitude != null) ? ` (${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)})` : '')
+        }</td>
+        <td class="actions-col">
+          <div class="tools">
+            <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn","Muuda küsimust"))}</button>
+            <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn","Muuda KP-d"))}</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+    const showLocCol = currentCompetitionUseLocation === "Y";
+    byId("showCheckpointMapBtn").classList.toggle("hidden", !showLocCol);
+    byId("cpLocationColHead").style.display = showLocCol ? "" : "none";
+    document.querySelectorAll(".cp-loc-col").forEach((el) => {
+      el.style.display = showLocCol ? "" : "none";
+    });
+  }
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = "asc";
+    }
+    refreshSortIcons();
+    renderRows();
+  }
+
+  function sortIconFor(key) {
+    if (sortKey !== key) return "☰";
+    return sortDir === "asc" ? "▲" : "▼";
+  }
+
+  function refreshSortIcons() {
+    byId("sortByTitleIcon").textContent = sortIconFor("checkpoint_title");
+    byId("sortByPointsIcon").textContent = sortIconFor("points");
+    byId("sortByQuestionEtIcon").textContent = sortIconFor("text_et");
+  }
+
+  function fillCheckpointSelect(includeAll = true) {
+    const rows = includeAll ? checkpointsData : checkpointsData.filter((c) => !c.question_id);
+    byId("qCheckpoint").innerHTML = rows.map((c) => `<option value="${c.checkpoint_id}">${esc(c.checkpoint_title || "")}</option>`).join("");
+  }
+
+  function renderQuestionLangRows() {
+    const container = byId("questionLangRows");
+    container.innerHTML = availableLangs.map((lang) => {
+      const required = lang === defaultLang ? " *" : "";
+      return `<div class="row"><label>${esc(tr("admin.q_dialog.question_text_prefix","Küsimuse tekst"))} (${lang})${required}</label><textarea id="${qTextId(lang)}"></textarea></div>`;
+    }).join("");
+  }
+
+  function renderOptionLangHead() {
+    const el = byId("optionLangHead");
+    el.textContent = availableLangs.map((l) => `Tekst (${l})${l === defaultLang ? " *" : ""}`).join(" / ");
+  }
+
+  function syncQuestionTypeUI() {
+    const t = byId("qType").value;
+    const isSingle = t === "SINGLE_CHOICE";
+    byId("singleChoiceBlock").classList.toggle("hidden", !isSingle);
+    byId("textAnswersBlock").classList.toggle("hidden", isSingle);
+    byId("qInputTypeRow").style.display = isSingle ? "none" : "grid";
+    byId("qInputMaxRow").style.display = isSingle ? "none" : "grid";
+  }
+
+  function addOptionRow(v = {}) {
+    const rowEl = document.createElement("tr");
+    rowEl.className = "option-row";
+    const langsHtml = availableLangs.map((lang) => {
+      const key = `text_${lang}`;
+      return `<input class="opt-lang" data-lang="${lang}" placeholder="Tekst (${lang})${lang === defaultLang ? " *" : ""}" value="${esc(v[key] || "")}" style="margin-bottom:4px;" />`;
+    }).join("");
+    rowEl.innerHTML = `
+      <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" /></td>
+      <td class="opt-text-cell">${langsHtml}</td>
+      <td class="opt-correct-cell"><input class="opt-correct" type="checkbox" ${v.is_correct === "Y" ? "checked" : ""} /></td>
+      <td class="opt-del-cell"><button type="button" class="warn del-opt">${esc(tr("admin.q_dialog.delete_option_row_btn","Kustuta"))}</button></td>
+    `;
+    rowEl.querySelector(".del-opt").onclick = () => rowEl.remove();
+    byId("optionRows").appendChild(rowEl);
+  }
+
+  function addAnswerRow(v = {}) {
+    const rowEl = document.createElement("tr");
+    rowEl.className = "answer-row";
+    rowEl.innerHTML = `
+      <td><input class="ans-val" value="${esc(v.answer_value || "")}" /></td>
+      <td>
+        <select class="ans-mode">
+          <option value="LOWER_TRIM" ${(v.normalize_mode || "LOWER_TRIM") === "LOWER_TRIM" ? "selected" : ""}>LOWER_TRIM</option>
+          <option value="TRIM" ${v.normalize_mode === "TRIM" ? "selected" : ""}>TRIM</option>
+          <option value="EXACT" ${v.normalize_mode === "EXACT" ? "selected" : ""}>EXACT</option>
+        </select>
+      </td>
+      <td><button type="button" class="warn del-ans">${esc(tr("admin.q_dialog.delete_answer_row_btn","Kustuta"))}</button></td>
+    `;
+    rowEl.querySelector(".del-ans").onclick = () => rowEl.remove();
+    byId("answerRows").appendChild(rowEl);
+  }
+
+  function collectSingleChoiceOptions() {
+    const rows = Array.from(document.querySelectorAll("#optionRows .option-row"));
+    const opts = [];
+    let hasCorrect = false;
+    rows.forEach((row, idx) => {
+      const texts = {};
+      row.querySelectorAll(".opt-lang").forEach((el) => {
+        const lang = el.getAttribute("data-lang");
+        texts[lang] = el.value.trim();
+      });
+      const code = row.querySelector(".opt-code").value.trim() || nextOptionCode(idx);
+      const isCorrect = row.querySelector(".opt-correct").checked ? "Y" : "N";
+      if (!texts[defaultLang]) return;
+      if (isCorrect === "Y") hasCorrect = true;
+      const item = { option_code: code, is_correct: isCorrect };
+      availableLangs.forEach((lang) => { item[`text_${lang}`] = texts[lang] || null; });
+      opts.push(item);
+    });
+    return { opts, hasCorrect };
+  }
+
+  function collectTextAnswers() {
+    const rows = Array.from(document.querySelectorAll("#answerRows .answer-row"));
+    const answers = [];
+    rows.forEach((row) => {
+      const value = row.querySelector(".ans-val").value.trim();
+      const mode = row.querySelector(".ans-mode").value || "LOWER_TRIM";
+      if (!value) return;
+      answers.push({ answer_value: value, normalize_mode: mode, is_correct: "Y" });
+    });
+    return answers;
+  }
+
+  function openCheckpointDialog(cpId = null) {
+    byId("cpMsg").textContent = "";
+    setCheckpointDialogSize(false);
+    initCheckpointMap();
+    const showGps = currentCompetitionUseLocation === "Y";
+    byId("cpMap").style.display = showGps ? "block" : "none";
+    byId("cpMapToggleSizeBtn").style.display = showGps ? "inline-block" : "none";
+    document.querySelectorAll(".cp-gps-row").forEach((el) => {
+      el.style.display = "grid";
+    });
+    ["cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+      const el = byId(id);
+      if (el) el.disabled = !showGps;
+    });
+    if (!cpId) {
+      if (!currentCompetitionActive) return;
+      byId("cpTitle").textContent = tr("admin.cp_dialog.new_title", "Uus kontrollpunkt");
+      byId("cpId").value = "";
+      byId("cpName").value = "";
+      byId("cpLocation").value = "";
+      byId("cpOrder").value = "";
+      byId("cpLatitude").value = "";
+      byId("cpLongitude").value = "";
+      byId("cpRadiusM").value = "";
+      byId("cpLocationRequired").value = "N";
+      byId("cpDelete").disabled = true;
+      cpDialogCheckpointId = null;
+      if (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0) {
+        byId("cpRadiusM").placeholder = String(Number(window.__lastCompetitionRadiusM));
+      } else {
+        byId("cpRadiusM").placeholder = "";
+      }
+      if (cpMarker) {
+        cpMap.removeLayer(cpMarker);
+        cpMarker = null;
+      }
+      if (cpRadiusCircle) {
+        cpMap.removeLayer(cpRadiusCircle);
+        cpRadiusCircle = null;
+      }
+      const last = readLastCpCoord();
+      if (showGps && last) {
+        cpMap.setView([last.lat, last.lon], 16);
+      } else {
+        cpMap.setView([58.6, 25.0], 7);
+      }
+    } else {
+      const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+      byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title", "Muuda kontrollpunkti");
+      byId("cpId").value = cpId;
+      byId("cpName").value = row?.checkpoint_title || "";
+      byId("cpLocation").value = row?.location_hint || "";
+      byId("cpOrder").value = row?.checkpoint_order_no ?? "";
+      byId("cpLatitude").value = row?.latitude ?? "";
+      byId("cpLongitude").value = row?.longitude ?? "";
+      byId("cpRadiusM").value = row?.radius_m ?? "";
+      byId("cpRadiusM").placeholder = (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0)
+        ? String(Number(window.__lastCompetitionRadiusM))
+        : "";
+      byId("cpLocationRequired").value = row?.location_required || "N";
+      byId("cpDelete").disabled = false;
+      cpDialogCheckpointId = Number(cpId);
+      if (row?.latitude != null && row?.longitude != null) {
+        setCpCoordinates(Number(row.latitude), Number(row.longitude), true);
+      } else if (cpMarker) {
+        cpMap.removeLayer(cpMarker);
+        cpMarker = null;
+        if (cpRadiusCircle) {
+          cpMap.removeLayer(cpRadiusCircle);
+          cpRadiusCircle = null;
+        }
+      }
+    }
+    cpDialogInitialState = cpDialogStateSnapshot();
+    syncCpQuestionButton();
+    byId("cpDialog").showModal();
+    setTimeout(() => cpMap.invalidateSize(), 50);
+  }
+
+  async function saveCheckpoint() {
+    if (!currentCompetitionActive) return;
+    const title = byId("cpName").value.trim();
+    if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required", "KP title on kohustuslik"));
+    const cpId = byId("cpId").value;
+    const orderRaw = byId("cpOrder").value.trim();
+    const location = byId("cpLocation").value.trim();
+    const latRaw = byId("cpLatitude").value.trim();
+    const lonRaw = byId("cpLongitude").value.trim();
+    const radiusRaw = byId("cpRadiusM").value.trim();
+    const locRequired = byId("cpLocationRequired").value || "N";
+    if (!cpId) {
+      const payload = { competition_id: compId(), title };
+      if (orderRaw !== "") payload.order_no = Number(orderRaw);
+      if (location) payload.location_hint = location;
+      if (currentCompetitionUseLocation === "Y") {
+        if (latRaw !== "") payload.latitude = Number(latRaw);
+        if (lonRaw !== "") payload.longitude = Number(lonRaw);
+        if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
+        payload.location_required = locRequired;
+      }
+      await post("/api/admin/checkpoints", payload);
+      if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
+        writeLastCpCoord(Number(latRaw), Number(lonRaw));
+      }
+    } else {
+      const payload = { checkpoint_id: Number(cpId), title };
+      if (orderRaw !== "") payload.order_no = Number(orderRaw);
+      if (location) payload.location_hint = location;
+      if (currentCompetitionUseLocation === "Y") {
+        if (latRaw !== "") payload.latitude = Number(latRaw);
+        if (lonRaw !== "") payload.longitude = Number(lonRaw);
+        if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
+        payload.location_required = locRequired;
+      }
+      await post("/api/admin/checkpoints/update", payload);
+      if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
+        writeLastCpCoord(Number(latRaw), Number(lonRaw));
+      }
+    }
+    byId("cpDialog").close();
+    await loadView();
+  }
+
+  async function deleteCheckpoint() {
+    if (!currentCompetitionActive) return;
+    const cpId = Number(byId("cpId").value);
+    if (!cpId) return;
+    pendingDeleteCheckpointId = cpId;
+    byId("cpDeleteDialog").showModal();
+  }
+
+  function setQuestionDialogMode(mode, message = "") {
+    const isBlocked = mode === "blocked";
+    byId("qDialog").querySelectorAll(".row").forEach((el) => {
+      el.classList.toggle("hidden", isBlocked);
+      el.style.display = isBlocked ? "none" : "";
+    });
+    ["singleChoiceBlock", "textAnswersBlock", "qDelete", "qSave"].forEach((id) => {
+      const el = byId(id);
+      if (!el) return;
+      el.classList.toggle("hidden", isBlocked);
+      el.style.display = isBlocked ? "none" : "";
+    });
+    byId("qCancel").disabled = false; // Sulge peab alati töötama
+    byId("qDelete").disabled = isBlocked;
+    byId("qSave").disabled = isBlocked;
+
+    const qMsgEl = byId("qMsg");
+    qMsgEl.textContent = "";
+    qMsgEl.className = "";
+    if (isBlocked && message) showMsg("qMsg", false, message);
+  }
+
+  function openQuestionDialog(cpId, editMode) {
+    if (!currentCompetitionActive) return;
+    setQuestionDialogMode("normal");
+    fillCheckpointSelect(editMode);
+    const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+    byId("qCheckpoint").value = String(cpId);
+    if (!editMode) {
+      byId("qTitle").textContent = tr("admin.q_dialog.new_title", "Uus küsimus");
+      byId("qId").value = "";
+      availableLangs.forEach((lang) => { byId(qTextId(lang)).value = ""; });
+      byId("qType").value = "TEXT";
+      byId("qPoints").value = "0";
+      byId("qInputType").value = "";
+      byId("qInputMax").value = "";
+      byId("optionRows").innerHTML = "";
+      byId("answerRows").innerHTML = "";
+      addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+      byId("qDelete").disabled = true;
+    } else {
+      byId("qTitle").textContent = tr("admin.q_dialog.edit_title", "Muuda küsimust");
+      byId("qId").value = row?.question_id || "";
+      availableLangs.forEach((lang) => {
+        const key = `text_${lang}`;
+        byId(qTextId(lang)).value = row?.[key] || (lang === "et" ? (row?.text_et || "") : "");
+      });
+      byId("qType").value = row?.question_type || "TEXT";
+      byId("qPoints").value = row?.points ?? 0;
+      byId("qInputType").value = row?.input_type || "";
+      byId("qInputMax").value = row?.input_max_length ?? "";
+      byId("optionRows").innerHTML = "";
+      byId("answerRows").innerHTML = "";
+      (row?.options || []).forEach((o) => addOptionRow({
+        option_code: o.option_code,
+        ...o,
+        is_correct: o.is_correct
+      }));
+      (row?.answers || []).forEach((a) => addAnswerRow({
+        answer_value: a.answer_value,
+        normalize_mode: a.normalize_mode || "LOWER_TRIM"
+      }));
+      if ((row?.question_type || "TEXT") === "SINGLE_CHOICE" && (row?.options || []).length === 0) addOptionRow();
+      if ((row?.question_type || "TEXT") === "TEXT" && (row?.answers || []).length === 0) addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+      byId("qDelete").disabled = false;
+    }
+    syncQuestionTypeUI();
+    byId("qDialog").showModal();
+  }
+
+  function openQuestionBlockedDialog(message) {
+    byId("qTitle").textContent = tr("admin.q_dialog.new_title", "Uus küsimus");
+    byId("qId").value = "";
+    setQuestionDialogMode("blocked", message);
+    byId("qDialog").showModal();
+  }
+
+  function resetQuestionDialogVisibility() {
+    setQuestionDialogMode("normal");
+  }
+
+  async function saveQuestion() {
+    if (!currentCompetitionActive) return;
+    const textsByLang = {};
+    availableLangs.forEach((lang) => { textsByLang[lang] = byId(qTextId(lang)).value.trim(); });
+    const defaultText = textsByLang[defaultLang] || "";
+    if (!defaultText) return showMsg("qMsg", false, `${tr("admin.msg.question_text_required_prefix","Küsimuse tekst")} (${defaultLang}) ${tr("admin.msg.required_suffix","on kohustuslik")}`);
+    const qType = byId("qType").value;
+
+    const qId = byId("qId").value;
+    const payload = {
+      checkpoint_id: Number(byId("qCheckpoint").value),
+      question_type: qType,
+      input_type: qType === "SINGLE_CHOICE" ? null : (byId("qInputType").value || null),
+      input_max_length: qType === "SINGLE_CHOICE" ? null : (byId("qInputMax").value ? Number(byId("qInputMax").value) : null),
+      input_pattern: null,
+      points: Number(byId("qPoints").value || 0),
+      lang_code: defaultLang,
+      question_text: defaultText
+    };
+
+    let optionsJson = null;
+    let answersJson = null;
+    if (qType === "SINGLE_CHOICE") {
+      const { opts, hasCorrect } = collectSingleChoiceOptions();
+      if (opts.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_option", "Lisa vähemalt 1 valikvastus."));
+      if (!hasCorrect) return showMsg("qMsg", false, tr("admin.msg.min_one_correct_option", "Märgi vähemalt 1 õige valikvastus."));
+      optionsJson = JSON.stringify(opts.map((o) => {
+        const base = {
+          option_code: o.option_code,
+          text_et: o[`text_${defaultLang}`],
+          is_correct: o.is_correct
+        };
+        availableLangs.forEach((lang) => {
+          const v = o[`text_${lang}`];
+          if (v) base[`text_${lang}`] = v;
+        });
+        return base;
+      }));
+      answersJson = JSON.stringify(opts.filter((o) => o.is_correct === "Y").map((o) => ({
+        answer_value: o.option_code,
+        normalize_mode: "LOWER_TRIM",
+        is_correct: "Y"
+      })));
+    } else {
+      const answers = collectTextAnswers();
+      if (answers.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_text_answer", "Lisa vähemalt 1 õige vastus."));
+      answersJson = JSON.stringify(answers);
+      optionsJson = null;
+    }
+
+    if (!qId) {
+      const created = await post("/api/admin/questions", payload);
+      const cpState = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(payload.checkpoint_id));
+      if (cpState && cpState.question_id) return showMsg("qMsg", false, tr("admin.msg.cp_already_has_question", "Valitud kontrollpunktil on juba aktiivne küsimus."));
+      const newId = created.question_id;
+      await post("/api/admin/questions/update", {
+        question_id: newId,
+        ...payload,
+        options_json: optionsJson,
+        answers_json: answersJson
+      });
+      for (const lang of availableLangs) {
+        if (lang === defaultLang) continue;
+        const text = textsByLang[lang];
+        if (!text) continue;
+        await post("/api/admin/questions/update", {
+          question_id: newId,
+          ...payload,
+          lang_code: lang,
+          question_text: text,
+          options_json: null,
+          answers_json: null
+        });
+      }
+    } else {
+      await post("/api/admin/questions/update", {
+        question_id: Number(qId),
+        ...payload,
+        options_json: optionsJson,
+        answers_json: answersJson
+      });
+      for (const lang of availableLangs) {
+        if (lang === defaultLang) continue;
+        const text = textsByLang[lang];
+        if (!text) continue;
+        await post("/api/admin/questions/update", {
+          question_id: Number(qId),
+          ...payload,
+          lang_code: lang,
+          question_text: text,
+          options_json: null,
+          answers_json: null
+        });
+      }
+    }
+    byId("qDialog").close();
+    await loadView();
+  }
+
+  function openMetaDialog() {
+    if (!currentCompetitionActive) return;
+    byId("metaMsg").textContent = "";
+    byId("metaMsg").className = "";
+    byId("metaNameInput").value = window.__lastCompetitionName || "";
+    byId("metaDescInput").value = window.__lastCompetitionDescription || "";
+    byId("metaStatusInput").value = window.__lastCompetitionStatus || "ACTIVE";
+    byId("metaUseLocationInput").value = window.__lastCompetitionUseLocation || "N";
+    byId("metaRadiusMInput").value = (window.__lastCompetitionRadiusM ?? "");
+    byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
+    byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
+    byId("metaDialog").showModal();
+  }
+
+  async function saveMetaDialog() {
+    try {
+      const payload = {
+        competition_id: compId(),
+        name: byId("metaNameInput").value.trim(),
+        description: byId("metaDescInput").value.trim() || null,
+        status: byId("metaStatusInput").value,
+        use_location: byId("metaUseLocationInput").value || "N",
+        radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
+      };
+      if (!payload.name) {
+        showMsg("metaMsg", false, tr("admin.msg.comp_name_required", "Võistluse nimi on kohustuslik"));
+        return;
+      }
+      const startParsed = parseEtInput(byId("metaStartsEt").value);
+      const endParsed = parseEtInput(byId("metaEndsEt").value);
+      if (startParsed && startParsed.error) return showMsg("metaMsg", false, startParsed.error);
+      if (endParsed && endParsed.error) return showMsg("metaMsg", false, endParsed.error);
+      await post("/api/admin/competitions/meta", payload);
+      await post("/api/admin/competitions/dates", {
+        competition_id: compId(),
+        starts_at: startParsed,
+        ends_at: endParsed
+      });
+      byId("metaDialog").close();
+      await loadCompetitions();
+      await loadView();
+      showMsg("topMsg", true, tr("admin.msg.comp_updated", "Võistluse andmed uuendatud."));
+    } catch (e) {
+      showMsg("metaMsg", false, humanizeError(e.message));
+    }
+  }
+
+  async function deleteQuestion() {
+    if (!currentCompetitionActive) return;
+    const qId = Number(byId("qId").value);
+    if (!qId) return;
+    pendingDeleteQuestionId = qId;
+    byId("qDeleteDialog").showModal();
+  }
+
+  byId("loginBtn").onclick = () => devLogin().catch(e => showMsg("loginMsg", false, e.message));
+  byId("uiLang").onchange = async () => {
+    currentUiLang = byId("uiLang").value || defaultLang;
+    setCookie(uiLangCookieName, currentUiLang);
+    await loadTranslations(currentUiLang);
+    renderRows();
+  };
+  byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
+  byId("openJoinByCodeBtn").onclick = () => byId("joinByCodeDialog").showModal();
+  byId("competitionPickerCancel").onclick = () => byId("competitionPickerDialog").close();
+  byId("competitionPickerApply").onclick = async () => {
+    byId("competitionPickerDialog").close();
+    await loadView().catch(e => showMsg("topMsg", false, e.message));
+  };
+  byId("regenCompetitor").onclick = () => {
+    pendingCodeType = "COMPETITOR";
+    pendingOldCode = (byId("codeCompetitor").textContent || "").trim();
+    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix","Soovid muuta registreerimise koodi"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+    byId("codeConfirmDialog").showModal();
+  };
+  byId("regenOrganizer").onclick = () => {
+    pendingCodeType = "ORGANIZER";
+    pendingOldCode = (byId("codeOrganizer").textContent || "").trim();
+    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix_dup","Soovid muuta registreerimise koodi"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+    byId("codeConfirmDialog").showModal();
+  };
+  byId("newCheckpointBtn").onclick = () => openCheckpointDialog();
+  byId("cpMapToggleSizeBtn").onclick = () => setCheckpointDialogSize(!cpDialogFullscreen);
+  byId("showCheckpointMapBtn").onclick = () => openCheckpointOverviewMap();
+  byId("cpOverviewOpenLabelsBtn").onclick = () => openAllCheckpointLabels();
+  byId("cpOverviewCloseLabelsBtn").onclick = () => closeAllCheckpointLabels();
+  byId("cpOverviewMapToggleSizeBtn").onclick = () => setCheckpointOverviewSize(!cpOverviewFullscreen);
+  byId("cpOverviewMapCloseBtn").onclick = () => {
+    setCheckpointOverviewSize(false);
+    byId("cpOverviewMapDialog").close();
+  };
+  byId("newQuestionBtn").onclick = () => {
+    const first = checkpointsData.find((x) => !x.question_id);
+    if (!first) {
+      openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first", "Lisa enne küsimuseta kontrollpunkt."));
+      return;
+    }
+    resetQuestionDialogVisibility();
+    openQuestionDialog(first.checkpoint_id, false);
+  };
+  byId("sortByTitleIcon").onclick = () => toggleSort("checkpoint_title");
+  byId("sortByPointsIcon").onclick = () => toggleSort("points");
+  byId("sortByQuestionEtIcon").onclick = () => toggleSort("text_et");
+  refreshSortIcons();
+
+  byId("cpRows").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const cpId = Number(btn.dataset.cp);
+    if (btn.dataset.act === "edit-cp") openCheckpointDialog(cpId);
+    if (btn.dataset.act === "edit-q") openQuestionDialog(cpId, true);
+  });
+
+  byId("cpSave").onclick = () => saveCheckpoint().catch(e => showMsg("cpMsg", false, e.message));
+  byId("cpDelete").onclick = () => deleteCheckpoint().catch(e => showMsg("cpMsg", false, e.message));
+  byId("cpCancel").onclick = () => byId("cpDialog").close();
+  byId("cpDialog").addEventListener("close", () => {
+    if (cpDialogFullscreen) setCheckpointDialogSize(false);
+  });
+  byId("cpOpenQuestion").onclick = () => {
+    if (!cpDialogCheckpointId) return;
+    const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+    const editMode = !!row?.question_id;
+    byId("cpDialog").close();
+    openQuestionDialog(Number(cpDialogCheckpointId), editMode);
+  };
+  byId("cpLatitude").addEventListener("change", syncMapFromCoordInputs);
+  byId("cpLongitude").addEventListener("change", syncMapFromCoordInputs);
+  byId("cpRadiusM").addEventListener("input", syncRadiusCircle);
+  ["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+    byId(id).addEventListener("input", syncCpQuestionButton);
+    byId(id).addEventListener("change", syncCpQuestionButton);
+  });
+
+  byId("qSave").onclick = () => saveQuestion().catch(e => showMsg("qMsg", false, e.message));
+  byId("qDelete").onclick = () => deleteQuestion().catch(e => showMsg("qMsg", false, e.message));
+  byId("qCancel").onclick = () => byId("qDialog").close();
+  byId("qType").onchange = () => syncQuestionTypeUI();
+  byId("addOptionBtn").onclick = () => addOptionRow();
+  byId("addAnswerBtn").onclick = () => addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+
+  byId("cpDeleteNo").onclick = () => {
+    pendingDeleteCheckpointId = null;
+    byId("cpDeleteDialog").close();
+  };
+  byId("cpDeleteYes").onclick = async () => {
+    try {
+      if (!pendingDeleteCheckpointId) return;
+      await post("/api/admin/checkpoints/delete", { checkpoint_id: pendingDeleteCheckpointId });
+      pendingDeleteCheckpointId = null;
+      byId("cpDeleteDialog").close();
+      byId("cpDialog").close();
+      await loadView();
+    } catch (e) {
+      byId("cpDeleteDialog").close();
+      showMsg("cpMsg", false, humanizeError(e.message));
+    }
+  };
+
+  byId("qDeleteNo").onclick = () => {
+    pendingDeleteQuestionId = null;
+    byId("qDeleteDialog").close();
+  };
+  byId("qDeleteYes").onclick = async () => {
+    try {
+      if (!pendingDeleteQuestionId) return;
+      await post("/api/admin/questions/delete", { question_id: pendingDeleteQuestionId });
+      pendingDeleteQuestionId = null;
+      byId("qDeleteDialog").close();
+      byId("qDialog").close();
+      await loadView();
+    } catch (e) {
+      byId("qDeleteDialog").close();
+      showMsg("qMsg", false, humanizeError(e.message));
+    }
+  };
+  byId("metaCancel").onclick = () => byId("metaDialog").close();
+  byId("metaSave").onclick = saveMetaDialog;
+  byId("openCompetitionEditBtn").onclick = () => openMetaDialog();
+  byId("codeConfirmNo").onclick = () => {
+    pendingCodeType = null;
+    pendingOldCode = null;
+    byId("codeConfirmDialog").close();
+  };
+  byId("codeConfirmYes").onclick = async () => {
+    try {
+      const newCode = generate6DigitCode();
+      await post("/api/admin/access-codes", {
+        competition_id: compId(),
+        code_type: pendingCodeType,
+        code: newCode,
+        status: "ACTIVE"
+      });
+      await loadView();
+      byId("codeConfirmDialog").close();
+      byId("codeResultText").innerHTML = `${esc(tr("admin.code_result.prefix","Kood muudetud, uus kood on"))} <strong style="font-size:22px;">${esc(newCode)}</strong>.<br>${esc(tr("admin.code_result.suffix","Liitumine võimalik vaid selle koodiga."))}`;
+      byId("codeResultDialog").showModal();
+      pendingCodeType = null;
+      pendingOldCode = null;
+    } catch (e) {
+      byId("codeConfirmDialog").close();
+      showMsg("topMsg", false, humanizeError(e.message));
+    }
+  };
+  byId("codeResultOk").onclick = () => byId("codeResultDialog").close();
+  byId("organizerJoinCancel").onclick = () => {
+    byId("organizerJoinCode").value = "";
+    byId("joinByCodeMsg").textContent = "";
+    byId("joinByCodeMsg").className = "";
+    byId("joinByCodeDialog").close();
+  };
+  byId("organizerJoinSave").onclick = async () => {
+    try {
+      const code = byId("organizerJoinCode").value.trim();
+      if (!code) {
+        showMsg("joinByCodeMsg", false, tr("admin.msg.enter_organizer_code_join_dialog", "Sisesta korraldaja kood."));
+        return;
+      }
+      await post("/api/organizers/register", { access_code: code });
+      byId("organizerJoinCode").value = "";
+      const hasCompetitions = await loadCompetitions();
+      if (hasCompetitions) {
+        await loadView();
+        showMsg("joinByCodeMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog", "Korraldaja kood aktsepteeritud."));
+        byId("joinByCodeDialog").close();
+      } else {
+        showMsg("joinByCodeMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog", "Korraldaja võistlusi endiselt ei leitud."));
+      }
+    } catch (e) {
+      showMsg("joinByCodeMsg", false, humanizeError(e.message));
+    }
+  };
+  byId("organizerJoinCancelNoComp").onclick = () => {
+    byId("organizerJoinCodeNoComp").value = "";
+    byId("noOrgMsg").textContent = "";
+    byId("noOrgMsg").className = "";
+  };
+  byId("organizerJoinSaveNoComp").onclick = async () => {
+    try {
+      const code = byId("organizerJoinCodeNoComp").value.trim();
+      if (!code) {
+        showMsg("noOrgMsg", false, tr("admin.msg.enter_organizer_code_no_comp", "Sisesta korraldaja kood."));
+        return;
+      }
+      await post("/api/organizers/register", { access_code: code });
+      byId("organizerJoinCodeNoComp").value = "";
+      const hasCompetitions = await loadCompetitions();
+      if (hasCompetitions) {
+        await loadView();
+        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_top", "Korraldaja kood aktsepteeritud."));
+      }
+    } catch (e) {
+      showMsg("noOrgMsg", false, humanizeError(e.message));
+    }
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "F2" && !byId("appArea").classList.contains("hidden")) {
+      const first = checkpointsData.find((x) => !x.question_id);
+      if (first) openQuestionDialog(first.checkpoint_id, false);
+    }
+  });
+  loadI18nMeta().catch(() => {});
+</script>
+</body>
+</html>
+

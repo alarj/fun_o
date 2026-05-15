@@ -43,6 +43,165 @@ begin
     ]'
   );
 
+  -- GET /funo/admin/competition-overview?competition_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competition-overview');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competition-overview',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.get_competition_overview_json(
+          p_competition_id => to_number(:competition_id),
+          o_overview_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(nvl(l_json, '{}'));
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/competition-overview',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- GET /funo/admin/questions-overview?competition_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions-overview');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/questions-overview',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.get_questions_overview_json(
+          p_competition_id => to_number(:competition_id),
+          o_questions_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/questions-overview',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- POST /funo/admin/access-codes
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/access-codes');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/access-codes',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_access_code_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.upsert_access_code(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_code_type => l_body.get_string('code_type'),
+          p_code => l_body.get_string('code'),
+          p_status => case when l_body.has('status') then l_body.get_string('status') else 'ACTIVE' end,
+          p_expires_at => null,
+          p_max_uses => case when l_body.has('max_uses') then l_body.get_number('max_uses') else null end,
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          o_access_code_id => l_access_code_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('access_code_id' value l_access_code_id));
+      end;
+    ]'
+  );
+
+  -- GET /funo/admin/competitions
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.list_competitions_json(
+          p_user_id => to_number(:user_id),
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/competitions',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- GET /funo/admin/checkpoints?competition_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/checkpoints',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.list_checkpoints_json(
+          p_competition_id => to_number(:competition_id),
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/checkpoints',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
   -- POST /funo/auth/dev/resolve-user
   -- Dev helper for local testing without Google token.
   ORDS.DEFINE_TEMPLATE(
@@ -80,6 +239,38 @@ begin
   ORDS.DEFINE_TEMPLATE(
     p_module_name => 'funo.api',
     p_pattern     => 'competitions/register'
+  );
+
+  -- POST /funo/organizers/register
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'funo.api',
+    p_pattern     => 'organizers/register'
+  );
+
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'organizers/register',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body            json_object_t;
+        l_competition_id  number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+
+        FUNO_APP.pkg_competitions.register_organizer_by_code(
+          p_user_id        => l_body.get_number('user_id'),
+          p_access_code    => l_body.get_string('access_code'),
+          o_competition_id => l_competition_id
+        );
+
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('competition_id' value l_competition_id));
+      end;
+    ]'
   );
 
   ORDS.DEFINE_HANDLER(
@@ -124,6 +315,9 @@ begin
       declare
         l_body           json_object_t;
         l_submission_id  number;
+        l_is_correct     varchar2(1);
+        l_awarded_points number;
+        l_total_score    number;
       begin
         l_body := json_object_t.parse(:body_text);
 
@@ -133,14 +327,179 @@ begin
           p_checkpoint_id  => l_body.get_number('checkpoint_id'),
           p_question_id    => l_body.get_number('question_id'),
           p_answer_text    => case when l_body.has('answer_text') then l_body.get_string('answer_text') else null end,
-          o_submission_id  => l_submission_id
+          p_selected_option_id => case when l_body.has('selected_option_id') then l_body.get_number('selected_option_id') else null end,
+          p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
+          p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
+          p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          o_submission_id  => l_submission_id,
+          o_is_correct     => l_is_correct,
+          o_awarded_points => l_awarded_points,
+          o_total_score    => l_total_score
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(json_object('submission_id' value l_submission_id));
+        htp.p(
+          json_object(
+            'submission_id' value l_submission_id,
+            'is_correct' value l_is_correct,
+            'awarded_points' value nvl(l_awarded_points, 0),
+            'total_score' value nvl(l_total_score, 0)
+          )
+        );
       end;
     ]'
+  );
+
+  -- GET /funo/competitor/competitions?user_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/competitions');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'competitor/competitions',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.list_my_competitions_json(
+          p_user_id => to_number(:user_id),
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/competitions',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- GET /funo/competitor/open-checkpoints?competition_id=..&user_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/open-checkpoints');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'competitor/open-checkpoints',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.list_open_checkpoints_json(
+          p_user_id => to_number(:user_id),
+          p_competition_id => to_number(:competition_id),
+          p_latitude => case when :latitude is not null then to_number(:latitude) else null end,
+          p_longitude => case when :longitude is not null then to_number(:longitude) else null end,
+          p_radius_m => case when :radius_m is not null then to_number(:radius_m) else null end,
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/open-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/open-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'latitude',
+    p_bind_variable_name => 'latitude',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/open-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'longitude',
+    p_bind_variable_name => 'longitude',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/open-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'radius_m',
+    p_bind_variable_name => 'radius_m',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/open-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- GET /funo/competitor/map-checkpoints?competition_id=..&user_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/map-checkpoints');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'competitor/map-checkpoints',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.list_map_checkpoints_json(
+          p_user_id => to_number(:user_id),
+          p_competition_id => to_number(:competition_id),
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/map-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/map-checkpoints',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
   );
 
   -- GET /funo/results/score?competition_id=..&user_id=..
@@ -229,6 +588,367 @@ begin
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
+  );
+
+  -- GET /funo/i18n/translations?lang=et&default_lang=et
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'funo.api',
+    p_pattern     => 'i18n/translations'
+  );
+
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'i18n/translations',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_lang varchar2(10) := nvl(:lang, 'et');
+        l_default_lang varchar2(10) := nvl(:default_lang, 'et');
+        l_items_json clob;
+      begin
+        FUNO_APP.pkg_i18n.get_translations_json(
+          p_lang_code => l_lang,
+          p_default_lang_code => l_default_lang,
+          o_items_json => l_items_json
+        );
+
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"lang":"' || l_lang || '","default_lang":"' || l_default_lang || '","items":' || nvl(l_items_json, '{}') || '}');
+      end;
+    ~'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'i18n/translations',
+    p_method             => 'GET',
+    p_name               => 'lang',
+    p_bind_variable_name => 'lang',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'i18n/translations',
+    p_method             => 'GET',
+    p_name               => 'default_lang',
+    p_bind_variable_name => 'default_lang',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
+  -- POST /funo/admin/checkpoints
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/checkpoints',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_checkpoint_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.create_checkpoint(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_title => l_body.get_string('title'),
+          p_order_no => case when l_body.has('order_no') then l_body.get_number('order_no') else null end,
+          p_location_hint => case when l_body.has('location_hint') then l_body.get_string('location_hint') else null end,
+          p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
+          p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
+          p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          o_checkpoint_id => l_checkpoint_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('checkpoint_id' value l_checkpoint_id));
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/questions
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/questions',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_question_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.create_question(
+          p_checkpoint_id => l_body.get_number('checkpoint_id'),
+          p_question_type => l_body.get_string('question_type'),
+          p_input_type => case when l_body.has('input_type') then l_body.get_string('input_type') else null end,
+          p_input_max_length => case when l_body.has('input_max_length') then l_body.get_number('input_max_length') else null end,
+          p_input_pattern => case when l_body.has('input_pattern') then l_body.get_string('input_pattern') else null end,
+          p_points => case when l_body.has('points') then l_body.get_number('points') else 0 end,
+          p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end,
+          p_question_text => l_body.get_string('question_text'),
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          o_question_id => l_question_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('question_id' value l_question_id));
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/question-options
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/question-options');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/question-options',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_option_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.create_question_option(
+          p_question_id => l_body.get_number('question_id'),
+          p_option_code => l_body.get_string('option_code'),
+          p_order_no => l_body.get_number('order_no'),
+          p_is_correct => case when l_body.has('is_correct') then l_body.get_string('is_correct') else 'N' end,
+          p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end,
+          p_option_text => l_body.get_string('option_text'),
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          o_option_id => l_option_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('option_id' value l_option_id));
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/question-answers
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/question-answers');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/question-answers',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_answer_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.create_question_answer(
+          p_question_id => l_body.get_number('question_id'),
+          p_answer_value => l_body.get_string('answer_value'),
+          p_normalize_mode => case when l_body.has('normalize_mode') then l_body.get_string('normalize_mode') else 'EXACT' end,
+          p_is_correct => case when l_body.has('is_correct') then l_body.get_string('is_correct') else 'Y' end,
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          o_answer_id => l_answer_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('answer_id' value l_answer_id));
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/checkpoints/update
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints/update');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/checkpoints/update',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.update_checkpoint(
+          p_checkpoint_id => l_body.get_number('checkpoint_id'),
+          p_title => l_body.get_string('title'),
+          p_order_no => case when l_body.has('order_no') then l_body.get_number('order_no') else null end,
+          p_location_hint => case when l_body.has('location_hint') then l_body.get_string('location_hint') else null end,
+          p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
+          p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
+          p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
+          p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/checkpoints/delete
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints/delete');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/checkpoints/delete',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.soft_delete_checkpoint(
+          p_checkpoint_id => l_body.get_number('checkpoint_id'),
+          p_deleted_by => case when l_body.has('deleted_by') then l_body.get_number('deleted_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/questions/update
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions/update');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/questions/update',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.update_question(
+          p_question_id => l_body.get_number('question_id'),
+          p_checkpoint_id => l_body.get_number('checkpoint_id'),
+          p_question_type => l_body.get_string('question_type'),
+          p_input_type => case when l_body.has('input_type') then l_body.get_string('input_type') else null end,
+          p_input_max_length => case when l_body.has('input_max_length') then l_body.get_number('input_max_length') else null end,
+          p_input_pattern => case when l_body.has('input_pattern') then l_body.get_string('input_pattern') else null end,
+          p_points => case when l_body.has('points') then l_body.get_number('points') else 0 end,
+          p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end,
+          p_question_text => l_body.get_string('question_text'),
+          p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+
+        if l_body.has('options_json') then
+          FUNO_APP.pkg_admin_content.replace_question_options_et(
+            p_question_id => l_body.get_number('question_id'),
+            p_options_json => l_body.get_clob('options_json'),
+            p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+          );
+        end if;
+        if l_body.has('answers_json') then
+          FUNO_APP.pkg_admin_content.replace_question_answers(
+            p_question_id => l_body.get_number('question_id'),
+            p_answers_json => l_body.get_clob('answers_json'),
+            p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+          );
+        end if;
+
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/questions/delete
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions/delete');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/questions/delete',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.soft_delete_question(
+          p_question_id => l_body.get_number('question_id'),
+          p_deleted_by => case when l_body.has('deleted_by') then l_body.get_number('deleted_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/competitions/dates
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/dates');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions/dates',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+        l_starts timestamp;
+        l_ends timestamp;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        l_starts := case when l_body.has('starts_at') and l_body.get_string('starts_at') is not null then to_timestamp(l_body.get_string('starts_at'), 'YYYY-MM-DD"T"HH24:MI:SS') else null end;
+        l_ends := case when l_body.has('ends_at') and l_body.get_string('ends_at') is not null then to_timestamp(l_body.get_string('ends_at'), 'YYYY-MM-DD"T"HH24:MI:SS') else null end;
+        FUNO_APP.pkg_admin_content.update_competition_dates(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_starts_at => l_starts,
+          p_ends_at => l_ends,
+          p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/competitions/meta
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/meta');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions/meta',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'[
+      declare
+        l_body json_object_t := json_object_t(:body);
+      begin
+        FUNO_APP.pkg_admin_content.update_competition_meta(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_name           => l_body.get_string('name'),
+          p_description    => case when l_body.has('description') then l_body.get_string('description') else null end,
+          p_status         => case when l_body.has('status') then l_body.get_string('status') else 'ACTIVE' end,
+          p_use_location   => case when l_body.has('use_location') then l_body.get_string('use_location') else null end,
+          p_radius_m       => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          p_updated_by     => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+        :status_code := 200;
+        htp.p('{"ok":true}');
+      end;
+    ]'
   );
 
   commit;

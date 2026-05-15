@@ -8,10 +8,16 @@ services:
       - fastapi
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./frontend_dist:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - fun-o.eu
 
   fastapi:
     build:
@@ -23,6 +29,18 @@ services:
     expose:
       - "8000"
     restart: unless-stopped
+
+  testing:
+    image: locustio/locust:2.29.1
+    container_name: funo_testing
+    profiles: ["testing"]
+    depends_on:
+      - nginx
+      - fastapi
+    working_dir: /mnt/locust
+    volumes:
+      - ./testing/load:/mnt/locust
+    entrypoint: ["locust"]
 
 networks:
   default:
