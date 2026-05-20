@@ -64,5 +64,136 @@ Database scripts added:
 
 Architecture rule for all ORDS endpoints:
 - ORDS responses must never return soft-deleted rows.
-- Filtering is done in DB/package SQL (`end_date is null or end_date > sysdate`), not in frontend/backend UI code.
+- Filtering is done in DB/package SQL (`end_date is null or end_date > sysdate`) for soft-deletable tables, not in frontend/backend UI code.
+- `submissions` does not use soft delete (`start_date`/`end_date` removed), so no active-row filter applies there.
 - If a future UI needs deleted rows, create a separate dedicated ORDS endpoint for that use case.
+
+## Planned Data Model (after current changes)
+
+### Core identity and roles
+- `users`
+  - `user_id` PK
+  - `email` nullable
+  - `full_name` nullable
+  - `google_sub` nullable
+  - `auth_type` not null, check in `('ANON','GOOGLE')`
+  - soft-delete/audit: `start_date`, `end_date`, `created_by`, `updated_by`, `created_at`, `updated_at`
+- `roles`
+  - `role_id` PK, `role_code` unique, `role_name`
+  - soft-delete columns: `start_date`, `end_date`
+- `user_roles`
+  - `user_role_id` PK
+  - FK: `user_id -> users`, `role_id -> roles`, `assigned_by -> users`
+  - soft-delete columns: `start_date`, `end_date`, `assigned_at`
+
+### Competitions and access
+- `competitions`
+  - `competition_id` PK
+  - `name`, `description`, `status`
+  - location flags: `use_location`, `show_competitor_location`, `radius_m`
+  - schedule: `starts_at`, `ends_at`
+  - soft-delete/audit columns
+- `competition_access_codes`
+  - `access_code_id` PK
+  - FK: `competition_id -> competitions`, `created_by -> users`
+  - `code` globally unique
+  - `code_type` in `('COMPETITOR','ORGANIZER')`
+  - `status`, `expires_at`, `max_uses`, `used_count`
+  - soft-delete columns
+- `competition_organizers`
+  - `competition_organizer_id` PK
+  - FK: `competition_id -> competitions`, `user_id -> users`, `assigned_by -> users`
+  - soft-delete columns
+
+### Competition terms (competition-specific, multilingual)
+- `competition_terms`
+  - `terms_id` PK
+  - FK: `competition_id -> competitions`, `created_by/updated_by -> users`
+  - `version_no` (> 0), `status` in `('ACTIVE','INACTIVE')`
+  - soft-delete/audit columns
+- `competition_terms_texts`
+  - `terms_text_id` PK
+  - FK: `terms_id -> competition_terms`, `created_by/updated_by -> users`
+  - `lang_code` validated by regex `^[a-z]{2}(-[A-Z]{2})?$`
+  - `terms_text` CLOB
+  - soft-delete/audit columns
+
+### Competition participants
+- `competition_participants`
+  - `competition_participant_id` PK
+  - FK: `competition_id -> competitions`, `user_id -> users`, `access_code_id -> competition_access_codes`, `terms_id -> competition_terms`
+  - `alias_display` required, non-blank
+  - `contact_email` nullable, regex-validated if present
+  - `terms_lang_code` required (same lang regex), `terms_accepted_at` required
+  - `status`, `joined_at`
+  - soft-delete columns: `start_date`, `end_date`
+
+### Competition content
+- `checkpoints`
+  - `checkpoint_id` PK, FK: `competition_id -> competitions`
+  - `title`, optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
+  - `location_required` in `('Y','N')`
+  - soft-delete/audit columns
+- `questions`
+  - `question_id` PK, FK: `checkpoint_id -> checkpoints`
+  - `question_type` in `('TEXT','SINGLE_CHOICE')`
+  - optional input constraints: `input_type` in `('TEXT','NUMERIC')`, `input_max_length`, `input_pattern`
+  - `points`, `wrong_points`, `status`
+  - soft-delete/audit columns
+- `question_texts`
+  - `question_text_id` PK, FK: `question_id -> questions`
+  - `lang_code`, `question_text`
+  - soft-delete/audit columns
+- `question_options`
+  - `option_id` PK, FK: `question_id -> questions`
+  - `option_code`, `order_no`, `is_correct` in `('Y','N')`
+  - soft-delete/audit columns
+- `question_option_texts`
+  - `question_option_text_id` PK, FK: `option_id -> question_options`
+  - `lang_code`, `option_text`
+  - soft-delete/audit columns
+- `question_answers`
+  - `answer_id` PK, FK: `question_id -> questions`
+  - `answer_value`, `is_correct` in `('Y','N')`
+  - `normalize_mode` in `('EXACT','TRIM_UPPER','LOWER_TRIM','NUMERIC')`
+  - soft-delete/audit columns
+- `translations`
+  - `translation_id` PK
+  - `translation_key`, `lang_code`, `text_value`
+  - `lang_code` regex `^[a-z]{2}(-[A-Z]{2})?$`
+  - soft-delete/audit columns
+
+### Runtime/result data
+- `submissions`
+  - `submission_id` PK
+  - FK: `competition_id -> competitions`, `checkpoint_id -> checkpoints`, `question_id -> questions`, `user_id -> users`, `selected_option_id -> question_options`, `evaluated_by -> users`
+  - answer fields: `answer_text` CLOB, `selected_option_id`
+  - scoring fields: `awarded_points`, `is_correct`
+  - timestamps: `submitted_at`, `evaluated_at`
+  - no `start_date/end_date` soft-delete columns
+- `materials`
+  - `material_id` PK
+  - optional FK owner: `competition_id` and/or `checkpoint_id`
+  - `title`, `material_type`, `uri`, `visibility`
+  - soft-delete/audit columns
+- `audit_log`
+  - `audit_id` PK
+  - `entity_type`, `entity_id`, `action_type`
+  - FK: `changed_by -> users`
+  - `changed_at`, `old_data_json`, `new_data_json`
+
+### Key uniqueness indexes
+- `ux_users_email` on `lower(email)`
+- `ux_users_google_sub` on `google_sub`
+- `ux_roles_code` on `role_code`
+- `ux_competition_access_code_global` on `competition_access_codes(code)` (added by migration 11)
+- Active-record unique indexes (`end_date is null`) for:
+  - access codes by `code`
+  - organizers by `(competition_id, user_id)`
+  - participants by `user_id` (one active competition at a time)
+  - participants by `(competition_id, user_id)`
+  - participants alias by `(competition_id, nlssort(trim(alias_display), 'NLS_SORT=BINARY_CI'))`
+  - terms versions by `(competition_id, version_no)`
+  - terms text language by `(terms_id, lower(lang_code))`
+  - checkpoint `order_no` per competition (only when `order_no` is not null)
+  - question/question-option language and option uniqueness indexes

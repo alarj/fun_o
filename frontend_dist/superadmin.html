@@ -1,0 +1,487 @@
+﻿<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fun_o Superadmin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: #f2f2ed; color: #1e1e1e; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border: 1px solid #d9d9d9; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .hidden { display: none; }
+    h1, h2 { margin: 0 0 10px; }
+    .row { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 8px; margin-bottom: 8px; align-items: center; }
+    .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    input, textarea, button { width: 100%; border: 1px solid #cfcfcf; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+    textarea { min-height: 70px; resize: vertical; }
+    button { width: auto; background: #2f7f87; color: #fff; border: 0; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #6f9498; }
+    .userRow { display: flex; align-items: center; gap: 6px; color: #444; font-size: 14px; }
+    .userIcon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .logoutBtnIcon {
+      border: 0;
+      background: transparent;
+      color: #1e1e1e;
+      padding: 0;
+      margin: 0;
+      line-height: 1;
+    }
+    .logoutBtnIcon:hover { color: #2f7f87; }
+    .logoutIcon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .table th, .table td { border-bottom: 1px solid #ececec; padding: 8px 6px; text-align: left; vertical-align: top; }
+    .table th { font-size: 13px; }
+    .table td { font-size: 13px; }
+    .table .nameColCell { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+    .table .idColCell, .table .statusColCell, .table .kpCountColCell, .table .locationColCell, .table .orgCodeColCell, .table .startColCell, .table .endColCell { white-space: nowrap; }
+    .muted { color: #666; }
+    .ok, .err { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
+    .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
+    .err { background: #ffecec; border: 1px solid #e5a6a6; }
+    .orgCode { font-family: Consolas, monospace; font-weight: 700; letter-spacing: 0.06em; }
+    .codeWrap { display: inline-flex; align-items: center; gap: 6px; }
+    .iconBtn {
+      border: 0;
+      background: transparent;
+      color: #1e1e1e;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .iconBtn:hover { color: #2f7f87; }
+    .copyIcon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+    .sortBtn { border: 0; background: transparent; padding: 0; margin-left: 4px; cursor: pointer; color: inherit; font-weight: 700; font-size: 13px; }
+    .modalBackdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      padding: 16px;
+    }
+    .modalCard {
+      width: min(560px, 96vw);
+      background: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    @media (max-width: 900px) {
+      .row { grid-template-columns: 1fr; }
+      .card { overflow-x: auto; }
+      .table { min-width: 1080px; }
+    }
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="loginCard">
+      <h2>Superadmin sisselogimine</h2>
+      <div class="tools">
+        <div id="googleLoginMount"></div>
+      </div>
+      <div id="loginMsg"></div>
+    </div>
+
+    <div class="hidden" id="appArea">
+      <div class="card">
+        <div class="tools" style="justify-content: space-between;">
+          <h1>Superadmin</h1>
+          <div class="tools">
+            <button id="goAdminBtn" class="secondary" type="button">Võistluse korraldamine</button>
+            <div id="currentUserBox" class="userRow" title="-"></div>
+            <button id="logoutBtn" class="logoutBtnIcon" type="button" title="Logi välja" aria-label="Logi välja"></button>
+          </div>
+        </div>
+        <div class="muted">Võistluste loomine ja ülevaade</div>
+      </div>
+
+      <div class="card">
+        <h2>Lisa uus võistlus</h2>
+        <div class="row">
+          <label for="newCompName">Nimi</label>
+          <input id="newCompName" type="text" maxlength="200" />
+        </div>
+        <div class="row">
+          <label for="newCompDesc">Kirjeldus</label>
+          <textarea id="newCompDesc" maxlength="2000"></textarea>
+        </div>
+        <div class="tools">
+          <button id="createCompBtn" type="button">Loo võistlus</button>
+        </div>
+        <div id="createMsg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Võistlused</h2>
+        <table class="table">
+          <colgroup>
+            <col style="width:48px;">
+            <col>
+            <col style="width:116px;">
+            <col style="width:76px;">
+            <col style="width:116px;">
+            <col style="width:146px;">
+            <col style="width:148px;">
+            <col style="width:126px;">
+            <col style="width:126px;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>ID <button class="sortBtn" id="sortId" type="button">▲</button></th>
+              <th>Nimi <button class="sortBtn" id="sortName" type="button">☰</button></th>
+              <th>Staatus <button class="sortBtn" id="sortStatus" type="button">☰</button></th>
+              <th>KP arv <button class="sortBtn" id="sortCheckpointCount" type="button">☰</button></th>
+              <th>Asukoht</th>
+              <th>Korraldaja kood</th>
+              <th>Korraldajad</th>
+              <th>Algus <button class="sortBtn" id="sortStart" type="button">☰</button></th>
+              <th>Lõpp <button class="sortBtn" id="sortEnd" type="button">☰</button></th>
+            </tr>
+          </thead>
+          <tbody id="competitionsRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="createResultBackdrop" class="modalBackdrop">
+    <div class="modalCard">
+      <h2 style="margin-top:0;">Võistlus loodud</h2>
+      <div id="createResultText" class="muted" style="margin-bottom:10px;"></div>
+      <div style="font-size:15px; margin-bottom:10px;">
+        Korraldaja kood:
+        <span id="createResultCodeWrap" class="codeWrap">
+          <span id="createResultCode" class="orgCode">-</span>
+          <button id="copyCreatedCodeBtn" class="iconBtn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button>
+        </span>
+      </div>
+      <div class="tools" style="justify-content:flex-end;">
+        <button id="createResultCloseBtn" type="button">Sulge</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+
+    let competitionItems = [];
+    let sortKey = "competition_id";
+    let sortDir = "asc";
+
+    function setMsg(id, ok, text) {
+      const el = byId(id);
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = ok ? "ok" : "err";
+      el.textContent = text;
+    }
+
+    async function get(url) {
+      const r = await fetch(url);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.detail?.message || `HTTP ${r.status}`);
+      return d;
+    }
+
+    async function post(url, payload) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.detail?.message || `HTTP ${r.status}`);
+      return d;
+    }
+
+    function fmtEt(ts) {
+      if (!ts) return "-";
+      const d = new Date(/z$/i.test(ts) ? ts : `${ts}Z`);
+      if (Number.isNaN(d.getTime())) return ts;
+      const p = (n) => String(n).padStart(2, "0");
+      return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function redirectToAdmin() {
+      window.location.replace("/admin.html");
+    }
+
+    function userIconSvg() {
+      return `<svg class=\"userIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><circle cx=\"12\" cy=\"8.5\" r=\"3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M6.5 18.5c0-3 2.4-5 5.5-5s5.5 2 5.5 5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function copyIconSvg() {
+      return `<svg class=\"copyIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"9\" y=\"4\" width=\"11\" height=\"14\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><rect x=\"4\" y=\"9\" width=\"11\" height=\"11\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/></svg>`;
+    }
+
+    function logoutIconSvg() {
+      return `<svg class=\"logoutIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/><path d=\"M14 8l6 4-6 4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 12H9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function renderCurrentUser(session) {
+      const box = byId("currentUserBox");
+      const name = (session?.full_name || session?.email || (session?.user_id ? `user#${session.user_id}` : "-")).toString();
+      const email = (session?.email || "").toString();
+      box.title = email || name;
+      box.innerHTML = `${userIconSvg()}<span>${esc(name)}</span>`;
+    }
+
+    async function copyText(value) {
+      const text = String(value || "");
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+
+    function closeCreateResultModal() {
+      byId("createResultBackdrop").style.display = "none";
+    }
+
+    function openCreateResultModal(competitionId, organizerCode) {
+      byId("createResultText").textContent = `Võistlus loodud (id=${competitionId}).`;
+      byId("createResultCode").textContent = organizerCode || "-";
+      byId("createResultBackdrop").style.display = "flex";
+    }
+
+    function parseOrganizers(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+          return [];
+        }
+      }
+      return [];
+    }
+
+    function sortIconFor(key) {
+      if (sortKey !== key) return "☰";
+      return sortDir === "asc" ? "▲" : "▼";
+    }
+
+    function refreshSortIcons() {
+      byId("sortId").textContent = sortIconFor("competition_id");
+      byId("sortName").textContent = sortIconFor("name");
+      byId("sortStatus").textContent = sortIconFor("status");
+      byId("sortCheckpointCount").textContent = sortIconFor("checkpoint_count");
+      byId("sortStart").textContent = sortIconFor("starts_at");
+      byId("sortEnd").textContent = sortIconFor("ends_at");
+    }
+
+    function sortedCompetitions() {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const items = [...competitionItems];
+      items.sort((a, b) => {
+        if (sortKey === "competition_id") return (Number(a.competition_id || 0) - Number(b.competition_id || 0)) * dir;
+        if (sortKey === "name" || sortKey === "status") {
+          return String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (sortKey === "checkpoint_count") {
+          return (Number(a.checkpoint_count || 0) - Number(b.checkpoint_count || 0)) * dir;
+        }
+        if (sortKey === "starts_at" || sortKey === "ends_at") {
+          const av = a[sortKey] ? new Date(`${a[sortKey]}Z`).getTime() : 0;
+          const bv = b[sortKey] ? new Date(`${b[sortKey]}Z`).getTime() : 0;
+          return (av - bv) * dir;
+        }
+        return 0;
+      });
+      return items;
+    }
+
+    function renderCompetitions() {
+      const items = sortedCompetitions();
+      byId("competitionsRows").innerHTML = items.map((x) => {
+        const org = parseOrganizers(x.organizers);
+        const useLocation = String(x.use_location || "N").toUpperCase() === "Y";
+        const showCompetitorLocation = String(x.show_competitor_location || "N").toUpperCase() === "Y";
+        const locationBadges = `${useLocation ? '<span style="font-weight:700;color:#b74545;">📍</span>' : ''}${showCompetitorLocation ? '<span style="font-weight:700;color:#2f8cff;font-size:18px;line-height:1;margin-left:4px;">●</span>' : ''}`;
+        const orgText = org.length
+          ? org.map((o) => esc(o.full_name || o.email || `user#${o.user_id}`)).join(", ")
+          : "-";
+        return `<tr>
+          <td class="idColCell">${Number(x.competition_id || 0)}</td>
+          <td class="nameColCell">${esc(x.name || "-")}</td>
+          <td class="statusColCell">${esc(x.status || "-")}</td>
+          <td class="kpCountColCell">${Number(x.checkpoint_count || 0)}</td>
+          <td class="locationColCell">${locationBadges}</td>
+          <td class="orgCodeColCell">${renderOrganizerCodeCell(x.organizer_code)}</td>
+          <td>${orgText}</td>
+          <td class="startColCell">${esc(fmtEt(x.starts_at))}</td>
+          <td class="endColCell">${esc(fmtEt(x.ends_at))}</td>
+        </tr>`;
+      }).join("");
+      refreshSortIcons();
+    }
+
+    function setSort(key) {
+      if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
+      else {
+        sortKey = key;
+        sortDir = "asc";
+      }
+      renderCompetitions();
+    }
+
+    async function loadCompetitions() {
+      const d = await get("/api/superadmin/competitions");
+      competitionItems = Array.isArray(d.items) ? d.items : [];
+      renderCompetitions();
+    }
+
+    function renderOrganizerCodeCell(code) {
+      const safeCode = String(code || "").trim();
+      if (!safeCode || safeCode === "-") return "-";
+      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="Kopeeri kood" aria-label="Kopeeri kood">${copyIconSvg()}</button></span>`;
+    }
+
+    async function createCompetition() {
+      setMsg("createMsg", true, "");
+      const name = byId("newCompName").value.trim();
+      const description = byId("newCompDesc").value.trim();
+      if (!name) {
+        setMsg("createMsg", false, "Sisesta võistluse nimi.");
+        return;
+      }
+      const d = await post("/api/superadmin/competitions", { name, description: description || null });
+      setMsg("createMsg", true, "");
+      openCreateResultModal(d.competition_id, d.organizer_code);
+      byId("newCompName").value = "";
+      byId("newCompDesc").value = "";
+      await loadCompetitions();
+    }
+
+    async function googleLoginWithCredential(credential) {
+      const login = await post("/api/auth/google", { id_token: credential });
+      try {
+        const sa = await get("/api/superadmin/session");
+        renderCurrentUser({
+          user_id: sa.user_id,
+          full_name: login?.full_name,
+          email: login?.email,
+        });
+      } catch (_e) {
+        redirectToAdmin();
+        return;
+      }
+      byId("loginCard").classList.add("hidden");
+      byId("appArea").classList.remove("hidden");
+      await loadCompetitions();
+    }
+
+    async function initGoogleLogin() {
+      const cfg = await get("/api/auth/google/config");
+      if (!cfg || !cfg.enabled || !cfg.client_id) {
+        setMsg("loginMsg", false, "Google login ei ole serveris seadistatud.");
+        return;
+      }
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+        setMsg("loginMsg", false, "Google login skripti laadimine ebaõnnestus.");
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: cfg.client_id,
+        callback: async (resp) => {
+          try {
+            if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+            await googleLoginWithCredential(resp.credential);
+          } catch (e) {
+            setMsg("loginMsg", false, e.message || "Google sisselogimine ebaõnnestus.");
+          }
+        }
+      });
+      const mount = byId("googleLoginMount");
+      mount.innerHTML = "";
+      window.google.accounts.id.renderButton(mount, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular"
+      });
+    }
+
+    async function init() {
+      byId("logoutBtn").innerHTML = logoutIconSvg();
+      byId("copyCreatedCodeBtn").innerHTML = copyIconSvg();
+      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || "Loomine ebaõnnestus.")));
+      byId("logoutBtn").addEventListener("click", async () => {
+        await post("/api/auth/logout", {});
+        redirectToAdmin();
+      });
+      byId("goAdminBtn").addEventListener("click", () => {
+        window.location.href = "/admin.html";
+      });
+      byId("sortId").addEventListener("click", () => setSort("competition_id"));
+      byId("sortName").addEventListener("click", () => setSort("name"));
+      byId("sortStatus").addEventListener("click", () => setSort("status"));
+      byId("sortCheckpointCount").addEventListener("click", () => setSort("checkpoint_count"));
+      byId("sortStart").addEventListener("click", () => setSort("starts_at"));
+      byId("sortEnd").addEventListener("click", () => setSort("ends_at"));
+      byId("createResultCloseBtn").addEventListener("click", closeCreateResultModal);
+      byId("createResultBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("createResultBackdrop")) closeCreateResultModal();
+      });
+      byId("copyCreatedCodeBtn").addEventListener("click", async () => {
+        const code = byId("createResultCode").textContent || "";
+        await copyText(code);
+      });
+      byId("competitionsRows").addEventListener("click", async (e) => {
+        const btn = e.target.closest('[data-act=\"copy-code\"]');
+        if (!btn) return;
+        await copyText(btn.getAttribute("data-code") || "");
+      });
+
+      try {
+        const sa = await get("/api/superadmin/session");
+        const sess = await get("/api/auth/session").catch(() => ({}));
+        byId("loginCard").classList.add("hidden");
+        byId("appArea").classList.remove("hidden");
+        renderCurrentUser({ user_id: sa.user_id, full_name: sess?.full_name, email: sess?.email });
+        await loadCompetitions();
+        return;
+      } catch (_e) {
+        try {
+          const sess = await get("/api/auth/session");
+          if (sess && sess.authenticated) {
+            redirectToAdmin();
+            return;
+          }
+        } catch (__e) {}
+      }
+
+      await initGoogleLogin();
+    }
+
+    init().catch(() => redirectToAdmin());
+  </script>
+</body>
+</html>

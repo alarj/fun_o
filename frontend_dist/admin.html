@@ -42,6 +42,59 @@
     }
     .actions-col { white-space: nowrap; }
     .muted { color: #666; }
+    .organizers-list { display: flex; flex-direction: column; gap: 4px; }
+    .organizer-row { display: flex; align-items: center; gap: 6px; color: #444; }
+    .organizer-row.current { font-weight: 700; color: #1e1e1e; }
+    .organizer-icon, .logout-icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .logout-btn {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin-left: 4px;
+      line-height: 1;
+      cursor: pointer;
+      color: #1e1e1e;
+    }
+    .logout-btn:hover { color: #2f7f87; }
+    .copy-btn {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      line-height: 1;
+      cursor: pointer;
+      color: #1e1e1e;
+    }
+    .copy-btn:hover { color: #2f7f87; }
+    .copy-icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .modal-sep {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0 8px;
+      color: #6b6b6b;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+    .modal-sep::before,
+    .modal-sep::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: #d8d8d8;
+    }
     .ok, .err { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
     .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
     .err { background: #ffecec; border: 1px solid #e5a6a6; }
@@ -86,6 +139,48 @@
     }
     .dialog-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
     .dialog-right { display: flex; gap: 8px; }
+    .yn-switch-wrap { display: flex; align-items: center; gap: 10px; }
+    .yn-inline { display: flex; align-items: center; gap: 8px; margin-right: 14px; }
+    .yn-inline-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .yn-switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+    .yn-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .yn-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #c8c8c8;
+      transition: .2s;
+      border-radius: 999px;
+    }
+    .yn-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      top: 3px;
+      background-color: #ffffff;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .yn-switch input:checked + .yn-slider {
+      background-color: #2f7f87;
+    }
+    .yn-switch input:checked + .yn-slider:before {
+      transform: translateX(20px);
+    }
 
     @media (max-width: 900px) {
       .wrap { padding: 10px; }
@@ -169,16 +264,10 @@
 <body>
   <div class="wrap">
     <div class="card" id="loginCard">
-      <h2 data-i18n="admin.login.heading">Admin sisselogimine (dev)</h2>
-      <div class="row">
-        <label data-i18n="admin.login.email_label">Email</label>
-        <div class="tools" style="display:grid; grid-template-columns: 1fr 100px; gap:8px;">
-          <input id="loginEmail" value="test@funo.local" />
-          <select id="uiLang"></select>
-        </div>
-      </div>
-      <div class="tools">
-        <button id="loginBtn" data-i18n="admin.login.login_btn">Logi sisse</button>
+      <h2 data-i18n="admin.login.heading">Admin sisselogimine</h2>
+      <div class="tools" style="justify-content:space-between; align-items:center;">
+        <div id="googleLoginMount"></div>
+        <select id="uiLang" style="width:100px;"></select>
       </div>
       <div id="loginMsg"></div>
     </div>
@@ -202,11 +291,13 @@
           <div class="tools" style="align-items:center;">
             <h1 id="cName">-</h1>
             <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">📍</span>
+            <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">●</span>
             <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda võistlust</button>
+            <button id="openResultsBtn" class="secondary">Tulemused</button>
           </div>
           <div class="tools">
+            <button id="goSuperadminBtn" class="secondary hidden" type="button">Kõik võistlused</button>
             <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
-            <button id="openJoinByCodeBtn" data-i18n="admin.comp.join_code_btn">Liitu koodiga</button>
           </div>
         </div>
         <div id="cDesc" style="margin-bottom:6px;"></div>
@@ -227,8 +318,8 @@
           <div></div>
         </div>
         <div class="cols" style="margin-top:14px;">
-          <div><strong data-i18n="admin.comp.competitor_code_label">Võistlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
-          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.competitor_code_label">Võistlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
           <div><strong data-i18n="admin.comp.organizers_label">Korraldajad</strong><div id="organizers" class="muted">-</div></div>
         </div>
         <div id="topMsg"></div>
@@ -263,7 +354,10 @@
   <dialog id="cpDialog">
     <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
       <h3 id="cpTitle" style="margin:0;">Kontrollpunkt</h3>
-      <button id="cpMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+      <div class="tools">
+        <button id="cpToggleExistingBtn" class="secondary" type="button">Olemasolevad KP-d</button>
+        <button id="cpMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+      </div>
     </div>
     <input id="cpId" type="hidden" />
     <div id="cpMap"></div>
@@ -273,7 +367,15 @@
     <div class="row cp-gps-row"><label>Laiuskraad</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
     <div class="row cp-gps-row"><label>Pikkuskraad</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
     <div class="row cp-gps-row"><label>KP raadius (m)</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
-    <div class="row cp-gps-row"><label>Asukoht kohustuslik</label><select id="cpLocationRequired"><option value="N">N</option><option value="Y">Y</option></select></div>
+    <div class="row cp-gps-row">
+      <label>Asukoht kohustuslik</label>
+      <div class="yn-switch-wrap">
+        <label class="yn-switch" for="cpLocationRequired">
+          <input id="cpLocationRequired" type="checkbox" />
+          <span class="yn-slider"></span>
+        </label>
+      </div>
+    </div>
     <div class="dialog-actions">
       <button id="cpDelete" class="warn" type="button" data-i18n="admin.cp_dialog.delete_btn">Kustuta KP</button>
       <div class="dialog-right">
@@ -292,6 +394,7 @@
     <div id="questionLangRows"></div>
     <div class="row"><label data-i18n="admin.q_dialog.type_label">Küsimuse tüüp *</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
     <div class="row"><label data-i18n="admin.q_dialog.points_label">Punktid</label><input id="qPoints" type="number" value="0" /></div>
+    <div class="row"><label>Vale vastuse punktid</label><input id="qWrongPoints" type="number" value="0" /></div>
     <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">Sisestuse tüüp</label><select id="qInputType"><option value="">(puudub)</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
     <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">Sisestuse max pikkus</label><input id="qInputMax" type="number" /></div>
 
@@ -361,28 +464,26 @@
 
   <dialog id="competitionPickerDialog">
     <h3 data-i18n="admin.comp_picker.heading">Vali võistlus</h3>
-    <div class="row"><label data-i18n="admin.comp_picker.label">Võistlus</label><select id="competitionSelect"></select></div>
+    <div class="row">
+      <label data-i18n="admin.comp_picker.label">Võistlus</label>
+      <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
+        <select id="competitionSelect"></select>
+        <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">Vali</button>
+      </div>
+    </div>
+    <div class="modal-sep">Või liitu koodiga</div>
+    <div class="row">
+      <label data-i18n="admin.join_code.label">Sisesta korraldaja kood</label>
+      <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
+        <input id="competitionPickerJoinCode" />
+        <button id="competitionPickerJoinSave" type="button">Sisesta</button>
+      </div>
+    </div>
+    <div id="competitionPickerJoinMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
         <button id="competitionPickerCancel" class="secondary" type="button" data-i18n="admin.comp_picker.close_btn">Sulge</button>
-        <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">Vali</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="joinByCodeDialog">
-    <h3 data-i18n="admin.join_code.heading">Liitu korraldajana koodiga</h3>
-    <div class="row">
-      <label data-i18n="admin.join_code.label">Sisesta korraldaja kood</label>
-      <input id="organizerJoinCode" />
-    </div>
-    <div id="joinByCodeMsg"></div>
-    <div class="dialog-actions">
-      <div></div>
-      <div class="dialog-right">
-        <button id="organizerJoinCancel" class="secondary" type="button" data-i18n="admin.join_code.cancel_btn">Katkesta</button>
-        <button id="organizerJoinSave" type="button" data-i18n="admin.join_code.save_btn">Salvesta</button>
       </div>
     </div>
   </dialog>
@@ -392,7 +493,25 @@
     <div class="row"><label data-i18n="admin.meta.name_label">Nimi</label><input id="metaNameInput" /></div>
     <div class="row"><label data-i18n="admin.meta.desc_label">Kirjeldus</label><textarea id="metaDescInput"></textarea></div>
     <div class="row"><label data-i18n="admin.meta.status_label">Staatus</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
-    <div class="row"><label>Kasuta asukohta</label><select id="metaUseLocationInput"><option value="N">N</option><option value="Y">Y</option></select></div>
+    <div class="row">
+      <label>Asukohaseaded</label>
+      <div class="yn-inline-row">
+        <div class="yn-inline">
+          <span>Kasuta asukohta</span>
+          <label class="yn-switch" for="metaUseLocationInput">
+            <input id="metaUseLocationInput" type="checkbox" />
+            <span class="yn-slider"></span>
+          </label>
+        </div>
+        <div class="yn-inline">
+          <span>Võistleja asukoht kaardil</span>
+          <label class="yn-switch" for="metaShowCompetitorLocationInput">
+            <input id="metaShowCompetitorLocationInput" type="checkbox" />
+            <span class="yn-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
     <div class="row"><label>Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
     <div class="row"><label data-i18n="admin.dates.start_label">Võistluse algus (dd.mm.yyyy hh:mm)</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><label data-i18n="admin.dates.end_label">Võistluse lõpp (dd.mm.yyyy hh:mm)</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
@@ -463,6 +582,7 @@
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
 ></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
   const byId = (id) => document.getElementById(id);
   const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
@@ -472,6 +592,8 @@
   let sortKey = "checkpoint_title";
   let sortDir = "asc";
   let currentUserId = null;
+  let currentUserName = "";
+  let currentUserEmail = "";
   let currentUiLang = "et";
   let availableLangs = ["et", "en"];
   let defaultLang = "et";
@@ -485,15 +607,42 @@
   };
   const showMsg = (id, ok, text) => {
     const el = byId(id);
+    if (!text) {
+      el.className = "";
+      el.textContent = "";
+      return;
+    }
     el.className = ok ? "ok" : "err";
     el.textContent = text;
   };
-  const humanizeError = (raw) => {
+  const humanizeError = (raw, details = null) => {
     const msg = (raw || "").toString().trim();
     if (!msg) return tr("admin.msg.error_generic", "Toiming ebaõnnestus.");
     if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code", "Sisestatud kood ei ole kasutusel.");
     if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer", "Oled juba selle võistluse korraldaja.");
     if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated", "Sessioon puudub. Logi sisse.");
+    const ordsBody = (details && typeof details.ords_body === "string") ? details.ords_body : "";
+    const detailsText = `${ordsBody}`.toLowerCase();
+    const lmsg = msg.toLowerCase();
+    if (
+      lmsg.includes("checkpoint title already exists in this competition") ||
+      lmsg.includes("-20101") ||
+      lmsg.includes("-20103") ||
+      detailsText.includes("checkpoint title already exists in this competition") ||
+      detailsText.includes("ora-20101") ||
+      detailsText.includes("ora-20103")
+    ) {
+      return tr("admin.msg.cp_title_exists", "Sellise nimega KP on juba olemas.");
+    }
+    if (msg === "api.error.ords_request_failed" && detailsText) {
+      const bodyRaw = String(details?.ords_body || "");
+      const oraMatch = bodyRaw.match(/ORA-\d{5}:[^<\r\n]*/i);
+      const shortOra = oraMatch ? oraMatch[0].trim() : "";
+      if (shortOra) {
+        return `${tr("admin.msg.error_generic", "Toiming ebaõnnestus.")} ${shortOra}`;
+      }
+      return `${tr("admin.msg.error_generic", "Toiming ebaõnnestus.")} ${msg}`;
+    }
     return msg;
   };
   const qTextId = (lang) => `qText_${lang}`;
@@ -518,14 +667,35 @@
   async function get(url) {
     const r = await fetch(url);
     const d = await r.json();
-    if (!r.ok) throw new Error(d?.detail?.message || d?.detail?.code || "Viga");
+    if (!r.ok) {
+      const err = new Error(d?.detail?.message || d?.detail?.code || "Viga");
+      err.details = d?.detail?.details || null;
+      err.code = d?.detail?.code || null;
+      throw err;
+    }
     return d;
   }
   async function post(url, body) {
     const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await r.json();
-    if (!r.ok) throw new Error(d?.detail?.message || d?.detail?.code || "Viga");
+    if (!r.ok) {
+      const err = new Error(d?.detail?.message || d?.detail?.code || "Viga");
+      err.details = d?.detail?.details || null;
+      err.code = d?.detail?.code || null;
+      throw err;
+    }
     return d;
+  }
+
+  function hasDuplicateCheckpointTitle(title, editingCheckpointId = null) {
+    const wanted = (title || "").trim().toLowerCase();
+    if (!wanted) return false;
+    return checkpointsData.some((r) => {
+      const sameId = editingCheckpointId != null && Number(r.checkpoint_id) === Number(editingCheckpointId);
+      if (sameId) return false;
+      const existing = String(r.checkpoint_title || "").trim().toLowerCase();
+      return existing === wanted;
+    });
   }
 
   async function loadI18nMeta() {
@@ -627,7 +797,10 @@
   let cpDialogFullscreen = false;
   let cpDialogInitialState = "";
   let cpDialogCheckpointId = null;
+  let cpExistingVisible = false;
+  let cpExistingLayer = null;
   const lastCpCoordKey = () => `funo_last_cp_coord_c${compId()}`;
+  const lastCpOverviewViewKey = () => `funo_cp_overview_view_c${compId()}`;
 
   function initCheckpointMap() {
     if (cpMap) return;
@@ -637,6 +810,7 @@
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(cpMap);
     cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
+    cpExistingLayer = L.layerGroup().addTo(cpMap);
   }
 
   function initCheckpointOverviewMap() {
@@ -648,6 +822,35 @@
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(cpOverviewMap);
     cpOverviewLayer = L.layerGroup().addTo(cpOverviewMap);
+    cpOverviewMap.on("moveend", writeLastCpOverviewView);
+  }
+
+  function readLastCpOverviewView() {
+    try {
+      const raw = localStorage.getItem(lastCpOverviewViewKey());
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !Number.isFinite(Number(d.lat)) || !Number.isFinite(Number(d.lon)) || !Number.isFinite(Number(d.zoom))) return null;
+      return { lat: Number(d.lat), lon: Number(d.lon), zoom: Number(d.zoom) };
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function writeLastCpOverviewView() {
+    if (!cpOverviewMap) return;
+    const center = cpOverviewMap.getCenter();
+    const zoom = cpOverviewMap.getZoom();
+    if (!Number.isFinite(Number(center.lat)) || !Number.isFinite(Number(center.lng)) || !Number.isFinite(Number(zoom))) return;
+    localStorage.setItem(lastCpOverviewViewKey(), JSON.stringify({ lat: Number(center.lat), lon: Number(center.lng), zoom: Number(zoom) }));
+  }
+
+  function effectiveCheckpointRadius(row) {
+    const cpRadius = Number(row?.radius_m);
+    if (Number.isFinite(cpRadius) && cpRadius > 0) return { radius: cpRadius, fallback: false };
+    const compRadius = Number(window.__lastCompetitionRadiusM);
+    if (Number.isFinite(compRadius) && compRadius > 0) return { radius: compRadius, fallback: true };
+    return { radius: null, fallback: false };
   }
 
   function openCheckpointOverviewMap() {
@@ -660,9 +863,10 @@
         title: r.checkpoint_title || "",
         lat: Number(r.latitude),
         lon: Number(r.longitude),
-        radius: Number(r.radius_m),
+        radiusInfo: effectiveCheckpointRadius(r),
         locationRequired: String(r.location_required || "N").toUpperCase() === "Y"
       }));
+    const savedView = readLastCpOverviewView();
     if (points.length === 0) {
       cpOverviewMap.setView([58.6, 25.0], 7);
     } else {
@@ -675,22 +879,27 @@
           weight: 3,
           fillOpacity: 0
         }).addTo(cpOverviewLayer);
-        const popup = `${esc(p.title)}${Number.isFinite(p.radius) && p.radius > 0 ? ` (${p.radius} m)` : ""}`;
+        const popup = `${esc(p.title)}${Number.isFinite(p.radiusInfo.radius) && p.radiusInfo.radius > 0 ? ` (${p.radiusInfo.radius} m)` : ""}`;
         m.bindPopup(popup, { autoClose: false, closeOnClick: false });
         cpOverviewMarkers.push(m);
-        if (Number.isFinite(p.radius) && p.radius > 0) {
+        if (Number.isFinite(p.radiusInfo.radius) && p.radiusInfo.radius > 0) {
+          const circleColor = p.radiusInfo.fallback ? "#f1c40f" : "#2f7f87";
           L.circle([p.lat, p.lon], {
-            radius: p.radius,
-            color: "#2f7f87",
+            radius: p.radiusInfo.radius,
+            color: circleColor,
             weight: 2,
-            fillColor: "#2f7f87",
+            fillColor: circleColor,
             fillOpacity: 0.12,
             interactive: false
           }).addTo(cpOverviewLayer);
         }
         bounds.push([p.lat, p.lon]);
       });
-      cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+      if (savedView) {
+        cpOverviewMap.setView([savedView.lat, savedView.lon], savedView.zoom);
+      } else {
+        cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+      }
     }
     byId("cpOverviewMapDialog").showModal();
     setTimeout(() => cpOverviewMap.invalidateSize(), 50);
@@ -760,6 +969,51 @@
     }
   }
 
+  function renderExistingCheckpointsOnDialogMap() {
+    if (!cpMap || !cpExistingLayer) return;
+    cpExistingLayer.clearLayers();
+    if (!cpExistingVisible || currentCompetitionUseLocation !== "Y") return;
+    const currentId = Number(byId("cpId").value || 0);
+    checkpointsData
+      .filter((r) =>
+        Number.isFinite(Number(r.latitude)) &&
+        Number.isFinite(Number(r.longitude)) &&
+        Number(r.checkpoint_id) !== currentId
+      )
+      .forEach((r) => {
+        const lat = Number(r.latitude);
+        const lon = Number(r.longitude);
+        const radiusInfo = effectiveCheckpointRadius(r);
+        const locationRequired = String(r.location_required || "N").toUpperCase() === "Y";
+        const markerColor = locationRequired ? "#c0392b" : "#7d3c98";
+        const marker = L.circleMarker([lat, lon], {
+          radius: 15,
+          color: markerColor,
+          weight: 3,
+          fillOpacity: 0
+        }).addTo(cpExistingLayer);
+        const popup = `${esc(r.checkpoint_title || "")}${Number.isFinite(radiusInfo.radius) && radiusInfo.radius > 0 ? ` (${radiusInfo.radius} m)` : ""}`;
+        marker.bindPopup(popup);
+        if (Number.isFinite(radiusInfo.radius) && radiusInfo.radius > 0) {
+          const circleColor = radiusInfo.fallback ? "#f1c40f" : "#2f7f87";
+          L.circle([lat, lon], {
+            radius: radiusInfo.radius,
+            color: circleColor,
+            weight: 2,
+            fillColor: circleColor,
+            fillOpacity: 0.12,
+            interactive: false
+          }).addTo(cpExistingLayer);
+        }
+      });
+  }
+
+  function setExistingCheckpointsVisible(visible) {
+    cpExistingVisible = !!visible;
+    byId("cpToggleExistingBtn").textContent = cpExistingVisible ? "Peida olemasolevad KP-d" : "Olemasolevad KP-d";
+    renderExistingCheckpointsOnDialogMap();
+  }
+
   function setCpCoordinates(lat, lon, moveMap = false) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
     const lat6 = Number(lat).toFixed(6);
@@ -812,8 +1066,40 @@
       lat: byId("cpLatitude").value,
       lon: byId("cpLongitude").value,
       radius: byId("cpRadiusM").value,
-      required: byId("cpLocationRequired").value
+      required: byId("cpLocationRequired").checked ? "Y" : "N"
     });
+  }
+
+  function setCpLocationRequiredValue(v) {
+    const checked = String(v || "N").toUpperCase() === "Y";
+    byId("cpLocationRequired").checked = checked;
+  }
+
+  function getCpLocationRequiredValue() {
+    return byId("cpLocationRequired").checked ? "Y" : "N";
+  }
+
+  function setMetaUseLocationValue(v) {
+    byId("metaUseLocationInput").checked = String(v || "N").toUpperCase() === "Y";
+  }
+
+  function getMetaUseLocationValue() {
+    return byId("metaUseLocationInput").checked ? "Y" : "N";
+  }
+
+  function setMetaShowCompetitorLocationValue(v) {
+    byId("metaShowCompetitorLocationInput").checked = String(v || "N").toUpperCase() === "Y";
+  }
+
+  function getMetaShowCompetitorLocationValue() {
+    return byId("metaShowCompetitorLocationInput").checked ? "Y" : "N";
+  }
+
+  function syncMetaLocationSwitches() {
+    const useLoc = getMetaUseLocationValue() === "Y";
+    const showLocEl = byId("metaShowCompetitorLocationInput");
+    showLocEl.disabled = !useLoc;
+    if (!useLoc) showLocEl.checked = false;
   }
 
   function syncCpQuestionButton() {
@@ -840,15 +1126,134 @@
     });
   }
 
-  async function devLogin() {
-    const d = await post("/api/dev/login", { email: byId("loginEmail").value.trim() });
-    currentUserId = d.user_id || null;
-    showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix", "Sisselogimine OK, user_id=")}${d.user_id}`);
-    await loadI18nMeta();
+  function userIconSvg() {
+    return `<svg class="organizer-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="8.5" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 18.5c0-3 2.4-5 5.5-5s5.5 2 5.5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  }
+
+  function logoutIconSvg() {
+    return `<svg class="logout-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 8l6 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  }
+
+  function copyIconSvg() {
+    return `<svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="11" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="8" width="11" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+  }
+
+  async function copyTextToClipboard(text) {
+    const value = (text || "").trim();
+    if (!value || value === "-") return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+
+  function renderOrganizers(org) {
+    const target = byId("organizers");
+    if (!Array.isArray(org) || org.length === 0) {
+      target.textContent = tr("admin.msg.missing_value", "Puudub");
+      return;
+    }
+
+    const current = [];
+    const others = [];
+    org.forEach((o) => {
+      if (Number(o?.user_id) === Number(currentUserId)) current.push(o);
+      else others.push(o);
+    });
+    const ordered = [...current, ...others];
+    const html = ordered.map((o) => {
+      const isCurrent = Number(o?.user_id) === Number(currentUserId);
+      const name = (o?.full_name || o?.email || "-").toString();
+      const email = (o?.email || "").toString();
+      const tooltip = email || name;
+      const logout = isCurrent
+        ? `<button class="logout-btn logout-btn-inline" title="Logi välja" aria-label="Logi välja">${logoutIconSvg()}</button>`
+        : "";
+      return `<div class="organizer-row ${isCurrent ? "current" : ""}" title="${esc(tooltip)}">${isCurrent ? userIconSvg() : ""}<span>${esc(name)}</span>${logout}</div>`;
+    }).join("");
+    target.innerHTML = `<div class="organizers-list">${html}</div>`;
+  }
+
+  async function finishAdminLogin() {
+    byId("loginCard").classList.add("hidden");
     byId("appArea").classList.remove("hidden");
+    await refreshSuperadminNavButton();
     const hasCompetitions = await loadCompetitions();
-    if (hasCompetitions) {
-      await loadView();
+    if (hasCompetitions) await loadView();
+  }
+
+  async function refreshSuperadminNavButton() {
+    const btn = byId("goSuperadminBtn");
+    btn.classList.add("hidden");
+    try {
+      await get("/api/superadmin/session");
+      btn.classList.remove("hidden");
+    } catch (_e) {
+      btn.classList.add("hidden");
+    }
+  }
+
+  async function googleLoginWithCredential(credential) {
+    const d = await post("/api/auth/google", { id_token: credential });
+    currentUserId = d.user_id || null;
+    currentUserName = d.full_name || "";
+    currentUserEmail = d.email || "";
+    showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix", "Sisselogimine OK, user_id=")}${d.user_id}`);
+    await finishAdminLogin();
+  }
+
+  async function initGoogleLogin() {
+    try {
+      const cfg = await get("/api/auth/google/config");
+      if (!cfg || !cfg.enabled || !cfg.client_id) {
+        showMsg("loginMsg", false, "Google login ei ole serveris seadistatud.");
+        return;
+      }
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+        showMsg("loginMsg", false, "Google login skripti laadimine ebaõnnestus.");
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: cfg.client_id,
+        callback: async (resp) => {
+          try {
+            if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+            await googleLoginWithCredential(resp.credential);
+          } catch (e) {
+            showMsg("loginMsg", false, humanizeError(e.message || "Google sisselogimine ebaõnnestus."));
+          }
+        }
+      });
+      const mount = byId("googleLoginMount");
+      mount.innerHTML = "";
+      window.google.accounts.id.renderButton(mount, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular"
+      });
+    } catch (e) {
+      showMsg("loginMsg", false, humanizeError(e.message || "Google sisselogimine ebaõnnestus."));
+    }
+  }
+
+  async function hydrateSessionUser() {
+    try {
+      const s = await get("/api/auth/session");
+      if (s && s.authenticated && Number.isFinite(Number(s.user_id))) {
+        currentUserId = Number(s.user_id);
+      }
+    } catch (_e) {
+      // ignore; unauthenticated is handled by admin API calls
     }
   }
 
@@ -930,13 +1335,21 @@
     const v = ov.data || {};
     byId("cName").textContent = `${v.name || "-"} (id=${v.competition_id || "-"})`;
     const locBadge = byId("cLocationBadge");
+    const compLocBadge = byId("cCompetitorLocationBadge");
     if ((v.use_location || "N") === "Y") {
       const r = v.radius_m != null ? ` (${Number(v.radius_m)} m)` : "";
       locBadge.textContent = `📍${r}`;
       locBadge.classList.remove("hidden");
+      const showCompLoc = String(v.show_competitor_location || "Y").toUpperCase() === "Y";
+      compLocBadge.textContent = "●";
+      compLocBadge.style.color = showCompLoc ? "#2f8cff" : "#8a8a8a";
+      compLocBadge.classList.remove("hidden");
+      compLocBadge.style.display = "inline-block";
     } else {
       locBadge.classList.add("hidden");
       locBadge.textContent = "";
+      compLocBadge.classList.add("hidden");
+      compLocBadge.style.display = "none";
     }
     byId("cDesc").textContent = v.description || "";
     byId("cStatus").textContent = v.status || "";
@@ -944,6 +1357,7 @@
     window.__lastCompetitionDescription = v.description || "";
     window.__lastCompetitionStatus = v.status || "ACTIVE";
     window.__lastCompetitionUseLocation = v.use_location || "N";
+    window.__lastCompetitionShowCompetitorLocation = v.show_competitor_location || "Y";
     window.__lastCompetitionRadiusM = v.radius_m ?? null;
     currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
     byId("cCreated").textContent = fmtDateEt(v.created_at) || "";
@@ -956,7 +1370,7 @@
     byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
     byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
     const org = Array.isArray(v.organizers) ? v.organizers : [];
-    byId("organizers").innerHTML = org.length ? org.map((o) => `${esc(o.full_name || "-")} (${esc(o.email || "-")})`).join("<br>") : tr("admin.msg.missing_value", "Puudub");
+    renderOrganizers(org);
 
     const q = await get(`/api/admin/questions-overview?competition_id=${compId()}`);
     const rawItems = Array.isArray(q.items) ? q.items : [];
@@ -994,11 +1408,15 @@
       const qText = currentUiLang === "en"
         ? (r.text_en || r.text_et || "")
         : (r.text_et || r.text_en || "");
+      const optionsCount = Array.isArray(r.options) ? r.options.length : 0;
+      const questionTypeDisplay = String(r.question_type || "") === "SINGLE_CHOICE"
+        ? `SINGLE_CHOICE (${optionsCount})`
+        : String(r.question_type || "");
       return `<tr>
         <td>${esc(r.checkpoint_title || "")}</td>
         <td>${r.points ?? ""}</td>
         <td class="q-col"><span class="q-cell-text" title="${esc(qText)}">${esc(qText)}</span></td>
-        <td>${esc(r.question_type || "")}</td>
+        <td>${esc(questionTypeDisplay)}</td>
         <td class="cp-loc-col">${
           (r.location_required === "Y" ? '<span style="color:#1f9d55;font-weight:700;">✓</span>' : '-')
           + ((r.latitude != null && r.longitude != null) ? ` (${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)})` : '')
@@ -1041,8 +1459,15 @@
     byId("sortByQuestionEtIcon").textContent = sortIconFor("text_et");
   }
 
-  function fillCheckpointSelect(includeAll = true) {
-    const rows = includeAll ? checkpointsData : checkpointsData.filter((c) => !c.question_id);
+  function fillCheckpointSelect(includeAll = true, currentCpId = null) {
+    const currentIdNum = currentCpId == null ? null : Number(currentCpId);
+    const rows = includeAll
+      ? checkpointsData
+      : checkpointsData.filter((c) => {
+        const isCurrent = currentIdNum != null && Number(c.checkpoint_id) === currentIdNum;
+        if (isCurrent) return true;
+        return !c.question_id;
+      });
     byId("qCheckpoint").innerHTML = rows.map((c) => `<option value="${c.checkpoint_id}">${esc(c.checkpoint_title || "")}</option>`).join("");
   }
 
@@ -1137,12 +1562,14 @@
   }
 
   function openCheckpointDialog(cpId = null) {
-    byId("cpMsg").textContent = "";
+    showMsg("cpMsg", false, "");
     setCheckpointDialogSize(false);
+    setExistingCheckpointsVisible(false);
     initCheckpointMap();
     const showGps = currentCompetitionUseLocation === "Y";
     byId("cpMap").style.display = showGps ? "block" : "none";
     byId("cpMapToggleSizeBtn").style.display = showGps ? "inline-block" : "none";
+    byId("cpToggleExistingBtn").style.display = showGps ? "inline-block" : "none";
     document.querySelectorAll(".cp-gps-row").forEach((el) => {
       el.style.display = "grid";
     });
@@ -1160,7 +1587,7 @@
       byId("cpLatitude").value = "";
       byId("cpLongitude").value = "";
       byId("cpRadiusM").value = "";
-      byId("cpLocationRequired").value = "N";
+      setCpLocationRequiredValue(showGps ? "Y" : "N");
       byId("cpDelete").disabled = true;
       cpDialogCheckpointId = null;
       if (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0) {
@@ -1195,7 +1622,7 @@
       byId("cpRadiusM").placeholder = (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0)
         ? String(Number(window.__lastCompetitionRadiusM))
         : "";
-      byId("cpLocationRequired").value = row?.location_required || "N";
+      setCpLocationRequiredValue(row?.location_required || "N");
       byId("cpDelete").disabled = false;
       cpDialogCheckpointId = Number(cpId);
       if (row?.latitude != null && row?.longitude != null) {
@@ -1211,6 +1638,7 @@
     }
     cpDialogInitialState = cpDialogStateSnapshot();
     syncCpQuestionButton();
+    renderExistingCheckpointsOnDialogMap();
     byId("cpDialog").showModal();
     setTimeout(() => cpMap.invalidateSize(), 50);
   }
@@ -1225,7 +1653,11 @@
     const latRaw = byId("cpLatitude").value.trim();
     const lonRaw = byId("cpLongitude").value.trim();
     const radiusRaw = byId("cpRadiusM").value.trim();
-    const locRequired = byId("cpLocationRequired").value || "N";
+    const locRequired = getCpLocationRequiredValue();
+    const editingId = cpId ? Number(cpId) : null;
+    if (hasDuplicateCheckpointTitle(title, editingId)) {
+      return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists", "Sellise nimega KP on juba olemas."));
+    }
     if (!cpId) {
       const payload = { competition_id: compId(), title };
       if (orderRaw !== "") payload.order_no = Number(orderRaw);
@@ -1292,20 +1724,22 @@
   function openQuestionDialog(cpId, editMode) {
     if (!currentCompetitionActive) return;
     setQuestionDialogMode("normal");
-    fillCheckpointSelect(editMode);
+    fillCheckpointSelect(false, cpId);
     const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
     byId("qCheckpoint").value = String(cpId);
     if (!editMode) {
       byId("qTitle").textContent = tr("admin.q_dialog.new_title", "Uus küsimus");
       byId("qId").value = "";
       availableLangs.forEach((lang) => { byId(qTextId(lang)).value = ""; });
-      byId("qType").value = "TEXT";
+      byId("qType").value = "SINGLE_CHOICE";
       byId("qPoints").value = "0";
+      byId("qWrongPoints").value = "0";
       byId("qInputType").value = "";
       byId("qInputMax").value = "";
       byId("optionRows").innerHTML = "";
       byId("answerRows").innerHTML = "";
-      addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+      addOptionRow();
+      addOptionRow();
       byId("qDelete").disabled = true;
     } else {
       byId("qTitle").textContent = tr("admin.q_dialog.edit_title", "Muuda küsimust");
@@ -1316,6 +1750,7 @@
       });
       byId("qType").value = row?.question_type || "TEXT";
       byId("qPoints").value = row?.points ?? 0;
+      byId("qWrongPoints").value = row?.wrong_points ?? 0;
       byId("qInputType").value = row?.input_type || "";
       byId("qInputMax").value = row?.input_max_length ?? "";
       byId("optionRows").innerHTML = "";
@@ -1364,6 +1799,7 @@
       input_max_length: qType === "SINGLE_CHOICE" ? null : (byId("qInputMax").value ? Number(byId("qInputMax").value) : null),
       input_pattern: null,
       points: Number(byId("qPoints").value || 0),
+      wrong_points: Number(byId("qWrongPoints").value || 0),
       lang_code: defaultLang,
       question_text: defaultText
     };
@@ -1454,7 +1890,9 @@
     byId("metaNameInput").value = window.__lastCompetitionName || "";
     byId("metaDescInput").value = window.__lastCompetitionDescription || "";
     byId("metaStatusInput").value = window.__lastCompetitionStatus || "ACTIVE";
-    byId("metaUseLocationInput").value = window.__lastCompetitionUseLocation || "N";
+    setMetaUseLocationValue(window.__lastCompetitionUseLocation || "N");
+    setMetaShowCompetitorLocationValue(window.__lastCompetitionShowCompetitorLocation || "Y");
+    syncMetaLocationSwitches();
     byId("metaRadiusMInput").value = (window.__lastCompetitionRadiusM ?? "");
     byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
     byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
@@ -1468,7 +1906,8 @@
         name: byId("metaNameInput").value.trim(),
         description: byId("metaDescInput").value.trim() || null,
         status: byId("metaStatusInput").value,
-        use_location: byId("metaUseLocationInput").value || "N",
+        use_location: getMetaUseLocationValue(),
+        show_competitor_location: getMetaShowCompetitorLocationValue(),
         radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
       };
       if (!payload.name) {
@@ -1502,19 +1941,87 @@
     byId("qDeleteDialog").showModal();
   }
 
-  byId("loginBtn").onclick = () => devLogin().catch(e => showMsg("loginMsg", false, e.message));
   byId("uiLang").onchange = async () => {
     currentUiLang = byId("uiLang").value || defaultLang;
     setCookie(uiLangCookieName, currentUiLang);
     await loadTranslations(currentUiLang);
     renderRows();
   };
+  byId("organizers").addEventListener("click", async (e) => {
+    const btn = e.target.closest(".logout-btn-inline");
+    if (!btn) return;
+    try {
+      await post("/api/auth/logout", {});
+      currentUserId = null;
+      currentUserName = "";
+      currentUserEmail = "";
+      byId("appArea").classList.add("hidden");
+      byId("loginCard").classList.remove("hidden");
+      showMsg("loginMsg", true, "Väljalogimine õnnestus.");
+      await initGoogleLogin();
+    } catch (err) {
+      showMsg("topMsg", false, humanizeError(err.message || "Väljalogimine ebaõnnestus."));
+    }
+  });
   byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
-  byId("openJoinByCodeBtn").onclick = () => byId("joinByCodeDialog").showModal();
-  byId("competitionPickerCancel").onclick = () => byId("competitionPickerDialog").close();
+  byId("openResultsBtn").onclick = () => {
+    const cid = compId();
+    if (!cid) return;
+    window.open(`/results.html?competition_id=${encodeURIComponent(String(cid))}`, "_blank", "noopener");
+  };
+  byId("competitionPickerCancel").onclick = () => {
+    byId("competitionPickerJoinCode").value = "";
+    showMsg("competitionPickerJoinMsg", false, "");
+    byId("competitionPickerDialog").close();
+  };
   byId("competitionPickerApply").onclick = async () => {
     byId("competitionPickerDialog").close();
     await loadView().catch(e => showMsg("topMsg", false, e.message));
+  };
+  byId("goSuperadminBtn").onclick = () => {
+    window.location.href = "/superadmin.html";
+  };
+  byId("competitionPickerJoinSave").onclick = async () => {
+    try {
+      const code = byId("competitionPickerJoinCode").value.trim();
+      if (!code) {
+        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.enter_organizer_code_join_dialog", "Sisesta korraldaja kood."));
+        return;
+      }
+      const joinRes = await post("/api/organizers/register", { access_code: code });
+      const joinedCompetitionId = Number(joinRes?.competition_id || 0);
+      byId("competitionPickerJoinCode").value = "";
+      const hasCompetitions = await loadCompetitions();
+      if (hasCompetitions) {
+        if (joinedCompetitionId && competitionsData.some((x) => Number(x.competition_id) === joinedCompetitionId)) {
+          byId("competitionSelect").value = String(joinedCompetitionId);
+        }
+        await loadView();
+        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog", "Korraldaja kood aktsepteeritud."));
+        showMsg("competitionPickerJoinMsg", false, "");
+        byId("competitionPickerDialog").close();
+      } else {
+        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog", "Korraldaja võistlusi endiselt ei leitud."));
+      }
+    } catch (e) {
+      showMsg("competitionPickerJoinMsg", false, humanizeError(e.message));
+    }
+  };
+  byId("copyCompetitorCodeBtn").innerHTML = copyIconSvg();
+  byId("copyOrganizerCodeBtn").innerHTML = copyIconSvg();
+  byId("copyCompetitorCodeBtn").onclick = async () => {
+    try {
+      await copyTextToClipboard(byId("codeCompetitor").textContent || "");
+    } catch (e) {
+      showMsg("topMsg", false, humanizeError(e.message));
+    }
+  };
+  byId("copyOrganizerCodeBtn").onclick = async () => {
+    try {
+      await copyTextToClipboard(byId("codeOrganizer").textContent || "");
+    } catch (e) {
+      showMsg("topMsg", false, humanizeError(e.message));
+    }
   };
   byId("regenCompetitor").onclick = () => {
     pendingCodeType = "COMPETITOR";
@@ -1560,11 +2067,14 @@
     if (btn.dataset.act === "edit-q") openQuestionDialog(cpId, true);
   });
 
-  byId("cpSave").onclick = () => saveCheckpoint().catch(e => showMsg("cpMsg", false, e.message));
+  byId("cpSave").onclick = () => saveCheckpoint().catch(e => showMsg("cpMsg", false, humanizeError(e.message, e.details)));
+  byId("cpToggleExistingBtn").onclick = () => setExistingCheckpointsVisible(!cpExistingVisible);
   byId("cpDelete").onclick = () => deleteCheckpoint().catch(e => showMsg("cpMsg", false, e.message));
   byId("cpCancel").onclick = () => byId("cpDialog").close();
   byId("cpDialog").addEventListener("close", () => {
     if (cpDialogFullscreen) setCheckpointDialogSize(false);
+    showMsg("cpMsg", false, "");
+    setExistingCheckpointsVisible(false);
   });
   byId("cpOpenQuestion").onclick = () => {
     if (!cpDialogCheckpointId) return;
@@ -1585,6 +2095,7 @@
   byId("qDelete").onclick = () => deleteQuestion().catch(e => showMsg("qMsg", false, e.message));
   byId("qCancel").onclick = () => byId("qDialog").close();
   byId("qType").onchange = () => syncQuestionTypeUI();
+  byId("metaUseLocationInput").addEventListener("change", syncMetaLocationSwitches);
   byId("addOptionBtn").onclick = () => addOptionRow();
   byId("addAnswerBtn").onclick = () => addAnswerRow({ normalize_mode: "LOWER_TRIM" });
 
@@ -1652,33 +2163,6 @@
     }
   };
   byId("codeResultOk").onclick = () => byId("codeResultDialog").close();
-  byId("organizerJoinCancel").onclick = () => {
-    byId("organizerJoinCode").value = "";
-    byId("joinByCodeMsg").textContent = "";
-    byId("joinByCodeMsg").className = "";
-    byId("joinByCodeDialog").close();
-  };
-  byId("organizerJoinSave").onclick = async () => {
-    try {
-      const code = byId("organizerJoinCode").value.trim();
-      if (!code) {
-        showMsg("joinByCodeMsg", false, tr("admin.msg.enter_organizer_code_join_dialog", "Sisesta korraldaja kood."));
-        return;
-      }
-      await post("/api/organizers/register", { access_code: code });
-      byId("organizerJoinCode").value = "";
-      const hasCompetitions = await loadCompetitions();
-      if (hasCompetitions) {
-        await loadView();
-        showMsg("joinByCodeMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog", "Korraldaja kood aktsepteeritud."));
-        byId("joinByCodeDialog").close();
-      } else {
-        showMsg("joinByCodeMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog", "Korraldaja võistlusi endiselt ei leitud."));
-      }
-    } catch (e) {
-      showMsg("joinByCodeMsg", false, humanizeError(e.message));
-    }
-  };
   byId("organizerJoinCancelNoComp").onclick = () => {
     byId("organizerJoinCodeNoComp").value = "";
     byId("noOrgMsg").textContent = "";
@@ -1709,7 +2193,17 @@
       if (first) openQuestionDialog(first.checkpoint_id, false);
     }
   });
-  loadI18nMeta().catch(() => {});
+  (async () => {
+    await loadI18nMeta().catch(() => {});
+    await hydrateSessionUser();
+    try {
+      await finishAdminLogin();
+    } catch (_) {
+      byId("loginCard").classList.remove("hidden");
+      byId("appArea").classList.add("hidden");
+    }
+    await initGoogleLogin();
+  })();
 </script>
 </body>
 </html>

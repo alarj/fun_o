@@ -22,6 +22,7 @@ class Settings:
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
+    competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
     session_secret: str = os.getenv("SESSION_SECRET", "")
     session_cookie_secure: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
@@ -102,6 +103,13 @@ class ScoreResponse(BaseModel):
     user_id: int
     score: int
 
+class CompetitorProgressResponse(BaseModel):
+    competition_id: int
+    user_id: int
+    total_checkpoints: int
+    answered_checkpoints: int
+    score: int
+
 
 class CompetitorCompetition(BaseModel):
     competition_id: int
@@ -109,6 +117,7 @@ class CompetitorCompetition(BaseModel):
     starts_at: str | None = None
     ends_at: str | None = None
     use_location: str | None = None
+    show_competitor_location: str | None = None
 
 
 class CompetitorCompetitionsResponse(BaseModel):
@@ -118,15 +127,108 @@ class CompetitorCompetitionsResponse(BaseModel):
 class CompetitorOpenCheckpointsResponse(BaseModel):
     items: list[dict[str, Any]]
 
+class CompetitorMySubmissionEntry(BaseModel):
+    checkpoint_title: str | None = None
+    submission_id: int | None = None
+    submitted_at: str | None = None
+    awarded_points: int = 0
+
+
+class CompetitorMySubmissionsResponse(BaseModel):
+    items: list[CompetitorMySubmissionEntry]
+
+
+class CompetitorMySubmissionDetailOption(BaseModel):
+    option_text: str | None = None
+    is_correct: str = "N"
+    is_selected: str = "N"
+
+
+class CompetitorMySubmissionDetailResponse(BaseModel):
+    submission_id: int | None = None
+    checkpoint_title: str | None = None
+    question_text: str | None = None
+    question_type: str | None = None
+    points: int = 0
+    wrong_points: int = 0
+    submitted_at: str | None = None
+    awarded_points: int = 0
+    competitor_answer: str | None = None
+    responders_count: int = 0
+    correct_pct: float | None = None
+    options: list[CompetitorMySubmissionDetailOption] = []
+
 
 class LeaderboardEntry(BaseModel):
     user_id: int
+    competitor_name: str | None = None
+    answered_checkpoints: int | None = None
     score: int
+    last_checkpoint: str | None = None
+    last_submission_at: str | None = None
 
 
 class LeaderboardResponse(BaseModel):
     competition_id: int
     items: list[LeaderboardEntry]
+
+class CheckpointResultEntry(BaseModel):
+    checkpoint_id: int | None = None
+    checkpoint_title: str | None = None
+    last_submission_at: str | None = None
+    last_team: str | None = None
+    checkpoint_points: int = 0
+    correct_count: int = 0
+    wrong_count: int = 0
+
+
+class CheckpointResultsResponse(BaseModel):
+    competition_id: int
+    items: list[CheckpointResultEntry]
+
+
+class CheckpointResponderEntry(BaseModel):
+    user_id: int
+    competitor_name: str | None = None
+    is_correct: str = "N"
+
+
+class CheckpointRespondersResponse(BaseModel):
+    competition_id: int
+    checkpoint_id: int
+    items: list[CheckpointResponderEntry]
+
+class ParticipantSubmissionEntry(BaseModel):
+    submission_id: int | None = None
+    checkpoint_title: str | None = None
+    submitted_at: str | None = None
+    awarded_points: int = 0
+    answer_text: str | None = None
+    is_correct: str = "N"
+
+
+class ParticipantSubmissionsResponse(BaseModel):
+    competition_id: int
+    user_id: int
+    items: list[ParticipantSubmissionEntry]
+
+class SubmissionDetailOption(BaseModel):
+    option_text: str | None = None
+    is_correct: str = "N"
+    is_selected: str = "N"
+
+
+class SubmissionDetailResponse(BaseModel):
+    submission_id: int | None = None
+    checkpoint_title: str | None = None
+    question_text: str | None = None
+    question_type: str | None = None
+    points: int = 0
+    wrong_points: int = 0
+    submitted_at: str | None = None
+    awarded_points: int = 0
+    competitor_answer: str | None = None
+    options: list[SubmissionDetailOption] = []
 
 
 class TranslationsResponse(BaseModel):
@@ -137,6 +239,19 @@ class TranslationsResponse(BaseModel):
 class I18nMetaResponse(BaseModel):
     default_lang: str
     available_langs: list[str]
+
+
+class GoogleClientConfigResponse(BaseModel):
+    client_id: str | None = None
+    enabled: bool
+
+
+class SessionInfoResponse(BaseModel):
+    authenticated: bool
+    user_id: int | None = None
+    auth_provider: str | None = None
+    email: str | None = None
+    full_name: str | None = None
 
 
 class AdminCreateCheckpointRequest(BaseModel):
@@ -162,6 +277,7 @@ class AdminCreateQuestionRequest(BaseModel):
     input_max_length: int | None = None
     input_pattern: str | None = None
     points: int = 0
+    wrong_points: int = 0
     lang_code: str = "et"
     question_text: str
     created_by: int | None = None
@@ -222,6 +338,21 @@ class AdminCompetitionsResponse(BaseModel):
     items: list[dict[str, Any]]
 
 
+class SuperAdminCreateCompetitionRequest(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class SuperAdminCreateCompetitionResponse(BaseModel):
+    competition_id: int
+    organizer_code: str
+
+
+class SuperAdminSessionResponse(BaseModel):
+    ok: bool
+    user_id: int
+
+
 class AdminCheckpointsResponse(BaseModel):
     items: list[dict[str, Any]]
 
@@ -251,6 +382,7 @@ class AdminUpdateQuestionRequest(BaseModel):
     input_max_length: int | None = None
     input_pattern: str | None = None
     points: int = 0
+    wrong_points: int = 0
     lang_code: str = "et"
     question_text: str
     options_json: str | None = None
@@ -276,19 +408,29 @@ class AdminUpdateCompetitionMetaRequest(BaseModel):
     description: str | None = None
     status: str = "ACTIVE"
     use_location: str | None = None
+    show_competitor_location: str | None = None
     radius_m: float | None = None
     updated_by: int | None = None
 
 
-def _raise_api_error(status_code: int, code: str, message: str, details: dict[str, Any] | None = None) -> None:
+def _raise_api_error(
+    status_code: int,
+    code: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> None:
     raise HTTPException(
         status_code=status_code,
+        headers=headers,
         detail=ApiError(code=code, message=message, details=details).model_dump(),
     )
 
 
 def _extract_oracle_error(payload: Any) -> tuple[str, str]:
     text = str(payload)
+    if "ORA-01722" in text:
+        return ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")
     if "ORA-20031" in text:
         return ("INVALID_ACCESS_CODE", "api.error.invalid_access_code")
     if "ORA-20032" in text:
@@ -299,6 +441,12 @@ def _extract_oracle_error(payload: Any) -> tuple[str, str]:
         return ("INVALID_SUBMISSION", "api.error.invalid_submission")
     if "ORA-20061" in text:
         return ("NOT_PARTICIPANT", "api.error.not_participant")
+    if "ORA-20062" in text:
+        return ("QUESTION_NOT_FOUND", "api.error.invalid_submission")
+    if "ORA-20063" in text:
+        return ("MISSING_SELECTED_OPTION", "api.error.invalid_submission")
+    if "ORA-20064" in text:
+        return ("MISSING_ANSWER_TEXT", "api.error.invalid_submission")
     if "ORA-20010" in text:
         return ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")
     if "ORA-20081" in text:
@@ -341,8 +489,23 @@ def _make_session_token(user_id: int) -> str:
     return f"{payload_b64}.{sig}"
 
 
-def _read_session_user_id(request: Request) -> int | None:
-    token = request.cookies.get(settings.session_cookie_name)
+def _make_session_token_for_provider(user_id: int, auth_provider: str) -> str:
+    payload = {"user_id": user_id, "auth_provider": auth_provider}
+    payload_b64 = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    sig = _session_sign(payload_b64)
+    return f"{payload_b64}.{sig}"
+
+
+def _read_session_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.session_cookie_name)
+
+
+def _read_competitor_session_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.competitor_session_cookie_name)
+
+
+def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
+    token = request.cookies.get(cookie_name)
     if not token or "." not in token:
         return None
 
@@ -356,12 +519,34 @@ def _read_session_user_id(request: Request) -> int | None:
     except Exception:
         return None
 
+    if not isinstance(payload, dict):
+        return None
+    user_id = payload.get("user_id")
+    if not isinstance(user_id, int):
+        return None
+    return payload
+
+
+def _read_session_user_id(request: Request) -> int | None:
+    payload = _read_session_payload(request)
+    if payload is None:
+        return None
+    user_id = payload.get("user_id")
+    return user_id if isinstance(user_id, int) else None
+
+
+def _read_competitor_session_user_id(request: Request) -> int | None:
+    payload = _read_competitor_session_payload(request)
+    if payload is None:
+        return None
     user_id = payload.get("user_id")
     return user_id if isinstance(user_id, int) else None
 
 
 def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: int | None) -> int:
-    session_user_id = _read_session_user_id(request)
+    session_user_id = _read_competitor_session_user_id(request)
+    if session_user_id is None:
+        session_user_id = _read_session_user_id(request)
 
     if session_user_id is not None:
         if payload_user_id is not None and payload_user_id != session_user_id:
@@ -375,6 +560,36 @@ def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: i
     if x_user_id is not None and x_user_id != payload_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
     return payload_user_id
+
+
+def _require_google_session_user(request: Request, x_user_id: int | None = None) -> int:
+    payload = _read_session_payload(request)
+    if payload is None:
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+
+    session_user_id = payload.get("user_id")
+    if not isinstance(session_user_id, int):
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+
+    if payload.get("auth_provider") != "google":
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "GOOGLE_AUTH_REQUIRED", "api.error.unauthenticated")
+
+    if x_user_id is not None and x_user_id != session_user_id:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
+
+    return session_user_id
+
+
+async def _require_system_owner_session_user(request: Request, x_user_id: int | None = None) -> int:
+    user_id = _require_google_session_user(request, x_user_id)
+    role_resp = await _get_from_ords(
+        "auth/has-role",
+        {"user_id": user_id, "role_code": "SYSTEM_OWNER"},
+    )
+    has_role = role_resp.get("has_role") if isinstance(role_resp, dict) else None
+    if str(has_role).upper() != "Y":
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+    return user_id
 
 
 async def _request_ords(method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -424,6 +639,16 @@ async def _request_ords(method: str, path: str, payload: dict[str, Any] | None =
         )
 
     if response.status_code >= 400:
+        if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            retry_after = response.headers.get("Retry-After")
+            hdrs = {"Retry-After": retry_after} if retry_after else None
+            _raise_api_error(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "ORDS_RATE_LIMITED",
+                "api.error.ords_rate_limited",
+                {"ords_status": response.status_code, "ords_body": response.text[:500]},
+                headers=hdrs,
+            )
         code, message = _extract_oracle_error(response.text)
         _raise_api_error(
             status.HTTP_400_BAD_REQUEST if response.status_code < 500 else status.HTTP_502_BAD_GATEWAY,
@@ -592,7 +817,7 @@ async def auth_google(req: GoogleAuthRequest, response: Response) -> GoogleAuthR
             {"ords_response": ords_response},
         )
 
-    session_token = _make_session_token(user_id)
+    session_token = _make_session_token_for_provider(user_id, "google")
     response.set_cookie(
         key=settings.session_cookie_name,
         value=session_token,
@@ -629,9 +854,9 @@ async def dev_login(req: DevLoginRequest, response: Response) -> DevLoginRespons
             {"ords_response": ords_response},
         )
 
-    session_token = _make_session_token(user_id)
+    session_token = _make_session_token_for_provider(user_id, "dev")
     response.set_cookie(
-        key=settings.session_cookie_name,
+        key=settings.competitor_session_cookie_name,
         value=session_token,
         httponly=True,
         secure=settings.session_cookie_secure,
@@ -639,6 +864,48 @@ async def dev_login(req: DevLoginRequest, response: Response) -> DevLoginRespons
         path="/",
     )
     return DevLoginResponse(user_id=user_id)
+
+
+@app.get("/api/auth/google/config", response_model=GoogleClientConfigResponse)
+async def auth_google_config() -> GoogleClientConfigResponse:
+    cid = settings.google_client_id.strip() if settings.google_client_id else ""
+    return GoogleClientConfigResponse(client_id=cid or None, enabled=bool(cid))
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(response: Response) -> dict[str, bool]:
+    response.delete_cookie(
+        key=settings.session_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+    return {"ok": True}
+
+
+@app.get("/api/auth/session", response_model=SessionInfoResponse)
+async def auth_session(request: Request) -> SessionInfoResponse:
+    payload = _read_session_payload(request)
+    if payload is None:
+        return SessionInfoResponse(authenticated=False)
+    user_id = payload.get("user_id") if isinstance(payload.get("user_id"), int) else None
+    email: str | None = None
+    full_name: str | None = None
+    if user_id is not None:
+        try:
+            prof = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+            if isinstance(prof, dict):
+                email = prof.get("email") if isinstance(prof.get("email"), str) else None
+                full_name = prof.get("full_name") if isinstance(prof.get("full_name"), str) else None
+        except Exception:
+            pass
+    return SessionInfoResponse(
+        authenticated=True,
+        user_id=user_id,
+        auth_provider=payload.get("auth_provider") if isinstance(payload.get("auth_provider"), str) else None,
+        email=email,
+        full_name=full_name,
+    )
 
 
 @app.post("/api/competitions/register", response_model=RegisterCompetitionResponse)
@@ -673,7 +940,7 @@ async def register_organizer(
     request: Request,
     x_user_id: int | None = Header(default=None),
 ) -> RegisterOrganizerResponse:
-    user_id = _resolve_user_id(request, req.user_id, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _post_to_ords(
         "organizers/register",
         {
@@ -771,6 +1038,7 @@ async def competitor_competitions(
                         starts_at=item.get("starts_at") if isinstance(item.get("starts_at"), str) else None,
                         ends_at=item.get("ends_at") if isinstance(item.get("ends_at"), str) else None,
                         use_location=item.get("use_location") if isinstance(item.get("use_location"), str) else None,
+                        show_competitor_location=item.get("show_competitor_location") if isinstance(item.get("show_competitor_location"), str) else None,
                     )
                 )
     return CompetitorCompetitionsResponse(items=items)
@@ -866,6 +1134,117 @@ async def results_score(
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response_score")
     return ScoreResponse(competition_id=competition_id, user_id=resolved_user_id, score=score)
 
+@app.get("/api/competitor/progress", response_model=CompetitorProgressResponse)
+async def competitor_progress(
+    competition_id: int,
+    request: Request,
+    user_id: int | None = None,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitorProgressResponse:
+    resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
+    ords_response = await _get_from_ords(
+        "competitor/progress",
+        {
+            "competition_id": competition_id,
+            "user_id": resolved_user_id,
+        },
+    )
+    total_checkpoints = ords_response.get("total_checkpoints", 0)
+    answered_checkpoints = ords_response.get("answered_checkpoints", 0)
+    score = ords_response.get("score", 0)
+    if not isinstance(total_checkpoints, int) or not isinstance(answered_checkpoints, int) or not isinstance(score, int):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    return CompetitorProgressResponse(
+        competition_id=competition_id,
+        user_id=resolved_user_id,
+        total_checkpoints=max(0, total_checkpoints),
+        answered_checkpoints=max(0, answered_checkpoints),
+        score=score,
+    )
+
+
+@app.get("/api/competitor/my-submissions", response_model=CompetitorMySubmissionsResponse)
+async def competitor_my_submissions(
+    competition_id: int,
+    request: Request,
+    user_id: int | None = None,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitorMySubmissionsResponse:
+    resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
+    ords_response = await _get_from_ords(
+        "competitor/my-submissions",
+        {
+            "competition_id": competition_id,
+            "user_id": resolved_user_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+    items: list[CompetitorMySubmissionEntry] = []
+    for item in raw_items:
+        if isinstance(item, dict):
+            items.append(
+                CompetitorMySubmissionEntry(
+                    checkpoint_title=item.get("checkpoint_title") if isinstance(item.get("checkpoint_title"), str) else None,
+                    submission_id=item.get("submission_id") if isinstance(item.get("submission_id"), int) else None,
+                    submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
+                    awarded_points=item.get("awarded_points") if isinstance(item.get("awarded_points"), int) else 0,
+                )
+            )
+    return CompetitorMySubmissionsResponse(items=items)
+
+
+@app.get("/api/competitor/my-submission-detail", response_model=CompetitorMySubmissionDetailResponse)
+async def competitor_my_submission_detail(
+    competition_id: int,
+    submission_id: int,
+    request: Request,
+    user_id: int | None = None,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitorMySubmissionDetailResponse:
+    resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
+    ords_response = await _get_from_ords(
+        "competitor/my-submission-detail",
+        {
+            "competition_id": competition_id,
+            "user_id": resolved_user_id,
+            "submission_id": submission_id,
+        },
+    )
+    if not isinstance(ords_response, dict):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+
+    raw_options = ords_response.get("options")
+    options: list[CompetitorMySubmissionDetailOption] = []
+    if isinstance(raw_options, list):
+        for o in raw_options:
+            if isinstance(o, dict):
+                options.append(
+                    CompetitorMySubmissionDetailOption(
+                        option_text=o.get("option_text") if isinstance(o.get("option_text"), str) else None,
+                        is_correct=o.get("is_correct") if isinstance(o.get("is_correct"), str) else "N",
+                        is_selected=o.get("is_selected") if isinstance(o.get("is_selected"), str) else "N",
+                    )
+                )
+
+    cp = ords_response.get("correct_pct")
+    correct_pct = float(cp) if isinstance(cp, (int, float)) else None
+    return CompetitorMySubmissionDetailResponse(
+        submission_id=ords_response.get("submission_id") if isinstance(ords_response.get("submission_id"), int) else None,
+        checkpoint_title=ords_response.get("checkpoint_title") if isinstance(ords_response.get("checkpoint_title"), str) else None,
+        question_text=ords_response.get("question_text") if isinstance(ords_response.get("question_text"), str) else None,
+        question_type=ords_response.get("question_type") if isinstance(ords_response.get("question_type"), str) else None,
+        points=ords_response.get("points") if isinstance(ords_response.get("points"), int) else 0,
+        wrong_points=ords_response.get("wrong_points") if isinstance(ords_response.get("wrong_points"), int) else 0,
+        submitted_at=ords_response.get("submitted_at") if isinstance(ords_response.get("submitted_at"), str) else None,
+        awarded_points=ords_response.get("awarded_points") if isinstance(ords_response.get("awarded_points"), int) else 0,
+        competitor_answer=ords_response.get("competitor_answer") if isinstance(ords_response.get("competitor_answer"), str) else None,
+        responders_count=ords_response.get("responders_count") if isinstance(ords_response.get("responders_count"), int) else 0,
+        correct_pct=correct_pct,
+        options=options,
+    )
+
 
 @app.get("/api/admin/leaderboard", response_model=LeaderboardResponse)
 async def admin_leaderboard(
@@ -873,7 +1252,7 @@ async def admin_leaderboard(
     request: Request,
     x_user_id: int | None = Header(default=None),
 ) -> LeaderboardResponse:
-    _ = _resolve_user_id(request, None, x_user_id)
+    _ = _require_google_session_user(request, x_user_id)
     ords_response = await _get_from_ords(
         "organizer/leaderboard",
         {
@@ -888,14 +1267,180 @@ async def admin_leaderboard(
     items: list[LeaderboardEntry] = []
     for item in raw_items:
         if isinstance(item, dict) and isinstance(item.get("user_id"), int) and isinstance(item.get("score"), int):
-            items.append(LeaderboardEntry(user_id=item["user_id"], score=item["score"]))
+            items.append(
+                LeaderboardEntry(
+                    user_id=item["user_id"],
+                    competitor_name=item.get("competitor_name") if isinstance(item.get("competitor_name"), str) else None,
+                    answered_checkpoints=item.get("answered_checkpoints") if isinstance(item.get("answered_checkpoints"), int) else None,
+                    score=item["score"],
+                    last_checkpoint=item.get("last_checkpoint") if isinstance(item.get("last_checkpoint"), str) else None,
+                    last_submission_at=item.get("last_submission_at") if isinstance(item.get("last_submission_at"), str) else None,
+                )
+            )
 
     return LeaderboardResponse(competition_id=competition_id, items=items)
 
 
+@app.get("/api/admin/checkpoint-results", response_model=CheckpointResultsResponse)
+async def admin_checkpoint_results(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CheckpointResultsResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/checkpoint-results",
+        {
+            "competition_id": competition_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    items: list[CheckpointResultEntry] = []
+    for item in raw_items:
+        if isinstance(item, dict):
+            items.append(
+                CheckpointResultEntry(
+                    checkpoint_id=item.get("checkpoint_id") if isinstance(item.get("checkpoint_id"), int) else None,
+                    checkpoint_title=item.get("checkpoint_title") if isinstance(item.get("checkpoint_title"), str) else None,
+                    last_submission_at=item.get("last_submission_at") if isinstance(item.get("last_submission_at"), str) else None,
+                    last_team=item.get("last_team") if isinstance(item.get("last_team"), str) else None,
+                    checkpoint_points=item.get("checkpoint_points") if isinstance(item.get("checkpoint_points"), int) else 0,
+                    correct_count=item.get("correct_count") if isinstance(item.get("correct_count"), int) else 0,
+                    wrong_count=item.get("wrong_count") if isinstance(item.get("wrong_count"), int) else 0,
+                )
+            )
+
+    return CheckpointResultsResponse(competition_id=competition_id, items=items)
+
+@app.get("/api/admin/checkpoint-responders", response_model=CheckpointRespondersResponse)
+async def admin_checkpoint_responders(
+    competition_id: int,
+    checkpoint_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CheckpointRespondersResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/checkpoint-responders",
+        {
+            "competition_id": competition_id,
+            "checkpoint_id": checkpoint_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    items: list[CheckpointResponderEntry] = []
+    for item in raw_items:
+        if isinstance(item, dict) and isinstance(item.get("user_id"), int):
+            items.append(
+                CheckpointResponderEntry(
+                    user_id=item["user_id"],
+                    competitor_name=item.get("competitor_name") if isinstance(item.get("competitor_name"), str) else None,
+                    is_correct=item.get("is_correct") if isinstance(item.get("is_correct"), str) else "N",
+                )
+            )
+
+    return CheckpointRespondersResponse(
+        competition_id=competition_id,
+        checkpoint_id=checkpoint_id,
+        items=items,
+    )
+
+@app.get("/api/admin/participant-submissions", response_model=ParticipantSubmissionsResponse)
+async def admin_participant_submissions(
+    competition_id: int,
+    user_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> ParticipantSubmissionsResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/participant-submissions",
+        {
+            "competition_id": competition_id,
+            "user_id": user_id,
+        },
+    )
+
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    items: list[ParticipantSubmissionEntry] = []
+    for item in raw_items:
+        if isinstance(item, dict):
+            cp_title = item.get("checkpoint_title")
+            points = item.get("awarded_points")
+            is_correct = item.get("is_correct")
+            items.append(
+                ParticipantSubmissionEntry(
+                    submission_id=item.get("submission_id") if isinstance(item.get("submission_id"), int) else None,
+                    checkpoint_title=cp_title if isinstance(cp_title, str) else None,
+                    submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
+                    awarded_points=points if isinstance(points, int) else 0,
+                    answer_text=item.get("answer_text") if isinstance(item.get("answer_text"), str) else None,
+                    is_correct=is_correct if isinstance(is_correct, str) else "N",
+                )
+            )
+
+    return ParticipantSubmissionsResponse(competition_id=competition_id, user_id=user_id, items=items)
+
+
+@app.get("/api/admin/submission-detail", response_model=SubmissionDetailResponse)
+async def admin_submission_detail(
+    competition_id: int,
+    user_id: int,
+    submission_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SubmissionDetailResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/submission-detail",
+        {
+            "competition_id": competition_id,
+            "user_id": user_id,
+            "submission_id": submission_id,
+        },
+    )
+    if not isinstance(ords_response, dict):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+
+    raw_options = ords_response.get("options")
+    options: list[SubmissionDetailOption] = []
+    if isinstance(raw_options, list):
+        for o in raw_options:
+            if isinstance(o, dict):
+                options.append(
+                    SubmissionDetailOption(
+                        option_text=o.get("option_text") if isinstance(o.get("option_text"), str) else None,
+                        is_correct=o.get("is_correct") if isinstance(o.get("is_correct"), str) else "N",
+                        is_selected=o.get("is_selected") if isinstance(o.get("is_selected"), str) else "N",
+                    )
+                )
+
+    return SubmissionDetailResponse(
+        submission_id=ords_response.get("submission_id") if isinstance(ords_response.get("submission_id"), int) else None,
+        checkpoint_title=ords_response.get("checkpoint_title") if isinstance(ords_response.get("checkpoint_title"), str) else None,
+        question_text=ords_response.get("question_text") if isinstance(ords_response.get("question_text"), str) else None,
+        question_type=ords_response.get("question_type") if isinstance(ords_response.get("question_type"), str) else None,
+        points=ords_response.get("points") if isinstance(ords_response.get("points"), int) else 0,
+        wrong_points=ords_response.get("wrong_points") if isinstance(ords_response.get("wrong_points"), int) else 0,
+        submitted_at=ords_response.get("submitted_at") if isinstance(ords_response.get("submitted_at"), str) else None,
+        awarded_points=ords_response.get("awarded_points") if isinstance(ords_response.get("awarded_points"), int) else 0,
+        competitor_answer=ords_response.get("competitor_answer") if isinstance(ords_response.get("competitor_answer"), str) else None,
+        options=options,
+    )
+
+
 @app.post("/api/admin/checkpoints", response_model=AdminCreateCheckpointResponse)
 async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCreateCheckpointResponse:
-    user_id = _resolve_user_id(request, req.created_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     payload: dict[str, Any] = {
         "competition_id": req.competition_id,
         "title": req.title,
@@ -927,7 +1472,7 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
 
 @app.post("/api/admin/questions", response_model=AdminCreateQuestionResponse)
 async def admin_create_question(req: AdminCreateQuestionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCreateQuestionResponse:
-    user_id = _resolve_user_id(request, req.created_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _post_to_ords(
         "admin/questions",
         {
@@ -937,6 +1482,7 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
             "input_max_length": req.input_max_length,
             "input_pattern": req.input_pattern,
             "points": req.points,
+            "wrong_points": req.wrong_points,
             "lang_code": req.lang_code,
             "question_text": req.question_text,
             "created_by": user_id,
@@ -952,7 +1498,7 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
 
 @app.post("/api/admin/question-options", response_model=AdminCreateQuestionOptionResponse)
 async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCreateQuestionOptionResponse:
-    user_id = _resolve_user_id(request, req.created_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _post_to_ords(
         "admin/question-options",
         {
@@ -975,7 +1521,7 @@ async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, re
 
 @app.post("/api/admin/question-answers", response_model=AdminCreateQuestionAnswerResponse)
 async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCreateQuestionAnswerResponse:
-    user_id = _resolve_user_id(request, req.created_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _post_to_ords(
         "admin/question-answers",
         {
@@ -996,14 +1542,14 @@ async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, re
 
 @app.get("/api/admin/competition-overview", response_model=AdminCompetitionOverviewResponse)
 async def admin_competition_overview(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCompetitionOverviewResponse:
-    _ = _resolve_user_id(request, None, x_user_id)
+    _ = _require_google_session_user(request, x_user_id)
     data = await _get_from_ords("admin/competition-overview", {"competition_id": competition_id})
     return AdminCompetitionOverviewResponse(data=data if isinstance(data, dict) else {})
 
 
 @app.get("/api/admin/questions-overview", response_model=AdminQuestionsOverviewResponse)
 async def admin_questions_overview(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminQuestionsOverviewResponse:
-    _ = _resolve_user_id(request, None, x_user_id)
+    _ = _require_google_session_user(request, x_user_id)
     data = await _get_from_ords("admin/questions-overview", {"competition_id": competition_id})
     raw_items = data.get("items") if isinstance(data, dict) else []
     if not isinstance(raw_items, list):
@@ -1031,7 +1577,7 @@ async def admin_questions_overview(competition_id: int, request: Request, x_user
 
 @app.post("/api/admin/access-codes", response_model=AdminUpsertAccessCodeResponse)
 async def admin_upsert_access_code(req: AdminUpsertAccessCodeRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminUpsertAccessCodeResponse:
-    user_id = _resolve_user_id(request, req.created_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _post_to_ords(
         "admin/access-codes",
         {
@@ -1051,15 +1597,54 @@ async def admin_upsert_access_code(req: AdminUpsertAccessCodeRequest, request: R
 
 @app.get("/api/admin/competitions", response_model=AdminCompetitionsResponse)
 async def admin_competitions(request: Request, x_user_id: int | None = Header(default=None)) -> AdminCompetitionsResponse:
-    user_id = _resolve_user_id(request, None, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     data = await _get_from_ords("admin/competitions", {"user_id": user_id})
     items = data.get("items") if isinstance(data, dict) else []
     return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
 
 
+@app.get("/api/superadmin/session", response_model=SuperAdminSessionResponse)
+async def superadmin_session(request: Request, x_user_id: int | None = Header(default=None)) -> SuperAdminSessionResponse:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    return SuperAdminSessionResponse(ok=True, user_id=user_id)
+
+
+@app.get("/api/superadmin/competitions", response_model=AdminCompetitionsResponse)
+async def superadmin_competitions(request: Request, x_user_id: int | None = Header(default=None)) -> AdminCompetitionsResponse:
+    _ = await _require_system_owner_session_user(request, x_user_id)
+    data = await _get_from_ords("superadmin/competitions", {})
+    items = data.get("items") if isinstance(data, dict) else []
+    return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
+
+
+@app.post("/api/superadmin/competitions", response_model=SuperAdminCreateCompetitionResponse)
+async def superadmin_create_competition(
+    req: SuperAdminCreateCompetitionRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    data = await _post_to_ords(
+        "superadmin/competitions",
+        {
+            "name": req.name,
+            "description": req.description,
+            "created_by": user_id,
+        },
+    )
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
+
+
 @app.get("/api/admin/checkpoints", response_model=AdminCheckpointsResponse)
 async def admin_checkpoints(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCheckpointsResponse:
-    _ = _resolve_user_id(request, None, x_user_id)
+    _ = _require_google_session_user(request, x_user_id)
     data = await _get_from_ords("admin/checkpoints", {"competition_id": competition_id})
     items = data.get("items") if isinstance(data, dict) else []
     return AdminCheckpointsResponse(items=items if isinstance(items, list) else [])
@@ -1067,7 +1652,7 @@ async def admin_checkpoints(competition_id: int, request: Request, x_user_id: in
 
 @app.post("/api/admin/checkpoints/update")
 async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.updated_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     payload: dict[str, Any] = {
         "checkpoint_id": req.checkpoint_id,
         "title": req.title,
@@ -1097,7 +1682,7 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
 
 @app.post("/api/admin/checkpoints/delete")
 async def admin_delete_checkpoint(req: AdminDeleteCheckpointRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.deleted_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     await _post_to_ords(
         "admin/checkpoints/delete",
         {
@@ -1112,7 +1697,7 @@ async def admin_delete_checkpoint(req: AdminDeleteCheckpointRequest, request: Re
 
 @app.post("/api/admin/questions/update")
 async def admin_update_question(req: AdminUpdateQuestionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.updated_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     payload: dict[str, Any] = {
         "question_id": req.question_id,
         "checkpoint_id": req.checkpoint_id,
@@ -1121,6 +1706,7 @@ async def admin_update_question(req: AdminUpdateQuestionRequest, request: Reques
         "input_max_length": req.input_max_length,
         "input_pattern": req.input_pattern,
         "points": req.points,
+        "wrong_points": req.wrong_points,
         "lang_code": req.lang_code,
         "question_text": req.question_text,
         "updated_by": user_id,
@@ -1144,7 +1730,7 @@ async def admin_update_question(req: AdminUpdateQuestionRequest, request: Reques
 
 @app.post("/api/admin/questions/delete")
 async def admin_delete_question(req: AdminDeleteQuestionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.deleted_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     await _post_to_ords(
         "admin/questions/delete",
         {
@@ -1159,7 +1745,7 @@ async def admin_delete_question(req: AdminDeleteQuestionRequest, request: Reques
 
 @app.post("/api/admin/competitions/dates")
 async def admin_update_competition_dates(req: AdminUpdateCompetitionDatesRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.updated_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     await _post_to_ords(
         "admin/competitions/dates",
         {
@@ -1175,7 +1761,7 @@ async def admin_update_competition_dates(req: AdminUpdateCompetitionDatesRequest
 
 @app.post("/api/admin/competitions/meta")
 async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
-    user_id = _resolve_user_id(request, req.updated_by, x_user_id)
+    user_id = _require_google_session_user(request, x_user_id)
     await _post_to_ords(
         "admin/competitions/meta",
         {
@@ -1184,6 +1770,7 @@ async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, 
             "description": req.description,
             "status": req.status,
             "use_location": req.use_location,
+            "show_competitor_location": req.show_competitor_location,
             "radius_m": req.radius_m,
             "updated_by": user_id,
         },

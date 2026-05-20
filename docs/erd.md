@@ -1,14 +1,18 @@
-# Andmemudeli ERD (v3)
+# Andmemudeli ERD (v4)
 
-Allolev ERD arvestab rolle, ORDS-protseduuripohist backendi, i18n tekste ja ajalisi kirjeid (`start_date`, `end_date`).
+ERD skeem:
+
+![ERD](./erd.svg)
 
 ## Aktiivse kirje reegel
 
 Aktiivne kirje on kirje, kus:
-- `end_date IS NULL` **voi**
+- `end_date IS NULL` voi
 - `end_date > SYSDATE`
 
-## ERD
+Märkus: `submissions` tabelis soft-delete veerge (`start_date`, `end_date`) enam ei ole.
+
+## ERD (Mermaid allikas)
 
 ```mermaid
 erDiagram
@@ -17,6 +21,7 @@ erDiagram
         varchar2 email
         varchar2 full_name
         varchar2 google_sub
+        varchar2 auth_type
         date start_date
         date end_date
         number created_by
@@ -48,6 +53,9 @@ erDiagram
         varchar2 name
         varchar2 description
         varchar2 status
+        varchar2 use_location
+        varchar2 show_competitor_location
+        number radius_m
         timestamp starts_at
         timestamp ends_at
         date start_date
@@ -62,6 +70,7 @@ erDiagram
         number access_code_id PK
         number competition_id FK
         varchar2 code
+        varchar2 code_type
         varchar2 status
         timestamp expires_at
         number max_uses
@@ -82,11 +91,42 @@ erDiagram
         timestamp assigned_at
     }
 
+    COMPETITION_TERMS {
+        number terms_id PK
+        number competition_id FK
+        number version_no
+        varchar2 status
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    COMPETITION_TERMS_TEXTS {
+        number terms_text_id PK
+        number terms_id FK
+        varchar2 lang_code
+        clob terms_text
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
     COMPETITION_PARTICIPANTS {
         number competition_participant_id PK
         number competition_id FK
         number user_id FK
         number access_code_id FK
+        number terms_id FK
+        varchar2 alias_display
+        varchar2 contact_email
+        varchar2 terms_lang_code
+        timestamp terms_accepted_at
         varchar2 status
         date start_date
         date end_date
@@ -99,6 +139,10 @@ erDiagram
         varchar2 title
         number order_no
         varchar2 location_hint
+        number latitude
+        number longitude
+        number radius_m
+        varchar2 location_required
         date start_date
         date end_date
         number created_by
@@ -117,7 +161,7 @@ erDiagram
         varchar2 placeholder_key
         varchar2 help_text_key
         number points
-        number order_no
+        number wrong_points
         varchar2 status
         date start_date
         date end_date
@@ -207,8 +251,6 @@ erDiagram
         timestamp submitted_at
         number evaluated_by
         timestamp evaluated_at
-        date start_date
-        date end_date
     }
 
     MATERIALS {
@@ -245,8 +287,13 @@ erDiagram
     COMPETITIONS ||--o{ COMPETITION_ORGANIZERS : has
     USERS ||--o{ COMPETITION_ORGANIZERS : organizes
 
+    COMPETITIONS ||--o{ COMPETITION_TERMS : has
+    COMPETITION_TERMS ||--o{ COMPETITION_TERMS_TEXTS : has_texts
+
     COMPETITIONS ||--o{ COMPETITION_PARTICIPANTS : has
     USERS ||--o{ COMPETITION_PARTICIPANTS : participates
+    COMPETITION_ACCESS_CODES ||--o{ COMPETITION_PARTICIPANTS : joined_with_code
+    COMPETITION_TERMS ||--o{ COMPETITION_PARTICIPANTS : accepted_terms
 
     COMPETITIONS ||--o{ CHECKPOINTS : has
     CHECKPOINTS ||--o{ QUESTIONS : has
@@ -263,12 +310,3 @@ erDiagram
     COMPETITIONS ||--o{ MATERIALS : has
     CHECKPOINTS ||--o{ MATERIALS : has_optional
 ```
-
-## Arireeglid (kokkuvote)
-
-1. Kusimuse liik on kas `TEXT` voi `SINGLE_CHOICE`.
-2. `SINGLE_CHOICE` puhul voib olla mitu oiget varianti (`question_options.is_correct = 'Y'`).
-3. UI voib praegu pakkuda ainult uht valikut, kuid andmemudel lubab mitu oiget varianti.
-4. `TEXT`/`NUMERIC` vastuste hindamine toimub `question_answers` kirjetega.
-5. `translations` tabel on UI tolkesonastikule ja seda ei pea audit logis eraldi kajastama.
-6. Kui valitud keelt ei leita, kasutatakse `et`; kui `et` puudub, kuvatakse translation key.

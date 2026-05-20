@@ -90,6 +90,35 @@ docker compose --profile testing run --rm `
 - `LOAD_FINISH_JITTER_PCT=15`
 - `--run-time 70m` (et kõik kasutajad jõuaks lõpetada)
 
+## No-location testireziim
+
+Kui testid võistlust, kus asukohanõuet ei ole, saad vähendada `open-checkpoints` koormust:
+
+- `LOAD_NO_LOCATION_MODE=true`
+- skript teeb `open-checkpoints` päringu ühe korra kasutaja alguses (prefetch)
+- `far` päringuid ei tehta (`far_n=0`)
+- iga KP juures tehakse otse `POST /api/submissions` prefetched andmete põhjal
+
+Linux/Ubuntu näide:
+
+```bash
+export LOAD_ACCESS_CODE="SIIN_VOISTLEJA_KOOD"
+export LOAD_COMPETITION_ID="41"
+export LOAD_KP_COUNT="50"
+export LOAD_DURATION_MIN="180"
+export LOAD_FINISH_JITTER_PCT="15"
+export LOAD_NO_LOCATION_MODE="true"
+
+docker compose --profile testing run --rm testing \
+  -f /mnt/locust/locustfile.py \
+  --host https://fun-o.eu \
+  --users 120 \
+  --spawn-rate 40 \
+  --run-time 195m \
+  --headless \
+  --only-summary
+```
+
 ## Tähtsad märkused
 
 - Kui testid `http://localhost`, siis tootmis-HTTPS redirect võib segada. Kasuta pigem päris hosti `https://fun-o.eu`.

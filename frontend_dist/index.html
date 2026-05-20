@@ -41,6 +41,15 @@
       .small { width: 120px; }
       .headline { font-size: 23px; font-weight: 700; margin-bottom: 6px; }
       .subline { font-size: 19px; color: #4f5a61; margin-bottom: 10px; }
+      .progressBox {
+        margin-top: 10px;
+        border: 1px solid #cfe0d1;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #f7fbf7;
+        font-size: 22px;
+        font-weight: 700;
+      }
       .answerCardBig { padding: 18px; }
       .optionBtn { margin-bottom: 10px; text-align: left; font-size: 24px; font-weight: 700; padding: 16px; }
       .opt0 { background: #dff7e4; color: #13321a; }
@@ -88,6 +97,59 @@
         font-size: 16px;
         line-height: 1.2;
       }
+      .myResCard { display:none; }
+      .myResCollapsed { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+      .myResCollapsed button {
+        width: auto;
+        min-width: 180px;
+        display: block;
+        margin: 0 auto;
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+      .myResProgress {
+        border: 1px solid #cfe0d1;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #f7fbf7;
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .myResExpanded { display: none; padding: 14px; }
+      .myResHead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+      .myResTitle { margin:0; font-size:24px; }
+      .miniBtn {
+        width: auto;
+        min-width: 0;
+        padding: 8px 10px;
+        font-size: 16px;
+        line-height: 1.2;
+        border-radius: 8px;
+      }
+      .myResTable { width:100%; border-collapse: collapse; table-layout: fixed; }
+      .myResTable th, .myResTable td { border-bottom: 1px solid #e6ece5; padding: 8px 6px; text-align:left; vertical-align: top; font-size: 16px; }
+      .myResTable th { font-size: 15px; }
+      .sortTiny {
+        width: auto;
+        min-width: 0;
+        display: inline;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0;
+        margin-left: 4px;
+        border-radius: 0;
+      }
+      .kpLink { color:#145a8a; text-decoration: underline; background:none; border:0; padding:0; font:inherit; cursor:pointer; text-align:left; }
+      .ansList { list-style:none; padding:0; margin:10px 0 0; }
+      .ansList li { margin:5px 0; font-size:19px; }
+      .ansPicked { font-weight: 700; }
+      .okI { color:#198754; font-weight:800; margin-right:6px; }
+      .noI { color:#d93025; font-weight:800; margin-right:6px; }
     </style>
   </head>
   <body>
@@ -135,6 +197,29 @@
             <div style="height:10px"></div>
             <button id="textSubmitBtn">Saada vastus</button>
           </div>
+        </div>
+      </div>
+
+      <div class="card myResCard" id="myResultsCard">
+        <div id="myResultsCollapsed" class="myResCollapsed">
+          <div id="myResultsProgress" class="myResProgress">KP: 0 / 0  Punktid: 0</div>
+          <button id="myResultsBtn">Tulemused</button>
+        </div>
+        <div id="myResExpanded" class="myResExpanded">
+          <div class="myResHead">
+            <h2 class="myResTitle">Tulemused</h2>
+            <button id="myResultsCloseBtn" class="secondary miniBtn">Sulge</button>
+          </div>
+          <table class="myResTable">
+            <thead>
+              <tr>
+                <th>KP <button id="mrSortTitle" class="sortTiny">☰</button></th>
+                <th>KP läbimise aeg <button id="mrSortTime" class="sortTiny">▼</button></th>
+                <th>Punktid</th>
+              </tr>
+            </thead>
+            <tbody id="myResultsRows"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -186,6 +271,21 @@
       </div>
     </div>
 
+    <div id="myAnswerDetailBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <div class="myResHead" style="margin-bottom:6px;">
+          <h3 style="margin:0; font-size:30px;">Vastuse detail</h3>
+          <button id="myAnswerDetailCloseBtn" class="secondary miniBtn">Sulge</button>
+        </div>
+        <div id="myAnswerQuestion" style="font-size:30px; font-weight:800;"></div>
+        <ul id="myAnswerVariants" class="ansList"></ul>
+        <div id="myAnswerSubmittedAt" style="margin-top:8px; font-size:24px; color:#525e64;"></div>
+        <div id="myAnswerPoints" style="margin-top:6px; font-size:24px; color:#525e64;"></div>
+        <div id="myAnswerResponders" style="margin-top:6px; font-size:24px; color:#525e64;"></div>
+        <div id="myAnswerCorrectPct" style="margin-top:6px; font-size:24px; color:#525e64;"></div>
+      </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       const state = {
@@ -194,6 +294,7 @@
         competitions: [],
         selectedCompetitionId: null,
         openItems: [],
+        openItemsLoaded: false,
         feedbackOpen: false,
         geo: {
           enabled: false,
@@ -209,12 +310,16 @@
       let userPosMarker = null;
       let mapInfoVisible = false;
       let mapRings = [];
-      let mapLabels = [];
       let geoWatchId = null;
       let mapFollowUser = true;
       let mapProgrammaticMove = false;
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
+      const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
       let openCheckpointsClientCache = { key: "", ts: 0, items: [] };
+      let progressCache = { key: "", updatedAt: 0, totalKp: 0, answeredKp: 0, score: 0 };
+      let myResultsItems = [];
+      let myResultsSortKey = "submitted_at";
+      let myResultsSortDir = "desc";
 
       const el = (id) => document.getElementById(id);
 
@@ -223,6 +328,21 @@
         if (!text) { box.className = ""; box.textContent = ""; return; }
         box.className = "msg " + (ok ? "ok" : "err");
         box.textContent = text;
+      }
+
+      function esc(v) {
+        return (v ?? "").toString().replace(/[&<>\"']/g, (m) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#039;" }[m]));
+      }
+      function normAnswer(v) {
+        return (v ?? "").toString().trim().toLocaleLowerCase("et");
+      }
+
+      function fmtEtLocal(ts) {
+        if (!ts) return "-";
+        const d = new Date(/z$/i.test(ts) ? ts : `${ts}Z`);
+        if (Number.isNaN(d.getTime())) return ts;
+        const p = (n) => String(n).padStart(2, "0");
+        return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
       }
 
       function setCookie(name, value, days = 30) {
@@ -236,19 +356,150 @@
         return part ? decodeURIComponent(part.substring(prefix.length)) : null;
       }
 
+      function getProgressCookieName() {
+        const uid = Number(state.userId || 0);
+        const cid = Number(state.selectedCompetitionId || 0);
+        if (uid <= 0 || cid <= 0) return null;
+        return `funo_comp_progress_u${uid}_c${cid}`;
+      }
+
+      function getProgressCacheKey() {
+        return `${Number(state.userId || 0)}|${Number(state.selectedCompetitionId || 0)}`;
+      }
+
+      function isProgressStale(ts) {
+        const t = Number(ts || 0);
+        if (!Number.isFinite(t) || t <= 0) return true;
+        return Date.now() - t > COMP_PROGRESS_TTL_MS;
+      }
+
+      function saveProgressCookie() {
+        const name = getProgressCookieName();
+        if (!name) return;
+        setCookie(name, JSON.stringify(progressCache), 30);
+      }
+
+      function loadProgressCookie() {
+        const name = getProgressCookieName();
+        if (!name) return false;
+        const raw = getCookie(name);
+        if (!raw) return false;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return false;
+          if (String(parsed.key || "") !== getProgressCacheKey()) return false;
+          progressCache = {
+            key: String(parsed.key || ""),
+            updatedAt: Number(parsed.updatedAt || 0),
+            totalKp: Math.max(0, Number(parsed.totalKp || 0)),
+            answeredKp: Math.max(0, Number(parsed.answeredKp || 0)),
+            score: Number(parsed.score || 0),
+          };
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function renderProgressBox() {
+        const total = Math.max(0, Number(progressCache.totalKp || 0));
+        const answered = Math.min(total, Math.max(0, Number(progressCache.answeredKp || 0)));
+        const score = Number(progressCache.score || 0);
+        const text = `KP: ${answered} / ${total}  Punktid: ${score}`;
+        const p1 = el("myResultsProgress");
+        if (p1) p1.textContent = text;
+      }
+
+      async function refreshProgressFromApi() {
+        if (!state.selectedCompetitionId) return false;
+        const res = await apiGet(`/api/competitor/progress?competition_id=${state.selectedCompetitionId}`);
+        if (!res.ok || !res.data) return false;
+        const total = Number(res.data.total_checkpoints);
+        const answered = Number(res.data.answered_checkpoints);
+        const score = Number(res.data.score);
+        if (!Number.isFinite(total) || !Number.isFinite(answered) || !Number.isFinite(score)) return false;
+        progressCache = {
+          key: getProgressCacheKey(),
+          updatedAt: Date.now(),
+          totalKp: Math.max(0, total),
+          answeredKp: Math.max(0, Math.min(Math.max(0, total), answered)),
+          score: score,
+        };
+        saveProgressCookie();
+        renderProgressBox();
+        return true;
+      }
+
+      async function ensureProgressLoaded(forceRefresh = false) {
+        const baseProgress = { key: getProgressCacheKey(), updatedAt: 0, totalKp: 0, answeredKp: 0, score: 0 };
+        progressCache = baseProgress;
+        const hasCookie = loadProgressCookie();
+        if (!hasCookie) progressCache = baseProgress;
+        renderProgressBox();
+        if (forceRefresh || !hasCookie || isProgressStale(progressCache.updatedAt)) {
+          await refreshProgressFromApi();
+        }
+      }
+
       async function apiGet(url) {
-        const r = await fetch(url);
-        const data = await r.json().catch(() => ({}));
-        return { ok: r.ok, status: r.status, data };
+        return apiRequest(url, { method: "GET" }, { allowRetry429: true });
       }
       async function apiPost(url, payload) {
-        const r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload || {}),
-        });
-        const data = await r.json().catch(() => ({}));
-        return { ok: r.ok, status: r.status, data };
+        return apiRequest(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload || {}),
+          },
+          { allowRetry429: false }
+        );
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      function parseRetryAfterSeconds(value) {
+        const n = Number(value);
+        if (Number.isFinite(n) && n > 0) return Math.min(10, Math.floor(n));
+        return 2;
+      }
+
+      function enrichErrorMessage(status, data, retryAfterSeconds) {
+        const code = data?.detail?.code || "";
+        if (status === 429 || code === "ORDS_RATE_LIMITED") {
+          return `Server on koormatud. Proovi ${retryAfterSeconds} sek pärast uuesti.`;
+        }
+        return data?.detail?.message || "";
+      }
+
+      async function apiRequest(url, init, options = {}) {
+        const allowRetry429 = options.allowRetry429 === true;
+        const maxAttempts = allowRetry429 ? 2 : 1;
+        let attempt = 0;
+        while (attempt < maxAttempts) {
+          attempt += 1;
+          const r = await fetch(url, init);
+          const data = await r.json().catch(() => ({}));
+          const retryAfterSeconds = parseRetryAfterSeconds(r.headers.get("Retry-After"));
+          const userMessage = enrichErrorMessage(r.status, data, retryAfterSeconds);
+
+          if (!r.ok && r.status === 429 && allowRetry429 && attempt < maxAttempts) {
+            await sleep(retryAfterSeconds * 1000);
+            continue;
+          }
+
+          return { ok: r.ok, status: r.status, data, userMessage, retryAfterSeconds };
+        }
+
+        return {
+          ok: false,
+          status: 429,
+          data: { detail: { code: "ORDS_RATE_LIMITED" } },
+          userMessage: "Server on koormatud. Proovi hetke pärast uuesti.",
+          retryAfterSeconds: 2,
+        };
       }
 
       function getGeoQueryParams() {
@@ -314,6 +565,13 @@
         return String(c?.use_location || "N").toUpperCase() === "Y";
       }
 
+      function selectedCompetitionShowsUserLocation() {
+        const c = getSelectedCompetition();
+        const usesLocation = String(c?.use_location || "N").toUpperCase() === "Y";
+        if (!usesLocation) return false;
+        return String(c?.show_competitor_location || "Y").toUpperCase() === "Y";
+      }
+
       function renderCompetitionPicker() {
         const s = el("competitionSelectModal");
         s.innerHTML = "";
@@ -329,6 +587,15 @@
       function renderCheckpointSelect() {
         const s = el("checkpointSelect");
         s.innerHTML = "";
+        if (!state.openItemsLoaded) {
+          const o = document.createElement("option");
+          o.value = "";
+          o.textContent = "Vajuta \"Kuva KP-d\"";
+          s.appendChild(o);
+          s.disabled = true;
+          el("questionBlock").style.display = "none";
+          return;
+        }
         if (!state.openItems.length) {
           const o = document.createElement("option");
           o.value = "";
@@ -425,10 +692,16 @@
         };
         const res = await apiPost("/api/submissions", payload);
         if (!res.ok) {
-          setMsg("answerMsg", res.data?.detail?.message || "Vastuse saatmine ebaõnnestus", false);
+          setMsg("answerMsg", res.userMessage || res.data?.detail?.message || "Vastuse saatmine ebaõnnestus", false);
           return;
         }
         const d = res.data || {};
+        progressCache.score = Number(d.total_score || 0);
+        progressCache.answeredKp = Math.max(0, Number(progressCache.answeredKp || 0) + 1);
+        progressCache.updatedAt = Date.now();
+        progressCache.key = getProgressCacheKey();
+        saveProgressCookie();
+        renderProgressBox();
         showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
       }
 
@@ -449,17 +722,21 @@
           now - openCheckpointsClientCache.ts < OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS
         ) {
           state.openItems = [...openCheckpointsClientCache.items];
+          state.openItemsLoaded = true;
           renderCheckpointSelect();
           return;
         }
 
         const res = await apiGet(`/api/competitor/open-checkpoints?competition_id=${state.selectedCompetitionId}${geoParams}`);
         if (!res.ok) {
+          setMsg("answerMsg", res.userMessage || res.data?.detail?.message || "KP-de laadimine ebaõnnestus", false);
           state.openItems = [];
+          state.openItemsLoaded = true;
           renderCheckpointSelect();
           return;
         }
         state.openItems = Array.isArray(res.data.items) ? res.data.items : [];
+        state.openItemsLoaded = true;
         openCheckpointsClientCache = {
           key: requestKey,
           ts: now,
@@ -520,27 +797,33 @@
       function updateFollowButton() {
         const btn = el("compMapFollowBtn");
         if (!btn) return;
+        if (!selectedCompetitionShowsUserLocation()) {
+          btn.style.display = "none";
+          return;
+        }
+        btn.style.display = "inline-block";
         btn.textContent = mapFollowUser ? "Jälgi mind: ON" : "Jälgi mind: OFF";
+      }
+
+      function anyMapPopupOpen() {
+        return mapRings.some((ring) => !!ring.getPopup()?.isOpen());
       }
 
       function setMapInfoVisibility(show) {
         mapInfoVisible = !!show;
-        mapLabels.forEach((label) => {
-          if (mapInfoVisible) label.addTo(compMap);
-          else if (compMap.hasLayer(label)) compMap.removeLayer(label);
-        });
+        if (mapInfoVisible) {
+          mapRings.forEach((ring) => ring.openPopup());
+        } else {
+          mapRings.forEach((ring) => ring.closePopup());
+        }
         const infoBtn = el("compMapInfoBtn");
-        if (infoBtn) infoBtn.textContent = mapInfoVisible ? "Info peida" : "Info";
+        if (infoBtn) infoBtn.textContent = "Info";
       }
 
       function renderCompMap(items) {
         ensureCompMapInit();
         compMapLayer.clearLayers();
         mapRings = [];
-        mapLabels.forEach((label) => {
-          if (compMap && compMap.hasLayer(label)) compMap.removeLayer(label);
-        });
-        mapLabels = [];
         if (userPosMarker) {
           compMap.removeLayer(userPosMarker);
           userPosMarker = null;
@@ -558,22 +841,13 @@
             weight: 3,
             fillOpacity: 0,
           }).addTo(compMapLayer);
-          ring.bindPopup(cp.checkpoint_title || "KP");
+          const points = Number(cp.points || 0);
+          const popupText = `${cp.checkpoint_title || "KP"} (${points} p)`;
+          ring.bindPopup(popupText, { autoClose: false, closeOnClick: false, autoPan: false });
           mapRings.push(ring);
-          mapLabels.push(
-            L.tooltip({
-              permanent: true,
-              direction: "top",
-              opacity: 0.95,
-              offset: [0, -16],
-              className: "cp-map-label",
-            })
-              .setLatLng([lat, lon])
-              .setContent(cp.checkpoint_title || "KP")
-          );
           bounds.push([lat, lon]);
         });
-        if (state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
+        if (selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
           userPosMarker = L.circleMarker([state.geo.latitude, state.geo.longitude], {
             radius: 7,
             color: "#ffffff",
@@ -584,13 +858,15 @@
           userPosMarker.bindPopup("Sinu asukoht");
           bounds.push([state.geo.latitude, state.geo.longitude]);
         }
+        mapProgrammaticMove = true;
         const restored = restoreCompMapView();
         if (!restored && bounds.length) {
           compMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 });
         }
-        if (state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
+        if (selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
           compMap.setView([state.geo.latitude, state.geo.longitude], compMap.getZoom(), { animate: false });
         }
+        setTimeout(() => { mapProgrammaticMove = false; }, 250);
         setMapInfoVisibility(mapInfoVisible);
         setTimeout(() => compMap.invalidateSize(), 50);
       }
@@ -601,6 +877,7 @@
         state.geo.longitude = Number(lon);
         state.geo.radius_m = Number(accuracy);
         state.geo.error = null;
+        if (!selectedCompetitionShowsUserLocation()) return;
         if (!compMap) return;
         if (!userPosMarker) {
           userPosMarker = L.circleMarker([lat, lon], {
@@ -659,6 +936,7 @@
         el("showKpBtn").style.display = needsLocation ? "inline-block" : "none";
         el("mapBtn").style.display = needsLocation ? "inline-block" : "none";
         state.openItems = [];
+        state.openItemsLoaded = false;
         renderCheckpointSelect();
         if (!needsLocation) {
           state.geo.enabled = false;
@@ -671,6 +949,109 @@
         }
       }
 
+      function mySortIconFor(key) {
+        if (myResultsSortKey !== key) return "☰";
+        return myResultsSortDir === "asc" ? "▲" : "▼";
+      }
+
+      function refreshMySortIcons() {
+        el("mrSortTitle").textContent = mySortIconFor("checkpoint_title");
+        el("mrSortTime").textContent = mySortIconFor("submitted_at");
+      }
+
+      function sortMyResults() {
+        const dir = myResultsSortDir === "asc" ? 1 : -1;
+        return [...myResultsItems].sort((a, b) => {
+          if (myResultsSortKey === "checkpoint_title") {
+            return String(a.checkpoint_title || "").localeCompare(String(b.checkpoint_title || ""), "et", { sensitivity: "base" }) * dir;
+          }
+          const av = a.submitted_at ? new Date(`${a.submitted_at}Z`).getTime() : 0;
+          const bv = b.submitted_at ? new Date(`${b.submitted_at}Z`).getTime() : 0;
+          return (av - bv) * dir;
+        });
+      }
+
+      function renderMyResults() {
+        const rows = sortMyResults();
+        const box = el("myResultsRows");
+        if (!rows.length) {
+          box.innerHTML = `<tr><td colspan="3">Sul ei ole veel ühtegi läbitud KP-d.</td></tr>`;
+          refreshMySortIcons();
+          return;
+        }
+        box.innerHTML = rows.map((r) => `<tr>
+          <td><button class="kpLink" data-sub-id="${Number(r.submission_id || 0)}">${esc(r.checkpoint_title || "-")}</button></td>
+          <td>${esc(fmtEtLocal(r.submitted_at))}</td>
+          <td>${Number(r.awarded_points || 0)}</td>
+        </tr>`).join("");
+        refreshMySortIcons();
+      }
+
+      function setMyResultsOpen(open) {
+        el("myResultsCollapsed").style.display = open ? "none" : "flex";
+        el("myResExpanded").style.display = open ? "block" : "none";
+      }
+
+      function setMySort(key) {
+        if (myResultsSortKey === key) myResultsSortDir = myResultsSortDir === "asc" ? "desc" : "asc";
+        else {
+          myResultsSortKey = key;
+          myResultsSortDir = key === "submitted_at" ? "desc" : "asc";
+        }
+        renderMyResults();
+      }
+
+      async function loadMyResults() {
+        if (!state.selectedCompetitionId) return;
+        const res = await apiGet(`/api/competitor/my-submissions?competition_id=${state.selectedCompetitionId}`);
+        if (!res.ok) {
+          setMsg("answerMsg", res.userMessage || res.data?.detail?.message || "Minu KP-de laadimine ebaõnnestus", false);
+          return;
+        }
+        myResultsItems = Array.isArray(res.data.items) ? res.data.items : [];
+        renderMyResults();
+        setMyResultsOpen(true);
+      }
+
+      async function openMyAnswerDetail(submissionId) {
+        if (!state.selectedCompetitionId || !submissionId) return;
+        const res = await apiGet(`/api/competitor/my-submission-detail?competition_id=${state.selectedCompetitionId}&submission_id=${Number(submissionId)}`);
+        if (!res.ok || !res.data) {
+          setMsg("answerMsg", res.userMessage || res.data?.detail?.message || "Vastuse detaili laadimine ebaõnnestus", false);
+          return;
+        }
+        const d = res.data;
+        el("myAnswerQuestion").textContent = `${d.question_text || "-"} (${Number(d.points || 0)} / ${Number(d.wrong_points || 0)})`;
+        el("myAnswerSubmittedAt").textContent = `Vastamise aeg: ${fmtEtLocal(d.submitted_at)}`;
+        el("myAnswerPoints").textContent = `Teenitud punktid: ${Number(d.awarded_points || 0)}`;
+        el("myAnswerResponders").textContent = `Vastajate arv: ${Number(d.responders_count || 0)}`;
+        el("myAnswerCorrectPct").textContent = `Õigete vastuste %: ${d.correct_pct == null ? "-" : Number(d.correct_pct).toFixed(1)}%`;
+
+        const options = Array.isArray(d.options) ? d.options : [];
+        const answer = String(d.competitor_answer || "");
+        if (!options.length) {
+          el("myAnswerVariants").innerHTML = `<li><span class="ansPicked">${esc(answer || "-")}</span></li>`;
+        } else {
+          const normalizedAnswer = normAnswer(answer);
+          let matchedByText = false;
+          const rendered = options.map((o) => {
+            const c = String(o.is_correct || "N").toUpperCase() === "Y";
+            const selectedByFlag = String(o.is_selected || "N").toUpperCase() === "Y";
+            const selectedByText = normalizedAnswer && normAnswer(o.option_text || "") === normalizedAnswer;
+            if (selectedByText) matchedByText = true;
+            const s = selectedByFlag || selectedByText;
+            const icon = c ? "✓" : "✗";
+            const cls = c ? "okI" : "noI";
+            return `<li><span class="${cls}">${icon}</span><span class="${s ? "ansPicked" : ""}">${esc(o.option_text || "-")}</span></li>`;
+          });
+          if (normalizedAnswer && !matchedByText) {
+            rendered.push(`<li><span class="noI">✗</span><span class="ansPicked">${esc(answer)}</span> <span style="color:#5f6b70;">(Sinu vastus)</span></li>`);
+          }
+          el("myAnswerVariants").innerHTML = rendered.join("");
+        }
+        el("myAnswerDetailBackdrop").style.display = "flex";
+      }
+
       async function loadCompetitions(preferredCompetitionId = null) {
         const res = await apiGet("/api/competitor/competitions");
         if (!res.ok || !Array.isArray(res.data.items) || !res.data.items.length) {
@@ -678,6 +1059,7 @@
           state.selectedCompetitionId = null;
           el("mainCard").style.display = "none";
           el("answerCard").style.display = "none";
+          el("myResultsCard").style.display = "none";
           el("competitionPickerBackdrop").style.display = "flex";
           return;
         }
@@ -696,7 +1078,10 @@
         renderCompetitionPicker();
         el("mainCard").style.display = "block";
         el("answerCard").style.display = "block";
+        el("myResultsCard").style.display = "block";
+        setMyResultsOpen(false);
         await applyCheckpointLoadingMode();
+        await ensureProgressLoaded(true);
       }
 
       async function doDevLogin() {
@@ -704,7 +1089,7 @@
         const email = el("devEmail").value.trim();
         const res = await apiPost("/api/dev/login", { email });
         if (!res.ok) {
-          setMsg("authMsg", res.data?.detail?.message || "Sisselogimine ebaõnnestus", false);
+          setMsg("authMsg", res.userMessage || res.data?.detail?.message || "Sisselogimine ebaõnnestus", false);
           return;
         }
         state.userId = res.data.user_id;
@@ -725,7 +1110,7 @@
         if (!res.ok) {
           const code = res.data?.detail?.code;
           if (code === "ALREADY_REGISTERED") setMsg("joinMsg", "Oled juba võistlusega liitunud.", false);
-          else setMsg("joinMsg", "Tundmatu kood.", false);
+          else setMsg("joinMsg", res.userMessage || "Tundmatu kood.", false);
           return;
         }
         const joinedCompetitionId = Number(res.data?.competition_id || 0) || null;
@@ -748,6 +1133,7 @@
             if (state.userId) setCookie(`funo_last_competitor_comp_u${state.userId}`, String(cid));
             renderCompetitionText();
             await applyCheckpointLoadingMode();
+            await ensureProgressLoaded(true);
           }
           el("competitionPickerBackdrop").style.display = "none";
         });
@@ -765,7 +1151,8 @@
         el("mapBtn").addEventListener("click", openCompMapModal);
         el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
         el("compMapInfoBtn").addEventListener("click", () => {
-          setMapInfoVisibility(!mapInfoVisible);
+          if (anyMapPopupOpen()) setMapInfoVisibility(false);
+          else setMapInfoVisibility(true);
         });
         el("compMapFollowBtn").addEventListener("click", () => {
           mapFollowUser = !mapFollowUser;
@@ -801,6 +1188,26 @@
             setMsg("answerMsg", "", true);
           }
           if (state.selectedCompetitionId) await loadOpenCheckpoints();
+        });
+        el("myResultsBtn").addEventListener("click", async () => {
+          await loadMyResults();
+        });
+        el("myResultsCloseBtn").addEventListener("click", () => {
+          setMyResultsOpen(false);
+        });
+        el("mrSortTitle").addEventListener("click", () => setMySort("checkpoint_title"));
+        el("mrSortTime").addEventListener("click", () => setMySort("submitted_at"));
+        el("myResultsRows").addEventListener("click", (e) => {
+          const btn = e.target.closest(".kpLink");
+          if (!btn) return;
+          const sid = Number(btn.getAttribute("data-sub-id") || 0);
+          openMyAnswerDetail(sid).catch(() => {});
+        });
+        el("myAnswerDetailCloseBtn").addEventListener("click", () => {
+          el("myAnswerDetailBackdrop").style.display = "none";
+        });
+        el("myAnswerDetailBackdrop").addEventListener("click", (e) => {
+          if (e.target === el("myAnswerDetailBackdrop")) el("myAnswerDetailBackdrop").style.display = "none";
         });
         el("joinBtn").addEventListener("click", joinCompetition);
         el("checkpointSelect").addEventListener("change", renderQuestionForSelectedCheckpoint);
