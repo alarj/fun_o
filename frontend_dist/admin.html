@@ -181,6 +181,9 @@
     .yn-switch input:checked + .yn-slider:before {
       transform: translateX(20px);
     }
+    .layer-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+    .layer-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #ececec; border-radius: 8px; padding: 8px 10px; }
+    .layer-row .label { font-size: 14px; }
 
     @media (max-width: 900px) {
       .wrap { padding: 10px; }
@@ -296,7 +299,6 @@
             <button id="openResultsBtn" class="secondary">Tulemused</button>
           </div>
           <div class="tools">
-            <button id="goSuperadminBtn" class="secondary hidden" type="button">Kõik võistlused</button>
             <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
           </div>
         </div>
@@ -352,9 +354,10 @@
   </div>
 
   <dialog id="cpDialog">
-    <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <h3 id="cpTitle" style="margin:0;">Kontrollpunkt</h3>
-      <div class="tools">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:nowrap;">
+      <h3 id="cpTitle" style="margin:0; white-space:nowrap;">Kontrollpunkt</h3>
+      <div class="tools" style="display:flex; flex-wrap:nowrap; gap:8px; align-items:center;">
+        <select id="cpDialogMapLayerSelect" style="width:240px; min-width:240px;"></select>
         <button id="cpToggleExistingBtn" class="secondary" type="button">Olemasolevad KP-d</button>
         <button id="cpMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
       </div>
@@ -455,6 +458,7 @@
       <div class="dialog-right">
         <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button">Ava tähised</button>
         <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button">Sule tähised</button>
+        <select id="cpOverviewMapLayerSelect" style="min-width:210px;"></select>
       </div>
       <div class="dialog-right">
         <button id="cpOverviewMapCloseBtn" class="secondary" type="button">Sulge</button>
@@ -463,7 +467,10 @@
   </dialog>
 
   <dialog id="competitionPickerDialog">
-    <h3 data-i18n="admin.comp_picker.heading">Vali võistlus</h3>
+    <div class="tools" style="justify-content:space-between; align-items:center;">
+      <h3 data-i18n="admin.comp_picker.heading">Vali võistlus</h3>
+      <button id="goSuperadminBtn" class="secondary hidden" type="button">Kõik võistlused</button>
+    </div>
     <div class="row">
       <label data-i18n="admin.comp_picker.label">Võistlus</label>
       <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
@@ -515,12 +522,27 @@
     <div class="row"><label>Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
     <div class="row"><label data-i18n="admin.dates.start_label">Võistluse algus (dd.mm.yyyy hh:mm)</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><label data-i18n="admin.dates.end_label">Võistluse lõpp (dd.mm.yyyy hh:mm)</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button">Kaardi valik</button></div></div>
     <div id="metaMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
         <button id="metaCancel" class="secondary" type="button" data-i18n="admin.meta.cancel_btn">Katkesta</button>
         <button id="metaSave" type="button" data-i18n="admin.meta.save_btn">Salvesta</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="participantMapLayersDialog">
+    <h3>Võistleja kaardid</h3>
+    <div class="muted">Vali kaardid, mida võistlejale selle võistluse jaoks kuvada.</div>
+    <div id="participantMapLayersList" class="layer-list"></div>
+    <div id="participantMapLayersMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="participantMapLayersCancel" class="secondary" type="button">Sulge</button>
+        <button id="participantMapLayersSave" type="button">Salvesta</button>
       </div>
     </div>
   </dialog>
@@ -582,6 +604,8 @@
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
 ></script>
+<script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
   const byId = (id) => document.getElementById(id);
@@ -744,24 +768,32 @@
 
   const compId = () => Number(byId("competitionSelect").value);
   let currentCompetitionActive = true;
+  const asUtcDate = (v) => {
+    if (!v) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
   const fmtDateEt = (v) => {
     if (!v) return "";
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return v;
+    const d = asUtcDate(v);
+    if (!d) return v;
     const p2 = (n) => String(n).padStart(2, "0");
     return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} ${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
   };
   const fmtDateEtShort = (v) => {
     if (!v) return "-";
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return "-";
+    const d = asUtcDate(v);
+    if (!d) return "-";
     const p2 = (n) => String(n).padStart(2, "0");
     return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
   };
   const fmtEtInput = (v) => {
     if (!v) return "";
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return "";
+    const d = asUtcDate(v);
+    if (!d) return "";
     const p2 = (n) => String(n).padStart(2, "0");
     return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
   };
@@ -778,7 +810,9 @@
     if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
       return { error: tr("admin.msg.date_value_error", "Kuupäeva väärtus ei ole korrektne") };
     }
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:00`;
+    const localDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), 0);
+    if (Number.isNaN(localDate.getTime())) return { error: tr("admin.msg.date_value_error", "Kuupäeva väärtus ei ole korrektne") };
+    return localDate.toISOString().slice(0, 19) + "Z";
   };
   const generate6DigitCode = () => String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
   const nextOptionCode = (idx) => String.fromCharCode(65 + (idx % 26));
@@ -788,12 +822,19 @@
   let pendingDeleteQuestionId = null;
   let currentCompetitionUseLocation = "N";
   let cpMap = null;
+  let cpBaseLayer = null;
   let cpMarker = null;
   let cpRadiusCircle = null;
+  let cpDialogCurrentCrs = "EPSG:3857";
   let cpOverviewMap = null;
+  let cpOverviewBaseLayer = null;
   let cpOverviewLayer = null;
   let cpOverviewMarkers = [];
+  let cpOverviewCurrentCrs = "EPSG:3857";
   let cpOverviewFullscreen = false;
+  let availableMapLayers = [];
+  let competitionParticipantLayerCodes = [];
+  let participantLayerSelection = [];
   let cpDialogFullscreen = false;
   let cpDialogInitialState = "";
   let cpDialogCheckpointId = null;
@@ -801,28 +842,232 @@
   let cpExistingLayer = null;
   const lastCpCoordKey = () => `funo_last_cp_coord_c${compId()}`;
   const lastCpOverviewViewKey = () => `funo_cp_overview_view_c${compId()}`;
+  const lastCpOverviewMapLayerKey = "funo_cp_overview_map_layer";
+  const lastCpDialogMapLayerKey = "funo_cp_dialog_map_layer";
 
-  function initCheckpointMap() {
-    if (cpMap) return;
-    cpMap = L.map("cpMap").setView([58.6, 25.0], 7);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(cpMap);
+  function createCpDialogMap(targetCrs) {
+    let previousView = null;
+    if (cpMap) {
+      const c = cpMap.getCenter();
+      const z = cpMap.getZoom();
+      if (Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng)) && Number.isFinite(Number(z))) {
+        previousView = { lat: Number(c.lat), lon: Number(c.lng), zoom: Number(z) };
+      }
+      cpMap.remove();
+      cpMap = null;
+      cpBaseLayer = null;
+      cpMarker = null;
+      cpRadiusCircle = null;
+      cpExistingLayer = null;
+    }
+    const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
+    if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
+      options.crs = new L.Proj.CRS(
+        "EPSG:3301",
+        "+proj=lcc +lat_1=59.33333333333334 +lat_2=58 +lat_0=57.51755393055556 +lon_0=24 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+        {
+          origin: [40500, 7017000],
+          resolutions: [
+            4000, 2000, 1000, 500, 250, 125, 62.5, 31.25,
+            15.625, 7.8125, 3.90625, 1.953125, 0.9765625, 0.48828125, 0.244140625
+          ],
+          bounds: L.bounds([40500, 5993000], [1064500, 7017000])
+        }
+      );
+    }
+    cpMap = L.map("cpMap", options);
     cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
     cpExistingLayer = L.layerGroup().addTo(cpMap);
+    cpDialogCurrentCrs = targetCrs;
+    return previousView;
+  }
+
+  function initCheckpointMap() {
+    const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+    const targetCrs = requiresLestCrs(layerCfg) ? "EPSG:3301" : "EPSG:3857";
+    if (!cpMap) {
+      createCpDialogMap(targetCrs);
+      cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      applyCheckpointDialogBaseLayer();
+      return;
+    }
+    if (cpDialogCurrentCrs !== targetCrs) {
+      createCpDialogMap(targetCrs);
+      applyCheckpointDialogBaseLayer();
+      cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      return;
+    }
+    applyCheckpointDialogBaseLayer();
+  }
+
+  function applyCheckpointDialogBaseLayer() {
+    if (!cpMap) return;
+    const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+    if (!layerCfg) return;
+    if (cpBaseLayer) cpMap.removeLayer(cpBaseLayer);
+    if ((layerCfg.layer_type || "xyz") === "wms") {
+      cpBaseLayer = L.tileLayer.wms(layerCfg.url_template, {
+        layers: layerCfg.wms_layers || "",
+        format: layerCfg.wms_format || "image/png",
+        transparent: !!layerCfg.wms_transparent,
+        version: layerCfg.wms_version || "1.3.0",
+        maxZoom: Number(layerCfg.max_zoom || 19),
+        minZoom: Number(layerCfg.min_zoom || 0),
+        attribution: layerCfg.attribution || "&copy;",
+      }).addTo(cpMap);
+    } else {
+      cpBaseLayer = L.tileLayer(layerCfg.url_template, {
+        maxZoom: Number(layerCfg.max_zoom || 19),
+        minZoom: Number(layerCfg.min_zoom || 0),
+        attribution: layerCfg.attribution || "&copy;",
+        tms: !!layerCfg.tms,
+      }).addTo(cpMap);
+    }
+  }
+
+  function selectedMapLayerCode(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
+    const sel = byId(selectId);
+    const v = (sel?.value || "").trim();
+    if (v) return v;
+    const remembered = localStorage.getItem(storageKey) || "";
+    return remembered.trim();
+  }
+
+  function resolveSelectedMapLayer(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
+    const code = selectedMapLayerCode(selectId, storageKey);
+    const found = availableMapLayers.find((x) => String(x.code) === code);
+    return found || availableMapLayers[0] || null;
+  }
+
+  function requiresLestCrs(layerCfg) {
+    return String(layerCfg?.crs || "").toUpperCase() === "EPSG:3301";
+  }
+
+  function createCpOverviewMap(targetCrs) {
+    let previousView = null;
+    if (cpOverviewMap) {
+      const c = cpOverviewMap.getCenter();
+      const z = cpOverviewMap.getZoom();
+      if (Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng)) && Number.isFinite(Number(z))) {
+        previousView = { lat: Number(c.lat), lon: Number(c.lng), zoom: Number(z) };
+      }
+      cpOverviewMap.off("moveend", writeLastCpOverviewView);
+      cpOverviewMap.remove();
+      cpOverviewMap = null;
+      cpOverviewBaseLayer = null;
+      cpOverviewLayer = null;
+      cpOverviewMarkers = [];
+    }
+    const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
+    if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
+      options.crs = new L.Proj.CRS(
+        "EPSG:3301",
+        "+proj=lcc +lat_1=59.33333333333334 +lat_2=58 +lat_0=57.51755393055556 +lon_0=24 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+        {
+          origin: [40500, 7017000],
+          resolutions: [
+            4000, 2000, 1000, 500, 250, 125, 62.5, 31.25,
+            15.625, 7.8125, 3.90625, 1.953125, 0.9765625, 0.48828125, 0.244140625
+          ],
+          bounds: L.bounds([40500, 5993000], [1064500, 7017000])
+        }
+      );
+    }
+    cpOverviewMap = L.map("cpOverviewMap", options);
+    cpOverviewLayer = L.layerGroup().addTo(cpOverviewMap);
+    cpOverviewMap.on("moveend", writeLastCpOverviewView);
+    cpOverviewCurrentCrs = targetCrs;
+    return previousView;
+  }
+
+  function applyCheckpointOverviewBaseLayer() {
+    if (!cpOverviewMap) return;
+    const layerCfg = resolveSelectedMapLayer();
+    if (!layerCfg) return;
+    if (cpOverviewBaseLayer) cpOverviewMap.removeLayer(cpOverviewBaseLayer);
+    if ((layerCfg.layer_type || "xyz") === "wms") {
+      cpOverviewBaseLayer = L.tileLayer.wms(layerCfg.url_template, {
+        layers: layerCfg.wms_layers || "",
+        format: layerCfg.wms_format || "image/png",
+        transparent: !!layerCfg.wms_transparent,
+        version: layerCfg.wms_version || "1.3.0",
+        maxZoom: Number(layerCfg.max_zoom || 19),
+        minZoom: Number(layerCfg.min_zoom || 0),
+        attribution: layerCfg.attribution || "&copy;",
+      }).addTo(cpOverviewMap);
+    } else {
+      cpOverviewBaseLayer = L.tileLayer(layerCfg.url_template, {
+        maxZoom: Number(layerCfg.max_zoom || 19),
+        minZoom: Number(layerCfg.min_zoom || 0),
+        attribution: layerCfg.attribution || "&copy;",
+        tms: !!layerCfg.tms,
+      }).addTo(cpOverviewMap);
+    }
+  }
+
+  async function loadMapLayersConfig() {
+    if (availableMapLayers.length) return availableMapLayers;
+    const d = await get("/api/map-layers");
+    const items = Array.isArray(d?.items) ? d.items : [];
+    availableMapLayers = items
+      .map((x) => ({
+        code: String(x?.code || "").trim(),
+        label: String(x?.label || "").trim(),
+        url_template: String(x?.url_template || "").trim(),
+        attribution: String(x?.attribution || "").trim(),
+        max_zoom: Number(x?.max_zoom || 19),
+        min_zoom: Number(x?.min_zoom || 0),
+        tms: !!x?.tms,
+        layer_type: String(x?.layer_type || "xyz").trim().toLowerCase(),
+        wms_layers: String(x?.wms_layers || "").trim(),
+        wms_format: String(x?.wms_format || "").trim(),
+        wms_transparent: !!x?.wms_transparent,
+        wms_version: String(x?.wms_version || "").trim(),
+        crs: String(x?.crs || "").trim().toUpperCase(),
+        participant_default: !!x?.participant_default,
+      }))
+      .filter((x) => x.code && x.label && x.url_template);
+    if (!availableMapLayers.length) {
+      availableMapLayers = [{
+        code: "osm",
+        label: "OpenStreetMap",
+        url_template: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attribution: "&copy; OpenStreetMap contributors",
+        max_zoom: 19,
+        min_zoom: 0,
+        tms: false,
+        layer_type: "xyz",
+        wms_layers: "",
+        wms_format: "",
+        wms_transparent: false,
+        wms_version: "",
+        crs: "",
+      }];
+    }
+    const sel = byId("cpOverviewMapLayerSelect");
+    const cpSel = byId("cpDialogMapLayerSelect");
+    const remembered = localStorage.getItem(lastCpOverviewMapLayerKey) || "";
+    const rememberedCp = localStorage.getItem(lastCpDialogMapLayerKey) || "";
+    sel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
+    cpSel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
+    if (remembered && availableMapLayers.some((x) => x.code === remembered)) {
+      sel.value = remembered;
+    } else {
+      sel.value = availableMapLayers[0].code;
+    }
+    if (rememberedCp && availableMapLayers.some((x) => x.code === rememberedCp)) {
+      cpSel.value = rememberedCp;
+    } else {
+      cpSel.value = sel.value || availableMapLayers[0].code;
+    }
+    return availableMapLayers;
   }
 
   function initCheckpointOverviewMap() {
     if (cpOverviewMap) return;
-    cpOverviewMap = L.map("cpOverviewMap", { zoomControl: true, dragging: true, scrollWheelZoom: true });
+    createCpOverviewMap("EPSG:3857");
     cpOverviewMap.setView([58.6, 25.0], 7);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(cpOverviewMap);
-    cpOverviewLayer = L.layerGroup().addTo(cpOverviewMap);
-    cpOverviewMap.on("moveend", writeLastCpOverviewView);
+    applyCheckpointOverviewBaseLayer();
   }
 
   function readLastCpOverviewView() {
@@ -853,8 +1098,16 @@
     return { radius: null, fallback: false };
   }
 
-  function openCheckpointOverviewMap() {
+  async function openCheckpointOverviewMap() {
+    await loadMapLayersConfig();
+    const layerCfg = resolveSelectedMapLayer();
+    const targetCrs = requiresLestCrs(layerCfg) ? "EPSG:3301" : "EPSG:3857";
+    let carryView = null;
+    if (!cpOverviewMap || cpOverviewCurrentCrs !== targetCrs) {
+      carryView = createCpOverviewMap(targetCrs);
+    }
     initCheckpointOverviewMap();
+    applyCheckpointOverviewBaseLayer();
     cpOverviewLayer.clearLayers();
     cpOverviewMarkers = [];
     const points = checkpointsData
@@ -868,7 +1121,7 @@
       }));
     const savedView = readLastCpOverviewView();
     if (points.length === 0) {
-      cpOverviewMap.setView([58.6, 25.0], 7);
+      cpOverviewMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
     } else {
       const bounds = [];
       points.forEach((p) => {
@@ -897,8 +1150,12 @@
       });
       if (savedView) {
         cpOverviewMap.setView([savedView.lat, savedView.lon], savedView.zoom);
+      } else if (carryView) {
+        const maxZoom = targetCrs === "EPSG:3301" ? 14 : 16;
+        const clamped = Math.max(0, Math.min(maxZoom, carryView.zoom));
+        cpOverviewMap.setView([carryView.lat, carryView.lon], clamped);
       } else {
-        cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: targetCrs === "EPSG:3301" ? 14 : 16 });
       }
     }
     byId("cpOverviewMapDialog").showModal();
@@ -1098,8 +1355,15 @@
   function syncMetaLocationSwitches() {
     const useLoc = getMetaUseLocationValue() === "Y";
     const showLocEl = byId("metaShowCompetitorLocationInput");
+    const mapLayerBtn = byId("metaMapLayersBtn");
+    const mapLayersRow = byId("metaMapLayersRow");
     showLocEl.disabled = !useLoc;
     if (!useLoc) showLocEl.checked = false;
+    if (mapLayerBtn) mapLayerBtn.style.display = useLoc ? "inline-block" : "none";
+    if (mapLayersRow) mapLayersRow.style.display = useLoc ? "" : "none";
+    if (!useLoc && byId("participantMapLayersDialog").open) {
+      byId("participantMapLayersDialog").close();
+    }
   }
 
   function syncCpQuestionButton() {
@@ -1299,8 +1563,8 @@
     const active = competitionsData
       .filter((x) => x.is_active === "Y")
       .sort((a, b) => {
-        const av = a?.starts_at ? new Date(a.starts_at).getTime() : 8640000000000000;
-        const bv = b?.starts_at ? new Date(b.starts_at).getTime() : 8640000000000000;
+        const av = a?.starts_at ? (asUtcDate(a.starts_at)?.getTime() ?? 8640000000000000) : 8640000000000000;
+        const bv = b?.starts_at ? (asUtcDate(b.starts_at)?.getTime() ?? 8640000000000000) : 8640000000000000;
         return av - bv;
       });
     if (active.length > 0) {
@@ -1312,12 +1576,12 @@
   function renderCompetitionOptions() {
     const selected = byId("competitionSelect").value;
     const sorted = [...competitionsData].sort((a, b) => {
-      const av = a?.starts_at ? new Date(a.starts_at).getTime() : -8640000000000000;
-      const bv = b?.starts_at ? new Date(b.starts_at).getTime() : -8640000000000000;
+      const av = a?.starts_at ? (asUtcDate(a.starts_at)?.getTime() ?? -8640000000000000) : -8640000000000000;
+      const bv = b?.starts_at ? (asUtcDate(b.starts_at)?.getTime() ?? -8640000000000000) : -8640000000000000;
       return av - bv;
     });
     byId("competitionSelect").innerHTML = sorted.map((c) => {
-      const isEndedByDate = c?.ends_at ? (new Date(c.ends_at) < new Date()) : false;
+      const isEndedByDate = c?.ends_at ? ((asUtcDate(c.ends_at) || new Date(0)) < new Date()) : false;
       const ended = c?.status !== "ACTIVE" || isEndedByDate;
       const label = `${esc(c.name)} (id=${c.competition_id}) • ${fmtDateEtShort(c.starts_at)} - ${fmtDateEtShort(c.ends_at)}`;
       return `<option value="${c.competition_id}" ${ended ? "style=\"font-style:italic;\"" : ""}>${label}</option>`;
@@ -1360,13 +1624,19 @@
     window.__lastCompetitionShowCompetitorLocation = v.show_competitor_location || "Y";
     window.__lastCompetitionRadiusM = v.radius_m ?? null;
     currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
+    if (currentCompetitionUseLocation === "Y") {
+      await loadMapLayersConfig();
+      await loadCompetitionParticipantMapLayers();
+    } else {
+      competitionParticipantLayerCodes = [];
+    }
     byId("cCreated").textContent = fmtDateEt(v.created_at) || "";
     byId("cUpdated").textContent = fmtDateEt(v.updated_at) || "-";
     byId("cStarts").textContent = fmtDateEt(v.starts_at) || "-";
     byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
     window.__lastStartsAt = v.starts_at || null;
     window.__lastEndsAt = v.ends_at || null;
-    setEditModeByCompetition(!v.ends_at || (new Date(v.ends_at) > new Date()));
+    setEditModeByCompetition(!v.ends_at || ((asUtcDate(v.ends_at) || new Date(0)) > new Date()));
     byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
     byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
     const org = Array.isArray(v.organizers) ? v.organizers : [];
@@ -1565,11 +1835,20 @@
     showMsg("cpMsg", false, "");
     setCheckpointDialogSize(false);
     setExistingCheckpointsVisible(false);
+    const cpLayerSelect = byId("cpDialogMapLayerSelect");
+    if (cpLayerSelect && !cpLayerSelect.value && availableMapLayers.length) {
+      const rememberedCp = localStorage.getItem(lastCpDialogMapLayerKey) || "";
+      cpLayerSelect.value = availableMapLayers.some((x) => x.code === rememberedCp)
+        ? rememberedCp
+        : availableMapLayers[0].code;
+    }
     initCheckpointMap();
+    applyCheckpointDialogBaseLayer();
     const showGps = currentCompetitionUseLocation === "Y";
     byId("cpMap").style.display = showGps ? "block" : "none";
     byId("cpMapToggleSizeBtn").style.display = showGps ? "inline-block" : "none";
     byId("cpToggleExistingBtn").style.display = showGps ? "inline-block" : "none";
+    byId("cpDialogMapLayerSelect").style.display = showGps ? "inline-block" : "none";
     document.querySelectorAll(".cp-gps-row").forEach((el) => {
       el.style.display = "grid";
     });
@@ -1883,6 +2162,82 @@
     await loadView();
   }
 
+  async function loadCompetitionParticipantMapLayers() {
+    const res = await get(`/api/admin/competitions/map-layers?competition_id=${compId()}`);
+    const selected = Array.isArray(res?.layer_codes) ? res.layer_codes.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    competitionParticipantLayerCodes = selected;
+    if (!competitionParticipantLayerCodes.length) {
+      competitionParticipantLayerCodes = availableMapLayers
+        .filter((x) => !!x.participant_default)
+        .map((x) => x.code);
+    }
+    if (!competitionParticipantLayerCodes.length && availableMapLayers.length) {
+      const osm = availableMapLayers.find((x) => x.code === "osm");
+      competitionParticipantLayerCodes = [osm ? osm.code : availableMapLayers[0].code];
+    }
+    updateMetaMapLayersButtonLabel();
+  }
+
+  function updateMetaMapLayersButtonLabel() {
+    const btn = byId("metaMapLayersBtn");
+    if (!btn) return;
+    const n = Array.isArray(competitionParticipantLayerCodes) ? competitionParticipantLayerCodes.length : 0;
+    btn.textContent = `Kaardi valik (${n})`;
+  }
+
+  function renderParticipantMapLayersDialog() {
+    const list = byId("participantMapLayersList");
+    list.innerHTML = availableMapLayers.map((layer, idx) => {
+      const checked = participantLayerSelection.includes(layer.code);
+      const id = `participantLayer_${idx}`;
+      return `
+        <div class="layer-row">
+          <span class="label">${esc(layer.label)}</span>
+          <label class="yn-switch" for="${id}">
+            <input id="${id}" data-layer-code="${esc(layer.code)}" type="checkbox" ${checked ? "checked" : ""} />
+            <span class="yn-slider"></span>
+          </label>
+        </div>`;
+    }).join("");
+  }
+
+  function selectedParticipantLayersFromDialog() {
+    return Array.from(document.querySelectorAll("#participantMapLayersList input[data-layer-code]:checked"))
+      .map((el) => String(el.getAttribute("data-layer-code") || "").trim())
+      .filter(Boolean);
+  }
+
+  async function openParticipantMapLayersDialog() {
+    showMsg("participantMapLayersMsg", false, "");
+    await loadMapLayersConfig();
+    await loadCompetitionParticipantMapLayers();
+    participantLayerSelection = [...competitionParticipantLayerCodes];
+    renderParticipantMapLayersDialog();
+    byId("participantMapLayersDialog").showModal();
+  }
+
+  async function saveParticipantMapLayersDialog() {
+    const selected = selectedParticipantLayersFromDialog();
+    if (!selected.length) {
+      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+      return;
+    }
+    const prevSorted = [...competitionParticipantLayerCodes].sort();
+    const nextSorted = [...selected].sort();
+    const changed = prevSorted.length !== nextSorted.length || prevSorted.some((x, i) => x !== nextSorted[i]);
+    if (changed) {
+      await post("/api/admin/competitions/map-layers", {
+        competition_id: compId(),
+        layer_codes: selected
+      });
+    }
+    competitionParticipantLayerCodes = selected;
+    participantLayerSelection = [...selected];
+    updateMetaMapLayersButtonLabel();
+    showMsg("participantMapLayersMsg", true, "Kaartide valik salvestatud.");
+    setTimeout(() => byId("participantMapLayersDialog").close(), 350);
+  }
+
   function openMetaDialog() {
     if (!currentCompetitionActive) return;
     byId("metaMsg").textContent = "";
@@ -1896,6 +2251,8 @@
     byId("metaRadiusMInput").value = (window.__lastCompetitionRadiusM ?? "");
     byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
     byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
+    syncMetaLocationSwitches();
+    updateMetaMapLayersButtonLabel();
     byId("metaDialog").showModal();
   }
 
@@ -2037,9 +2394,25 @@
   };
   byId("newCheckpointBtn").onclick = () => openCheckpointDialog();
   byId("cpMapToggleSizeBtn").onclick = () => setCheckpointDialogSize(!cpDialogFullscreen);
-  byId("showCheckpointMapBtn").onclick = () => openCheckpointOverviewMap();
+  byId("showCheckpointMapBtn").onclick = () => openCheckpointOverviewMap().catch(e => showMsg("topMsg", false, humanizeError(e.message, e.details)));
   byId("cpOverviewOpenLabelsBtn").onclick = () => openAllCheckpointLabels();
   byId("cpOverviewCloseLabelsBtn").onclick = () => closeAllCheckpointLabels();
+  byId("cpOverviewMapLayerSelect").onchange = () => {
+    const selected = selectedMapLayerCode();
+    if (selected) localStorage.setItem(lastCpOverviewMapLayerKey, selected);
+    openCheckpointOverviewMap().catch(e => showMsg("topMsg", false, humanizeError(e.message, e.details)));
+  };
+  byId("cpDialogMapLayerSelect").onchange = () => {
+    const selected = selectedMapLayerCode("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+    if (selected) localStorage.setItem(lastCpDialogMapLayerKey, selected);
+    initCheckpointMap();
+    const lat = Number(byId("cpLatitude").value);
+    const lon = Number(byId("cpLongitude").value);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setCpCoordinates(lat, lon, true);
+    }
+    renderExistingCheckpointsOnDialogMap();
+  };
   byId("cpOverviewMapToggleSizeBtn").onclick = () => setCheckpointOverviewSize(!cpOverviewFullscreen);
   byId("cpOverviewMapCloseBtn").onclick = () => {
     setCheckpointOverviewSize(false);
@@ -2076,6 +2449,12 @@
     showMsg("cpMsg", false, "");
     setExistingCheckpointsVisible(false);
   });
+  byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
+    if (!selectedParticipantLayersFromDialog().length) {
+      e.preventDefault();
+      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+    }
+  });
   byId("cpOpenQuestion").onclick = () => {
     if (!cpDialogCheckpointId) return;
     const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
@@ -2096,6 +2475,15 @@
   byId("qCancel").onclick = () => byId("qDialog").close();
   byId("qType").onchange = () => syncQuestionTypeUI();
   byId("metaUseLocationInput").addEventListener("change", syncMetaLocationSwitches);
+  byId("metaMapLayersBtn").onclick = () => openParticipantMapLayersDialog().catch(e => showMsg("metaMsg", false, humanizeError(e.message, e.details)));
+  byId("participantMapLayersCancel").onclick = () => {
+    if (!selectedParticipantLayersFromDialog().length) {
+      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+      return;
+    }
+    byId("participantMapLayersDialog").close();
+  };
+  byId("participantMapLayersSave").onclick = () => saveParticipantMapLayersDialog().catch(e => showMsg("participantMapLayersMsg", false, humanizeError(e.message, e.details)));
   byId("addOptionBtn").onclick = () => addOptionRow();
   byId("addAnswerBtn").onclick = () => addAnswerRow({ normalize_mode: "LOWER_TRIM" });
 

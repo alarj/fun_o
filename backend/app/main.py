@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -20,6 +21,8 @@ class Settings:
     ords_username: str = os.getenv("ORDS_USERNAME", "")
     ords_password: str = os.getenv("ORDS_PASSWORD", "")
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    mapycz_api_key: str = os.getenv("MAPYCZ_API_KEY", "")
+    maptiler_api_key: str = os.getenv("MAPTILER_API_KEY", "")
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
     competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
@@ -33,11 +36,28 @@ settings = Settings()
 i18n_cache: dict[str, dict[str, str]] = {}
 map_checkpoints_cache: dict[str, dict[str, Any]] = {}
 open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
+map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
+competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
 
 MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
 ORDS_RETRY_ATTEMPTS = 3
 ORDS_RETRY_BACKOFF_SECONDS = (0.2, 0.5, 1.0)
+MAP_LAYERS_CACHE_TTL_SECONDS = 31536000.0
+MAP_LAYERS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "map_layers.json")
+UTC_TS_KEYS = {
+    "starts_at",
+    "ends_at",
+    "created_at",
+    "updated_at",
+    "submitted_at",
+    "joined_at",
+    "assigned_at",
+    "expires_at",
+    "terms_accepted_at",
+    "last_submission_at",
+}
+UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 
 
 class ApiError(BaseModel):
@@ -246,6 +266,42 @@ class GoogleClientConfigResponse(BaseModel):
     enabled: bool
 
 
+class MapLayerEntry(BaseModel):
+    code: str
+    label: str
+    url_template: str
+    attribution: str
+    max_zoom: int = 19
+    min_zoom: int = 0
+    tms: bool = False
+    layer_type: str = "xyz"
+    wms_layers: str | None = None
+    wms_format: str | None = None
+    wms_transparent: bool | None = None
+    wms_version: str | None = None
+    crs: str | None = None
+    participant_default: bool = False
+
+
+class MapLayersResponse(BaseModel):
+    items: list[MapLayerEntry]
+
+
+class CompetitorMapLayersResponse(BaseModel):
+    competition_id: int
+    items: list[MapLayerEntry]
+
+
+class AdminCompetitionMapLayersResponse(BaseModel):
+    competition_id: int
+    layer_codes: list[str]
+
+
+class AdminCompetitionMapLayersUpdateRequest(BaseModel):
+    competition_id: int
+    layer_codes: list[str] = []
+
+
 class SessionInfoResponse(BaseModel):
     authenticated: bool
     user_id: int | None = None
@@ -348,6 +404,17 @@ class SuperAdminCreateCompetitionResponse(BaseModel):
     organizer_code: str
 
 
+class SuperAdminCopyCompetitionRequest(BaseModel):
+    source_competition_id: int
+    copy_questions: str = "N"
+    copy_organizers: str = "N"
+
+
+class SuperAdminRemoveOrganizerRequest(BaseModel):
+    competition_id: int
+    user_id: int
+
+
 class SuperAdminSessionResponse(BaseModel):
     ok: bool
     user_id: int
@@ -425,6 +492,16 @@ def _raise_api_error(
         headers=headers,
         detail=ApiError(code=code, message=message, details=details).model_dump(),
     )
+
+
+def _normalize_ords_payload_datetimes(value: Any, key_hint: str | None = None) -> Any:
+    if isinstance(value, dict):
+        return {k: _normalize_ords_payload_datetimes(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_ords_payload_datetimes(v, key_hint) for v in value]
+    if isinstance(value, str) and key_hint in UTC_TS_KEYS and UTC_TS_PATTERN.match(value):
+        return f"{value}Z"
+    return value
 
 
 def _extract_oracle_error(payload: Any) -> tuple[str, str]:
@@ -658,7 +735,8 @@ async def _request_ords(method: str, path: str, payload: dict[str, Any] | None =
         )
 
     try:
-        return response.json()
+        payload_json = response.json()
+        return _normalize_ords_payload_datetimes(payload_json)
     except ValueError:
         _raise_api_error(
             status.HTTP_502_BAD_GATEWAY,
@@ -713,6 +791,90 @@ async def _load_i18n_cache() -> None:
             i18n_cache[lang] = {}
 
 
+def _fallback_map_layers() -> list[dict[str, Any]]:
+    return [
+        {
+            "code": "osm",
+            "label": "OpenStreetMap",
+            "url_template": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "&copy; OpenStreetMap contributors",
+            "max_zoom": 19,
+            "min_zoom": 0,
+            "participant_default": True,
+        }
+    ]
+
+
+def _load_map_layers_config() -> list[dict[str, Any]]:
+    now = time.monotonic()
+    cached_items = map_layers_cache.get("items")
+    cached_at = map_layers_cache.get("loaded_at")
+    if isinstance(cached_items, list) and isinstance(cached_at, float):
+        if now - cached_at <= MAP_LAYERS_CACHE_TTL_SECONDS:
+            return cached_items
+
+    items: list[dict[str, Any]] = []
+    try:
+        # Accept both UTF-8 and UTF-8 with BOM, because Windows editors may write BOM.
+        with open(MAP_LAYERS_CONFIG_PATH, "r", encoding="utf-8-sig") as fh:
+            raw = json.load(fh)
+        raw_items = raw.get("items") if isinstance(raw, dict) else None
+        if isinstance(raw_items, list):
+            for item in raw_items:
+                if not isinstance(item, dict):
+                    continue
+                code = str(item.get("code", "")).strip()
+                label = str(item.get("label", "")).strip()
+                url_template = str(item.get("url_template", "")).strip()
+                attribution = str(item.get("attribution", "")).strip()
+                enabled = item.get("enabled", True)
+                if isinstance(enabled, str):
+                    enabled = enabled.strip().lower() in ("1", "true", "y", "yes")
+                else:
+                    enabled = bool(enabled)
+                if not enabled:
+                    continue
+                if not code or not label or not url_template:
+                    continue
+                url_template = url_template.replace("{MAPYCZ_API_KEY}", settings.mapycz_api_key.strip())
+                url_template = url_template.replace("{MAPTILER_API_KEY}", settings.maptiler_api_key.strip())
+                if "{MAPYCZ_API_KEY}" in str(item.get("url_template", "")) and not settings.mapycz_api_key.strip():
+                    continue
+                if "{MAPTILER_API_KEY}" in str(item.get("url_template", "")) and not settings.maptiler_api_key.strip():
+                    continue
+                participant_default = item.get("participant_default", False)
+                if isinstance(participant_default, str):
+                    participant_default = participant_default.strip().lower() in ("1", "true", "y", "yes")
+                else:
+                    participant_default = bool(participant_default)
+                items.append(
+                    {
+                        "code": code,
+                        "label": label,
+                        "url_template": url_template,
+                        "attribution": attribution or "&copy;",
+                        "max_zoom": int(item.get("max_zoom", 19)),
+                        "min_zoom": int(item.get("min_zoom", 0)),
+                        "tms": bool(item.get("tms", False)),
+                        "layer_type": str(item.get("layer_type", "xyz")).strip().lower() or "xyz",
+                        "wms_layers": str(item.get("wms_layers", "")).strip() or None,
+                        "wms_format": str(item.get("wms_format", "")).strip() or None,
+                        "wms_transparent": bool(item.get("wms_transparent", False)),
+                        "wms_version": str(item.get("wms_version", "")).strip() or None,
+                        "crs": str(item.get("crs", "")).strip() or None,
+                        "participant_default": participant_default,
+                    }
+                )
+    except Exception:
+        items = []
+
+    if not items:
+        items = _fallback_map_layers()
+    map_layers_cache["items"] = items
+    map_layers_cache["loaded_at"] = now
+    return items
+
+
 def _map_cache_key(*, competition_id: int, user_id: int) -> str:
     return f"{competition_id}:{user_id}"
 
@@ -742,6 +904,7 @@ def _invalidate_competition_cache(competition_id: int | None) -> None:
     for key in list(map_checkpoints_cache.keys()):
         if key.startswith(prefix):
             map_checkpoints_cache.pop(key, None)
+    competitor_map_layers_cache.pop(competition_id, None)
     for key in list(open_checkpoints_last_response.keys()):
         if key.startswith(prefix):
             open_checkpoints_last_response.pop(key, None)
@@ -779,6 +942,60 @@ async def get_i18n_meta() -> I18nMetaResponse:
     if default_lang not in langs:
         langs = [default_lang] + langs
     return I18nMetaResponse(default_lang=default_lang, available_langs=langs)
+
+
+@app.get("/api/map-layers", response_model=MapLayersResponse)
+async def get_map_layers() -> MapLayersResponse:
+    return MapLayersResponse(items=_load_map_layers_config())
+
+
+@app.get("/api/competitor/map-layers", response_model=CompetitorMapLayersResponse)
+async def competitor_map_layers(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitorMapLayersResponse:
+    _ = _resolve_user_id(request, None, x_user_id)
+    cached = competitor_map_layers_cache.get(competition_id)
+    if isinstance(cached, dict):
+        cached_items = cached.get("items")
+        if isinstance(cached_items, list):
+            return CompetitorMapLayersResponse(competition_id=competition_id, items=cached_items)
+
+    enabled_layers = _load_map_layers_config()
+    enabled_by_code: dict[str, dict[str, Any]] = {}
+    for layer in enabled_layers:
+        code = str(layer.get("code", "")).strip().lower()
+        if code:
+            enabled_by_code[code] = layer
+
+    ords_data = await _get_from_ords("admin/competitions/map-layers", {"competition_id": competition_id})
+    raw_items = ords_data.get("items") if isinstance(ords_data, dict) else []
+    selected_codes: list[str] = []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            code = str(item.get("layer_code", "")).strip().lower()
+            if code:
+                selected_codes.append(code)
+
+    resolved_layers: list[MapLayerEntry] = []
+    seen: set[str] = set()
+    for code in selected_codes:
+        if code in seen:
+            continue
+        seen.add(code)
+        layer = enabled_by_code.get(code)
+        if layer is None:
+            continue
+        resolved_layers.append(MapLayerEntry(**layer))
+
+    competitor_map_layers_cache[competition_id] = {
+        "cached_at": time.time(),
+        "items": resolved_layers,
+    }
+    return CompetitorMapLayersResponse(competition_id=competition_id, items=resolved_layers)
 
 
 @app.post("/api/i18n/reload")
@@ -1603,6 +1820,56 @@ async def admin_competitions(request: Request, x_user_id: int | None = Header(de
     return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
 
 
+@app.get("/api/admin/competitions/map-layers", response_model=AdminCompetitionMapLayersResponse)
+async def admin_competition_map_layers(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> AdminCompetitionMapLayersResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    data = await _get_from_ords("admin/competitions/map-layers", {"competition_id": competition_id})
+    raw_items = data.get("items") if isinstance(data, dict) else []
+    layer_codes: list[str] = []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            code = str(item.get("layer_code", "")).strip()
+            if code:
+                layer_codes.append(code)
+    return AdminCompetitionMapLayersResponse(competition_id=competition_id, layer_codes=layer_codes)
+
+
+@app.post("/api/admin/competitions/map-layers")
+async def admin_competition_map_layers_update(
+    req: AdminCompetitionMapLayersUpdateRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    cleaned_codes: list[str] = []
+    seen: set[str] = set()
+    for raw in req.layer_codes:
+        code = str(raw or "").strip()
+        if not code:
+            continue
+        low = code.lower()
+        if low in seen:
+            continue
+        seen.add(low)
+        cleaned_codes.append(code)
+    await _post_to_ords(
+        "admin/competitions/map-layers",
+        {
+            "competition_id": req.competition_id,
+            "layer_codes": cleaned_codes,
+            "updated_by": user_id,
+        },
+    )
+    competitor_map_layers_cache.pop(req.competition_id, None)
+    return {"ok": True}
+
+
 @app.get("/api/superadmin/session", response_model=SuperAdminSessionResponse)
 async def superadmin_session(request: Request, x_user_id: int | None = Header(default=None)) -> SuperAdminSessionResponse:
     user_id = await _require_system_owner_session_user(request, x_user_id)
@@ -1640,6 +1907,50 @@ async def superadmin_create_competition(
         competition_id=competition_id,
         organizer_code=organizer_code,
     )
+
+
+@app.post("/api/superadmin/competitions/copy", response_model=SuperAdminCreateCompetitionResponse)
+async def superadmin_copy_competition(
+    req: SuperAdminCopyCompetitionRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    data = await _post_to_ords(
+        "superadmin/competitions/copy",
+        {
+            "source_competition_id": req.source_competition_id,
+            "copy_questions": req.copy_questions,
+            "copy_organizers": req.copy_organizers,
+            "created_by": user_id,
+        },
+    )
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
+
+
+@app.post("/api/superadmin/organizers/remove")
+async def superadmin_remove_organizer(
+    req: SuperAdminRemoveOrganizerRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    await _post_to_ords(
+        "superadmin/organizers/remove",
+        {
+            "competition_id": req.competition_id,
+            "user_id": req.user_id,
+            "removed_by": user_id,
+        },
+    )
+    return {"ok": True}
 
 
 @app.get("/api/admin/checkpoints", response_model=AdminCheckpointsResponse)

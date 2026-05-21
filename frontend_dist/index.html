@@ -97,6 +97,36 @@
         font-size: 16px;
         line-height: 1.2;
       }
+      .iconBtn {
+        width: 42px !important;
+        height: 42px;
+        padding: 0 !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px !important;
+      }
+      .mapLayerList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .mapLayerItem {
+        width: 100%;
+        text-align: left;
+        background: #eef4ef;
+        color: #132027;
+        border: 1px solid #c9d4c8;
+        padding: 10px 12px;
+        font-size: 18px;
+      }
+      .mapLayerItem.active {
+        background: #dff0f2;
+        border-color: #6f9498;
+        font-weight: 700;
+      }
+      #compMapLayerBackdrop { z-index: 1301; }
+      .layerIconSvg {
+        width: 22px;
+        height: 22px;
+        display: block;
+      }
       .myResCard { display:none; }
       .myResCollapsed { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
       .myResCollapsed button {
@@ -265,9 +295,23 @@
         <div class="mapActions">
           <button id="compMapShowKpBtn">KP-d</button>
           <button id="compMapFollowBtn" class="secondary">Jälgi mind: ON</button>
-          <button id="compMapInfoBtn" class="secondary">Info</button>
-          <button id="compMapCloseBtn" class="secondary">Sulge</button>
+          <button id="compMapInfoBtn" class="secondary iconBtn" title="Info">ℹ</button>
+          <button id="compMapLayerBtn" class="secondary iconBtn" title="Kaardi valik" style="display:none;">
+            <svg class="layerIconSvg" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M12 2 1 7l11 5 9-4.09V17h2V7L12 2Zm0 12L1 9v3l11 5 11-5V9l-11 5Zm0 5L1 14v3l11 5 11-5v-3l-11 5Z"/>
+            </svg>
+          </button>
+          <button id="compMapCloseBtn" class="secondary iconBtn" title="Sulge">✕</button>
         </div>
+      </div>
+    </div>
+    <div id="compMapLayerBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3>Kaardi valik</h3>
+        <div id="compMapLayerMsg"></div>
+        <div id="compMapLayerList" class="mapLayerList"></div>
+        <div style="height:8px"></div>
+        <button id="compMapLayerCloseBtn" class="secondary">Sulge</button>
       </div>
     </div>
 
@@ -313,6 +357,11 @@
       let geoWatchId = null;
       let mapFollowUser = true;
       let mapProgrammaticMove = false;
+      let allowedMapLayers = [];
+      let activeMapLayerCode = "";
+      let baseMapLayer = null;
+      const mapLayersByCode = {};
+      const competitorMapLayerCache = {};
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
       const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
       let openCheckpointsClientCache = { key: "", ts: 0, items: [] };
@@ -337,10 +386,19 @@
         return (v ?? "").toString().trim().toLocaleLowerCase("et");
       }
 
+      function parseUtcDate(ts) {
+        if (!ts) return null;
+        const s = String(ts).trim();
+        if (!s) return null;
+        const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+        const d = new Date(iso);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
       function fmtEtLocal(ts) {
         if (!ts) return "-";
-        const d = new Date(/z$/i.test(ts) ? ts : `${ts}Z`);
-        if (Number.isNaN(d.getTime())) return ts;
+        const d = parseUtcDate(ts);
+        if (!d) return ts;
         const p = (n) => String(n).padStart(2, "0");
         return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
       }
@@ -778,12 +836,75 @@
         return true;
       }
 
+      async function loadAllowedMapLayers(force = false) {
+        const cid = Number(state.selectedCompetitionId || 0);
+        if (!cid) return [];
+        if (!force && Array.isArray(competitorMapLayerCache[cid])) return competitorMapLayerCache[cid];
+        const res = await apiGet(`/api/competitor/map-layers?competition_id=${cid}`);
+        if (!res.ok) return [];
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        competitorMapLayerCache[cid] = items;
+        return items;
+      }
+
+      function createBaseLayer(layer) {
+        const url = String(layer.url_template || "");
+        const attrib = String(layer.attribution || "");
+        const minZoom = Number(layer.min_zoom ?? 0);
+        const maxZoom = Number(layer.max_zoom ?? 19);
+        const tms = String(layer.tms || "false").toLowerCase() === "true" || layer.tms === true;
+        const layerType = String(layer.layer_type || "xyz").toLowerCase();
+        if (layerType === "wms") {
+          return L.tileLayer.wms(url, {
+            layers: String(layer.wms_layers || ""),
+            format: String(layer.wms_format || "image/png"),
+            transparent: layer.wms_transparent === true,
+            version: String(layer.wms_version || "1.1.1"),
+            attribution: attrib,
+            minZoom,
+            maxZoom,
+            tms,
+          });
+        }
+        return L.tileLayer(url, { attribution: attrib, minZoom, maxZoom, tms });
+      }
+
+      function renderCompMapLayerList() {
+        const list = el("compMapLayerList");
+        if (!list) return;
+        if (!allowedMapLayers.length) {
+          list.innerHTML = `<div class="msg err">Kasutatavaid kaarte ei ole</div>`;
+          return;
+        }
+        list.innerHTML = allowedMapLayers.map((layer) => {
+          const code = String(layer.code || "").toLowerCase();
+          const active = code === activeMapLayerCode ? " active" : "";
+          return `<button class="mapLayerItem${active}" data-map-layer-code="${esc(code)}">${esc(layer.label || code)}</button>`;
+        }).join("");
+      }
+
+      function applyBaseLayer(code) {
+        if (!compMap) return false;
+        const low = String(code || "").toLowerCase();
+        const layer = mapLayersByCode[low];
+        if (!layer) return false;
+        const center = compMap.getCenter();
+        const zoom = compMap.getZoom();
+        if (baseMapLayer) {
+          compMap.removeLayer(baseMapLayer);
+          baseMapLayer = null;
+        }
+        baseMapLayer = createBaseLayer(layer);
+        baseMapLayer.addTo(compMap);
+        activeMapLayerCode = low;
+        compMap.setView(center, zoom, { animate: false });
+        renderCompMapLayerList();
+        return true;
+      }
+
       function ensureCompMapInit() {
         if (compMap) return;
         compMap = L.map("compMapCanvas", { zoomControl: true }).setView([58.8, 25.4], 8);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap contributors",
-        }).addTo(compMap);
         compMapLayer = L.layerGroup().addTo(compMap);
         compMap.on("moveend zoomend", () => saveCompMapView());
         compMap.on("movestart", () => {
@@ -816,8 +937,6 @@
         } else {
           mapRings.forEach((ring) => ring.closePopup());
         }
-        const infoBtn = el("compMapInfoBtn");
-        if (infoBtn) infoBtn.textContent = "Info";
       }
 
       function renderCompMap(items) {
@@ -860,8 +979,15 @@
         }
         mapProgrammaticMove = true;
         const restored = restoreCompMapView();
-        if (!restored && bounds.length) {
+        const restoredZoom = compMap ? compMap.getZoom() : 0;
+        const shouldRefitFromBounds = bounds.length && (!restored || restoredZoom < 12);
+        if (shouldRefitFromBounds) {
           compMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 });
+          const openedZoom = Number(compMap.getZoom() || 0);
+          const minOpenZoom = 10;
+          if (openedZoom > 0 && openedZoom < minOpenZoom) {
+            compMap.setZoom(minOpenZoom);
+          }
         }
         if (selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
           compMap.setView([state.geo.latitude, state.geo.longitude], compMap.getZoom(), { animate: false });
@@ -919,7 +1045,27 @@
         mapFollowUser = true;
         updateFollowButton();
         await requestGeolocation();
+        allowedMapLayers = await loadAllowedMapLayers(false);
+        Object.keys(mapLayersByCode).forEach((k) => delete mapLayersByCode[k]);
+        allowedMapLayers.forEach((x) => {
+          const code = String(x.code || "").toLowerCase();
+          if (code) mapLayersByCode[code] = x;
+        });
+        if (!allowedMapLayers.length) {
+          setMsg("answerMsg", "Kasutatavaid kaarte ei ole", false);
+          return;
+        }
         state.mapItems = await loadMapCheckpoints();
+        ensureCompMapInit();
+        if (!activeMapLayerCode || !mapLayersByCode[activeMapLayerCode]) {
+          activeMapLayerCode = String(allowedMapLayers[0].code || "").toLowerCase();
+        }
+        applyBaseLayer(activeMapLayerCode);
+        const layerBtn = el("compMapLayerBtn");
+        if (layerBtn) {
+          layerBtn.style.display = allowedMapLayers.length > 1 ? "inline-flex" : "none";
+        }
+        renderCompMapLayerList();
         el("compMapBackdrop").style.display = "block";
         renderCompMap(state.mapItems);
         startMapGeolocationWatch();
@@ -928,6 +1074,7 @@
       function closeCompMapModal() {
         saveCompMapView();
         stopMapGeolocationWatch();
+        el("compMapLayerBackdrop").style.display = "none";
         el("compMapBackdrop").style.display = "none";
       }
 
@@ -965,8 +1112,8 @@
           if (myResultsSortKey === "checkpoint_title") {
             return String(a.checkpoint_title || "").localeCompare(String(b.checkpoint_title || ""), "et", { sensitivity: "base" }) * dir;
           }
-          const av = a.submitted_at ? new Date(`${a.submitted_at}Z`).getTime() : 0;
-          const bv = b.submitted_at ? new Date(`${b.submitted_at}Z`).getTime() : 0;
+          const av = a.submitted_at ? (parseUtcDate(a.submitted_at)?.getTime() ?? 0) : 0;
+          const bv = b.submitted_at ? (parseUtcDate(b.submitted_at)?.getTime() ?? 0) : 0;
           return (av - bv) * dir;
         });
       }
@@ -1153,6 +1300,26 @@
         el("compMapInfoBtn").addEventListener("click", () => {
           if (anyMapPopupOpen()) setMapInfoVisibility(false);
           else setMapInfoVisibility(true);
+        });
+        el("compMapLayerBtn").addEventListener("click", () => {
+          renderCompMapLayerList();
+          el("compMapLayerBackdrop").style.display = "flex";
+        });
+        el("compMapLayerCloseBtn").addEventListener("click", () => {
+          el("compMapLayerBackdrop").style.display = "none";
+        });
+        el("compMapLayerBackdrop").addEventListener("click", (e) => {
+          if (e.target === el("compMapLayerBackdrop")) el("compMapLayerBackdrop").style.display = "none";
+        });
+        el("compMapLayerList").addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-map-layer-code]");
+          if (!btn) return;
+          const code = String(btn.getAttribute("data-map-layer-code") || "").toLowerCase();
+          if (!code || code === activeMapLayerCode) return;
+          if (applyBaseLayer(code)) {
+            saveCompMapView();
+          }
+          el("compMapLayerBackdrop").style.display = "none";
         });
         el("compMapFollowBtn").addEventListener("click", () => {
           mapFollowUser = !mapFollowUser;

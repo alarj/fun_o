@@ -14,6 +14,18 @@ create or replace package pkg_auth as
     p_email in varchar2,
     o_user_id out number
   );
+
+  procedure has_active_role(
+    p_user_id in number,
+    p_role_code in varchar2,
+    o_has_role out varchar2
+  );
+
+  procedure get_user_profile(
+    p_user_id in number,
+    o_email out varchar2,
+    o_full_name out varchar2
+  );
 end pkg_auth;
 /
 
@@ -89,6 +101,58 @@ create or replace package body pkg_auth as
       end;
     end if;
   end;
+
+  procedure has_active_role(
+    p_user_id in number,
+    p_role_code in varchar2,
+    o_has_role out varchar2
+  ) is
+    l_cnt number;
+  begin
+    o_has_role := 'N';
+    if p_user_id is null or p_role_code is null then
+      return;
+    end if;
+
+    select count(*)
+      into l_cnt
+      from user_roles ur
+      join roles r
+        on r.role_id = ur.role_id
+     where ur.user_id = p_user_id
+       and upper(r.role_code) = upper(trim(p_role_code))
+       and (r.end_date is null or r.end_date > sysdate)
+       and (ur.end_date is null or ur.end_date > sysdate);
+
+    if l_cnt > 0 then
+      o_has_role := 'Y';
+    end if;
+  end;
+
+  procedure get_user_profile(
+    p_user_id in number,
+    o_email out varchar2,
+    o_full_name out varchar2
+  ) is
+  begin
+    o_email := null;
+    o_full_name := null;
+    if p_user_id is null then
+      return;
+    end if;
+
+    begin
+      select u.email, u.full_name
+        into o_email, o_full_name
+        from users u
+       where u.user_id = p_user_id
+         and (u.end_date is null or u.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        null;
+    end;
+  end;
 end pkg_auth;
 /
 
@@ -134,9 +198,9 @@ create or replace package body pkg_competitions as
 
     o_competition_id := seq_competitions.nextval;
     insert into competitions (
-      competition_id, name, description, status, start_date, created_by, created_at
+      competition_id, name, description, status, show_competitor_location, start_date, created_by, created_at
     ) values (
-      o_competition_id, p_name, p_description, 'DRAFT', trunc(sysdate), p_created_by, systimestamp
+      o_competition_id, p_name, p_description, 'DRAFT', 'N', trunc(sysdate), p_created_by, systimestamp
     );
   end;
 
@@ -148,8 +212,13 @@ create or replace package body pkg_competitions as
     l_access_code_id competition_access_codes.access_code_id%type;
     l_max_uses competition_access_codes.max_uses%type;
     l_used_count competition_access_codes.used_count%type;
+    l_terms_id competition_terms.terms_id%type;
+    l_terms_lang_code competition_terms_texts.lang_code%type;
     l_dummy number;
+    l_now_utc_ts timestamp;
   begin
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+
     if p_user_id is null or p_access_code is null then
       raise_application_error(-20030, 'user_id and access_code are required');
     end if;
@@ -170,12 +239,12 @@ create or replace package body pkg_competitions as
        where c.code = p_access_code
          and c.code_type = 'COMPETITOR'
          and (c.end_date is null or c.end_date > sysdate)
-         and (c.expires_at is null or c.expires_at > systimestamp)
+         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
          and c.status = 'ACTIVE'
          and (comp.end_date is null or comp.end_date > sysdate)
          and comp.status = 'ACTIVE'
-         and (comp.starts_at is null or comp.starts_at <= systimestamp)
-         and (comp.ends_at is null or comp.ends_at > systimestamp)
+         and (comp.starts_at is null or comp.starts_at <= l_now_utc_ts)
+         and (comp.ends_at is null or comp.ends_at > l_now_utc_ts)
        fetch first 1 row only;
     exception
       when no_data_found then
@@ -185,6 +254,87 @@ create or replace package body pkg_competitions as
     if l_max_uses is not null and l_used_count >= l_max_uses then
       raise_application_error(-20032, 'access code usage limit reached');
     end if;
+
+    -- Resolve active competition terms required by participants schema.
+    begin
+      select t.terms_id
+        into l_terms_id
+        from competition_terms t
+       where t.competition_id = o_competition_id
+         and t.status = 'ACTIVE'
+         and (t.end_date is null or t.end_date > sysdate)
+       order by t.version_no desc, t.terms_id desc
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        insert into competition_terms (
+          terms_id,
+          competition_id,
+          version_no,
+          status,
+          start_date,
+          created_by,
+          created_at
+        ) values (
+          seq_competition_terms.nextval,
+          o_competition_id,
+          1,
+          'ACTIVE',
+          trunc(sysdate),
+          p_user_id,
+          systimestamp
+        )
+        returning terms_id into l_terms_id;
+
+        insert into competition_terms_texts (
+          terms_text_id,
+          terms_id,
+          lang_code,
+          terms_text,
+          start_date,
+          created_by,
+          created_at
+        ) values (
+          seq_competition_terms_texts.nextval,
+          l_terms_id,
+          'et',
+          'Kasutustingimused',
+          trunc(sysdate),
+          p_user_id,
+          systimestamp
+        );
+    end;
+
+    begin
+      select lower(tt.lang_code)
+        into l_terms_lang_code
+        from competition_terms_texts tt
+       where tt.terms_id = l_terms_id
+         and (tt.end_date is null or tt.end_date > sysdate)
+       order by case when lower(tt.lang_code) = 'et' then 0 else 1 end,
+                tt.lang_code
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_terms_lang_code := 'et';
+        insert into competition_terms_texts (
+          terms_text_id,
+          terms_id,
+          lang_code,
+          terms_text,
+          start_date,
+          created_by,
+          created_at
+        ) values (
+          seq_competition_terms_texts.nextval,
+          l_terms_id,
+          l_terms_lang_code,
+          'Kasutustingimused',
+          trunc(sysdate),
+          p_user_id,
+          systimestamp
+        );
+    end;
 
     -- Prevent duplicate active participation.
     begin
@@ -207,6 +357,10 @@ create or replace package body pkg_competitions as
       competition_id,
       user_id,
       access_code_id,
+      alias_display,
+      terms_id,
+      terms_lang_code,
+      terms_accepted_at,
       status,
       start_date,
       joined_at
@@ -215,6 +369,10 @@ create or replace package body pkg_competitions as
       o_competition_id,
       p_user_id,
       l_access_code_id,
+      'participant-' || to_char(p_user_id),
+      l_terms_id,
+      l_terms_lang_code,
+      systimestamp,
       'ACTIVE',
       trunc(sysdate),
       systimestamp
@@ -290,7 +448,10 @@ create or replace package body pkg_competitions as
   ) is
     l_access_code_id competition_access_codes.access_code_id%type;
     l_dummy number;
+    l_now_utc_ts timestamp;
   begin
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+
     if p_user_id is null or p_access_code is null then
       raise_application_error(-20080, 'user_id and access_code are required');
     end if;
@@ -303,10 +464,10 @@ create or replace package body pkg_competitions as
        where c.code = p_access_code
          and c.code_type = 'ORGANIZER'
          and (c.end_date is null or c.end_date > sysdate)
-         and (c.expires_at is null or c.expires_at > systimestamp)
+         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
          and c.status = 'ACTIVE'
          and (comp.end_date is null or comp.end_date > sysdate)
-         and (comp.ends_at is null or comp.ends_at > systimestamp)
+         and (comp.ends_at is null or comp.ends_at > l_now_utc_ts)
        fetch first 1 row only;
     exception
       when no_data_found then
@@ -491,6 +652,11 @@ end pkg_questions;
 /
 
 create or replace package pkg_submissions as
+  function normalize_text(
+    p_value in varchar2,
+    p_mode in varchar2
+  ) return varchar2 deterministic;
+
   procedure submit_answer(
     p_user_id in number,
     p_competition_id in number,
@@ -510,6 +676,24 @@ end pkg_submissions;
 /
 
 create or replace package body pkg_submissions as
+  function normalize_text(
+    p_value in varchar2,
+    p_mode in varchar2
+  ) return varchar2 deterministic is
+    l_mode varchar2(30) := upper(nvl(p_mode, 'EXACT'));
+    l_val varchar2(4000) := nvl(p_value, '');
+  begin
+    if l_mode = 'TRIM_UPPER' then
+      return upper(trim(l_val));
+    elsif l_mode = 'LOWER_TRIM' then
+      return lower(trim(l_val));
+    elsif l_mode = 'NUMERIC' then
+      return regexp_replace(trim(replace(l_val, ',', '.')), '[^0-9\.\-]', '');
+    else
+      return l_val;
+    end if;
+  end;
+
   procedure submit_answer(
     p_user_id in number,
     p_competition_id in number,
@@ -529,6 +713,7 @@ create or replace package body pkg_submissions as
     l_question_type questions.question_type%type;
     l_input_type questions.input_type%type;
     l_awarded_points questions.points%type := 0;
+    l_wrong_points questions.wrong_points%type := 0;
     l_is_correct varchar2(1) := 'N';
     l_normalized_answer varchar2(4000);
     l_correct_count number := 0;
@@ -551,8 +736,8 @@ create or replace package body pkg_submissions as
     end;
 
     begin
-      select q.question_type, q.input_type, q.points
-        into l_question_type, l_input_type, l_awarded_points
+      select q.question_type, q.input_type, q.points, q.wrong_points
+        into l_question_type, l_input_type, l_awarded_points, l_wrong_points
         from questions q
        where q.question_id = p_question_id
          and q.checkpoint_id = p_checkpoint_id
@@ -584,10 +769,7 @@ create or replace package body pkg_submissions as
         raise_application_error(-20064, 'answer_text is required for TEXT question');
       end if;
 
-      l_normalized_answer := trim(dbms_lob.substr(p_answer_text, 4000, 1));
-      if l_input_type = 'NUMERIC' then
-        l_normalized_answer := regexp_replace(l_normalized_answer, '[^0-9\-]', '');
-      end if;
+      l_normalized_answer := dbms_lob.substr(p_answer_text, 4000, 1);
 
       select count(*)
         into l_correct_count
@@ -596,11 +778,9 @@ create or replace package body pkg_submissions as
          and qa.is_correct = 'Y'
          and (qa.end_date is null or qa.end_date > sysdate)
          and (
-              (qa.normalize_mode = 'EXACT' and qa.answer_value = l_normalized_answer)
-           or (qa.normalize_mode = 'TRIM_UPPER' and upper(trim(qa.answer_value)) = upper(trim(l_normalized_answer)))
-           or (qa.normalize_mode = 'LOWER_TRIM' and lower(trim(qa.answer_value)) = lower(trim(l_normalized_answer)))
-           or (qa.normalize_mode = 'NUMERIC' and regexp_replace(trim(qa.answer_value), '[^0-9\-]', '') = regexp_replace(trim(l_normalized_answer), '[^0-9\-]', ''))
-         );
+               normalize_text(qa.answer_value, qa.normalize_mode)
+                 = normalize_text(l_normalized_answer, qa.normalize_mode)
+          );
 
       if l_correct_count > 0 then
         l_is_correct := 'Y';
@@ -608,7 +788,7 @@ create or replace package body pkg_submissions as
     end if;
 
     if l_is_correct = 'N' then
-      l_awarded_points := 0;
+      l_awarded_points := nvl(l_wrong_points, 0);
     end if;
 
     o_submission_id := seq_submissions.nextval;
@@ -626,8 +806,7 @@ create or replace package body pkg_submissions as
       awarded_points,
       is_correct,
       submitted_at,
-      evaluated_at,
-      start_date
+      evaluated_at
     ) values (
       o_submission_id,
       p_competition_id,
@@ -642,8 +821,7 @@ create or replace package body pkg_submissions as
       l_awarded_points,
       l_is_correct,
       systimestamp,
-      systimestamp,
-      trunc(sysdate)
+      systimestamp
     );
 
     o_is_correct := l_is_correct;
@@ -653,8 +831,7 @@ create or replace package body pkg_submissions as
       into o_total_score
       from submissions s
      where s.competition_id = p_competition_id
-       and s.user_id = p_user_id
-       and (s.end_date is null or s.end_date > sysdate);
+       and s.user_id = p_user_id;
   end;
 end pkg_submissions;
 /
@@ -715,6 +892,30 @@ create or replace package pkg_results as
     p_competition_id in number,
     o_items_json out clob
   );
+
+  procedure get_participant_submissions(
+    p_competition_id in number,
+    p_user_id in number,
+    o_items_json out clob
+  );
+
+  procedure get_submission_detail(
+    p_competition_id in number,
+    p_user_id in number,
+    p_submission_id in number,
+    o_item_json out clob
+  );
+
+  procedure get_checkpoint_results(
+    p_competition_id in number,
+    o_items_json out clob
+  );
+
+  procedure get_checkpoint_responders(
+    p_competition_id in number,
+    p_checkpoint_id in number,
+    o_items_json out clob
+  );
 end pkg_results;
 /
 
@@ -729,8 +930,7 @@ create or replace package body pkg_results as
       into o_score
       from submissions s
      where s.competition_id = p_competition_id
-       and s.user_id = p_user_id
-       and (s.end_date is null or s.end_date > sysdate);
+       and s.user_id = p_user_id;
   end;
 
   procedure get_competition_leaderboard(
@@ -741,18 +941,414 @@ create or replace package body pkg_results as
     select json_arrayagg(
              json_object(
                'user_id' value x.user_id,
-               'score' value x.score
+               'competitor_name' value x.competitor_name,
+               'answered_checkpoints' value x.answered_checkpoints,
+               'score' value x.score,
+               'last_checkpoint' value x.last_checkpoint,
+               'last_submission_at' value case
+                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                 else null
+               end
              ) returning clob
            )
       into o_items_json
       from (
         select s.user_id,
-               nvl(sum(nvl(s.awarded_points, 0)), 0) as score
+               nvl(max(cp.alias_display), to_char(s.user_id)) as competitor_name,
+               count(distinct s.checkpoint_id) as answered_checkpoints,
+               nvl(sum(nvl(s.awarded_points, 0)), 0) as score,
+               max(case when ls.rn = 1 then c.title end) as last_checkpoint,
+               max(s.submitted_at) as last_submission_at
           from submissions s
+          left join checkpoints c
+            on c.checkpoint_id = s.checkpoint_id
+          left join (
+            select p.competition_id,
+                   p.user_id,
+                   p.alias_display,
+                   row_number() over (
+                     partition by p.competition_id, p.user_id
+                     order by nvl(p.joined_at, timestamp '1900-01-01 00:00:00') desc,
+                              p.competition_participant_id desc
+                   ) as rn
+              from competition_participants p
+          ) cp
+            on cp.competition_id = s.competition_id
+           and cp.user_id = s.user_id
+           and cp.rn = 1
+          left join (
+            select sx.competition_id,
+                   sx.user_id,
+                   sx.checkpoint_id,
+                   row_number() over (
+                     partition by sx.competition_id, sx.user_id
+                     order by sx.submitted_at desc, sx.submission_id desc
+                   ) as rn
+              from submissions sx
+          ) ls
+            on ls.competition_id = s.competition_id
+           and ls.user_id = s.user_id
+           and ls.checkpoint_id = s.checkpoint_id
          where s.competition_id = p_competition_id
-           and (s.end_date is null or s.end_date > sysdate)
          group by s.user_id
          order by score desc, s.user_id
+      ) x;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure get_participant_submissions(
+    p_competition_id in number,
+    p_user_id in number,
+    o_items_json out clob
+  ) is
+  begin
+    select json_arrayagg(
+             json_object(
+               'checkpoint_title' value x.checkpoint_title,
+               'submission_id' value x.submission_id,
+               'submitted_at' value case
+                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                 else null
+               end,
+               'awarded_points' value x.awarded_points,
+               'answer_text' value x.answer_text,
+               'is_correct' value x.is_correct
+             ) returning clob
+           )
+      into o_items_json
+      from (
+        select cp.title as checkpoint_title,
+               s.submission_id,
+               s.submitted_at,
+               nvl(s.awarded_points, 0) as awarded_points,
+                case
+                  when q.question_type = 'SINGLE_CHOICE' then nvl(
+                    (
+                      select qot_et.option_text
+                        from question_option_texts qot_et
+                       where qot_et.option_id = s.selected_option_id
+                         and lower(qot_et.lang_code) = 'et'
+                       fetch first 1 row only
+                    ),
+                    nvl(
+                      (
+                        select qot_en.option_text
+                          from question_option_texts qot_en
+                         where qot_en.option_id = s.selected_option_id
+                           and lower(qot_en.lang_code) = 'en'
+                         fetch first 1 row only
+                      ),
+                      qo.option_code
+                    )
+                  )
+                  else dbms_lob.substr(s.answer_text, 4000, 1)
+                end as answer_text,
+               case when nvl(s.is_correct, 'N') = 'Y' then 'Y' else 'N' end as is_correct
+          from submissions s
+          join checkpoints cp
+            on cp.checkpoint_id = s.checkpoint_id
+          join questions q
+            on q.question_id = s.question_id
+          left join question_options qo
+            on qo.option_id = s.selected_option_id
+         where s.competition_id = p_competition_id
+           and s.user_id = p_user_id
+         order by s.submitted_at desc, s.submission_id desc
+      ) x;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure get_submission_detail(
+    p_competition_id in number,
+    p_user_id in number,
+    p_submission_id in number,
+    o_item_json out clob
+  ) is
+    l_question_id questions.question_id%type;
+    l_question_type questions.question_type%type;
+    l_selected_option_id submissions.selected_option_id%type;
+    l_answer_text clob;
+  begin
+    select s.question_id,
+           q.question_type,
+           s.selected_option_id,
+           s.answer_text
+      into l_question_id,
+           l_question_type,
+           l_selected_option_id,
+           l_answer_text
+      from submissions s
+      join questions q
+        on q.question_id = s.question_id
+     where s.submission_id = p_submission_id
+       and s.competition_id = p_competition_id
+       and s.user_id = p_user_id;
+
+    select json_object(
+             'submission_id' value s.submission_id,
+             'checkpoint_title' value cp.title,
+             'question_text' value qt.question_text,
+             'question_type' value q.question_type,
+             'points' value nvl(q.points, 0),
+             'wrong_points' value nvl(q.wrong_points, 0),
+             'submitted_at' value case
+               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+               else null
+             end,
+             'awarded_points' value nvl(s.awarded_points, 0),
+             'competitor_answer' value case
+               when q.question_type = 'SINGLE_CHOICE' then nvl(
+                 (
+                   select qot_et.option_text
+                     from question_option_texts qot_et
+                    where qot_et.option_id = s.selected_option_id
+                      and lower(qot_et.lang_code) = 'et'
+                      and qot_et.start_date <= cast(s.submitted_at as date)
+                      and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
+                    fetch first 1 row only
+                 ),
+                 nvl(
+                   (
+                     select qot_en.option_text
+                       from question_option_texts qot_en
+                      where qot_en.option_id = s.selected_option_id
+                        and lower(qot_en.lang_code) = 'en'
+                        and qot_en.start_date <= cast(s.submitted_at as date)
+                        and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
+                      fetch first 1 row only
+                   ),
+                   (
+                     select qo.option_code
+                       from question_options qo
+                      where qo.option_id = s.selected_option_id
+                        and qo.start_date <= cast(s.submitted_at as date)
+                        and (qo.end_date is null or qo.end_date > cast(s.submitted_at as date))
+                      fetch first 1 row only
+                   )
+                 )
+               )
+               else dbms_lob.substr(s.answer_text, 4000, 1)
+             end,
+             'options' value case
+               when q.question_type = 'SINGLE_CHOICE' then (
+                 select json_arrayagg(
+                          json_object(
+                            'option_text' value nvl(
+                              (
+                                select qot_et.option_text
+                                  from question_option_texts qot_et
+                                 where qot_et.option_id = qo.option_id
+                                   and lower(qot_et.lang_code) = 'et'
+                                   and qot_et.start_date <= cast(s.submitted_at as date)
+                                   and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
+                                 fetch first 1 row only
+                              ),
+                              nvl(
+                                (
+                                  select qot_en.option_text
+                                    from question_option_texts qot_en
+                                   where qot_en.option_id = qo.option_id
+                                     and lower(qot_en.lang_code) = 'en'
+                                     and qot_en.start_date <= cast(s.submitted_at as date)
+                                     and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
+                                   fetch first 1 row only
+                                ),
+                                qo.option_code
+                              )
+                            ),
+                            'is_correct' value case when qo.is_correct = 'Y' then 'Y' else 'N' end,
+                            'is_selected' value case when qo.option_id = s.selected_option_id then 'Y' else 'N' end
+                          ) returning clob
+                        )
+                   from question_options qo
+                  where qo.question_id = q.question_id
+                    and qo.start_date <= cast(s.submitted_at as date)
+                    and (qo.end_date is null or qo.end_date > cast(s.submitted_at as date))
+               )
+               else (
+                 select json_arrayagg(
+                          json_object(
+                            'option_text' value qa.answer_value,
+                            'is_correct' value case when qa.is_correct = 'Y' then 'Y' else 'N' end,
+                            'is_selected' value case
+                              when qa.is_correct = 'Y'
+                                   and pkg_submissions.normalize_text(qa.answer_value, qa.normalize_mode)
+                                       = pkg_submissions.normalize_text(dbms_lob.substr(s.answer_text, 4000, 1), qa.normalize_mode)
+                              then 'Y' else 'N'
+                            end
+                          ) returning clob
+                        )
+                   from question_answers qa
+                  where qa.question_id = q.question_id
+                    and qa.is_correct = 'Y'
+                    and qa.start_date <= cast(s.submitted_at as date)
+                    and (qa.end_date is null or qa.end_date > cast(s.submitted_at as date))
+               )
+             end
+           returning clob
+           )
+      into o_item_json
+      from submissions s
+      join checkpoints cp
+        on cp.checkpoint_id = s.checkpoint_id
+      join questions q
+        on q.question_id = s.question_id
+      left join question_texts qt
+        on qt.question_id = q.question_id
+       and lower(qt.lang_code) = 'et'
+     where s.submission_id = p_submission_id
+       and s.competition_id = p_competition_id
+       and s.user_id = p_user_id;
+
+    if o_item_json is null then
+      o_item_json := '{}';
+    end if;
+  exception
+    when no_data_found then
+      o_item_json := '{}';
+  end;
+
+  procedure get_checkpoint_results(
+    p_competition_id in number,
+    o_items_json out clob
+  ) is
+  begin
+    select json_arrayagg(
+             json_object(
+               'checkpoint_id' value x.checkpoint_id,
+               'checkpoint_title' value x.checkpoint_title,
+               'last_submission_at' value case
+                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                 else null
+               end,
+               'last_team' value x.last_team,
+               'checkpoint_points' value x.checkpoint_points,
+               'correct_count' value x.correct_count,
+               'wrong_count' value x.wrong_count
+             ) returning clob
+           )
+      into o_items_json
+      from (
+        with latest_alias as (
+          select p.competition_id,
+                 p.user_id,
+                 p.alias_display,
+                 row_number() over (
+                   partition by p.competition_id, p.user_id
+                   order by nvl(p.joined_at, timestamp '1900-01-01 00:00:00') desc,
+                            p.competition_participant_id desc
+                 ) as rn
+            from competition_participants p
+           where p.competition_id = p_competition_id
+        ),
+        last_sub as (
+          select s.checkpoint_id,
+                 s.user_id,
+                 s.submitted_at,
+                 row_number() over (
+                   partition by s.checkpoint_id
+                   order by s.submitted_at desc, s.submission_id desc
+                 ) as rn
+            from submissions s
+           where s.competition_id = p_competition_id
+        ),
+        cp_points as (
+          select q.checkpoint_id,
+                 max(nvl(q.points, 0)) as checkpoint_points
+            from questions q
+           where (q.end_date is null or q.end_date > sysdate)
+           group by q.checkpoint_id
+        )
+        select cp.checkpoint_id,
+               cp.title as checkpoint_title,
+               ls.submitted_at as last_submission_at,
+               nvl(la.alias_display, to_char(ls.user_id)) as last_team,
+               nvl(cpp.checkpoint_points, 0) as checkpoint_points,
+               nvl(sum(case when s.is_correct = 'Y' then 1 else 0 end), 0) as correct_count,
+               nvl(sum(case when s.is_correct = 'N' then 1 else 0 end), 0) as wrong_count
+          from checkpoints cp
+          left join submissions s
+            on s.competition_id = p_competition_id
+           and s.checkpoint_id = cp.checkpoint_id
+          left join last_sub ls
+            on ls.checkpoint_id = cp.checkpoint_id
+           and ls.rn = 1
+          left join latest_alias la
+            on la.competition_id = p_competition_id
+           and la.user_id = ls.user_id
+           and la.rn = 1
+          left join cp_points cpp
+            on cpp.checkpoint_id = cp.checkpoint_id
+         where cp.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+         group by cp.checkpoint_id,
+                  cp.title,
+                  ls.submitted_at,
+                  ls.user_id,
+                  la.alias_display,
+                  cpp.checkpoint_points
+         order by lower(cp.title), cp.checkpoint_id
+      ) x;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure get_checkpoint_responders(
+    p_competition_id in number,
+    p_checkpoint_id in number,
+    o_items_json out clob
+  ) is
+  begin
+    select json_arrayagg(
+             json_object(
+               'user_id' value x.user_id,
+               'competitor_name' value x.competitor_name,
+               'is_correct' value x.is_correct
+             ) returning clob
+           )
+      into o_items_json
+      from (
+        with latest_alias as (
+          select p.competition_id,
+                 p.user_id,
+                 p.alias_display,
+                 row_number() over (
+                   partition by p.competition_id, p.user_id
+                   order by nvl(p.joined_at, timestamp '1900-01-01 00:00:00') desc,
+                            p.competition_participant_id desc
+                 ) as rn
+            from competition_participants p
+           where p.competition_id = p_competition_id
+        ),
+        latest_submission as (
+          select s.user_id,
+                 s.is_correct,
+                 row_number() over (
+                   partition by s.user_id
+                   order by s.submitted_at desc, s.submission_id desc
+                 ) as rn
+            from submissions s
+           where s.competition_id = p_competition_id
+             and s.checkpoint_id = p_checkpoint_id
+        )
+        select ls.user_id,
+               nvl(la.alias_display, to_char(ls.user_id)) as competitor_name,
+               case when ls.is_correct = 'Y' then 'Y' else 'N' end as is_correct
+          from latest_submission ls
+          left join latest_alias la
+            on la.competition_id = p_competition_id
+           and la.user_id = ls.user_id
+           and la.rn = 1
+         where ls.rn = 1
+         order by lower(nvl(la.alias_display, to_char(ls.user_id))), ls.user_id
       ) x;
 
     if o_items_json is null then
@@ -782,6 +1378,24 @@ create or replace package pkg_competitor as
     p_competition_id in number,
     o_items_json out clob
   );
+  procedure get_progress_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_progress_json out clob
+  );
+
+  procedure list_my_submissions_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_items_json out clob
+  );
+
+  procedure get_my_submission_detail_json(
+    p_user_id in number,
+    p_competition_id in number,
+    p_submission_id in number,
+    o_item_json out clob
+  );
 end pkg_competitor;
 /
 
@@ -790,14 +1404,18 @@ create or replace package body pkg_competitor as
     p_user_id in number,
     o_items_json out clob
   ) is
+    l_now_utc_ts timestamp;
   begin
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+
     select json_arrayagg(
              json_object(
                'competition_id' value x.competition_id,
                'name' value x.name,
                'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end,
                'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end,
-               'use_location' value nvl(x.use_location, 'N')
+               'use_location' value nvl(x.use_location, 'N'),
+               'show_competitor_location' value nvl(x.show_competitor_location, 'Y')
              ) returning clob
            )
       into o_items_json
@@ -806,7 +1424,8 @@ create or replace package body pkg_competitor as
                c.name,
                c.starts_at,
                c.ends_at,
-               c.use_location
+               c.use_location,
+               c.show_competitor_location
          from competition_participants cp
           join competitions c
             on c.competition_id = cp.competition_id
@@ -814,8 +1433,8 @@ create or replace package body pkg_competitor as
            and (cp.end_date is null or cp.end_date > sysdate)
            and (c.end_date is null or c.end_date > sysdate)
            and c.status = 'ACTIVE'
-           and (c.starts_at is null or c.starts_at <= systimestamp)
-           and (c.ends_at is null or c.ends_at > systimestamp)
+           and (c.starts_at is null or c.starts_at <= l_now_utc_ts)
+           and (c.ends_at is null or c.ends_at > l_now_utc_ts)
          order by nvl(c.starts_at, timestamp '1900-01-01 00:00:00'), c.competition_id
       ) x;
 
@@ -978,12 +1597,11 @@ create or replace package body pkg_competitor as
            )
            and not exists (
              select 1
-               from submissions s
-              where s.competition_id = p_competition_id
-                and s.user_id = p_user_id
-                and s.checkpoint_id = cp.checkpoint_id
-                and s.question_id = q.question_id
-                and (s.end_date is null or s.end_date > sysdate)
+              from submissions s
+             where s.competition_id = p_competition_id
+               and s.user_id = p_user_id
+               and s.checkpoint_id = cp.checkpoint_id
+               and s.question_id = q.question_id
            )
          group by cp.checkpoint_id, cp.title, cp.order_no, q.question_id, q.question_type, q.points, q.input_type, q.input_max_length,
                   cp.latitude, cp.longitude, cp.radius_m, cp.location_required
@@ -1005,6 +1623,7 @@ create or replace package body pkg_competitor as
                'checkpoint_id' value x.checkpoint_id,
                'checkpoint_title' value x.checkpoint_title,
                'question_id' value x.question_id,
+               'points' value x.points,
                'latitude' value x.latitude,
                'longitude' value x.longitude,
                'radius_m' value x.radius_m,
@@ -1019,6 +1638,7 @@ create or replace package body pkg_competitor as
         select cp.checkpoint_id,
                cp.title as checkpoint_title,
                q.question_id,
+               q.points,
                cp.latitude,
                cp.longitude,
                cp.radius_m,
@@ -1027,11 +1647,10 @@ create or replace package body pkg_competitor as
                  when exists (
                    select 1
                      from submissions s
-                    where s.competition_id = p_competition_id
-                      and s.user_id = p_user_id
-                      and s.checkpoint_id = cp.checkpoint_id
+                   where s.competition_id = p_competition_id
+                     and s.user_id = p_user_id
+                     and s.checkpoint_id = cp.checkpoint_id
                       and s.question_id = q.question_id
-                      and (s.end_date is null or s.end_date > sysdate)
                  ) then 'Y'
                  else 'N'
                end as is_answered
@@ -1049,11 +1668,270 @@ create or replace package body pkg_competitor as
       o_items_json := '[]';
     end if;
   end;
+
+  procedure get_progress_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_progress_json out clob
+  ) is
+    l_total number := 0;
+    l_answered number := 0;
+    l_score number := 0;
+  begin
+    select count(distinct cp.checkpoint_id)
+      into l_total
+      from checkpoints cp
+      join questions q
+        on q.checkpoint_id = cp.checkpoint_id
+     where cp.competition_id = p_competition_id
+       and (cp.end_date is null or cp.end_date > sysdate)
+       and (q.end_date is null or q.end_date > sysdate);
+
+    select count(distinct cp.checkpoint_id)
+      into l_answered
+      from submissions s
+      join questions q
+        on q.question_id = s.question_id
+      join checkpoints cp
+        on cp.checkpoint_id = q.checkpoint_id
+     where s.competition_id = p_competition_id
+       and s.user_id = p_user_id
+       and cp.competition_id = p_competition_id
+       and (cp.end_date is null or cp.end_date > sysdate)
+       and (q.end_date is null or q.end_date > sysdate);
+
+    pkg_results.get_competition_score(
+      p_competition_id => p_competition_id,
+      p_user_id        => p_user_id,
+      o_score          => l_score
+    );
+
+    select json_object(
+             'total_checkpoints' value nvl(l_total, 0),
+             'answered_checkpoints' value nvl(l_answered, 0),
+             'score' value nvl(l_score, 0)
+             returning clob
+           )
+      into o_progress_json
+      from dual;
+  end;
+
+  procedure list_my_submissions_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_items_json out clob
+  ) is
+  begin
+    select json_arrayagg(
+             json_object(
+               'checkpoint_title' value x.checkpoint_title,
+               'submission_id' value x.submission_id,
+               'submitted_at' value case
+                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                 else null
+               end,
+               'awarded_points' value x.awarded_points
+             ) returning clob
+           )
+      into o_items_json
+      from (
+        select cp.title as checkpoint_title,
+               s.submission_id,
+               s.submitted_at,
+               nvl(s.awarded_points, 0) as awarded_points
+          from submissions s
+          join checkpoints cp
+            on cp.checkpoint_id = s.checkpoint_id
+          join questions q
+            on q.question_id = s.question_id
+         where s.user_id = p_user_id
+           and s.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+           and (q.end_date is null or q.end_date > sysdate)
+         order by s.submitted_at desc, s.submission_id desc
+      ) x;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure get_my_submission_detail_json(
+    p_user_id in number,
+    p_competition_id in number,
+    p_submission_id in number,
+    o_item_json out clob
+  ) is
+  begin
+    select json_object(
+             'submission_id' value s.submission_id,
+             'checkpoint_title' value cp.title,
+             'question_text' value qt.question_text,
+             'question_type' value q.question_type,
+             'points' value nvl(q.points, 0),
+             'wrong_points' value nvl(q.wrong_points, 0),
+             'submitted_at' value case
+               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+               else null
+             end,
+             'awarded_points' value nvl(s.awarded_points, 0),
+             'competitor_answer' value case
+               when q.question_type = 'SINGLE_CHOICE' then nvl(
+                 (
+                   select qot_et.option_text
+                     from question_option_texts qot_et
+                    where qot_et.option_id = s.selected_option_id
+                      and lower(qot_et.lang_code) = 'et'
+                      and qot_et.start_date <= cast(s.submitted_at as date)
+                      and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
+                    fetch first 1 row only
+                 ),
+                 nvl(
+                   (
+                     select qot_en.option_text
+                       from question_option_texts qot_en
+                      where qot_en.option_id = s.selected_option_id
+                        and lower(qot_en.lang_code) = 'en'
+                        and qot_en.start_date <= cast(s.submitted_at as date)
+                        and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
+                      fetch first 1 row only
+                   ),
+                   (
+                     select qo.option_code
+                       from question_options qo
+                      where qo.option_id = s.selected_option_id
+                        and qo.start_date <= cast(s.submitted_at as date)
+                        and (qo.end_date is null or qo.end_date > cast(s.submitted_at as date))
+                      fetch first 1 row only
+                   )
+                 )
+               )
+               else dbms_lob.substr(s.answer_text, 4000, 1)
+             end,
+             'responders_count' value (
+               select count(distinct sx.user_id)
+                 from submissions sx
+                where sx.competition_id = s.competition_id
+                  and sx.checkpoint_id = s.checkpoint_id
+                  and sx.question_id = s.question_id
+             ),
+             'correct_pct' value (
+               select round(
+                        100 * sum(case when sx.is_correct = 'Y' then 1 else 0 end) /
+                        nullif(count(distinct sx.user_id), 0),
+                        1
+                      )
+                 from submissions sx
+                where sx.competition_id = s.competition_id
+                  and sx.checkpoint_id = s.checkpoint_id
+                  and sx.question_id = s.question_id
+             ),
+             'options' value case
+               when q.question_type = 'SINGLE_CHOICE' then (
+                 select json_arrayagg(
+                          json_object(
+                            'option_text' value nvl(
+                              (
+                                select qot_et.option_text
+                                  from question_option_texts qot_et
+                                 where qot_et.option_id = qo.option_id
+                                   and lower(qot_et.lang_code) = 'et'
+                                   and qot_et.start_date <= cast(s.submitted_at as date)
+                                   and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
+                                 fetch first 1 row only
+                              ),
+                              nvl(
+                                (
+                                  select qot_en.option_text
+                                    from question_option_texts qot_en
+                                   where qot_en.option_id = qo.option_id
+                                     and lower(qot_en.lang_code) = 'en'
+                                     and qot_en.start_date <= cast(s.submitted_at as date)
+                                     and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
+                                   fetch first 1 row only
+                                ),
+                                qo.option_code
+                              )
+                            ),
+                            'is_correct' value case when qo.is_correct = 'Y' then 'Y' else 'N' end,
+                            'is_selected' value case when qo.option_id = s.selected_option_id then 'Y' else 'N' end
+                          ) returning clob
+                        )
+                   from question_options qo
+                  where qo.question_id = q.question_id
+                    and qo.start_date <= cast(s.submitted_at as date)
+                    and (qo.end_date is null or qo.end_date > cast(s.submitted_at as date))
+               )
+               else (
+                 select json_arrayagg(
+                          json_object(
+                            'option_text' value qa.answer_value,
+                            'is_correct' value case when qa.is_correct = 'Y' then 'Y' else 'N' end,
+                            'is_selected' value case
+                              when qa.is_correct = 'Y'
+                                   and pkg_submissions.normalize_text(qa.answer_value, qa.normalize_mode)
+                                       = pkg_submissions.normalize_text(dbms_lob.substr(s.answer_text, 4000, 1), qa.normalize_mode)
+                              then 'Y' else 'N'
+                            end
+                          ) returning clob
+                        )
+                   from question_answers qa
+                  where qa.question_id = q.question_id
+                    and qa.is_correct = 'Y'
+                    and qa.start_date <= cast(s.submitted_at as date)
+                    and (qa.end_date is null or qa.end_date > cast(s.submitted_at as date))
+               )
+             end
+             returning clob
+           )
+      into o_item_json
+      from submissions s
+      join checkpoints cp
+        on cp.checkpoint_id = s.checkpoint_id
+      join questions q
+        on q.question_id = s.question_id
+      left join question_texts qt
+        on qt.question_id = q.question_id
+       and lower(qt.lang_code) = 'et'
+       and qt.start_date <= cast(s.submitted_at as date)
+       and (qt.end_date is null or qt.end_date > cast(s.submitted_at as date))
+     where s.user_id = p_user_id
+       and s.competition_id = p_competition_id
+       and s.submission_id = p_submission_id;
+
+    if o_item_json is null then
+      o_item_json := '{}';
+    end if;
+  exception
+    when no_data_found then
+      o_item_json := '{}';
+  end;
 end pkg_competitor;
 /
 
 create or replace package pkg_admin_content as
   procedure list_competitions_json(p_user_id in number, o_items_json out clob);
+  procedure list_all_competitions_json(o_items_json out clob);
+  procedure create_empty_competition(
+    p_name in varchar2,
+    p_description in varchar2,
+    p_created_by in number,
+    o_competition_id out number,
+    o_organizer_code out varchar2
+  );
+  procedure copy_competition(
+    p_source_competition_id in number,
+    p_copy_questions in varchar2,
+    p_copy_organizers in varchar2,
+    p_created_by in number,
+    o_competition_id out number,
+    o_organizer_code out varchar2
+  );
+  procedure remove_competition_organizer(
+    p_competition_id in number,
+    p_user_id in number,
+    p_removed_by in number
+  );
   procedure update_competition_dates(
     p_competition_id in number,
     p_starts_at in timestamp,
@@ -1066,7 +1944,17 @@ create or replace package pkg_admin_content as
     p_description in varchar2,
     p_status in varchar2,
     p_use_location in varchar2,
+    p_show_competitor_location in varchar2,
     p_radius_m in number,
+    p_updated_by in number
+  );
+  procedure get_participant_map_layers_json(
+    p_competition_id in number,
+    o_items_json out clob
+  );
+  procedure set_participant_map_layers(
+    p_competition_id in number,
+    p_layer_codes_json in clob,
     p_updated_by in number
   );
   procedure list_checkpoints_json(p_competition_id in number, o_items_json out clob);
@@ -1115,6 +2003,7 @@ create or replace package pkg_admin_content as
     p_input_max_length in number,
     p_input_pattern in varchar2,
     p_points in number,
+    p_wrong_points in number,
     p_lang_code in varchar2,
     p_question_text in varchar2,
     p_created_by in number,
@@ -1128,6 +2017,7 @@ create or replace package pkg_admin_content as
     p_input_max_length in number,
     p_input_pattern in varchar2,
     p_points in number,
+    p_wrong_points in number,
     p_lang_code in varchar2,
     p_question_text in varchar2,
     p_updated_by in number
@@ -1177,6 +2067,7 @@ create or replace package body pkg_admin_content as
         'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
         'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
         'use_location' value nvl(c.use_location, 'N'),
+        'show_competitor_location' value nvl(c.show_competitor_location, 'Y'),
         'is_active' value case when c.ends_at is null or c.ends_at > systimestamp then 'Y' else 'N' end
       ) returning clob
     )
@@ -1188,6 +2079,396 @@ create or replace package body pkg_admin_content as
        and (co.end_date is null or co.end_date > sysdate)
      order by c.starts_at, c.created_at;
     if o_items_json is null then o_items_json := '[]'; end if;
+  end;
+
+  procedure list_all_competitions_json(o_items_json out clob) is
+  begin
+    select json_arrayagg(
+      json_object(
+        'competition_id' value c.competition_id,
+        'name' value c.name,
+        'description' value c.description,
+        'status' value c.status,
+        'use_location' value nvl(c.use_location, 'N'),
+        'show_competitor_location' value nvl(c.show_competitor_location, 'N'),
+        'checkpoint_count' value (
+          select count(*)
+            from checkpoints cp
+           where cp.competition_id = c.competition_id
+             and (cp.end_date is null or cp.end_date > sysdate)
+        ),
+        'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'updated_at' value to_char(c.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'organizer_code' value (
+          select ac.code
+            from competition_access_codes ac
+           where ac.competition_id = c.competition_id
+             and ac.code_type = 'ORGANIZER'
+             and (ac.end_date is null or ac.end_date > sysdate)
+           order by ac.created_at desc, ac.access_code_id desc
+           fetch first 1 row only
+        ),
+        'organizers' value (
+          select nvl(
+            json_arrayagg(
+              json_object(
+                'user_id' value u.user_id,
+                'full_name' value u.full_name,
+                'email' value u.email
+              ) returning clob
+            ),
+            to_clob('[]')
+          )
+            from competition_organizers co
+            join users u
+              on u.user_id = co.user_id
+           where co.competition_id = c.competition_id
+             and (co.end_date is null or co.end_date > sysdate)
+        )
+      ) returning clob
+    )
+      into o_items_json
+      from (
+        select *
+          from competitions c
+         where (c.end_date is null or c.end_date > sysdate)
+         order by c.created_at desc nulls last, c.competition_id desc
+      ) c;
+
+    if o_items_json is null then o_items_json := '[]'; end if;
+  end;
+
+  procedure create_empty_competition(
+    p_name in varchar2,
+    p_description in varchar2,
+    p_created_by in number,
+    o_competition_id out number,
+    o_organizer_code out varchar2
+  ) is
+    l_name varchar2(200);
+  begin
+    l_name := trim(p_name);
+    if l_name is null then
+      raise_application_error(-20170, 'competition name is required');
+    end if;
+
+    pkg_competitions.create_competition(
+      p_name => l_name,
+      p_description => p_description,
+      p_created_by => p_created_by,
+      o_competition_id => o_competition_id
+    );
+
+    o_organizer_code := generate_unique_access_code();
+    insert into competition_access_codes(
+      access_code_id, competition_id, code, status, expires_at, max_uses, used_count, start_date, created_by, created_at, code_type
+    ) values (
+      seq_competition_access_codes.nextval,
+      o_competition_id,
+      o_organizer_code,
+      'ACTIVE',
+      null,
+      null,
+      0,
+      trunc(sysdate),
+      p_created_by,
+      systimestamp,
+      'ORGANIZER'
+    );
+
+    add_audit(
+      'COMPETITION',
+      o_competition_id,
+      'CREATE',
+      p_created_by,
+      null,
+      to_clob(
+        json_object(
+          'name' value l_name,
+          'description' value p_description,
+          'organizer_code' value o_organizer_code
+        )
+      )
+    );
+  end;
+
+  procedure copy_competition(
+    p_source_competition_id in number,
+    p_copy_questions in varchar2,
+    p_copy_organizers in varchar2,
+    p_created_by in number,
+    o_competition_id out number,
+    o_organizer_code out varchar2
+  ) is
+    l_copy_questions varchar2(1) := upper(trim(nvl(p_copy_questions, 'N')));
+    l_copy_organizers varchar2(1) := upper(trim(nvl(p_copy_organizers, 'N')));
+    l_name competitions.name%type;
+    l_description competitions.description%type;
+    l_use_location competitions.use_location%type;
+    l_show_competitor_location competitions.show_competitor_location%type;
+    l_radius_m competitions.radius_m%type;
+  begin
+    if p_source_competition_id is null then
+      raise_application_error(-20173, 'source competition is required');
+    end if;
+    if l_copy_questions not in ('Y', 'N') then
+      raise_application_error(-20174, 'invalid copy_questions');
+    end if;
+    if l_copy_organizers not in ('Y', 'N') then
+      raise_application_error(-20175, 'invalid copy_organizers');
+    end if;
+
+    begin
+      select c.name,
+             c.description,
+             nvl(c.use_location, 'N'),
+             nvl(c.show_competitor_location, 'N'),
+             c.radius_m
+        into l_name,
+             l_description,
+             l_use_location,
+             l_show_competitor_location,
+             l_radius_m
+        from competitions c
+       where c.competition_id = p_source_competition_id
+         and (c.end_date is null or c.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20176, 'source competition not found');
+    end;
+
+    o_competition_id := seq_competitions.nextval;
+    insert into competitions (
+      competition_id, name, description, status, use_location, show_competitor_location, radius_m, start_date, created_by, created_at
+    ) values (
+      o_competition_id,
+      substr(l_name || ' (koopia)', 1, 255),
+      l_description,
+      'DRAFT',
+      l_use_location,
+      case when l_use_location = 'Y' then l_show_competitor_location else 'N' end,
+      l_radius_m,
+      trunc(sysdate),
+      p_created_by,
+      systimestamp
+    );
+
+    o_organizer_code := generate_unique_access_code();
+    insert into competition_access_codes(
+      access_code_id, competition_id, code, status, expires_at, max_uses, used_count, start_date, created_by, created_at, code_type
+    ) values (
+      seq_competition_access_codes.nextval,
+      o_competition_id,
+      o_organizer_code,
+      'ACTIVE',
+      null,
+      null,
+      0,
+      trunc(sysdate),
+      p_created_by,
+      systimestamp,
+      'ORGANIZER'
+    );
+
+    if l_copy_organizers = 'Y' then
+      insert into competition_organizers (
+        competition_organizer_id, competition_id, user_id, start_date, end_date, assigned_by, assigned_at
+      )
+      select seq_competition_organizers.nextval,
+             o_competition_id,
+             co.user_id,
+             trunc(sysdate),
+             null,
+             p_created_by,
+             systimestamp
+        from competition_organizers co
+       where co.competition_id = p_source_competition_id
+         and (co.end_date is null or co.end_date > sysdate);
+    end if;
+
+    if l_copy_questions = 'Y' then
+      for cp in (
+        select cp.checkpoint_id,
+               cp.title,
+               cp.order_no,
+               cp.location_hint,
+               cp.latitude,
+               cp.longitude,
+               cp.radius_m,
+               cp.location_required
+          from checkpoints cp
+         where cp.competition_id = p_source_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+         order by nvl(cp.order_no, 999999), cp.checkpoint_id
+      ) loop
+        declare
+          l_new_checkpoint_id number;
+        begin
+          l_new_checkpoint_id := seq_checkpoints.nextval;
+          insert into checkpoints (
+            checkpoint_id, competition_id, title, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at
+          ) values (
+            l_new_checkpoint_id, o_competition_id, cp.title, cp.order_no, cp.location_hint, cp.latitude, cp.longitude, cp.radius_m, cp.location_required,
+            trunc(sysdate), p_created_by, systimestamp
+          );
+
+          for q in (
+            select q.question_id,
+                   q.question_type,
+                   q.input_type,
+                   q.input_max_length,
+                   q.input_pattern,
+                   q.points,
+                   q.wrong_points,
+                   q.status
+              from questions q
+             where q.checkpoint_id = cp.checkpoint_id
+               and (q.end_date is null or q.end_date > sysdate)
+          ) loop
+            declare
+              l_new_question_id number;
+            begin
+              l_new_question_id := seq_questions.nextval;
+              insert into questions (
+                question_id, checkpoint_id, question_type, input_type, input_max_length, input_pattern, points, wrong_points, status, start_date, created_by, created_at
+              ) values (
+                l_new_question_id, l_new_checkpoint_id, q.question_type, q.input_type, q.input_max_length, q.input_pattern,
+                nvl(q.points, 0), nvl(q.wrong_points, 0), q.status, trunc(sysdate), p_created_by, systimestamp
+              );
+
+              insert into question_texts (
+                question_text_id, question_id, lang_code, question_text, start_date, created_by, created_at
+              )
+              select seq_question_texts.nextval,
+                     l_new_question_id,
+                     qt.lang_code,
+                     qt.question_text,
+                     trunc(sysdate),
+                     p_created_by,
+                     systimestamp
+                from question_texts qt
+               where qt.question_id = q.question_id
+                 and (qt.end_date is null or qt.end_date > sysdate);
+
+              insert into question_answers (
+                answer_id, question_id, answer_value, is_correct, normalize_mode, start_date, created_by, created_at
+              )
+              select seq_question_answers.nextval,
+                     l_new_question_id,
+                     qa.answer_value,
+                     qa.is_correct,
+                     qa.normalize_mode,
+                     trunc(sysdate),
+                     p_created_by,
+                     systimestamp
+                from question_answers qa
+               where qa.question_id = q.question_id
+                 and (qa.end_date is null or qa.end_date > sysdate);
+
+              for qo in (
+                select qo.option_id,
+                       qo.option_code,
+                       qo.order_no,
+                       qo.is_correct
+                  from question_options qo
+                 where qo.question_id = q.question_id
+                   and (qo.end_date is null or qo.end_date > sysdate)
+                 order by nvl(qo.order_no, 999999), qo.option_id
+              ) loop
+                declare
+                  l_new_option_id number;
+                begin
+                  l_new_option_id := seq_question_options.nextval;
+                  insert into question_options (
+                    option_id, question_id, option_code, order_no, is_correct, start_date, created_by, created_at
+                  ) values (
+                    l_new_option_id, l_new_question_id, qo.option_code, qo.order_no, qo.is_correct, trunc(sysdate), p_created_by, systimestamp
+                  );
+
+                  insert into question_option_texts (
+                    question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at
+                  )
+                  select seq_question_option_texts.nextval,
+                         l_new_option_id,
+                         qot.lang_code,
+                         qot.option_text,
+                         trunc(sysdate),
+                         p_created_by,
+                         systimestamp
+                    from question_option_texts qot
+                   where qot.option_id = qo.option_id
+                     and (qot.end_date is null or qot.end_date > sysdate);
+                end;
+              end loop;
+            end;
+          end loop;
+        end;
+      end loop;
+    end if;
+
+    add_audit(
+      'COMPETITION',
+      o_competition_id,
+      'COPY',
+      p_created_by,
+      null,
+      to_clob(
+        json_object(
+          'source_competition_id' value p_source_competition_id,
+          'copy_questions' value l_copy_questions,
+          'copy_organizers' value l_copy_organizers,
+          'organizer_code' value o_organizer_code
+        )
+      )
+    );
+  end;
+
+  procedure remove_competition_organizer(
+    p_competition_id in number,
+    p_user_id in number,
+    p_removed_by in number
+  ) is
+    l_competition_organizer_id number;
+  begin
+    if p_competition_id is null or p_user_id is null then
+      raise_application_error(-20171, 'competition_id and user_id are required');
+    end if;
+
+    begin
+      select co.competition_organizer_id
+        into l_competition_organizer_id
+        from competition_organizers co
+       where co.competition_id = p_competition_id
+         and co.user_id = p_user_id
+         and (co.end_date is null or co.end_date > sysdate)
+       order by co.assigned_at desc, co.competition_organizer_id desc
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20172, 'active organizer relation not found');
+    end;
+
+    update competition_organizers
+       set end_date = trunc(sysdate)
+     where competition_organizer_id = l_competition_organizer_id
+       and (end_date is null or end_date > sysdate);
+
+    add_audit(
+      'COMPETITION_ORGANIZER',
+      l_competition_organizer_id,
+      'SOFT_DELETE',
+      p_removed_by,
+      null,
+      to_clob(
+        json_object(
+          'competition_id' value p_competition_id,
+          'user_id' value p_user_id
+        )
+      )
+    );
   end;
 
   procedure update_competition_dates(
@@ -1215,12 +2496,14 @@ create or replace package body pkg_admin_content as
     p_description in varchar2,
     p_status in varchar2,
     p_use_location in varchar2,
+    p_show_competitor_location in varchar2,
     p_radius_m in number,
     p_updated_by in number
   ) is
     l_name varchar2(255) := trim(p_name);
     l_status varchar2(30) := upper(trim(p_status));
     l_use_location varchar2(1) := upper(trim(nvl(p_use_location, 'N')));
+    l_show_competitor_location varchar2(1) := upper(trim(nvl(p_show_competitor_location, 'Y')));
   begin
     if l_name is null then
       raise_application_error(-20120, 'competition name is required');
@@ -1231,6 +2514,12 @@ create or replace package body pkg_admin_content as
     if l_use_location not in ('Y','N') then
       raise_application_error(-20122, 'invalid use_location');
     end if;
+    if l_show_competitor_location not in ('Y','N') then
+      raise_application_error(-20124, 'invalid show_competitor_location');
+    end if;
+    if l_use_location <> 'Y' then
+      l_show_competitor_location := 'N';
+    end if;
     if p_radius_m is not null and p_radius_m <= 0 then
       raise_application_error(-20123, 'radius_m must be > 0');
     end if;
@@ -1240,6 +2529,7 @@ create or replace package body pkg_admin_content as
            description = p_description,
            status = l_status,
            use_location = l_use_location,
+           show_competitor_location = l_show_competitor_location,
            radius_m = p_radius_m,
            updated_by = p_updated_by,
            updated_at = systimestamp
@@ -1252,8 +2542,128 @@ create or replace package body pkg_admin_content as
         'description' value p_description,
         'status' value l_status,
         'use_location' value l_use_location,
+        'show_competitor_location' value l_show_competitor_location,
         'radius_m' value p_radius_m
       )));
+  end;
+
+  procedure get_participant_map_layers_json(
+    p_competition_id in number,
+    o_items_json out clob
+  ) is
+    l_now_utc_date date;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+    select json_arrayagg(
+             json_object('layer_code' value cpml.layer_code) returning clob
+           )
+      into o_items_json
+      from competition_participant_map_layers cpml
+     where cpml.competition_id = p_competition_id
+       and (cpml.end_date is null or cpml.end_date > l_now_utc_date)
+     order by lower(cpml.layer_code), cpml.competition_participant_map_layer_id;
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure set_participant_map_layers(
+    p_competition_id in number,
+    p_layer_codes_json in clob,
+    p_updated_by in number
+  ) is
+    l_codes json_array_t;
+    l_count pls_integer;
+    l_code varchar2(100);
+    l_norm_code varchar2(100);
+    l_now_utc_date date;
+    type t_code_set is table of pls_integer index by varchar2(100);
+    l_selected_set t_code_set;
+    l_existing_set t_code_set;
+    type t_code_list is table of varchar2(100) index by pls_integer;
+    l_selected_list t_code_list;
+    l_selected_count pls_integer := 0;
+    l_change_count pls_integer := 0;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    if p_competition_id is null then
+      raise_application_error(-20180, 'competition_id is required');
+    end if;
+    if p_layer_codes_json is null then
+      raise_application_error(-20181, 'layer_codes_json is required');
+    end if;
+
+    l_codes := json_array_t.parse(p_layer_codes_json);
+    l_count := l_codes.get_size;
+    if l_count > 0 then
+      for i in 0 .. l_count - 1 loop
+        l_code := trim(l_codes.get_string(i));
+        if l_code is null then
+          continue;
+        end if;
+        l_norm_code := lower(l_code);
+        if not l_selected_set.exists(l_norm_code) then
+          l_selected_count := l_selected_count + 1;
+          l_selected_list(l_selected_count) := l_norm_code;
+          l_selected_set(l_norm_code) := 1;
+        end if;
+      end loop;
+    end if;
+
+    if l_selected_count < 1 then
+      raise_application_error(-20182, 'at least one layer must be selected');
+    end if;
+
+    for rec in (
+      select competition_participant_map_layer_id, lower(layer_code) as layer_code
+        from competition_participant_map_layers
+       where competition_id = p_competition_id
+         and (end_date is null or end_date > l_now_utc_date)
+    ) loop
+      l_existing_set(rec.layer_code) := 1;
+      if not l_selected_set.exists(rec.layer_code) then
+        update competition_participant_map_layers
+           set end_date = greatest(start_date, l_now_utc_date),
+               updated_by = p_updated_by,
+               updated_at = systimestamp
+         where competition_participant_map_layer_id = rec.competition_participant_map_layer_id;
+        l_change_count := l_change_count + 1;
+      end if;
+    end loop;
+
+    for i in 1 .. l_selected_count loop
+      l_norm_code := l_selected_list(i);
+      if not l_existing_set.exists(l_norm_code) then
+        insert into competition_participant_map_layers (
+          competition_participant_map_layer_id,
+          competition_id,
+          layer_code,
+          start_date,
+          created_by,
+          created_at
+        ) values (
+          seq_competition_part_map_layers.nextval,
+          p_competition_id,
+          l_norm_code,
+          l_now_utc_date,
+          p_updated_by,
+          systimestamp
+        );
+        l_change_count := l_change_count + 1;
+      end if;
+    end loop;
+
+    if l_change_count > 0 then
+      add_audit(
+        'COMPETITION',
+        p_competition_id,
+        'UPDATE_PARTICIPANT_MAP_LAYERS',
+        p_updated_by,
+        null,
+        p_layer_codes_json
+      );
+    end if;
   end;
 
   procedure list_checkpoints_json(p_competition_id in number, o_items_json out clob) is
@@ -1347,6 +2757,7 @@ create or replace package body pkg_admin_content as
       'description' value c.description,
       'status' value c.status,
       'use_location' value c.use_location,
+      'show_competitor_location' value c.show_competitor_location,
       'radius_m' value c.radius_m,
       'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
       'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
@@ -1378,6 +2789,7 @@ create or replace package body pkg_admin_content as
         'question_id' value q.question_id,
         'question_type' value q.question_type,
         'points' value q.points,
+        'wrong_points' value q.wrong_points,
         'question_status' value q.status,
         'text_et' value (select qt.question_text from question_texts qt where qt.question_id=q.question_id and lower(qt.lang_code)='et' and (qt.end_date is null or qt.end_date > sysdate) fetch first 1 row only),
         'text_en' value (select qt.question_text from question_texts qt where qt.question_id=q.question_id and lower(qt.lang_code)='en' and (qt.end_date is null or qt.end_date > sysdate) fetch first 1 row only),
@@ -1396,7 +2808,8 @@ create or replace package body pkg_admin_content as
           where qo.question_id=q.question_id and (qo.end_date is null or qo.end_date > sysdate)
         ),
         'answers' value (select json_arrayagg(json_object('answer_id' value qa.answer_id,'answer_value' value qa.answer_value,'normalize_mode' value qa.normalize_mode,'is_correct' value qa.is_correct) returning clob) from question_answers qa where qa.question_id=q.question_id and (qa.end_date is null or qa.end_date > sysdate))
-      ) returning clob
+      )
+      returning clob
     ) into o_questions_json
       from checkpoints cp
       left join questions q on q.checkpoint_id = cp.checkpoint_id and (q.end_date is null or q.end_date > sysdate)
@@ -1492,7 +2905,7 @@ create or replace package body pkg_admin_content as
 
   procedure create_question(
     p_checkpoint_id in number, p_question_type in varchar2, p_input_type in varchar2, p_input_max_length in number,
-    p_input_pattern in varchar2, p_points in number, p_lang_code in varchar2,
+    p_input_pattern in varchar2, p_points in number, p_wrong_points in number, p_lang_code in varchar2,
     p_question_text in varchar2, p_created_by in number, o_question_id out number
   ) is
     l_lang varchar2(10);
@@ -1512,8 +2925,8 @@ create or replace package body pkg_admin_content as
 
     l_lang := nvl(p_lang_code, 'et');
     o_question_id := seq_questions.nextval;
-    insert into questions(question_id, checkpoint_id, question_type, input_type, input_max_length, input_pattern, points, status, start_date, created_by, created_at)
-    values(o_question_id, p_checkpoint_id, p_question_type, p_input_type, p_input_max_length, p_input_pattern, nvl(p_points,0), 'ACTIVE', trunc(sysdate), p_created_by, systimestamp);
+    insert into questions(question_id, checkpoint_id, question_type, input_type, input_max_length, input_pattern, points, wrong_points, status, start_date, created_by, created_at)
+    values(o_question_id, p_checkpoint_id, p_question_type, p_input_type, p_input_max_length, p_input_pattern, nvl(p_points,0), nvl(p_wrong_points,0), 'ACTIVE', trunc(sysdate), p_created_by, systimestamp);
 
     insert into question_texts(question_text_id, question_id, lang_code, question_text, start_date, created_by, created_at)
     values(seq_question_texts.nextval, o_question_id, l_lang, trim(p_question_text), trunc(sysdate), p_created_by, systimestamp);
@@ -1524,7 +2937,7 @@ create or replace package body pkg_admin_content as
 
   procedure update_question(
     p_question_id in number, p_checkpoint_id in number, p_question_type in varchar2, p_input_type in varchar2,
-    p_input_max_length in number, p_input_pattern in varchar2, p_points in number,
+    p_input_max_length in number, p_input_pattern in varchar2, p_points in number, p_wrong_points in number,
     p_lang_code in varchar2, p_question_text in varchar2, p_updated_by in number
   ) is
     l_lang varchar2(10);
@@ -1536,7 +2949,7 @@ create or replace package body pkg_admin_content as
 
     update questions
        set checkpoint_id = p_checkpoint_id, question_type = p_question_type, input_type = p_input_type,
-           input_max_length = p_input_max_length, input_pattern = p_input_pattern, points = nvl(p_points,0),
+           input_max_length = p_input_max_length, input_pattern = p_input_pattern, points = nvl(p_points,0), wrong_points = nvl(p_wrong_points,0),
            updated_by = p_updated_by, updated_at = systimestamp
      where question_id = p_question_id and (end_date is null or end_date > sysdate);
 

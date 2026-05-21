@@ -332,11 +332,19 @@
       renderCheckpointRespondersRows();
     }
 
+    function parseUtcDate(ts) {
+      if (!ts) return null;
+      const s = String(ts).trim();
+      if (!s) return null;
+      const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
     function fmtEtLocal(ts) {
       if (!ts) return "-";
-      const utcLike = /z$/i.test(ts) ? ts : `${ts}Z`;
-      const d = new Date(utcLike);
-      if (Number.isNaN(d.getTime())) return ts;
+      const d = parseUtcDate(ts);
+      if (!d) return ts;
       const pad = (n) => String(n).padStart(2, "0");
       return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
@@ -408,8 +416,8 @@
           return String(a.last_checkpoint || "").localeCompare(String(b.last_checkpoint || ""), "et", { sensitivity: "base" }) * dir;
         }
         if (sortKey === "last_submission_at") {
-          const av = a.last_submission_at ? new Date(`${a.last_submission_at}Z`).getTime() : 0;
-          const bv = b.last_submission_at ? new Date(`${b.last_submission_at}Z`).getTime() : 0;
+          const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
+          const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
           return ((av - bv) * dir) || (Number(b.score || 0) - Number(a.score || 0));
         }
         return 0;
@@ -467,8 +475,8 @@
           return (Number(a[checkpointSortKey] || 0) - Number(b[checkpointSortKey] || 0)) * dir;
         }
         if (checkpointSortKey === "last_submission_at") {
-          const av = a.last_submission_at ? new Date(`${a.last_submission_at}Z`).getTime() : 0;
-          const bv = b.last_submission_at ? new Date(`${b.last_submission_at}Z`).getTime() : 0;
+          const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
+          const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
           return (av - bv) * dir;
         }
         return 0;
@@ -527,8 +535,8 @@
           return (Number(a.awarded_points || 0) - Number(b.awarded_points || 0)) * dir;
         }
         if (participantSortKey === "submitted_at") {
-          const av = a.submitted_at ? new Date(`${a.submitted_at}Z`).getTime() : 0;
-          const bv = b.submitted_at ? new Date(`${b.submitted_at}Z`).getTime() : 0;
+          const av = a.submitted_at ? (parseUtcDate(a.submitted_at)?.getTime() ?? 0) : 0;
+          const bv = b.submitted_at ? (parseUtcDate(b.submitted_at)?.getTime() ?? 0) : 0;
           return (av - bv) * dir;
         }
         if (participantSortKey === "is_correct") {
@@ -591,8 +599,8 @@
       const status = String(overview?.status || "").toUpperCase();
       if (status !== "ACTIVE") return false;
       const now = new Date();
-      const startsAt = overview?.starts_at ? new Date(`${overview.starts_at}Z`) : null;
-      const endsAt = overview?.ends_at ? new Date(`${overview.ends_at}Z`) : null;
+      const startsAt = overview?.starts_at ? parseUtcDate(overview.starts_at) : null;
+      const endsAt = overview?.ends_at ? parseUtcDate(overview.ends_at) : null;
       if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) return false;
       if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) return false;
       return true;

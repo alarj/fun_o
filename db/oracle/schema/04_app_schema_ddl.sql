@@ -9,6 +9,9 @@ create sequence seq_competitions start with 1 increment by 1;
 create sequence seq_competition_access_codes start with 1 increment by 1;
 create sequence seq_competition_organizers start with 1 increment by 1;
 create sequence seq_competition_participants start with 1 increment by 1;
+create sequence seq_competition_part_map_layers start with 1 increment by 1;
+create sequence seq_competition_terms start with 1 increment by 1;
+create sequence seq_competition_terms_texts start with 1 increment by 1;
 create sequence seq_checkpoints start with 1 increment by 1;
 create sequence seq_questions start with 1 increment by 1;
 create sequence seq_question_texts start with 1 increment by 1;
@@ -21,16 +24,18 @@ create sequence seq_audit_log start with 1 increment by 1;
 
 create table users (
   user_id number primary key,
-  email varchar2(320) not null,
+  email varchar2(320),
   full_name varchar2(200),
-  google_sub varchar2(255) not null,
+  google_sub varchar2(255),
+  auth_type varchar2(20) default 'ANON' not null,
   start_date date default trunc(sysdate) not null,
   end_date date,
   created_by number,
   updated_by number,
   created_at timestamp default systimestamp not null,
   updated_at timestamp,
-  constraint chk_users_dates check (end_date is null or end_date >= start_date)
+  constraint chk_users_dates check (end_date is null or end_date >= start_date),
+  constraint chk_users_auth_type check (auth_type in ('ANON', 'GOOGLE'))
 );
 
 create table roles (
@@ -62,6 +67,7 @@ create table competitions (
   description varchar2(2000),
   status varchar2(30) not null,
   use_location varchar2(1) default 'N' not null,
+  show_competitor_location varchar2(1) default 'Y' not null,
   radius_m number,
   starts_at timestamp,
   ends_at timestamp,
@@ -75,6 +81,7 @@ create table competitions (
   constraint fk_comp_updated_by foreign key (updated_by) references users(user_id),
   constraint chk_comp_dates check (end_date is null or end_date >= start_date),
   constraint chk_comp_use_location check (use_location in ('Y','N')),
+  constraint chk_comp_show_comp_loc check (show_competitor_location in ('Y','N')),
   constraint chk_comp_radius check (radius_m is null or radius_m > 0)
 );
 
@@ -109,11 +116,53 @@ create table competition_organizers (
   constraint chk_co_dates check (end_date is null or end_date >= start_date)
 );
 
+create table competition_terms (
+  terms_id number primary key,
+  competition_id number not null,
+  version_no number not null,
+  status varchar2(30) default 'ACTIVE' not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_ct_comp foreign key (competition_id) references competitions(competition_id),
+  constraint fk_ct_created_by foreign key (created_by) references users(user_id),
+  constraint fk_ct_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_ct_dates check (end_date is null or end_date >= start_date),
+  constraint chk_ct_version check (version_no > 0),
+  constraint chk_ct_status check (status in ('ACTIVE', 'INACTIVE'))
+);
+
+create table competition_terms_texts (
+  terms_text_id number primary key,
+  terms_id number not null,
+  lang_code varchar2(10) not null,
+  terms_text clob not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_ctt_terms foreign key (terms_id) references competition_terms(terms_id),
+  constraint fk_ctt_created_by foreign key (created_by) references users(user_id),
+  constraint fk_ctt_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_ctt_dates check (end_date is null or end_date >= start_date),
+  constraint chk_ctt_lang check (regexp_like(lang_code, '^[a-z]{2}(-[A-Z]{2})?$'))
+);
+
 create table competition_participants (
   competition_participant_id number primary key,
   competition_id number not null,
   user_id number not null,
   access_code_id number,
+  alias_display varchar2(120) not null,
+  contact_email varchar2(320),
+  terms_id number not null,
+  terms_lang_code varchar2(10) not null,
+  terms_accepted_at timestamp not null,
   status varchar2(30) not null,
   start_date date default trunc(sysdate) not null,
   end_date date,
@@ -121,7 +170,30 @@ create table competition_participants (
   constraint fk_cp_comp foreign key (competition_id) references competitions(competition_id),
   constraint fk_cp_user foreign key (user_id) references users(user_id),
   constraint fk_cp_code foreign key (access_code_id) references competition_access_codes(access_code_id),
-  constraint chk_cp_dates check (end_date is null or end_date >= start_date)
+  constraint fk_cp_terms foreign key (terms_id) references competition_terms(terms_id),
+  constraint chk_cp_dates check (end_date is null or end_date >= start_date),
+  constraint chk_cp_alias_not_blank check (trim(alias_display) is not null),
+  constraint chk_cp_terms_lang check (regexp_like(terms_lang_code, '^[a-z]{2}(-[A-Z]{2})?$')),
+  constraint chk_cp_contact_email check (
+    contact_email is null
+    or regexp_like(contact_email, '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$')
+  )
+);
+
+create table competition_participant_map_layers (
+  competition_participant_map_layer_id number primary key,
+  competition_id number not null,
+  layer_code varchar2(100) not null,
+  start_date date default trunc(sysdate) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_cpml_comp foreign key (competition_id) references competitions(competition_id),
+  constraint fk_cpml_created_by foreign key (created_by) references users(user_id),
+  constraint fk_cpml_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_cpml_dates check (end_date is null or end_date >= start_date)
 );
 
 create table checkpoints (
@@ -160,6 +232,7 @@ create table questions (
   placeholder_key varchar2(300),
   help_text_key varchar2(300),
   points number default 0 not null,
+  wrong_points number default 0 not null,
   status varchar2(30) not null,
   start_date date default trunc(sysdate) not null,
   end_date date,
@@ -264,15 +337,12 @@ create table submissions (
   submitted_at timestamp default systimestamp not null,
   evaluated_by number,
   evaluated_at timestamp,
-  start_date date default trunc(sysdate) not null,
-  end_date date,
   constraint fk_s_comp foreign key (competition_id) references competitions(competition_id),
   constraint fk_s_chk foreign key (checkpoint_id) references checkpoints(checkpoint_id),
   constraint fk_s_q foreign key (question_id) references questions(question_id),
   constraint fk_s_selected_option foreign key (selected_option_id) references question_options(option_id),
   constraint fk_s_user foreign key (user_id) references users(user_id),
-  constraint fk_s_eval_by foreign key (evaluated_by) references users(user_id),
-  constraint chk_submissions_dates check (end_date is null or end_date >= start_date)
+  constraint fk_s_eval_by foreign key (evaluated_by) references users(user_id)
 );
 
 create table materials (
@@ -323,8 +393,31 @@ create unique index ux_active_access_code on competition_access_codes (
 );
 
 create unique index ux_active_comp_participant on competition_participants (
+  case when end_date is null then user_id end
+);
+
+create unique index ux_active_comp_participant_comp_user on competition_participants (
   case when end_date is null then competition_id end,
   case when end_date is null then user_id end
+);
+create unique index ux_active_cpml_comp_layer on competition_participant_map_layers (
+  case when end_date is null then competition_id end,
+  case when end_date is null then lower(layer_code) end
+);
+
+create unique index ux_active_cp_alias_ci on competition_participants (
+  case when end_date is null then competition_id end,
+  case when end_date is null then nlssort(trim(alias_display), 'NLS_SORT=BINARY_CI') end
+);
+
+create unique index ux_active_comp_terms_version on competition_terms (
+  case when end_date is null then competition_id end,
+  case when end_date is null then version_no end
+);
+
+create unique index ux_active_comp_terms_text_lang on competition_terms_texts (
+  case when end_date is null then terms_id end,
+  case when end_date is null then lower(lang_code) end
 );
 
 create unique index ux_active_comp_organizer on competition_organizers (

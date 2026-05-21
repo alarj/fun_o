@@ -32,9 +32,26 @@ Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
+- Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
 - You can reload i18n cache without restarting backend: `POST /api/i18n/reload`
+
+Map layer config (admin "Näita kaardil"):
+- File: `backend/app/map_layers.json`
+- Endpoint: `GET /api/map-layers`
+- Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 900s).
+- If a layer has `"enabled": false`, it is hidden from UI.
+- If a layer URL contains `{MAPYCZ_API_KEY}` or `{MAPTILER_API_KEY}`, the backend injects key from `.env`.
+  If key is missing, that layer is automatically omitted from API response.
+- Supported layer types:
+  - `layer_type: "xyz"` (default) -> Leaflet `L.tileLayer(...)`
+  - `layer_type: "wms"` -> Leaflet `L.tileLayer.wms(...)` with optional
+    `wms_layers`, `wms_format`, `wms_transparent`, `wms_version`
+- Optional CRS override per layer: `crs` (for example `EPSG:3301`).
+- Current optional providers:
+  - `mapycz_outdoor` (Mapy.cz Outdoor)
+  - `maptiler_outdoor` (MapTiler Outdoor)
 
 Ubuntu smoke test without Google (dev mode):
 1. Set `APP_ENV=dev` and restart backend.
@@ -59,6 +76,33 @@ I18n cache reload:
 Database scripts added:
 - ORDS handlers: `db/oracle/ords/07_ords_handlers.sql`
 - App packages with active-record business checks: `db/oracle/api/05_api_packages_stub.sql`
+
+## Timezone and datetime rules (UTC in DB, local time in UI)
+
+Authoritative rule:
+- Database timezone stays UTC.
+- Backend/API stores and returns UTC timestamps.
+- Frontend displays timestamps in browser local timezone.
+
+Practical implementation in this project:
+- Oracle DB runs with `DBTIMEZONE = +00:00` (UTC); this is intentional.
+- Admin date input (`dd.mm.yyyy hh:mm`) is interpreted as browser-local time.
+- Before sending to API, admin UI converts local input to UTC ISO string (`YYYY-MM-DDTHH:MI:SSZ`).
+- ORDS date handler for `/admin/competitions/dates` parses the incoming ISO datetime and stores UTC `timestamp` into `competitions.starts_at` / `competitions.ends_at`.
+- FastAPI normalizes ORDS datetime fields by appending `Z` for UTC-like values (keys such as `starts_at`, `ends_at`, `submitted_at`, `created_at`, `updated_at`, `expires_at`, etc.), so frontend parsing is unambiguous.
+- Frontend date formatting functions parse API timestamps as UTC and render them in local browser time.
+- For soft-delete interval rows where `start_date`/`end_date` are used (for example `competition_participant_map_layers`), timestamps are not truncated to day boundary during writes; time-of-day is preserved.
+
+Comparison rule:
+- Any competition-window checks must compare against UTC "now" on server side.
+- In package code this is done via:
+  `cast((systimestamp at time zone 'UTC') as timestamp)`
+  and compared with `starts_at` / `ends_at`.
+
+Why this model:
+- Avoids DST ambiguity and duplicate local times.
+- Keeps server-side business logic deterministic.
+- Allows every user to see times in their own timezone automatically.
 
 ## Data visibility rule (soft delete)
 
