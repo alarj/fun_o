@@ -980,14 +980,11 @@ async def competitor_map_layers(
             if code:
                 selected_codes.append(code)
 
+    selected_set = {code for code in selected_codes if code}
     resolved_layers: list[MapLayerEntry] = []
-    seen: set[str] = set()
-    for code in selected_codes:
-        if code in seen:
-            continue
-        seen.add(code)
-        layer = enabled_by_code.get(code)
-        if layer is None:
+    for layer in enabled_layers:
+        code = str(layer.get("code", "")).strip().lower()
+        if not code or code not in selected_set:
             continue
         resolved_layers.append(MapLayerEntry(**layer))
 

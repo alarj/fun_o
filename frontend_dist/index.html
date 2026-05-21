@@ -331,6 +331,8 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+    <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
     <script>
       const state = {
         userId: null,
@@ -360,6 +362,8 @@
       let allowedMapLayers = [];
       let activeMapLayerCode = "";
       let baseMapLayer = null;
+      let compMapCurrentCrs = "EPSG:3857";
+      let compMapOpenedOnce = false;
       const mapLayersByCode = {};
       const competitorMapLayerCache = {};
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
@@ -569,12 +573,15 @@
         return "&" + p.toString();
       }
 
-      async function requestGeolocation() {
+      async function requestGeolocation(opts = {}) {
         if (!navigator.geolocation) {
           state.geo.enabled = false;
           state.geo.error = "Asukoha teenus pole seadmes saadaval.";
           return false;
         }
+        const maxAge = Number.isFinite(Number(opts.maximumAge)) ? Number(opts.maximumAge) : 15000;
+        const timeoutMs = Number.isFinite(Number(opts.timeout)) ? Number(opts.timeout) : 7000;
+        const highAccuracy = opts.enableHighAccuracy !== false;
         return new Promise((resolve) => {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -593,8 +600,75 @@
               state.geo.error = "Asukoha kasutamine on keelatud või ebaõnnestus.";
               resolve(false);
             },
-            { enableHighAccuracy: true, timeout: 7000, maximumAge: 15000 }
+            { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: maxAge }
           );
+        });
+      }
+
+      async function requestFreshGeolocationForMapOpen() {
+        if (!navigator.geolocation) {
+          state.geo.enabled = false;
+          state.geo.error = "Asukoha teenus pole seadmes saadaval.";
+          return false;
+        }
+        state.geo.enabled = false;
+        state.geo.latitude = null;
+        state.geo.longitude = null;
+        state.geo.radius_m = null;
+        state.geo.error = null;
+        return new Promise((resolve) => {
+          let resolved = false;
+          let watchId = null;
+          let bestPos = null;
+          const desiredAccuracyM = 75;
+          const maxWaitMs = 4500;
+          const commitBestPos = () => {
+            if (!bestPos) return false;
+            state.geo.enabled = true;
+            state.geo.latitude = Number(bestPos.coords.latitude);
+            state.geo.longitude = Number(bestPos.coords.longitude);
+            state.geo.radius_m = Number(bestPos.coords.accuracy);
+            state.geo.error = null;
+            return true;
+          };
+          const finish = (ok) => {
+            if (resolved) return;
+            resolved = true;
+            try { if (watchId != null) navigator.geolocation.clearWatch(watchId); } catch {}
+            resolve(ok);
+          };
+          watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              const accuracy = Number(pos?.coords?.accuracy);
+              if (!bestPos || (Number.isFinite(accuracy) && accuracy < Number(bestPos.coords?.accuracy || Infinity))) {
+                bestPos = pos;
+                commitBestPos();
+              }
+              if (Number.isFinite(accuracy) && accuracy <= desiredAccuracyM) {
+                finish(true);
+              }
+            },
+            () => {
+              if (commitBestPos()) {
+                finish(true);
+                return;
+              }
+              state.geo.enabled = false;
+              state.geo.latitude = null;
+              state.geo.longitude = null;
+              state.geo.radius_m = null;
+              state.geo.error = "Asukoha kasutamine on keelatud või ebaõnnestus.";
+              finish(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+          setTimeout(() => {
+            if (commitBestPos()) {
+              finish(true);
+              return;
+            }
+            finish(false);
+          }, maxWaitMs);
         });
       }
 
@@ -815,6 +889,10 @@
         const cid = Number(state.selectedCompetitionId || 0);
         return cid > 0 ? `funo_comp_map_view_c${cid}` : "funo_comp_map_view";
       }
+      function getMapLayerCookieKey() {
+        const cid = Number(state.selectedCompetitionId || 0);
+        return cid > 0 ? `funo_comp_map_layer_c${cid}` : "funo_comp_map_layer";
+      }
 
       function saveCompMapView() {
         if (!compMap) return;
@@ -869,6 +947,53 @@
         return L.tileLayer(url, { attribution: attrib, minZoom, maxZoom, tms });
       }
 
+      function requiresLestCrs(layer) {
+        return String(layer?.crs || "").toUpperCase() === "EPSG:3301";
+      }
+
+      function createCompMap(targetCrs) {
+        let previousView = null;
+        if (compMap) {
+          const c = compMap.getCenter();
+          const z = compMap.getZoom();
+          if (Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng)) && Number.isFinite(Number(z))) {
+            previousView = { lat: Number(c.lat), lon: Number(c.lng), zoom: Number(z) };
+          }
+          compMap.remove();
+          compMap = null;
+          compMapLayer = null;
+          baseMapLayer = null;
+          mapRings = [];
+          userPosMarker = null;
+        }
+        const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
+        if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
+          options.crs = new L.Proj.CRS(
+            "EPSG:3301",
+            "+proj=lcc +lat_1=59.33333333333334 +lat_2=58 +lat_0=57.51755393055556 +lon_0=24 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+            {
+              origin: [40500, 7017000],
+              resolutions: [
+                4000, 2000, 1000, 500, 250, 125, 62.5, 31.25,
+                15.625, 7.8125, 3.90625, 1.953125, 0.9765625, 0.48828125, 0.244140625
+              ],
+              bounds: L.bounds([40500, 5993000], [1064500, 7017000])
+            }
+          );
+        }
+        compMap = L.map("compMapCanvas", options);
+        compMapLayer = L.layerGroup().addTo(compMap);
+        compMap.on("moveend zoomend", () => saveCompMapView());
+        compMap.on("movestart", () => {
+          if (!mapProgrammaticMove) {
+            mapFollowUser = false;
+            updateFollowButton();
+          }
+        });
+        compMapCurrentCrs = targetCrs;
+        return previousView;
+      }
+
       function renderCompMapLayerList() {
         const list = el("compMapLayerList");
         if (!list) return;
@@ -888,6 +1013,11 @@
         const low = String(code || "").toLowerCase();
         const layer = mapLayersByCode[low];
         if (!layer) return false;
+        const targetCrs = requiresLestCrs(layer) ? "EPSG:3301" : "EPSG:3857";
+        let previousView = null;
+        if (compMapCurrentCrs !== targetCrs) {
+          previousView = createCompMap(targetCrs);
+        }
         const center = compMap.getCenter();
         const zoom = compMap.getZoom();
         if (baseMapLayer) {
@@ -897,22 +1027,17 @@
         baseMapLayer = createBaseLayer(layer);
         baseMapLayer.addTo(compMap);
         activeMapLayerCode = low;
-        compMap.setView(center, zoom, { animate: false });
+        setCookie(getMapLayerCookieKey(), activeMapLayerCode, 30);
+        if (previousView) compMap.setView([previousView.lat, previousView.lon], previousView.zoom, { animate: false });
+        else compMap.setView(center, zoom, { animate: false });
         renderCompMapLayerList();
         return true;
       }
 
       function ensureCompMapInit() {
         if (compMap) return;
-        compMap = L.map("compMapCanvas", { zoomControl: true }).setView([58.8, 25.4], 8);
-        compMapLayer = L.layerGroup().addTo(compMap);
-        compMap.on("moveend zoomend", () => saveCompMapView());
-        compMap.on("movestart", () => {
-          if (!mapProgrammaticMove) {
-            mapFollowUser = false;
-            updateFollowButton();
-          }
-        });
+        createCompMap("EPSG:3857");
+        compMap.setView([58.8, 25.4], 8);
       }
 
       function updateFollowButton() {
@@ -939,7 +1064,8 @@
         }
       }
 
-      function renderCompMap(items) {
+      function renderCompMap(items, opts = {}) {
+        const forceInitialFit = opts && opts.forceInitialFit === true;
         ensureCompMapInit();
         compMapLayer.clearLayers();
         mapRings = [];
@@ -947,7 +1073,7 @@
           compMap.removeLayer(userPosMarker);
           userPosMarker = null;
         }
-        const bounds = [];
+        const checkpointBounds = [];
         items.forEach((cp) => {
           const lat = Number(cp.latitude);
           const lon = Number(cp.longitude);
@@ -964,9 +1090,10 @@
           const popupText = `${cp.checkpoint_title || "KP"} (${points} p)`;
           ring.bindPopup(popupText, { autoClose: false, closeOnClick: false, autoPan: false });
           mapRings.push(ring);
-          bounds.push([lat, lon]);
+          checkpointBounds.push([lat, lon]);
         });
-        if (selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
+        const hasUserGeo = selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
+        if (hasUserGeo) {
           userPosMarker = L.circleMarker([state.geo.latitude, state.geo.longitude], {
             radius: 7,
             color: "#ffffff",
@@ -975,26 +1102,55 @@
             fillOpacity: 1,
           }).addTo(compMap);
           userPosMarker.bindPopup("Sinu asukoht");
-          bounds.push([state.geo.latitude, state.geo.longitude]);
         }
         mapProgrammaticMove = true;
-        const restored = restoreCompMapView();
+        const restored = forceInitialFit ? false : restoreCompMapView();
         const restoredZoom = compMap ? compMap.getZoom() : 0;
-        const shouldRefitFromBounds = bounds.length && (!restored || restoredZoom < 12);
+        let hasVisiblePoint = false;
+        if (checkpointBounds.length && compMap) {
+          const currentBounds = compMap.getBounds();
+          hasVisiblePoint = checkpointBounds.some(([lat, lon]) => currentBounds.contains([lat, lon]));
+        }
+        const shouldRefitFromBounds = checkpointBounds.length && (forceInitialFit || !restored || restoredZoom < 12 || !hasVisiblePoint);
         if (shouldRefitFromBounds) {
-          compMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 });
+          compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
           const openedZoom = Number(compMap.getZoom() || 0);
           const minOpenZoom = 10;
           if (openedZoom > 0 && openedZoom < minOpenZoom) {
             compMap.setZoom(minOpenZoom);
           }
         }
-        if (selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null) {
-          compMap.setView([state.geo.latitude, state.geo.longitude], compMap.getZoom(), { animate: false });
+        if (mapFollowUser && hasUserGeo) {
+          const followZoom = Math.max(Number(compMap.getZoom() || 0), 16);
+          compMap.setView([state.geo.latitude, state.geo.longitude], followZoom, { animate: false });
+        } else if (!checkpointBounds.length && hasUserGeo) {
+          compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
         }
         setTimeout(() => { mapProgrammaticMove = false; }, 250);
         setMapInfoVisibility(mapInfoVisible);
-        setTimeout(() => compMap.invalidateSize(), 50);
+        setTimeout(() => {
+          if (!compMap) return;
+          compMap.invalidateSize();
+          if (mapFollowUser && hasUserGeo) {
+            const followZoom = Math.max(Number(compMap.getZoom() || 0), 16);
+            mapProgrammaticMove = true;
+            compMap.setView([state.geo.latitude, state.geo.longitude], followZoom, { animate: false });
+            setTimeout(() => { mapProgrammaticMove = false; }, 250);
+            return;
+          }
+          if (!checkpointBounds.length) return;
+          const b = L.latLngBounds(checkpointBounds);
+          const c = compMap.getCenter();
+          const z = Number(compMap.getZoom() || 0);
+          const minOpenZoom = 10;
+          if (!mapFollowUser && (!b.contains(c) || z < minOpenZoom)) {
+            compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
+            const openedZoom = Number(compMap.getZoom() || 0);
+            if (openedZoom > 0 && openedZoom < minOpenZoom) {
+              compMap.setZoom(minOpenZoom);
+            }
+          }
+        }, 80);
       }
 
       function updateUserPositionMarker(lat, lon, accuracy) {
@@ -1044,7 +1200,7 @@
       async function openCompMapModal() {
         mapFollowUser = true;
         updateFollowButton();
-        await requestGeolocation();
+        await requestFreshGeolocationForMapOpen();
         allowedMapLayers = await loadAllowedMapLayers(false);
         Object.keys(mapLayersByCode).forEach((k) => delete mapLayersByCode[k]);
         allowedMapLayers.forEach((x) => {
@@ -1056,9 +1212,15 @@
           return;
         }
         state.mapItems = await loadMapCheckpoints();
+        el("compMapBackdrop").style.display = "block";
+        await new Promise((resolve) => requestAnimationFrame(() => resolve()));
         ensureCompMapInit();
-        if (!activeMapLayerCode || !mapLayersByCode[activeMapLayerCode]) {
-          activeMapLayerCode = String(allowedMapLayers[0].code || "").toLowerCase();
+        const rememberedLayerCode = String(getCookie(getMapLayerCookieKey()) || "").toLowerCase();
+        if (rememberedLayerCode && mapLayersByCode[rememberedLayerCode]) {
+          activeMapLayerCode = rememberedLayerCode;
+        } else if (!activeMapLayerCode || !mapLayersByCode[activeMapLayerCode]) {
+          const participantDefault = allowedMapLayers.find((x) => x && x.participant_default === true);
+          activeMapLayerCode = String((participantDefault?.code || allowedMapLayers[0].code || "")).toLowerCase();
         }
         applyBaseLayer(activeMapLayerCode);
         const layerBtn = el("compMapLayerBtn");
@@ -1066,8 +1228,9 @@
           layerBtn.style.display = allowedMapLayers.length > 1 ? "inline-flex" : "none";
         }
         renderCompMapLayerList();
-        el("compMapBackdrop").style.display = "block";
-        renderCompMap(state.mapItems);
+        compMap.invalidateSize();
+        renderCompMap(state.mapItems, { forceInitialFit: !compMapOpenedOnce });
+        compMapOpenedOnce = true;
         startMapGeolocationWatch();
       }
 
@@ -1316,9 +1479,7 @@
           if (!btn) return;
           const code = String(btn.getAttribute("data-map-layer-code") || "").toLowerCase();
           if (!code || code === activeMapLayerCode) return;
-          if (applyBaseLayer(code)) {
-            saveCompMapView();
-          }
+          if (applyBaseLayer(code)) saveCompMapView();
           el("compMapLayerBackdrop").style.display = "none";
         });
         el("compMapFollowBtn").addEventListener("click", () => {
