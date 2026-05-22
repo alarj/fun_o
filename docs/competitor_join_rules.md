@@ -14,6 +14,7 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - Liitumise kanalid:
   - URL-is sisalduv võistleja kood (nt QR)
   - käsitsi sisestatud kood avalehel
+- Kui kasutajal on kehtiv osaluscookie + DB-s sellele vastav aktiivne osalus, avatakse kohe sama võistlus.
 - Liitumine loetakse lõppenuks alles siis, kui kasutaja:
   - sisestab aliase
   - nõustub kasutustingimustega
@@ -66,6 +67,12 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - Eesmärk: kasutaja jätkab samast seisust ka pärast brauseri sulgemist või telefoni taaskäivitamist.
 - Kasutatakse cookie’sid.
 - Kui vajalik cookie puudub, aegub või ei valideeru, suunatakse kasutaja liitumisvoogu.
+- `reload`/tagasi tulles ei küsita alias/e-post/tingimused uuesti, kui osalus on endiselt kehtiv.
+- Kui sisestatud kood viitab samale võistlusele, kus kasutaja juba aktiivselt osaleb, ei tehta muudatusi (`no-op`).
+- Kui sisestatud kood viitab uuele võistlusele:
+  - luuakse uus osalus
+  - alles seejärel suletakse eelmine osalus (`end_date`)
+  - mõlemad sammud tehakse samas transaktsioonis.
 
 ## B. Tehniline tase
 
@@ -102,6 +109,7 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 
 - Sama võistlus + sama kasutaja ei tohi olla mitu aktiivset osalust:
   - aktiivne unikaalsus `(competition_id, user_id)` tingimusel `end_date is null`
+- Globaalset piirangut “üks aktiivne osalus kasutaja kohta üle kõikide võistluste” ei ole.
 - Alias on aktiivsetel osalustel võistluse piires case-insensitive unikaalne:
   - `(competition_id, nlssort(trim(alias_display), 'NLS_SORT=BINARY_CI'))` tingimusel `end_date is null`
 - E-posti vormikontroll `competition_participants.contact_email` väljal (kui mitte null).
@@ -110,16 +118,25 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 
 - Sessiooni cookie (nt `funo_session`):
   - signeeritud payload, sisaldab `user_id`
-- Osaluse cookie (planeeritud/soovitatud):
-  - sisaldab `competition_participant_id`
+- Võistleja sessiooni cookie (nt `funo_competitor_session`):
+  - signeeritud payload, sisaldab `user_id`
+- Osaluse cookie (nt `funo_participation`):
+  - signeeritud payload, sisaldab `competition_participant_id`
   - TTL: 360h (15 päeva), sliding refresh viimasel kasutusel
+- Cookie atribuudi nõuded:
+  - `HttpOnly`
+  - `Secure`
+  - `SameSite=Lax`
+  - `Path=/`
 
 ### 4) Backendi valideerimine
 
 - Kui cookie’d on olemas:
+  - valideeri cookie signatuur
   - loe `user_id` sessiooni cookie’st
   - loe `competition_participant_id` osaluse cookie’st
   - vali DB-st osaluse rida ja kontrolli, et `competition_participants.user_id == session user_id`
+  - kontrolli, et osaluse rida on aktiivne (`end_date is null`)
   - kontrolli võistluse staatuse/aja reegleid
 
 - Kui cookie puudub, aegub või ei valideeru:

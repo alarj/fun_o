@@ -3,19 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
   <title>fun_o Superadmin</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: #f2f2ed; color: #1e1e1e; }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border: 1px solid #d9d9d9; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .card { border-radius: 12px; padding: 16px; margin-bottom: 12px; }
     .hidden { display: none !important; }
     h1, h2 { margin: 0 0 10px; }
     .row { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 8px; margin-bottom: 8px; align-items: center; }
-    .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    input, textarea, button { width: 100%; border: 1px solid #cfcfcf; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+    input, textarea, button { border-radius: 8px; padding: 8px 10px; }
     textarea { min-height: 70px; resize: vertical; }
-    button { width: auto; background: #2f7f87; color: #fff; border: 0; font-weight: 700; cursor: pointer; }
     button.secondary { background: #6f9498; }
     .userRow { display: flex; align-items: center; gap: 6px; color: #444; font-size: 14px; }
     .userIcon {
@@ -39,16 +36,10 @@
       display: inline-block;
       vertical-align: middle;
     }
-    .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .table th, .table td { border-bottom: 1px solid #ececec; padding: 8px 6px; text-align: left; vertical-align: top; }
     .table th { font-size: 13px; }
     .table td { font-size: 13px; }
     .table .nameColCell { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
     .table .idColCell, .table .statusColCell, .table .kpCountColCell, .table .locationColCell, .table .orgCodeColCell, .table .startColCell, .table .endColCell { white-space: nowrap; }
-    .muted { color: #666; }
-    .ok, .err { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
-    .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
-    .err { background: #ffecec; border: 1px solid #e5a6a6; }
     .orgCode { font-family: Consolas, monospace; font-weight: 700; letter-spacing: 0.06em; }
     .codeWrap { display: inline-flex; align-items: center; gap: 6px; }
     .iconBtn {

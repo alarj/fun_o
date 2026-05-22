@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
   <title>fun_o Admin</title>
   <link
     rel="stylesheet"
@@ -11,22 +12,16 @@
     crossorigin=""
   />
   <style>
-    * { box-sizing: border-box; }
     html, body { max-width: 100%; overflow-x: hidden; }
-    body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: #f2f2ed; color: #1e1e1e; }
     .wrap { max-width: 1160px; margin: 0 auto; padding: 18px; }
-    .card { background: #fff; border: 1px solid #d9d9d9; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-    .hidden { display: none; }
+    .card { border-radius: 12px; padding: 16px; margin-bottom: 14px; }
     h1, h2, h3 { margin: 0 0 10px; font-size: 24px; font-weight: 700; line-height: 1.2; }
     .row { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
     .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .tools { display: flex; gap: 8px; flex-wrap: wrap; }
     .ended-option { font-style: italic; }
-    .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .q-options-table col.code-col { width: 110px; }
     .q-options-table col.correct-col { width: 90px; }
     .q-options-table col.action-col { width: 120px; }
-    .table th, .table td { border-bottom: 1px solid #ececec; padding: 8px 6px; text-align: left; vertical-align: top; }
     .table th { font-weight: 700; font-size: 14px; }
     .table td, .row label, .row input, .row select, .row textarea, .muted, .card div, .card label { font-size: 14px; }
     .q-col { white-space: normal; }
@@ -41,7 +36,6 @@
       overflow-wrap: anywhere;
     }
     .actions-col { white-space: nowrap; }
-    .muted { color: #666; }
     .organizers-list { display: flex; flex-direction: column; gap: 4px; }
     .organizer-row { display: flex; align-items: center; gap: 6px; color: #444; }
     .organizer-row.current { font-weight: 700; color: #1e1e1e; }
@@ -95,16 +89,12 @@
       flex: 1;
       background: #d8d8d8;
     }
-    .ok, .err { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
-    .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
-    .err { background: #ffecec; border: 1px solid #e5a6a6; }
-    input, select, textarea, button { width: 100%; max-width: 100%; border: 1px solid #cfcfcf; border-radius: 7px; padding: 7px 9px; font-size: 14px; line-height: 1.25; }
+    input, select, textarea, button { border-radius: 7px; padding: 7px 9px; }
     textarea { min-height: 70px; }
     input.compact-dt { max-width: 240px; padding: 6px 8px; font-size: 13px; border-radius: 6px; }
-    button { background: #2f7f87; color: #fff; font-weight: 700; border: 0; cursor: pointer; width: auto; padding: 8px 12px; }
+    button { padding: 8px 12px; }
     button.secondary { background: #5a8f95; }
     button.warn { background: #b74545; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
     dialog { border: 0; border-radius: 10px; width: min(840px, 95vw); max-height: 90vh; overflow: auto; }
     #cpDialog { width: min(1080px, 98vw); }
     #cpDialog.fullscreen {

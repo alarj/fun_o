@@ -92,6 +92,26 @@
       "min_zoom": 0,
       "enabled": true,
       "participant_default": false
+    },
+	{
+      "code": "maptiler_topo_v2",
+      "label": "MapTiler topo",
+      "url_template": "https://api.maptiler.com/maps/topo-v2/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
+      "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors",
+      "max_zoom": 20,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+	{
+      "code": "maptiler_hybrid",
+      "label": "MapTiler hybrid",
+      "url_template": "https://api.maptiler.com/maps/hybrid-v4/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
+      "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors",
+      "max_zoom": 20,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
     }
   ]
 }

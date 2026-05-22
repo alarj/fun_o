@@ -184,7 +184,7 @@ create table competition_participant_map_layers (
   competition_participant_map_layer_id number primary key,
   competition_id number not null,
   layer_code varchar2(100) not null,
-  start_date date default trunc(sysdate) not null,
+  start_date date default cast((systimestamp at time zone 'UTC') as date) not null,
   end_date date,
   created_by number,
   updated_by number,
@@ -390,10 +390,6 @@ create unique index ux_roles_code on roles (role_code);
 -- Additional business-rule check for "end_date > SYSDATE" must be enforced in PL/SQL procedures.
 create unique index ux_active_access_code on competition_access_codes (
   case when end_date is null then code end
-);
-
-create unique index ux_active_comp_participant on competition_participants (
-  case when end_date is null then user_id end
 );
 
 create unique index ux_active_comp_participant_comp_user on competition_participants (

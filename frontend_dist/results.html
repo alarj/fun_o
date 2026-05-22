@@ -3,19 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
   <title>fun_o tulemused</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: #f2f2ed; color: #1e1e1e; }
     .wrap { max-width: 1120px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border: 1px solid #d9d9d9; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .hidden { display: none; }
+    .card { border-radius: 12px; padding: 16px; margin-bottom: 12px; }
     h1 { margin: 0 0 8px; font-size: 30px; }
     .head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .muted { color: #666; font-size: 14px; }
-    .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .table th, .table td { border-bottom: 1px solid #ececec; padding: 8px 6px; text-align: left; vertical-align: top; }
+    .muted { font-size: 14px; }
     .table th { font-weight: 700; font-size: 14px; }
     .table td { font-size: 14px; }
     .sort-btn { border: 0; background: transparent; padding: 0; margin-left: 4px; cursor: pointer; color: inherit; font-weight: 700; font-size: 14px; }
@@ -33,9 +28,6 @@
     }
     .icon-btn:hover { color: #245f65; }
     .reload-icon { width: 18px; height: 18px; display: block; }
-    .msg { margin-top: 8px; padding: 8px; border-radius: 8px; font-size: 14px; }
-    .err { background: #ffecec; border: 1px solid #e5a6a6; }
-    .ok { background: #e7f6e8; border: 1px solid #9ed0a3; }
     .name-link {
       color: #0f5f8f;
       text-decoration: underline;

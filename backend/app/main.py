@@ -26,6 +26,8 @@ class Settings:
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
     competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
+    competitor_participation_cookie_name: str = os.getenv("COMPETITOR_PARTICIPATION_COOKIE_NAME", "funo_participation")
+    competitor_participation_cookie_ttl_hours: int = int(os.getenv("COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS", "360"))
     session_secret: str = os.getenv("SESSION_SECRET", "")
     session_cookie_secure: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
@@ -86,6 +88,10 @@ class DevLoginResponse(BaseModel):
     user_id: int
 
 
+class CompetitorEnsureSessionResponse(BaseModel):
+    user_id: int
+
+
 class RegisterCompetitionRequest(BaseModel):
     user_id: int | None = None
     access_code: str = Field(min_length=1, max_length=20)
@@ -93,6 +99,58 @@ class RegisterCompetitionRequest(BaseModel):
 
 class RegisterCompetitionResponse(BaseModel):
     competition_id: int
+
+
+class CompetitorSessionParticipant(BaseModel):
+    competition_participant_id: int
+    competition_id: int
+    competition_name: str
+    competition_description: str | None = None
+    alias_display: str | None = None
+    competitor_name: str | None = None
+    use_location: str | None = None
+    show_competitor_location: str | None = None
+
+
+class CompetitorSessionResponse(BaseModel):
+    authenticated: bool
+    user_id: int | None = None
+    participant: CompetitorSessionParticipant | None = None
+
+
+class CompetitorJoinPreviewRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=200)
+    lang_code: str | None = None
+
+
+class CompetitorJoinPreviewTerms(BaseModel):
+    terms_id: int
+    lang_code: str
+    terms_text: str
+
+
+class CompetitorJoinPreviewResponse(BaseModel):
+    competition_id: int
+    competition_name: str
+    competition_description: str | None = None
+    already_active_for_user: bool
+    terms: CompetitorJoinPreviewTerms | None = None
+
+
+class CompetitorJoinCompleteRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=200)
+    alias_display: str = Field(min_length=1, max_length=120)
+    contact_email: str | None = Field(default=None, max_length=320)
+    terms_id: int
+    terms_lang_code: str = Field(min_length=2, max_length=10)
+    accept_terms: bool
+
+
+class CompetitorJoinCompleteResponse(BaseModel):
+    competition_participant_id: int
+    competition_id: int
+    switched_from_participant_id: int | None = None
+    no_change: bool = False
 
 
 class RegisterOrganizerResponse(BaseModel):
@@ -134,6 +192,7 @@ class CompetitorProgressResponse(BaseModel):
 class CompetitorCompetition(BaseModel):
     competition_id: int
     name: str
+    description: str | None = None
     starts_at: str | None = None
     ends_at: str | None = None
     use_location: str | None = None
@@ -559,18 +618,22 @@ def _session_sign(payload_b64: str) -> str:
     return _b64url(digest)
 
 
-def _make_session_token(user_id: int) -> str:
-    payload = {"user_id": user_id}
+def _make_signed_token(payload: dict[str, Any]) -> str:
     payload_b64 = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     sig = _session_sign(payload_b64)
     return f"{payload_b64}.{sig}"
+
+
+def _make_session_token(user_id: int) -> str:
+    return _make_signed_token({"user_id": user_id})
 
 
 def _make_session_token_for_provider(user_id: int, auth_provider: str) -> str:
-    payload = {"user_id": user_id, "auth_provider": auth_provider}
-    payload_b64 = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
-    sig = _session_sign(payload_b64)
-    return f"{payload_b64}.{sig}"
+    return _make_signed_token({"user_id": user_id, "auth_provider": auth_provider})
+
+
+def _make_competitor_participation_token(competition_participant_id: int) -> str:
+    return _make_signed_token({"competition_participant_id": competition_participant_id})
 
 
 def _read_session_payload(request: Request) -> dict[str, Any] | None:
@@ -579,6 +642,10 @@ def _read_session_payload(request: Request) -> dict[str, Any] | None:
 
 def _read_competitor_session_payload(request: Request) -> dict[str, Any] | None:
     return _read_session_payload_from_cookie(request, settings.competitor_session_cookie_name)
+
+
+def _read_competitor_participation_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.competitor_participation_cookie_name)
 
 
 def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
@@ -598,9 +665,6 @@ def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dic
 
     if not isinstance(payload, dict):
         return None
-    user_id = payload.get("user_id")
-    if not isinstance(user_id, int):
-        return None
     return payload
 
 
@@ -618,6 +682,20 @@ def _read_competitor_session_user_id(request: Request) -> int | None:
         return None
     user_id = payload.get("user_id")
     return user_id if isinstance(user_id, int) else None
+
+
+def _read_competitor_participation_id(request: Request) -> int | None:
+    payload = _read_competitor_participation_payload(request)
+    if payload is not None:
+        participant_id = payload.get("competition_participant_id")
+        if isinstance(participant_id, int):
+            return participant_id
+    # Fallback for environments where only one Set-Cookie header is preserved by proxy.
+    session_payload = _read_competitor_session_payload(request)
+    if session_payload is None:
+        return None
+    participant_id = session_payload.get("competition_participant_id")
+    return participant_id if isinstance(participant_id, int) else None
 
 
 def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: int | None) -> int:
@@ -1080,6 +1158,29 @@ async def dev_login(req: DevLoginRequest, response: Response) -> DevLoginRespons
     return DevLoginResponse(user_id=user_id)
 
 
+@app.post("/api/competitor/ensure-session", response_model=CompetitorEnsureSessionResponse)
+async def competitor_ensure_session(request: Request, response: Response) -> CompetitorEnsureSessionResponse:
+    existing_user_id = _read_competitor_session_user_id(request)
+    if isinstance(existing_user_id, int):
+        return CompetitorEnsureSessionResponse(user_id=existing_user_id)
+
+    ords_response = await _post_to_ords("auth/dev/resolve-user", {})
+    user_id = ords_response.get("user_id")
+    if not isinstance(user_id, int):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    session_token = _make_session_token_for_provider(user_id, "competitor")
+    response.set_cookie(
+        key=settings.competitor_session_cookie_name,
+        value=session_token,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        max_age=max(1, int(settings.competitor_participation_cookie_ttl_hours) * 60 * 60),
+        path="/",
+    )
+    return CompetitorEnsureSessionResponse(user_id=user_id)
+
+
 @app.get("/api/auth/google/config", response_model=GoogleClientConfigResponse)
 async def auth_google_config() -> GoogleClientConfigResponse:
     cid = settings.google_client_id.strip() if settings.google_client_id else ""
@@ -1119,6 +1220,153 @@ async def auth_session(request: Request) -> SessionInfoResponse:
         auth_provider=payload.get("auth_provider") if isinstance(payload.get("auth_provider"), str) else None,
         email=email,
         full_name=full_name,
+    )
+
+
+def _set_competitor_cookies(response: Response, user_id: int, competition_participant_id: int) -> None:
+    session_token = _make_signed_token(
+        {"user_id": user_id, "auth_provider": "competitor", "competition_participant_id": competition_participant_id}
+    )
+    participation_token = _make_competitor_participation_token(competition_participant_id)
+    max_age_seconds = max(1, int(settings.competitor_participation_cookie_ttl_hours) * 60 * 60)
+    response.set_cookie(
+        key=settings.competitor_session_cookie_name,
+        value=session_token,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        max_age=max_age_seconds,
+        path="/",
+    )
+    response.set_cookie(
+        key=settings.competitor_participation_cookie_name,
+        value=participation_token,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        max_age=max_age_seconds,
+        path="/",
+    )
+
+
+def _delete_competitor_participation_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.competitor_participation_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+
+
+@app.get("/api/competitor/session", response_model=CompetitorSessionResponse)
+async def competitor_session(request: Request, response: Response) -> CompetitorSessionResponse:
+    user_id = _read_competitor_session_user_id(request)
+    participant_id = _read_competitor_participation_id(request)
+    if user_id is None or participant_id is None:
+        return CompetitorSessionResponse(authenticated=False)
+
+    ords_response = await _get_from_ords(
+        "competitor/session-by-participant",
+        {"user_id": user_id, "competition_participant_id": participant_id},
+    )
+    participant = ords_response.get("participant") if isinstance(ords_response, dict) else None
+    if not isinstance(participant, dict):
+        _delete_competitor_participation_cookie(response)
+        return CompetitorSessionResponse(authenticated=False)
+
+    cp_id = participant.get("competition_participant_id")
+    cid = participant.get("competition_id")
+    name = participant.get("competition_name")
+    if not isinstance(cp_id, int) or not isinstance(cid, int) or not isinstance(name, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+
+    _set_competitor_cookies(response, user_id=user_id, competition_participant_id=cp_id)
+    return CompetitorSessionResponse(
+        authenticated=True,
+        user_id=user_id,
+        participant=CompetitorSessionParticipant(
+            competition_participant_id=cp_id,
+            competition_id=cid,
+            competition_name=name,
+            competition_description=participant.get("competition_description") if isinstance(participant.get("competition_description"), str) else None,
+            alias_display=participant.get("alias_display") if isinstance(participant.get("alias_display"), str) else None,
+            competitor_name=participant.get("competitor_name") if isinstance(participant.get("competitor_name"), str) else None,
+            use_location=participant.get("use_location") if isinstance(participant.get("use_location"), str) else None,
+            show_competitor_location=participant.get("show_competitor_location") if isinstance(participant.get("show_competitor_location"), str) else None,
+        ),
+    )
+
+
+@app.post("/api/competitor/join-preview", response_model=CompetitorJoinPreviewResponse)
+async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Request) -> CompetitorJoinPreviewResponse:
+    user_id = _read_competitor_session_user_id(request)
+    if user_id is None:
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+    lang_code = (req.lang_code or settings.lang_default or "et").strip().lower()
+    if lang_code not in settings.lang_available:
+        lang_code = settings.lang_default
+
+    ords_response = await _post_to_ords(
+        "competitor/join-preview",
+        {"user_id": user_id, "access_code": req.code, "lang_code": lang_code},
+    )
+    cid = ords_response.get("competition_id")
+    name = ords_response.get("competition_name")
+    if not isinstance(cid, int) or not isinstance(name, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    terms_raw = ords_response.get("terms")
+    terms: CompetitorJoinPreviewTerms | None = None
+    if isinstance(terms_raw, dict):
+        tid = terms_raw.get("terms_id")
+        t_lang = terms_raw.get("lang_code")
+        t_text = terms_raw.get("terms_text")
+        if isinstance(tid, int) and isinstance(t_lang, str) and isinstance(t_text, str):
+            terms = CompetitorJoinPreviewTerms(terms_id=tid, lang_code=t_lang, terms_text=t_text)
+    return CompetitorJoinPreviewResponse(
+        competition_id=cid,
+        competition_name=name,
+        competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
+        already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
+        terms=terms,
+    )
+
+
+@app.post("/api/competitor/join-complete", response_model=CompetitorJoinCompleteResponse)
+async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: Request, response: Response) -> CompetitorJoinCompleteResponse:
+    user_id = _read_competitor_session_user_id(request)
+    if user_id is None:
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+    if not req.accept_terms:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "TERMS_NOT_ACCEPTED", "api.error.terms_not_accepted")
+
+    current_participant_id = _read_competitor_participation_id(request)
+    payload: dict[str, Any] = {
+        "user_id": user_id,
+        "access_code": req.code,
+        "alias_display": req.alias_display,
+        "terms_id": req.terms_id,
+        "terms_lang_code": req.terms_lang_code,
+        "accept_terms": "Y" if req.accept_terms else "N",
+    }
+    if req.contact_email:
+        payload["contact_email"] = req.contact_email
+    if current_participant_id is not None:
+        payload["current_competition_participant_id"] = current_participant_id
+
+    ords_response = await _post_to_ords("competitor/join-complete", payload)
+    cp_id = ords_response.get("competition_participant_id")
+    cid = ords_response.get("competition_id")
+    if not isinstance(cp_id, int) or not isinstance(cid, int):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    switched_from = ords_response.get("switched_from_participant_id")
+    switched_from_id = switched_from if isinstance(switched_from, int) else None
+    no_change = str(ords_response.get("no_change", "N")).upper() == "Y"
+    _set_competitor_cookies(response, user_id=user_id, competition_participant_id=cp_id)
+    return CompetitorJoinCompleteResponse(
+        competition_participant_id=cp_id,
+        competition_id=cid,
+        switched_from_participant_id=switched_from_id,
+        no_change=no_change,
     )
 
 
@@ -1249,6 +1497,7 @@ async def competitor_competitions(
                     CompetitorCompetition(
                         competition_id=cid,
                         name=name,
+                        description=item.get("description") if isinstance(item.get("description"), str) else None,
                         starts_at=item.get("starts_at") if isinstance(item.get("starts_at"), str) else None,
                         ends_at=item.get("ends_at") if isinstance(item.get("ends_at"), str) else None,
                         use_location=item.get("use_location") if isinstance(item.get("use_location"), str) else None,

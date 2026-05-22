@@ -72,7 +72,13 @@ create or replace package body pkg_auth as
   ) is
   begin
     if p_user_id is null and p_email is null then
-      raise_application_error(-20070, 'user_id or email is required');
+      o_user_id := seq_users.nextval;
+      insert into users (
+        user_id, auth_type, start_date, created_at
+      ) values (
+        o_user_id, 'ANON', trunc(sysdate), systimestamp
+      );
+      return;
     end if;
 
     if p_user_id is not null then
@@ -1359,6 +1365,34 @@ end pkg_results;
 /
 
 create or replace package pkg_competitor as
+  procedure get_session_by_participant_json(
+    p_user_id in number,
+    p_competition_participant_id in number,
+    o_item_json out clob
+  );
+
+  procedure join_preview_json(
+    p_user_id in number,
+    p_access_code in varchar2,
+    p_lang_code in varchar2,
+    o_item_json out clob
+  );
+
+  procedure join_by_code(
+    p_user_id in number,
+    p_access_code in varchar2,
+    p_alias_display in varchar2,
+    p_contact_email in varchar2,
+    p_terms_id in number,
+    p_terms_lang_code in varchar2,
+    p_accept_terms in varchar2,
+    p_current_competition_participant_id in number,
+    o_competition_id out number,
+    o_competition_participant_id out number,
+    o_switched_from_participant_id out number,
+    o_no_change out varchar2
+  );
+
   procedure list_my_competitions_json(
     p_user_id in number,
     o_items_json out clob
@@ -1400,6 +1434,325 @@ end pkg_competitor;
 /
 
 create or replace package body pkg_competitor as
+  procedure get_session_by_participant_json(
+    p_user_id in number,
+    p_competition_participant_id in number,
+    o_item_json out clob
+  ) is
+  begin
+    o_item_json := null;
+    if p_user_id is null or p_competition_participant_id is null then
+      return;
+    end if;
+
+    begin
+      select json_object(
+               'competition_participant_id' value cp.competition_participant_id,
+               'competition_id' value c.competition_id,
+               'competition_name' value c.name,
+               'competition_description' value c.description,
+               'alias_display' value cp.alias_display,
+               'competitor_name' value nvl(nullif(trim(cp.alias_display), ''), nvl(nullif(trim(u.full_name), ''), '---')),
+               'use_location' value nvl(c.use_location, 'N'),
+               'show_competitor_location' value nvl(c.show_competitor_location, 'Y')
+             )
+        into o_item_json
+        from competition_participants cp
+        join competitions c
+          on c.competition_id = cp.competition_id
+        left join users u
+          on u.user_id = cp.user_id
+       where cp.competition_participant_id = p_competition_participant_id
+         and cp.user_id = p_user_id
+         and cp.end_date is null
+         and (c.end_date is null or c.end_date > sysdate)
+         and c.status in ('INACTIVE', 'ACTIVE')
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        o_item_json := null;
+    end;
+  end;
+
+  procedure join_preview_json(
+    p_user_id in number,
+    p_access_code in varchar2,
+    p_lang_code in varchar2,
+    o_item_json out clob
+  ) is
+    l_competition_id number;
+    l_access_code_id number;
+    l_max_uses number;
+    l_used_count number;
+    l_terms_id number;
+    l_terms_lang_code varchar2(10);
+    l_terms_text clob;
+    l_already_active varchar2(1) := 'N';
+    l_now_utc_ts timestamp;
+    l_lang_code varchar2(10);
+  begin
+    o_item_json := null;
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+    l_lang_code := lower(nvl(trim(p_lang_code), 'et'));
+
+    if p_user_id is null or p_access_code is null then
+      raise_application_error(-20030, 'user_id and access_code are required');
+    end if;
+
+    begin
+      select c.access_code_id,
+             c.competition_id,
+             c.max_uses,
+             c.used_count
+        into l_access_code_id, l_competition_id, l_max_uses, l_used_count
+        from competition_access_codes c
+        join competitions comp on comp.competition_id = c.competition_id
+       where c.code = p_access_code
+         and c.code_type = 'COMPETITOR'
+         and (c.end_date is null or c.end_date > sysdate)
+         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
+         and c.status = 'ACTIVE'
+         and (comp.end_date is null or comp.end_date > sysdate)
+         and comp.status in ('INACTIVE', 'ACTIVE')
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20031, 'invalid or inactive access code');
+    end;
+
+    if l_max_uses is not null and l_used_count >= l_max_uses then
+      raise_application_error(-20032, 'access code usage limit reached');
+    end if;
+
+    begin
+      select t.terms_id
+        into l_terms_id
+        from competition_terms t
+       where t.competition_id = l_competition_id
+         and t.status = 'ACTIVE'
+         and (t.end_date is null or t.end_date > sysdate)
+       order by t.version_no desc, t.terms_id desc
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20120, 'no active terms for competition');
+    end;
+
+    begin
+      select lower(tt.lang_code), tt.terms_text
+        into l_terms_lang_code, l_terms_text
+        from competition_terms_texts tt
+       where tt.terms_id = l_terms_id
+         and lower(tt.lang_code) = l_lang_code
+         and (tt.end_date is null or tt.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        begin
+          select lower(tt.lang_code), tt.terms_text
+            into l_terms_lang_code, l_terms_text
+            from competition_terms_texts tt
+           where tt.terms_id = l_terms_id
+             and lower(tt.lang_code) = 'et'
+             and (tt.end_date is null or tt.end_date > sysdate)
+           fetch first 1 row only;
+        exception
+          when no_data_found then
+            select lower(tt.lang_code), tt.terms_text
+              into l_terms_lang_code, l_terms_text
+              from competition_terms_texts tt
+             where tt.terms_id = l_terms_id
+               and (tt.end_date is null or tt.end_date > sysdate)
+             order by tt.lang_code
+             fetch first 1 row only;
+        end;
+    end;
+
+    begin
+      select 'Y'
+        into l_already_active
+        from competition_participants cp
+       where cp.competition_id = l_competition_id
+         and cp.user_id = p_user_id
+         and cp.end_date is null
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_already_active := 'N';
+    end;
+
+    select json_object(
+             'competition_id' value c.competition_id,
+             'competition_name' value c.name,
+             'competition_description' value c.description,
+             'already_active_for_user' value l_already_active,
+             'terms' value json_object(
+               'terms_id' value l_terms_id,
+               'lang_code' value l_terms_lang_code,
+               'terms_text' value l_terms_text
+             )
+           )
+      into o_item_json
+      from competitions c
+     where c.competition_id = l_competition_id;
+  end;
+
+  procedure join_by_code(
+    p_user_id in number,
+    p_access_code in varchar2,
+    p_alias_display in varchar2,
+    p_contact_email in varchar2,
+    p_terms_id in number,
+    p_terms_lang_code in varchar2,
+    p_accept_terms in varchar2,
+    p_current_competition_participant_id in number,
+    o_competition_id out number,
+    o_competition_participant_id out number,
+    o_switched_from_participant_id out number,
+    o_no_change out varchar2
+  ) is
+    l_access_code_id number;
+    l_max_uses number;
+    l_used_count number;
+    l_terms_id number;
+    l_current_competition_id number;
+    l_existing_participant_id number;
+    l_now_utc_ts timestamp;
+  begin
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+    o_switched_from_participant_id := null;
+    o_no_change := 'N';
+    o_competition_participant_id := null;
+
+    if p_user_id is null or p_access_code is null then
+      raise_application_error(-20030, 'user_id and access_code are required');
+    end if;
+    if trim(p_alias_display) is null then
+      raise_application_error(-20101, 'alias is required');
+    end if;
+    if nvl(upper(p_accept_terms), 'N') <> 'Y' then
+      raise_application_error(-20102, 'terms acceptance is required');
+    end if;
+
+    begin
+      select c.access_code_id,
+             c.competition_id,
+             c.max_uses,
+             c.used_count
+        into l_access_code_id, o_competition_id, l_max_uses, l_used_count
+        from competition_access_codes c
+        join competitions comp on comp.competition_id = c.competition_id
+       where c.code = p_access_code
+         and c.code_type = 'COMPETITOR'
+         and (c.end_date is null or c.end_date > sysdate)
+         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
+         and c.status = 'ACTIVE'
+         and (comp.end_date is null or comp.end_date > sysdate)
+         and comp.status in ('INACTIVE', 'ACTIVE')
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20031, 'invalid or inactive access code');
+    end;
+
+    if l_max_uses is not null and l_used_count >= l_max_uses then
+      raise_application_error(-20032, 'access code usage limit reached');
+    end if;
+
+    begin
+      select t.terms_id
+        into l_terms_id
+        from competition_terms t
+       where t.competition_id = o_competition_id
+         and t.status = 'ACTIVE'
+         and (t.end_date is null or t.end_date > sysdate)
+       order by t.version_no desc, t.terms_id desc
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20120, 'no active terms for competition');
+    end;
+    if l_terms_id != p_terms_id then
+      raise_application_error(-20103, 'terms version mismatch');
+    end if;
+
+    begin
+      select cp.competition_participant_id, cp.competition_id
+        into l_existing_participant_id, l_current_competition_id
+        from competition_participants cp
+       where cp.competition_participant_id = p_current_competition_participant_id
+         and cp.user_id = p_user_id
+         and cp.end_date is null
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_existing_participant_id := null;
+        l_current_competition_id := null;
+    end;
+
+    if l_current_competition_id = o_competition_id and l_existing_participant_id is not null then
+      o_competition_participant_id := l_existing_participant_id;
+      o_no_change := 'Y';
+      return;
+    end if;
+
+    begin
+      select cp.competition_participant_id
+        into o_competition_participant_id
+        from competition_participants cp
+       where cp.competition_id = o_competition_id
+         and cp.user_id = p_user_id
+         and cp.end_date is null
+       fetch first 1 row only;
+      o_no_change := 'Y';
+      return;
+    exception
+      when no_data_found then
+        null;
+    end;
+
+    insert into competition_participants (
+      competition_participant_id,
+      competition_id,
+      user_id,
+      access_code_id,
+      alias_display,
+      contact_email,
+      terms_id,
+      terms_lang_code,
+      terms_accepted_at,
+      status,
+      start_date,
+      joined_at
+    ) values (
+      seq_competition_participants.nextval,
+      o_competition_id,
+      p_user_id,
+      l_access_code_id,
+      trim(p_alias_display),
+      case when trim(p_contact_email) is not null then trim(p_contact_email) else null end,
+      l_terms_id,
+      lower(trim(p_terms_lang_code)),
+      systimestamp,
+      'ACTIVE',
+      trunc(sysdate),
+      systimestamp
+    ) returning competition_participant_id into o_competition_participant_id;
+
+    if l_existing_participant_id is not null then
+      update competition_participants cp
+         set cp.end_date = trunc(sysdate),
+             cp.status = case when cp.status = 'ACTIVE' then 'ENDED_SWITCHED' else cp.status end
+       where cp.competition_participant_id = l_existing_participant_id
+         and cp.end_date is null;
+      o_switched_from_participant_id := l_existing_participant_id;
+    end if;
+
+    update competition_access_codes
+       set used_count = used_count + 1
+     where access_code_id = l_access_code_id;
+  end;
+
   procedure list_my_competitions_json(
     p_user_id in number,
     o_items_json out clob
@@ -1412,6 +1765,7 @@ create or replace package body pkg_competitor as
              json_object(
                'competition_id' value x.competition_id,
                'name' value x.name,
+               'description' value x.description,
                'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end,
                'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end,
                'use_location' value nvl(x.use_location, 'N'),
@@ -1422,6 +1776,7 @@ create or replace package body pkg_competitor as
       from (
         select c.competition_id,
                c.name,
+               c.description,
                c.starts_at,
                c.ends_at,
                c.use_location,
