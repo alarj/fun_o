@@ -637,6 +637,60 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/competitor/terms?user_id=..&competition_id=..&lang_code=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/terms');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'competitor/terms',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.get_terms_for_competition_json(
+          p_user_id => to_number(:user_id),
+          p_competition_id => to_number(:competition_id),
+          p_lang_code => :lang_code,
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(nvl(l_json, '{}'));
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/terms',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/terms',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/terms',
+    p_method             => 'GET',
+    p_name               => 'lang_code',
+    p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
   -- POST /funo/competitor/join-preview
   ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/join-preview');
   ORDS.DEFINE_HANDLER(
@@ -652,9 +706,10 @@ begin
       begin
         l_body := json_object_t.parse(:body_text);
         FUNO_APP.pkg_competitor.join_preview_json(
-          p_user_id => l_body.get_number('user_id'),
+          p_user_id => case when l_body.has('user_id') then l_body.get_number('user_id') else null end,
           p_access_code => l_body.get_string('access_code'),
           p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else null end,
+          p_alias_display => case when l_body.has('alias_display') then l_body.get_string('alias_display') else null end,
           o_item_json => l_json
         );
         owa_util.mime_header('application/json', false);
@@ -675,6 +730,7 @@ begin
     p_source      => q'[
       declare
         l_body json_object_t;
+        l_user_id number;
         l_competition_id number;
         l_competition_participant_id number;
         l_switched_from_participant_id number;
@@ -682,7 +738,7 @@ begin
       begin
         l_body := json_object_t.parse(:body_text);
         FUNO_APP.pkg_competitor.join_by_code(
-          p_user_id => l_body.get_number('user_id'),
+          p_user_id => case when l_body.has('user_id') then l_body.get_number('user_id') else null end,
           p_access_code => l_body.get_string('access_code'),
           p_alias_display => l_body.get_string('alias_display'),
           p_contact_email => case when l_body.has('contact_email') then l_body.get_string('contact_email') else null end,
@@ -690,6 +746,7 @@ begin
           p_terms_lang_code => l_body.get_string('terms_lang_code'),
           p_accept_terms => l_body.get_string('accept_terms'),
           p_current_competition_participant_id => case when l_body.has('current_competition_participant_id') then l_body.get_number('current_competition_participant_id') else null end,
+          o_user_id => l_user_id,
           o_competition_id => l_competition_id,
           o_competition_participant_id => l_competition_participant_id,
           o_switched_from_participant_id => l_switched_from_participant_id,
@@ -699,6 +756,7 @@ begin
         owa_util.http_header_close;
         htp.p(
           json_object(
+            'user_id' value l_user_id,
             'competition_id' value l_competition_id,
             'competition_participant_id' value l_competition_participant_id,
             'switched_from_participant_id' value l_switched_from_participant_id,
@@ -1629,6 +1687,74 @@ begin
         htp.p('{"ok":true}');
       end;
     ]'
+  );
+
+  -- GET /funo/admin/competitions/terms?competition_id=..&lang_code=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/terms');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions/terms',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.get_competition_terms_json(
+          p_competition_id => to_number(:competition_id),
+          p_lang_code => :lang_code,
+          p_default_terms_text => null,
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(nvl(l_json, '{}'));
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/competitions/terms',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'admin/competitions/terms',
+    p_method             => 'GET',
+    p_name               => 'lang_code',
+    p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  -- POST /funo/admin/competitions/terms
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions/terms',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.set_competition_terms_text(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end,
+          p_terms_text => l_body.get_clob('terms_text'),
+          p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ~'
   );
 
   -- GET /funo/admin/competitions/map-layers?competition_id=..

@@ -197,3 +197,77 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Sellisel juhul tagastatakse viga ja UI kuvab teate: `Oled juba v�istluse osaleja`.
 - See keeld rakendub s�ltumata sellest, kas sisestatud alias on sama v�i erinev.
 - Eesm�rk: v�ltida aliase vahetust samas v�istluses uuesti liitumise kaudu.
+
+## E. Kasutustingimuste haldus ja fallback
+
+### 1) Admini tingimuste muutmine
+
+- Admin vaates on nupp `Tingimused`, mis avab võistluse tingimuste modali.
+- Tingimusi muudetakse HTML vormingus (WYSIWYG editor).
+- Keelt saab valida modalis eraldi (`ET`, `EN`, ...), sõltumata admin UI enda keelevalikust.
+- Salvestus kirjutab tingimused valitud keele jaoks konkreetsesse võistlusesse.
+
+### 2) Vaikimisi tingimused failist
+
+- Vaikimisi tingimused hoitakse failides:
+  - `frontend_dist/content/default_et.html`
+  - `frontend_dist/content/default_en.html`
+  - jne (`default_<lang>.html`)
+- Kui võistlusel või valitud keeles tingimused puuduvad, lisatakse need fallbackina vastavast failist.
+- Fallback peab töötama ka vanade võistluste puhul (tagasiühilduvus).
+
+### 3) Konteineri nõue
+
+- Backend loeb default-faile backend konteineri failisüsteemist.
+- Seetõttu peab `frontend_dist/content` olema mountitud ka `fastapi` konteinerisse.
+- `.env` peab sisaldama:
+  - `CONTENT_DEFAULTS_DIR=/app/frontend_dist/content`
+
+### 4) Cache reeglid
+
+- Võistleja tingimused cache-takse serveri mälus võtmega `competition_id|lang_code`.
+- Adminis tingimuste salvestamine tühjendab cache kohe.
+- Võistleja vaade küsib tingimused iga modali avamisega backendist; backend cache vähendab ORDS koormust.
+
+### 5) Suurte tingimustekstide tehniline nõue
+
+- Tingimuste HTML võib olla > 4000 märki.
+- ORDS/PLSQL JSON vastustes peab kasutama `JSON_OBJECT ... RETURNING CLOB`.
+- Vastasel juhul tekib viga:
+  - `ORA-40478: output value too large (maximum: 4000)`.
+
+## F. Serveripoolne cache (kooskõlas backend/README-ga)
+
+- `competitor_terms_cache`
+  - võti: `competition_id|lang_code`
+  - TTL: puudub (mälupõhine cache)
+  - tühjendamine:
+    - automaatselt admini tingimuste salvestamisel
+    - käsitsi endpointiga `POST /api/competitor/terms-cache/reset`
+    - backendi restart
+
+- `map_checkpoints_cache`
+  - võti: `competition_id:user_id`
+  - TTL: 900 sekundit
+  - tühjendamine:
+    - admini sisu muudatustel (KP/küsimus/vastused)
+    - osaliselt võistlusepõhiselt `_invalidate_competition_cache(...)`
+    - backendi restart
+
+- `open_checkpoints_last_response`
+  - võti: `competition_id:user_id`
+  - TTL/throttle: 2 sekundit
+  - eesmärk: vältida liiga tihedaid korduspäringuid
+
+- `competitor_map_layers_cache`
+  - võti: `competition_id`
+  - TTL: puudub
+  - tühjendamine:
+    - `POST /api/admin/competitions/map-layers`
+    - võistlusepõhisel invalidate'l
+    - backendi restart
+
+- `i18n_cache`
+  - võti: `lang_code`
+  - TTL: puudub
+  - reload endpoint: `POST /api/i18n/reload`

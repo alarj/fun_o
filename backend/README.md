@@ -1,4 +1,4 @@
-# FastAPI <-> ORDS integration notes
+﻿# FastAPI <-> ORDS integration notes
 
 FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/auth/google/upsert`
@@ -37,10 +37,10 @@ Required backend env:
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
 - You can reload i18n cache without restarting backend: `POST /api/i18n/reload`
 
-Map layer config (admin "Näita kaardil"):
+Map layer config (admin "NĆ¤ita kaardil"):
 - File: `backend/app/map_layers.json`
 - Endpoint: `GET /api/map-layers`
-- Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 900s).
+- Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 31536000s / 1 year).
 - If a layer has `"enabled": false`, it is hidden from UI.
 - If a layer URL contains `{MAPYCZ_API_KEY}` or `{MAPTILER_API_KEY}`, the backend injects key from `.env`.
   If key is missing, that layer is automatically omitted from API response.
@@ -239,5 +239,107 @@ Architecture rule for all ORDS endpoints:
   - participants alias by `(competition_id, nlssort(trim(alias_display), 'NLS_SORT=BINARY_CI'))`
   - terms versions by `(competition_id, version_no)`
   - terms text language by `(terms_id, lower(lang_code))`
+
+## Competition Terms Runtime Flow (Admin + Competitor)
+
+- Admin API endpoints:
+  - `GET /api/admin/competitions/terms?competition_id=...&lang_code=...`
+  - `POST /api/admin/competitions/terms`
+- ORDS routes used by backend:
+  - `GET /admin/competitions/terms`
+  - `POST /admin/competitions/terms`
+
+Default terms source:
+- Backend reads default HTML files from `CONTENT_DEFAULTS_DIR`.
+- Expected files: `default_et.html`, `default_en.html`, ... (by `LANG_AVAILABLE`).
+- `CONTENT_DEFAULTS_DIR` must be readable inside `fastapi` container.
+- In this project, docker-compose mounts:
+  - `./frontend_dist -> /app/frontend_dist` (read-only)
+  - therefore `CONTENT_DEFAULTS_DIR=/app/frontend_dist/content`
+
+Fallback behavior:
+- On admin terms load, if requested language terms are missing, backend loads default file for that language and creates terms via ORDS POST.
+- This is language-specific fallback (for example `et` and `en` handled independently).
+- Admin terms modal preloads all `LANG_AVAILABLE` languages in background, so language switch is immediately editable without changing admin UI language.
+
+Caching:
+- Competitor terms endpoint uses server-side in-memory cache:
+  - key: `competition_id|lang_code`
+  - cache store: `competitor_terms_cache`
+- Cache invalidation:
+  - `POST /api/admin/competitions/terms` clears competitor terms cache immediately.
+  - Manual reset endpoint exists: `POST /api/competitor/terms-cache/reset`
+- Competitor UI requests terms on each modal open; backend cache still prevents excessive ORDS load.
+
+Important Oracle JSON note:
+- Terms text is CLOB and can exceed 4000 chars.
+- JSON responses that include terms text must use `JSON_OBJECT ... RETURNING CLOB` in PL/SQL.
+- Without this, ORDS can fail with:
+  - `ORA-40478: output value too large (maximum: 4000)`
   - checkpoint `order_no` per competition (only when `order_no` is not null)
   - question/question-option language and option uniqueness indexes
+
+
+## Server-side caching (authoritative)
+
+This section reflects current behavior in `backend/app/main.py`.
+
+### 1) `i18n_cache`
+- Purpose: translations cache for `/api/i18n/translations`.
+- Key: language code.
+- TTL: no time-based TTL (lives in memory until reload/restart).
+- Filled: backend startup.
+- Invalidated/reset:
+  - `POST /api/i18n/reload` clears + reloads.
+  - Process restart clears + reloads.
+
+### 2) `map_layers_cache`
+- Purpose: parsed `backend/app/map_layers.json` (+ API key substitution).
+- Key: single global cache object (`items`, `loaded_at`).
+- TTL: `MAP_LAYERS_CACHE_TTL_SECONDS = 31536000` (1 year).
+- Filled: lazy, first call to `/api/map-layers` or `/api/competitor/map-layers`.
+- Invalidated/reset:
+  - no dedicated reset endpoint.
+  - expires by TTL or process restart.
+
+### 3) `competitor_map_layers_cache`
+- Purpose: competition-specific map layer set for competitor.
+- Key: `competition_id`.
+- TTL: no time-based TTL.
+- Filled: first call to `GET /api/competitor/map-layers`.
+- Invalidated/reset:
+  - `_invalidate_competition_cache(competition_id)` removes entry.
+  - `POST /api/admin/competitions/map-layers` removes entry for that competition.
+  - process restart clears all.
+
+### 4) `map_checkpoints_cache`
+- Purpose: cached payload for `GET /api/competitor/map-checkpoints`.
+- Key: `competition_id:user_id`.
+- TTL: `MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900` (15 min).
+- Filled: first request per key.
+- Invalidated/reset:
+  - automatic expiry purge on reads.
+  - full clear on admin content mutations (checkpoint/question/option/answer create-update-delete).
+  - competition-scoped clear via `_invalidate_competition_cache(...)` on competition meta/date updates and some competition-level mutations.
+  - process restart clears all.
+
+### 5) `open_checkpoints_last_response`
+- Purpose: short throttle cache for `GET /api/competitor/open-checkpoints`.
+- Key: `competition_id:user_id`.
+- TTL: `OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2`.
+- Filled: each successful response.
+- Invalidated/reset:
+  - naturally overwritten by next response.
+  - cleared together with map checkpoint cache on admin content mutations.
+  - competition-scoped clear via `_invalidate_competition_cache(...)`.
+  - process restart clears all.
+
+### 6) `competitor_terms_cache`
+- Purpose: cached terms payload for `GET /api/competitor/terms`.
+- Key: `competition_id|lang_code`.
+- TTL: no time-based TTL.
+- Filled: first terms request per competition/language.
+- Invalidated/reset:
+  - `POST /api/admin/competitions/terms` clears whole terms cache.
+  - manual reset endpoint exists: `POST /api/competitor/terms-cache/reset`.
+  - process restart clears all.
