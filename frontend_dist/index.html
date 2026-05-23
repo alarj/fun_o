@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="./assets/app.css" />
+<!--    <link rel="stylesheet" href="./assets/app.css" /> -->
     <title>fun_o võistleja</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -128,6 +128,28 @@
         width: 100%; max-width: 560px; background: #fff; border-radius: 14px; padding: 16px;
       }
       .modal h3 { margin: 0 0 10px 0; font-size: 28px; }
+      .introCta { margin-top: 10px; font-size: 17px; color: #3f4b52; line-height: 1.35; }
+      .introCta a { color: #145a8a; font-weight: 700; text-decoration: underline; cursor: pointer; }
+      .introModal {
+        width: min(960px, 96vw);
+        max-width: 96vw;
+        max-height: 88vh;
+        overflow: auto;
+      }
+      .introBody { font-size: 18px; line-height: 1.45; color: #1d2830; }
+      .introBody img { max-width: 100%; height: auto; }
+      .termsBody {
+        border: 1px solid #d4ddd2;
+        border-radius: 10px;
+        padding: 10px;
+        max-height: 42vh;
+        overflow: auto;
+        font-size: 18px;
+      }
+      .termsBody p { margin: 0 0 10px 0; }
+      .termsBody p:last-child { margin-bottom: 0; }
+      .termsBody ul, .termsBody ol { margin: 0 0 10px 20px; }
+      .termsBody img { max-width: 100%; height: auto; }
       .feedback-ok { background: #00b24f; color: #fff; }
       .feedback-err { background: #d92424; color: #fff; }
       .feedback-ok button, .feedback-err button { background: #fff; color: #000; }
@@ -206,6 +228,19 @@
         background: #f7fbf7;
         font-size: 22px;
         font-weight: 700;
+      }
+      .myResInfoLine {
+        font-size: 14px;
+        color: #4f5a61;
+        text-align: center;
+        line-height: 1.35;
+        white-space: nowrap;
+      }
+      .myResInfoLine a {
+        color: #145a8a;
+        font-weight: 700;
+        text-decoration: underline;
+        cursor: pointer;
       }
       .myResExpanded { display: none; padding: 14px; }
       .myResHead { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
@@ -291,6 +326,9 @@
         <div id="myResultsCollapsed" class="myResCollapsed">
           <div id="myResultsProgress" class="myResProgress">KP: 0 / 0  Punktid: 0</div>
           <button id="myResultsBtn">Tulemused</button>
+          <div class="myResInfoLine">
+            Võistluse <a id="openCompetitionTermsLink" href="#">tingimused</a> | (C) alar, MIT licence
+          </div>
         </div>
         <div id="myResExpanded" class="myResExpanded">
           <div class="myResHead">
@@ -333,18 +371,46 @@
         <input id="joinAlias" type="text" maxlength="120" />
         <label for="joinEmail">E-post (soovi korral)</label>
         <input id="joinEmail" type="email" maxlength="320" />
-        <div style="height:10px"></div>
-        <div id="joinTermsBox" style="display:none; border:1px solid #d4ddd2; border-radius:10px; padding:10px; max-height:220px; overflow:auto; white-space:pre-wrap;"></div>
-        <div style="height:10px"></div>
-        <label style="font-size:18px;">
-          <input id="joinAcceptTerms" type="checkbox" style="width:auto; margin-right:8px; transform:scale(1.25);" />
-          Nõustun kasutustingimustega <span class="reqStar">*</span>
-        </label>
         <div style="height:8px"></div>
-        <button id="joinBtn">Liitu koodiga</button>
-        <div style="height:8px"></div>
-        <button id="closeJoinByCodeBtn" class="secondary">Sulge</button>
+        <button id="joinBtn">Jätka võistlusega liitumist</button>
+        <div id="joinIntroCta" class="introCta">
+          Sul ei ole koodi? Sa tahad ise lõbusat võistlust korraldada?
+          <a id="openIntroLink" href="#">Loe täpsemalt siit!</a>
+        </div>
+        <div id="joinCloseWrap" style="display:none; margin-top:8px;">
+          <button id="closeJoinByCodeBtn" class="secondary">Sulge</button>
+        </div>
         <div id="joinMsg"></div>
+      </div>
+    </div>
+    <div id="joinTermsBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3 id="joinTermsTitle">Võistlusega liitumine</h3>
+        <div id="joinTermsCompName" class="headline">-</div>
+        <div style="height:8px"></div>
+        <div class="termsBody" id="joinTermsBody"></div>
+        <div style="height:10px"></div>
+        <button id="confirmJoinBtn">Jah, olen nõus ja liitun võistlusega</button>
+        <div style="height:8px"></div>
+        <button id="backFromTermsBtn" class="secondary">Tagasi</button>
+        <div id="joinTermsMsg"></div>
+      </div>
+    </div>
+    <div id="introBackdrop" class="modalBackdrop">
+      <div class="modal introModal">
+        <div class="myResHead" style="margin-bottom:6px;">
+          <h3 style="margin:0; font-size:30px;">fun_o tutvustus</h3>
+          <button id="closeIntroBtn" class="secondary miniBtn">Sulge</button>
+        </div>
+        <div id="introBody" class="introBody"></div>
+      </div>
+    </div>
+    <div id="competitionTermsBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3>Võistluse tingimused</h3>
+        <div id="competitionTermsBody" class="termsBody"></div>
+        <div style="height:8px"></div>
+        <button id="closeCompetitionTermsBtn" class="secondary">Sulge</button>
       </div>
     </div>
 
@@ -440,6 +506,9 @@
       let myResultsItems = [];
       let myResultsSortKey = "submitted_at";
       let myResultsSortDir = "desc";
+      let introLoading = false;
+      let joinHasActiveBeforeOpen = false;
+      const competitionTermsCache = {};
 
       const el = (id) => document.getElementById(id);
 
@@ -448,6 +517,21 @@
         if (!text) { box.className = ""; box.textContent = ""; return; }
         box.className = "msg " + (ok ? "ok" : "err");
         box.textContent = text;
+      }
+
+      function sanitizeTermsHtml(html) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = String(html || "");
+        wrapper.querySelectorAll("script, iframe, object, embed").forEach((n) => n.remove());
+        wrapper.querySelectorAll("*").forEach((node) => {
+          [...node.attributes].forEach((attr) => {
+            const name = attr.name.toLowerCase();
+            const value = (attr.value || "").trim().toLowerCase();
+            if (name.startsWith("on")) node.removeAttribute(attr.name);
+            if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
+          });
+        });
+        return wrapper.innerHTML;
       }
 
       function esc(v) {
@@ -1486,41 +1570,49 @@
 
       async function joinCompetition() {
         setMsg("joinMsg", "", true);
+        setMsg("joinTermsMsg", "", true);
         const accessCode = el("joinCode").value.trim();
         if (!accessCode) {
           setMsg("joinMsg", "Sisesta kood", false);
           return;
         }
+        const aliasDisplay = el("joinAlias").value.trim();
+        if (!aliasDisplay) {
+          setMsg("joinMsg", "Sisesta alias", false);
+          return;
+        }
         const previewRes = await apiPost("/api/competitor/join-preview", {
           code: accessCode,
           lang_code: el("langSelect").value || "et",
+          alias_display: aliasDisplay,
         });
         if (!previewRes.ok) {
           const errCode = previewRes.data?.detail?.code;
-          if (errCode === "INVALID_ACCESS_CODE") setMsg("joinMsg", "Tundmatu või aegunud kood.", false);
-          else if (errCode === "ACCESS_CODE_LIMIT_REACHED") setMsg("joinMsg", "Selle koodi kasutuslimiit on täis.", false);
+          if (errCode === "INVALID_ACCESS_CODE" || errCode === "ACCESS_CODE_LIMIT_REACHED") setMsg("joinMsg", "Liitumine ei ole võimalik", false);
+          else if (errCode === "ALREADY_PARTICIPANT") setMsg("joinMsg", "Oled juba võistluse osaleja", false);
+          else if (errCode === "ALIAS_TAKEN") setMsg("joinMsg", "Valitud alias ei sobi", false);
           else if (errCode === "ORDS_ERROR") setMsg("joinMsg", "Liitumisteenus pole hetkel saadaval. Proovi uuesti.", false);
           else setMsg("joinMsg", previewRes.userMessage || "Tundmatu kood.", false);
           return;
         }
         state.joinPreview = previewRes.data;
         const termsText = state.joinPreview?.terms?.terms_text || "";
-        el("joinTermsBox").textContent = termsText;
-        el("joinTermsBox").style.display = termsText ? "block" : "none";
-
-        // Even when already active for this competition, call join-complete to
-        // refresh/repair participant cookies in a deterministic way.
-        const aliasDisplay = el("joinAlias").value.trim();
-        if (!aliasDisplay) {
-          setMsg("joinMsg", "Sisesta alias", false);
-          return;
-        }
-        if (!el("joinAcceptTerms").checked) {
-          setMsg("joinMsg", "Kasutustingimustega nõustumine on kohustuslik.", false);
-          return;
-        }
         if (!state.joinPreview?.terms?.terms_id) {
           setMsg("joinMsg", "Kasutustingimusi ei leitud.", false);
+          return;
+        }
+        el("joinTermsCompName").textContent = state.joinPreview?.competition_name || "-";
+        el("joinTermsBody").innerHTML = sanitizeTermsHtml(termsText || "");
+        el("joinTermsBackdrop").style.display = "flex";
+      }
+
+      async function confirmJoinCompetition() {
+        setMsg("joinTermsMsg", "", true);
+        setMsg("joinMsg", "", true);
+        const accessCode = el("joinCode").value.trim();
+        const aliasDisplay = el("joinAlias").value.trim();
+        if (!accessCode || !aliasDisplay || !state.joinPreview?.terms?.terms_id) {
+          setMsg("joinTermsMsg", "Liitumine ei ole võimalik", false);
           return;
         }
         const completeRes = await apiPost("/api/competitor/join-complete", {
@@ -1533,23 +1625,39 @@
         });
         if (!completeRes.ok) {
           const errCode = completeRes.data?.detail?.code;
-          if (errCode === "ALIAS_TAKEN") {
-            setMsg("joinMsg", "Alias ei sobi, palun vali uus.", false);
+          if (errCode === "ALREADY_PARTICIPANT") {
+            setMsg("joinTermsMsg", "Oled juba võistluse osaleja", false);
+          } else if (errCode === "ALIAS_TAKEN") {
+            setMsg("joinTermsMsg", "Valitud alias ei sobi", false);
+          } else if (errCode === "INVALID_ACCESS_CODE" || errCode === "ACCESS_CODE_LIMIT_REACHED") {
+            setMsg("joinTermsMsg", "Liitumine ei ole võimalik", false);
           } else if (errCode === "ORDS_ERROR") {
-            setMsg("joinMsg", "Liitumisteenus pole hetkel saadaval. Proovi uuesti.", false);
+            setMsg("joinTermsMsg", "Liitumisteenus pole hetkel saadaval. Proovi uuesti.", false);
           } else {
-            setMsg("joinMsg", completeRes.userMessage || "Liitumine ebaõnnestus.", false);
+            setMsg("joinTermsMsg", completeRes.userMessage || "Liitumine ebaõnnestus.", false);
           }
           return;
         }
         const loaded = await loadSessionState();
         if (!loaded) {
-          setMsg("joinMsg", "Liitumine õnnestus, kuid sessiooni laadimine ebaõnnestus.", false);
+          setMsg("joinTermsMsg", "Liitumine õnnestus, kuid sessiooni laadimine ebaõnnestus.", false);
           return;
         }
+        el("joinTermsBackdrop").style.display = "none";
         el("joinByCodeBackdrop").style.display = "none";
         el("competitionPickerBackdrop").style.display = "none";
-        setMsg("joinMsg", "Liitumine õnnestus.", true);
+        setMsg("joinTermsMsg", "Liitumine õnnestus.", true);
+      }
+
+      function backFromTerms() {
+        el("joinTermsBackdrop").style.display = "none";
+        setMsg("joinTermsMsg", "", true);
+        if (joinHasActiveBeforeOpen) {
+          el("joinByCodeBackdrop").style.display = "none";
+          el("competitionPickerBackdrop").style.display = "none";
+        } else {
+          el("joinByCodeBackdrop").style.display = "flex";
+        }
       }
 
       function getCodeFromUrl() {
@@ -1558,13 +1666,25 @@
         return code || null;
       }
 
-      function openJoinModal(prefillCode = null) {
+      function updateJoinContinueEnabled() {
+        const code = (el("joinCode").value || "").trim();
+        const alias = (el("joinAlias").value || "").trim();
+        el("joinBtn").disabled = !(code && alias);
+      }
+
+      function openJoinModal(prefillCode = null, opts = {}) {
+        const showClose = opts.showClose === true;
+        joinHasActiveBeforeOpen = opts.hasActive === true;
         setMsg("joinMsg", "", true);
+        setMsg("joinTermsMsg", "", true);
         state.joinPreview = null;
-        el("joinTermsBox").textContent = "";
-        el("joinTermsBox").style.display = "none";
-        el("joinAcceptTerms").checked = false;
+        el("joinTermsBody").innerHTML = "";
+        el("joinTermsCompName").textContent = "-";
+        el("joinTermsBackdrop").style.display = "none";
+        el("joinCloseWrap").style.display = showClose ? "block" : "none";
+        el("joinIntroCta").style.display = showClose ? "none" : "block";
         if (prefillCode) el("joinCode").value = prefillCode;
+        updateJoinContinueEnabled();
         el("joinByCodeBackdrop").style.display = "flex";
       }
 
@@ -1572,9 +1692,66 @@
         const ok = await ensureCompetitorSession();
         const hasActive = ok ? await loadSessionState() : false;
         if (!hasActive) {
-          openJoinModal(getCodeFromUrl());
+          openJoinModal(getCodeFromUrl(), { showClose: false, hasActive: false });
           if (!ok) setMsg("joinMsg", "Sessiooni loomine ebaõnnestus. Proovi uuesti.", false);
         }
+      }
+
+      function introLangCandidates() {
+        const selected = (el("langSelect")?.value || "").trim().toLowerCase();
+        const htmlLang = (document.documentElement.lang || "").trim().toLowerCase();
+        const unique = [];
+        [selected, htmlLang, "et", "en"].forEach((x) => {
+          if (x && !unique.includes(x)) unique.push(x);
+        });
+        return unique;
+      }
+
+      async function loadIntroHtml() {
+        const target = el("introBody");
+        target.innerHTML = "";
+        const langs = introLangCandidates();
+        for (const lang of langs) {
+          try {
+            const res = await fetch(`/content/intro_${encodeURIComponent(lang)}.html`, { cache: "no-store" });
+            if (res.ok) {
+              target.innerHTML = await res.text();
+              return;
+            }
+          } catch (_) {}
+        }
+      }
+
+      async function openIntroModal() {
+        if (introLoading) return;
+        introLoading = true;
+        try {
+          await loadIntroHtml();
+          el("introBackdrop").style.display = "flex";
+        } finally {
+          introLoading = false;
+        }
+      }
+
+      async function openCompetitionTermsModal() {
+        const cid = Number(state.selectedCompetitionId || state.activeCompetition?.competition_id || 0);
+        if (!cid) {
+          setMsg("answerMsg", "Võistluse tingimused pole hetkel saadaval.", false);
+          return;
+        }
+        el("competitionTermsBody").innerHTML = "<p>Laen tingimusi...</p>";
+        el("competitionTermsBackdrop").style.display = "flex";
+        const lang = (el("langSelect")?.value || "et").trim().toLowerCase();
+        const cacheKey = `${cid}|${lang}`;
+        const res = await apiGet(`/api/competitor/terms?competition_id=${cid}&lang_code=${encodeURIComponent(lang)}`);
+        if (!res.ok) {
+          el("competitionTermsBody").innerHTML = "<p>Võistluse tingimusi ei õnnestunud laadida.</p>";
+          setMsg("answerMsg", res.userMessage || "Võistluse tingimusi ei õnnestunud laadida.", false);
+          return;
+        }
+        competitionTermsCache[cacheKey] = String(res.data?.terms?.terms_text || "");
+        const html = String(competitionTermsCache[cacheKey] || "").trim();
+        el("competitionTermsBody").innerHTML = sanitizeTermsHtml(html || "<p>Tingimused puuduvad.</p>");
       }
 
       function init() {
@@ -1587,10 +1764,32 @@
         });
         el("openJoinByCodeBtn").addEventListener("click", () => {
           el("competitionPickerBackdrop").style.display = "none";
-          openJoinModal();
+          openJoinModal(null, { showClose: true, hasActive: true });
         });
         el("closeJoinByCodeBtn").addEventListener("click", () => {
           el("joinByCodeBackdrop").style.display = "none";
+        });
+        el("openIntroLink").addEventListener("click", (e) => {
+          e.preventDefault();
+          openIntroModal().catch(() => {});
+        });
+        el("openCompetitionTermsLink").addEventListener("click", (e) => {
+          e.preventDefault();
+          openCompetitionTermsModal().catch((err) => {
+            setMsg("answerMsg", (err && err.message) ? String(err.message) : "Võistluse tingimusi ei õnnestunud laadida.", false);
+          });
+        });
+        el("closeCompetitionTermsBtn").addEventListener("click", () => {
+          el("competitionTermsBackdrop").style.display = "none";
+        });
+        el("competitionTermsBackdrop").addEventListener("click", (e) => {
+          if (e.target === el("competitionTermsBackdrop")) el("competitionTermsBackdrop").style.display = "none";
+        });
+        el("closeIntroBtn").addEventListener("click", () => {
+          el("introBackdrop").style.display = "none";
+        });
+        el("introBackdrop").addEventListener("click", (e) => {
+          if (e.target === el("introBackdrop")) el("introBackdrop").style.display = "none";
         });
         el("mapBtn").addEventListener("click", openCompMapModal);
         el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
@@ -1675,6 +1874,10 @@
           if (e.target === el("myAnswerDetailBackdrop")) el("myAnswerDetailBackdrop").style.display = "none";
         });
         el("joinBtn").addEventListener("click", joinCompetition);
+        el("joinCode").addEventListener("input", updateJoinContinueEnabled);
+        el("joinAlias").addEventListener("input", updateJoinContinueEnabled);
+        el("confirmJoinBtn").addEventListener("click", confirmJoinCompetition);
+        el("backFromTermsBtn").addEventListener("click", backFromTerms);
         el("checkpointSelect").addEventListener("change", renderQuestionForSelectedCheckpoint);
         el("textSubmitBtn").addEventListener("click", () => {
           const item = getSelectedOpenItem();

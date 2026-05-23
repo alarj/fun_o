@@ -40,6 +40,7 @@ map_checkpoints_cache: dict[str, dict[str, Any]] = {}
 open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
 map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
+competitor_terms_cache: dict[str, dict[str, Any]] = {}
 
 MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
@@ -47,6 +48,20 @@ ORDS_RETRY_ATTEMPTS = 3
 ORDS_RETRY_BACKOFF_SECONDS = (0.2, 0.5, 1.0)
 MAP_LAYERS_CACHE_TTL_SECONDS = 31536000.0
 MAP_LAYERS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "map_layers.json")
+CONTENT_DEFAULTS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "frontend_dist", "content")
+)
+CONTENT_DEFAULTS_DIR_CANDIDATES = [
+    x
+    for x in [
+        os.getenv("CONTENT_DEFAULTS_DIR", "").strip(),
+        CONTENT_DEFAULTS_DIR,
+        "/app/frontend_dist/content",
+        "/frontend_dist/content",
+        "/usr/share/nginx/html/content",
+    ]
+    if x
+]
 UTC_TS_KEYS = {
     "starts_at",
     "ends_at",
@@ -89,7 +104,7 @@ class DevLoginResponse(BaseModel):
 
 
 class CompetitorEnsureSessionResponse(BaseModel):
-    user_id: int
+    user_id: int | None = None
 
 
 class RegisterCompetitionRequest(BaseModel):
@@ -121,6 +136,7 @@ class CompetitorSessionResponse(BaseModel):
 class CompetitorJoinPreviewRequest(BaseModel):
     code: str = Field(min_length=1, max_length=200)
     lang_code: str | None = None
+    alias_display: str | None = Field(default=None, max_length=120)
 
 
 class CompetitorJoinPreviewTerms(BaseModel):
@@ -134,6 +150,10 @@ class CompetitorJoinPreviewResponse(BaseModel):
     competition_name: str
     competition_description: str | None = None
     already_active_for_user: bool
+    terms: CompetitorJoinPreviewTerms | None = None
+
+class CompetitorTermsResponse(BaseModel):
+    competition_id: int
     terms: CompetitorJoinPreviewTerms | None = None
 
 
@@ -539,6 +559,19 @@ class AdminUpdateCompetitionMetaRequest(BaseModel):
     updated_by: int | None = None
 
 
+class AdminCompetitionTermsResponse(BaseModel):
+    competition_id: int
+    lang_code: str
+    terms_id: int | None = None
+    terms_text: str = ""
+
+
+class AdminCompetitionTermsUpdateRequest(BaseModel):
+    competition_id: int
+    lang_code: str
+    terms_text: str
+
+
 def _raise_api_error(
     status_code: int,
     code: str,
@@ -595,11 +628,63 @@ def _extract_oracle_error(payload: Any) -> tuple[str, str]:
         return ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")
     if "ORA-20113" in text:
         return ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")
+    if "ORA-20130" in text:
+        return ("ALIAS_TAKEN", "api.error.alias_taken")
+    if "ORA-20131" in text:
+        return ("ALREADY_PARTICIPANT", "api.error.already_participant")
+    if "ORA-00001" in text and "UX_ACTIVE_CP_ALIAS_CI" in text.upper():
+        return ("ALIAS_TAKEN", "api.error.alias_taken")
     if "ORA-20102" in text or "ORA-20103" in text or "ORA-20104" in text:
         return ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")
     if "ORA-02290" in text:
         return ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")
     return ("ORDS_ERROR", "api.error.ords_request_failed")
+
+
+def _read_default_terms_html(lang_code: str) -> str:
+    lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if not lang:
+        lang = "et"
+    filename = f"default_{lang}.html"
+    for base_dir in CONTENT_DEFAULTS_DIR_CANDIDATES:
+        path = os.path.join(base_dir, filename)
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                content = f.read()
+            if content.strip():
+                return content
+        except Exception:
+            continue
+    if lang == "en":
+        return (
+            "<h3>Competition Terms</h3>"
+            "<p>By participating, you agree to follow fair play and organizer instructions.</p>"
+        )
+    return (
+        "<h3>Võistluse tingimused</h3>"
+        "<p>Osaledes nõustud ausa mängu põhimõtete ja korraldaja juhistega.</p>"
+    )
+
+
+async def _ensure_default_terms_for_competition(competition_id: int) -> None:
+    if not isinstance(competition_id, int):
+        return
+    for lang in settings.lang_available:
+        default_html = _read_default_terms_html(lang)
+        if not default_html.strip():
+            continue
+        try:
+            await _post_to_ords(
+                "admin/competitions/terms",
+                {
+                    "competition_id": competition_id,
+                    "lang_code": lang,
+                    "terms_text": default_html,
+                    "updated_by": None,
+                },
+            )
+        except Exception:
+            continue
 
 
 def _b64url(data: bytes) -> str:
@@ -1163,22 +1248,9 @@ async def competitor_ensure_session(request: Request, response: Response) -> Com
     existing_user_id = _read_competitor_session_user_id(request)
     if isinstance(existing_user_id, int):
         return CompetitorEnsureSessionResponse(user_id=existing_user_id)
-
-    ords_response = await _post_to_ords("auth/dev/resolve-user", {})
-    user_id = ords_response.get("user_id")
-    if not isinstance(user_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
-    session_token = _make_session_token_for_provider(user_id, "competitor")
-    response.set_cookie(
-        key=settings.competitor_session_cookie_name,
-        value=session_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-        max_age=max(1, int(settings.competitor_participation_cookie_ttl_hours) * 60 * 60),
-        path="/",
-    )
-    return CompetitorEnsureSessionResponse(user_id=user_id)
+    # Do not pre-create anonymous users here. User row is created only during
+    # successful join-complete in DB transaction with competition_participants.
+    return CompetitorEnsureSessionResponse(user_id=None)
 
 
 @app.get("/api/auth/google/config", response_model=GoogleClientConfigResponse)
@@ -1300,16 +1372,16 @@ async def competitor_session(request: Request, response: Response) -> Competitor
 @app.post("/api/competitor/join-preview", response_model=CompetitorJoinPreviewResponse)
 async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Request) -> CompetitorJoinPreviewResponse:
     user_id = _read_competitor_session_user_id(request)
-    if user_id is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
     lang_code = (req.lang_code or settings.lang_default or "et").strip().lower()
     if lang_code not in settings.lang_available:
         lang_code = settings.lang_default
 
-    ords_response = await _post_to_ords(
-        "competitor/join-preview",
-        {"user_id": user_id, "access_code": req.code, "lang_code": lang_code},
-    )
+    preview_payload: dict[str, Any] = {"access_code": req.code, "lang_code": lang_code}
+    if isinstance(user_id, int):
+        preview_payload["user_id"] = user_id
+    if req.alias_display is not None and req.alias_display.strip():
+        preview_payload["alias_display"] = req.alias_display.strip()
+    ords_response = await _post_to_ords("competitor/join-preview", preview_payload)
     cid = ords_response.get("competition_id")
     name = ords_response.get("competition_name")
     if not isinstance(cid, int) or not isinstance(name, str):
@@ -1334,26 +1406,34 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
 @app.post("/api/competitor/join-complete", response_model=CompetitorJoinCompleteResponse)
 async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: Request, response: Response) -> CompetitorJoinCompleteResponse:
     user_id = _read_competitor_session_user_id(request)
-    if user_id is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
     if not req.accept_terms:
         _raise_api_error(status.HTTP_400_BAD_REQUEST, "TERMS_NOT_ACCEPTED", "api.error.terms_not_accepted")
 
     current_participant_id = _read_competitor_participation_id(request)
     payload: dict[str, Any] = {
-        "user_id": user_id,
         "access_code": req.code,
         "alias_display": req.alias_display,
         "terms_id": req.terms_id,
         "terms_lang_code": req.terms_lang_code,
         "accept_terms": "Y" if req.accept_terms else "N",
     }
+
+
+@app.post("/api/competitor/terms-cache/reset")
+async def reset_competitor_terms_cache() -> dict[str, Any]:
+    competitor_terms_cache.clear()
+    return {"ok": True, "cache_size": 0}
+    if isinstance(user_id, int):
+        payload["user_id"] = user_id
     if req.contact_email:
         payload["contact_email"] = req.contact_email
     if current_participant_id is not None:
         payload["current_competition_participant_id"] = current_participant_id
 
     ords_response = await _post_to_ords("competitor/join-complete", payload)
+    effective_user_id = ords_response.get("user_id")
+    if not isinstance(effective_user_id, int):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
     cp_id = ords_response.get("competition_participant_id")
     cid = ords_response.get("competition_id")
     if not isinstance(cp_id, int) or not isinstance(cid, int):
@@ -1361,13 +1441,56 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
     switched_from = ords_response.get("switched_from_participant_id")
     switched_from_id = switched_from if isinstance(switched_from, int) else None
     no_change = str(ords_response.get("no_change", "N")).upper() == "Y"
-    _set_competitor_cookies(response, user_id=user_id, competition_participant_id=cp_id)
+    _set_competitor_cookies(response, user_id=effective_user_id, competition_participant_id=cp_id)
     return CompetitorJoinCompleteResponse(
         competition_participant_id=cp_id,
         competition_id=cid,
         switched_from_participant_id=switched_from_id,
         no_change=no_change,
     )
+
+
+@app.get("/api/competitor/terms", response_model=CompetitorTermsResponse)
+async def competitor_terms(competition_id: int, request: Request, lang_code: str | None = None) -> CompetitorTermsResponse:
+    user_id = _read_competitor_session_user_id(request)
+    if not isinstance(user_id, int):
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHORIZED", "api.error.unauthorized")
+
+    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
+    cache_key = f"{competition_id}|{effective_lang}"
+    cached = competitor_terms_cache.get(cache_key)
+    if isinstance(cached, dict):
+        terms_raw_cached = cached.get("terms")
+        terms_cached: CompetitorJoinPreviewTerms | None = None
+        if isinstance(terms_raw_cached, dict):
+            tid = terms_raw_cached.get("terms_id")
+            t_lang = terms_raw_cached.get("lang_code")
+            t_text = terms_raw_cached.get("terms_text")
+            if isinstance(tid, int) and isinstance(t_lang, str) and isinstance(t_text, str):
+                terms_cached = CompetitorJoinPreviewTerms(terms_id=tid, lang_code=t_lang, terms_text=t_text)
+        return CompetitorTermsResponse(competition_id=competition_id, terms=terms_cached)
+
+    ords_response = await _get_from_ords(
+        "competitor/terms",
+        {"user_id": user_id, "competition_id": competition_id, "lang_code": effective_lang},
+    )
+    cid = ords_response.get("competition_id")
+    if not isinstance(cid, int):
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "NOT_FOUND", "api.error.not_found")
+
+    competitor_terms_cache[cache_key] = ords_response
+
+    terms_raw = ords_response.get("terms")
+    terms: CompetitorJoinPreviewTerms | None = None
+    if isinstance(terms_raw, dict):
+        tid = terms_raw.get("terms_id")
+        t_lang = terms_raw.get("lang_code")
+        t_text = terms_raw.get("terms_text")
+        if isinstance(tid, int) and isinstance(t_lang, str) and isinstance(t_text, str):
+            terms = CompetitorJoinPreviewTerms(terms_id=tid, lang_code=t_lang, terms_text=t_text)
+    return CompetitorTermsResponse(competition_id=cid, terms=terms)
 
 
 @app.post("/api/competitions/register", response_model=RegisterCompetitionResponse)
@@ -2149,6 +2272,7 @@ async def superadmin_create_competition(
     organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
     if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    await _ensure_default_terms_for_competition(competition_id)
     return SuperAdminCreateCompetitionResponse(
         competition_id=competition_id,
         organizer_code=organizer_code,
@@ -2175,6 +2299,7 @@ async def superadmin_copy_competition(
     organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
     if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+    await _ensure_default_terms_for_competition(competition_id)
     return SuperAdminCreateCompetitionResponse(
         competition_id=competition_id,
         organizer_code=organizer_code,
@@ -2333,6 +2458,81 @@ async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, 
         },
     )
     _invalidate_competition_cache(req.competition_id)
+    return {"ok": True}
+
+
+@app.get("/api/admin/competitions/terms", response_model=AdminCompetitionTermsResponse)
+async def admin_get_competition_terms(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+    lang_code: str | None = None,
+) -> AdminCompetitionTermsResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
+    data = await _get_from_ords(
+        "admin/competitions/terms",
+        {
+            "competition_id": competition_id,
+            "lang_code": effective_lang,
+        },
+    )
+    terms = data.get("terms") if isinstance(data, dict) else None
+    terms_text = terms.get("terms_text") if isinstance(terms, dict) else ""
+    terms_lang = str(terms.get("lang_code") or "").strip().lower() if isinstance(terms, dict) else ""
+    need_default_insert = (
+        (not isinstance(terms_text, str) or not terms_text.strip())
+        or terms_lang != effective_lang
+    )
+    if need_default_insert:
+        default_terms = _read_default_terms_html(effective_lang)
+        if default_terms.strip():
+            await _post_to_ords(
+                "admin/competitions/terms",
+                {
+                    "competition_id": competition_id,
+                    "lang_code": effective_lang,
+                    "terms_text": default_terms,
+                    "updated_by": None,
+                },
+            )
+            data = await _get_from_ords(
+                "admin/competitions/terms",
+                {
+                    "competition_id": competition_id,
+                    "lang_code": effective_lang,
+                },
+            )
+            terms = data.get("terms") if isinstance(data, dict) else None
+    terms_id = terms.get("terms_id") if isinstance(terms, dict) else None
+    terms_text = terms.get("terms_text") if isinstance(terms, dict) else ""
+    return AdminCompetitionTermsResponse(
+        competition_id=competition_id,
+        lang_code=effective_lang,
+        terms_id=terms_id if isinstance(terms_id, int) else None,
+        terms_text=terms_text if isinstance(terms_text, str) else "",
+    )
+
+
+@app.post("/api/admin/competitions/terms")
+async def admin_update_competition_terms(
+    req: AdminCompetitionTermsUpdateRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    await _post_to_ords(
+        "admin/competitions/terms",
+        {
+            "competition_id": req.competition_id,
+            "lang_code": req.lang_code,
+            "terms_text": req.terms_text,
+            "updated_by": user_id,
+        },
+    )
+    competitor_terms_cache.clear()
     return {"ok": True}
 
 

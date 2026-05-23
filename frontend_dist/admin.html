@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./assets/app.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" />
   <title>fun_o Admin</title>
   <link
     rel="stylesheet"
@@ -11,248 +12,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <style>
-    html, body { max-width: 100%; overflow-x: hidden; }
-    .wrap { max-width: 1160px; margin: 0 auto; padding: 18px; }
-    .card { border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-    h1, h2, h3 { margin: 0 0 10px; font-size: 24px; font-weight: 700; line-height: 1.2; }
-    .row { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
-    .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .ended-option { font-style: italic; }
-    .q-options-table col.code-col { width: 110px; }
-    .q-options-table col.correct-col { width: 90px; }
-    .q-options-table col.action-col { width: 120px; }
-    .table th { font-weight: 700; font-size: 14px; }
-    .table td, .row label, .row input, .row select, .row textarea, .muted, .card div, .card label { font-size: 14px; }
-    .q-col { white-space: normal; }
-    .q-cell-text {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      line-height: 1.35;
-      max-height: 4.05em;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    .actions-col { white-space: nowrap; }
-    .organizers-list { display: flex; flex-direction: column; gap: 4px; }
-    .organizer-row { display: flex; align-items: center; gap: 6px; color: #444; }
-    .organizer-row.current { font-weight: 700; color: #1e1e1e; }
-    .organizer-icon, .logout-icon {
-      width: 16px;
-      height: 16px;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .logout-btn {
-      border: 0;
-      background: transparent;
-      padding: 0;
-      margin-left: 4px;
-      line-height: 1;
-      cursor: pointer;
-      color: #1e1e1e;
-    }
-    .logout-btn:hover { color: #2f7f87; }
-    .copy-btn {
-      border: 0;
-      background: transparent;
-      padding: 0;
-      margin: 0;
-      line-height: 1;
-      cursor: pointer;
-      color: #1e1e1e;
-    }
-    .copy-btn:hover { color: #2f7f87; }
-    .copy-icon {
-      width: 16px;
-      height: 16px;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .modal-sep {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 10px 0 8px;
-      color: #6b6b6b;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 700;
-    }
-    .modal-sep::before,
-    .modal-sep::after {
-      content: "";
-      height: 1px;
-      flex: 1;
-      background: #d8d8d8;
-    }
-    input, select, textarea, button { border-radius: 7px; padding: 7px 9px; }
-    textarea { min-height: 70px; }
-    input.compact-dt { max-width: 240px; padding: 6px 8px; font-size: 13px; border-radius: 6px; }
-    button { padding: 8px 12px; }
-    button.secondary { background: #5a8f95; }
-    button.warn { background: #b74545; }
-    dialog { border: 0; border-radius: 10px; width: min(840px, 95vw); max-height: 90vh; overflow: auto; }
-    #cpDialog { width: min(1080px, 98vw); }
-    #cpDialog.fullscreen {
-      width: 98vw !important;
-      max-width: 98vw !important;
-      height: 96vh;
-      max-height: 96vh;
-      margin: 2vh auto;
-      display: flex;
-      flex-direction: column;
-    }
-    #cpOverviewMapDialog { width: min(1200px, 98vw); max-width: 98vw; }
-    #cpOverviewMapDialog.fullscreen {
-      width: 98vw !important;
-      max-width: 98vw !important;
-      height: 96vh;
-      max-height: 96vh;
-      margin: 2vh auto;
-      display: flex;
-      flex-direction: column;
-    }
-    #cpMap { width: 100%; height: 280px; border: 1px solid #d9d9d9; border-radius: 8px; margin-bottom: 8px; }
-    #cpDialog.fullscreen #cpMap {
-      height: calc(96vh - 470px);
-      min-height: 380px;
-    }
-    #cpOverviewMap { width: 100%; height: 560px; border: 1px solid #d9d9d9; border-radius: 8px; margin-bottom: 8px; }
-    #cpOverviewMapDialog.fullscreen #cpOverviewMap {
-      flex: 1;
-      height: auto;
-      min-height: 320px;
-    }
-    .dialog-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
-    .dialog-right { display: flex; gap: 8px; }
-    .yn-switch-wrap { display: flex; align-items: center; gap: 10px; }
-    .yn-inline { display: flex; align-items: center; gap: 8px; margin-right: 14px; }
-    .yn-inline-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .yn-switch {
-      position: relative;
-      display: inline-block;
-      width: 46px;
-      height: 26px;
-      flex: 0 0 auto;
-    }
-    .yn-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-    .yn-slider {
-      position: absolute;
-      cursor: pointer;
-      inset: 0;
-      background-color: #c8c8c8;
-      transition: .2s;
-      border-radius: 999px;
-    }
-    .yn-slider:before {
-      position: absolute;
-      content: "";
-      height: 20px;
-      width: 20px;
-      left: 3px;
-      top: 3px;
-      background-color: #ffffff;
-      transition: .2s;
-      border-radius: 50%;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-    }
-    .yn-switch input:checked + .yn-slider {
-      background-color: #2f7f87;
-    }
-    .yn-switch input:checked + .yn-slider:before {
-      transform: translateX(20px);
-    }
-    .layer-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
-    .layer-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #ececec; border-radius: 8px; padding: 8px 10px; }
-    .layer-row .label { font-size: 14px; }
-
-    @media (max-width: 900px) {
-      .wrap { padding: 10px; }
-      .card { padding: 12px; }
-      .cols { grid-template-columns: 1fr; gap: 10px; }
-      .row { grid-template-columns: 1fr; gap: 6px; }
-      #loginCard .row .tools { grid-template-columns: 1fr 90px !important; }
-      .tools { gap: 6px; }
-      h1, h2, h3 { font-size: 20px; }
-
-      /* Mobile/tablet: keep table usable via horizontal scroll instead of breaking layout */
-      #checkpointsCard { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      #checkpointsCard .table { min-width: 760px; table-layout: auto; }
-      #checkpointsCard .table th:nth-child(3) { width: 260px !important; }
-      #checkpointsCard .table th:last-child { width: 180px !important; }
-      .actions-col { white-space: normal; }
-
-      dialog {
-        width: 96vw;
-        max-width: 96vw;
-        max-height: 92vh;
-        padding: 10px;
-        margin: 2vh auto;
-      }
-      .dialog-actions {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .dialog-right {
-        width: 100%;
-        justify-content: flex-end;
-        flex-wrap: wrap;
-      }
-
-      #qDialog,
-      #cpDialog,
-      #metaDialog {
-        overflow: auto;
-      }
-      #qDialog .dialog-actions,
-      #cpDialog .dialog-actions {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-      }
-      #qDialog .dialog-actions {
-        flex-wrap: wrap;
-      }
-      #qDialog .dialog-right {
-        width: auto;
-        flex-wrap: nowrap;
-        margin-left: auto;
-      }
-      #qDialog #qDelete {
-        white-space: nowrap;
-        flex: 0 0 auto;
-      }
-      #qDialog {
-        width: 96vw;
-        max-width: 96vw;
-      }
-      #qDialog .table {
-        width: 100%;
-        min-width: 0 !important;
-        table-layout: fixed;
-      }
-      #singleChoiceBlock { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      #singleChoiceBlock .table {
-        min-width: 640px !important;
-        table-layout: auto;
-      }
-      #qDialog input,
-      #qDialog select,
-      #qDialog textarea {
-        min-width: 0;
-      }
-    }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -287,6 +47,7 @@
             <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">●</span>
             <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda võistlust</button>
             <button id="openResultsBtn" class="secondary">Tulemused</button>
+            <button id="openTermsBtn" class="secondary">Tingimused</button>
           </div>
           <div class="tools">
             <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
@@ -523,6 +284,27 @@
     </div>
   </dialog>
 
+  <dialog id="termsDialog">
+    <h3>Võistluse tingimused</h3>
+    <div class="row">
+      <label>Keel</label>
+      <select id="termsLangSelect"></select>
+    </div>
+    <div class="row terms-editor-row">
+      <label>HTML tingimused</label>
+      <div id="termsHtmlEditor" class="terms-editor-surface"></div>
+      <textarea id="termsHtmlInput" class="hidden"></textarea>
+    </div>
+    <div id="termsMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="termsCancel" class="secondary" type="button">Sulge</button>
+        <button id="termsSave" type="button">Salvesta</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="participantMapLayersDialog">
     <h3>Võistleja kaardid</h3>
     <div class="muted">Vali kaardid, mida võistlejale selle võistluse jaoks kuvada.</div>
@@ -734,6 +516,7 @@
       currentUiLang = availableLangs.includes(browserLang) ? browserLang : defaultLang;
     }
     renderLangSelector();
+    renderTermsLangSelector();
     await loadTranslations(currentUiLang);
     renderQuestionLangRows();
     renderOptionLangHead();
@@ -744,6 +527,101 @@
     if (!sel) return;
     sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
     sel.value = currentUiLang;
+  }
+
+  function renderTermsLangSelector() {
+    const sel = byId("termsLangSelect");
+    if (!sel) return;
+    sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
+    termsCurrentLang = availableLangs.includes(currentUiLang) ? currentUiLang : (availableLangs[0] || defaultLang || "et");
+    sel.value = termsCurrentLang;
+  }
+
+  function setTermsEditorHtml(html) {
+    const safeHtml = String(html || "");
+    if (termsQuill) termsQuill.clipboard.dangerouslyPasteHTML(safeHtml || "");
+    else byId("termsHtmlEditor").innerHTML = safeHtml;
+    byId("termsHtmlInput").value = safeHtml;
+  }
+
+  function getTermsEditorHtml() {
+    const html = termsQuill
+      ? String(termsQuill.root?.innerHTML || "")
+      : String(byId("termsHtmlEditor").innerHTML || "");
+    byId("termsHtmlInput").value = html;
+    return html;
+  }
+
+  function initTermsEditor() {
+    if (termsQuill) return;
+    if (!window.Quill) throw new Error("Editor ei laadinud.");
+    termsQuill = new Quill("#termsHtmlEditor", {
+      theme: "snow",
+      modules: {
+        toolbar: [
+          [{ header: [2, 3, false] }],
+          ["bold", "italic", "underline", "strike"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          ["link", "blockquote", "code-block"],
+          [{ align: [] }],
+          ["clean"]
+        ]
+      }
+    });
+    termsQuill.on("text-change", () => getTermsEditorHtml());
+  }
+
+  async function loadCompetitionTermsForLang(lang) {
+    const competitionId = compId();
+    if (!competitionId) throw new Error(tr("admin.msg.select_competition_first", "Vali enne võistlus."));
+    const payload = await get(`/api/admin/competitions/terms?competition_id=${encodeURIComponent(competitionId)}&lang_code=${encodeURIComponent(lang || defaultLang || "et")}`);
+    termsCurrentLang = String(payload?.lang_code || lang || defaultLang || "et").toLowerCase();
+    byId("termsLangSelect").value = termsCurrentLang;
+    setTermsEditorHtml(String(payload?.terms_text || ""));
+  }
+
+  async function openTermsDialog() {
+    const competitionId = compId();
+    if (!competitionId) {
+      showMsg("topMsg", false, tr("admin.msg.select_competition_first", "Vali enne võistlus."));
+      return;
+    }
+    showMsg("termsMsg", true, "");
+    initTermsEditor();
+    renderTermsLangSelector();
+    try {
+      await loadCompetitionTermsForLang(termsCurrentLang);
+      // Preload missing defaults for all configured languages so editor switch is immediate.
+      for (const lang of availableLangs) {
+        if (lang === termsCurrentLang) continue;
+        get(`/api/admin/competitions/terms?competition_id=${encodeURIComponent(compId())}&lang_code=${encodeURIComponent(lang)}`).catch(() => {});
+      }
+      byId("termsLangSelect").value = termsCurrentLang;
+      byId("termsDialog").showModal();
+    } catch (e) {
+      showMsg("topMsg", false, humanizeError(e.message));
+    }
+  }
+
+  async function saveTermsDialog() {
+    const competitionId = compId();
+    if (!competitionId) {
+      showMsg("termsMsg", false, tr("admin.msg.select_competition_first", "Vali enne võistlus."));
+      return;
+    }
+    const lang = (byId("termsLangSelect").value || termsCurrentLang || defaultLang || "et").toLowerCase();
+    const termsText = getTermsEditorHtml();
+    try {
+      await post("/api/admin/competitions/terms", {
+        competition_id: competitionId,
+        lang_code: lang,
+        terms_text: termsText
+      });
+      termsCurrentLang = lang;
+      showMsg("termsMsg", true, tr("admin.msg.saved", "Salvestatud."));
+    } catch (e) {
+      showMsg("termsMsg", false, humanizeError(e.message));
+    }
   }
 
   async function loadTranslations(lang) {
@@ -825,6 +703,8 @@
   let availableMapLayers = [];
   let competitionParticipantLayerCodes = [];
   let participantLayerSelection = [];
+  let termsCurrentLang = "et";
+  let termsQuill = null;
   let cpDialogFullscreen = false;
   let cpDialogInitialState = "";
   let cpDialogCheckpointId = null;
@@ -832,8 +712,42 @@
   let cpExistingLayer = null;
   const lastCpCoordKey = () => `funo_last_cp_coord_c${compId()}`;
   const lastCpOverviewViewKey = () => `funo_cp_overview_view_c${compId()}`;
+  const lastCpDialogViewKey = () => `funo_cp_dialog_view_c${compId()}`;
   const lastCpOverviewMapLayerKey = "funo_cp_overview_map_layer";
   const lastCpDialogMapLayerKey = "funo_cp_dialog_map_layer";
+  /* REVERSIBLE_START: overview-map-crs-specific-view */
+  function cpOverviewViewStorageKey(crs = null) {
+    const code = String(crs || cpOverviewCurrentCrs || "EPSG:3857").toUpperCase();
+    return `${lastCpOverviewViewKey()}_${code.replace(/[^A-Z0-9]+/g, "_")}`;
+  }
+  /* REVERSIBLE_END: overview-map-crs-specific-view */
+  /* REVERSIBLE_START: cp-dialog-map-crs-specific-view */
+  function cpDialogViewStorageKey(crs = null) {
+    const code = String(crs || cpDialogCurrentCrs || "EPSG:3857").toUpperCase();
+    return `${lastCpDialogViewKey()}_${code.replace(/[^A-Z0-9]+/g, "_")}`;
+  }
+  function readLastCpDialogView(crs = null) {
+    try {
+      const raw = localStorage.getItem(cpDialogViewStorageKey(crs)) || localStorage.getItem(lastCpDialogViewKey());
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !Number.isFinite(Number(d.lat)) || !Number.isFinite(Number(d.lon)) || !Number.isFinite(Number(d.zoom))) return null;
+      return { lat: Number(d.lat), lon: Number(d.lon), zoom: Number(d.zoom) };
+    } catch (_e) {
+      return null;
+    }
+  }
+  function writeLastCpDialogView() {
+    if (!cpMap) return;
+    const center = cpMap.getCenter();
+    const zoom = cpMap.getZoom();
+    if (!Number.isFinite(Number(center.lat)) || !Number.isFinite(Number(center.lng)) || !Number.isFinite(Number(zoom))) return;
+    const payload = JSON.stringify({ lat: Number(center.lat), lon: Number(center.lng), zoom: Number(zoom) });
+    localStorage.setItem(cpDialogViewStorageKey(), payload);
+    // Keep legacy fallback key for rollback compatibility.
+    localStorage.setItem(lastCpDialogViewKey(), payload);
+  }
+  /* REVERSIBLE_END: cp-dialog-map-crs-specific-view */
 
   function createCpDialogMap(targetCrs) {
     let previousView = null;
@@ -843,6 +757,7 @@
       if (Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng)) && Number.isFinite(Number(z))) {
         previousView = { lat: Number(c.lat), lon: Number(c.lng), zoom: Number(z) };
       }
+      cpMap.off("moveend", writeLastCpDialogView);
       cpMap.remove();
       cpMap = null;
       cpBaseLayer = null;
@@ -867,6 +782,7 @@
     }
     cpMap = L.map("cpMap", options);
     cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
+    cpMap.on("moveend", writeLastCpDialogView);
     cpExistingLayer = L.layerGroup().addTo(cpMap);
     cpDialogCurrentCrs = targetCrs;
     return previousView;
@@ -875,16 +791,33 @@
   function initCheckpointMap() {
     const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
     const targetCrs = requiresLestCrs(layerCfg) ? "EPSG:3301" : "EPSG:3857";
+    const clampZoom = (z) => {
+      const maxZoom = Number(layerCfg?.max_zoom || 19);
+      const minZoom = Number(layerCfg?.min_zoom || 0);
+      return Math.max(minZoom, Math.min(maxZoom, Number(z)));
+    };
     if (!cpMap) {
       createCpDialogMap(targetCrs);
-      cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      const saved = readLastCpDialogView(targetCrs);
+      if (saved) {
+        cpMap.setView([saved.lat, saved.lon], clampZoom(saved.zoom));
+      } else {
+        cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      }
       applyCheckpointDialogBaseLayer();
       return;
     }
     if (cpDialogCurrentCrs !== targetCrs) {
-      createCpDialogMap(targetCrs);
+      const previousView = createCpDialogMap(targetCrs);
       applyCheckpointDialogBaseLayer();
-      cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      const saved = readLastCpDialogView(targetCrs);
+      if (saved) {
+        cpMap.setView([saved.lat, saved.lon], clampZoom(saved.zoom));
+      } else if (previousView) {
+        cpMap.setView([previousView.lat, previousView.lon], clampZoom(previousView.zoom));
+      } else {
+        cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      }
       return;
     }
     applyCheckpointDialogBaseLayer();
@@ -1062,7 +995,9 @@
 
   function readLastCpOverviewView() {
     try {
-      const raw = localStorage.getItem(lastCpOverviewViewKey());
+      /* REVERSIBLE_START: overview-map-crs-specific-view */
+      const raw = localStorage.getItem(cpOverviewViewStorageKey()) || localStorage.getItem(lastCpOverviewViewKey());
+      /* REVERSIBLE_END: overview-map-crs-specific-view */
       if (!raw) return null;
       const d = JSON.parse(raw);
       if (!d || !Number.isFinite(Number(d.lat)) || !Number.isFinite(Number(d.lon)) || !Number.isFinite(Number(d.zoom))) return null;
@@ -1077,7 +1012,12 @@
     const center = cpOverviewMap.getCenter();
     const zoom = cpOverviewMap.getZoom();
     if (!Number.isFinite(Number(center.lat)) || !Number.isFinite(Number(center.lng)) || !Number.isFinite(Number(zoom))) return;
-    localStorage.setItem(lastCpOverviewViewKey(), JSON.stringify({ lat: Number(center.lat), lon: Number(center.lng), zoom: Number(zoom) }));
+    /* REVERSIBLE_START: overview-map-crs-specific-view */
+    const payload = JSON.stringify({ lat: Number(center.lat), lon: Number(center.lng), zoom: Number(zoom) });
+    localStorage.setItem(cpOverviewViewStorageKey(), payload);
+    // Keep legacy key for backward compatibility and easy rollback.
+    localStorage.setItem(lastCpOverviewViewKey(), payload);
+    /* REVERSIBLE_END: overview-map-crs-specific-view */
   }
 
   function effectiveCheckpointRadius(row) {
@@ -1374,7 +1314,7 @@
   }
   function setEditModeByCompetition(isActive) {
     currentCompetitionActive = isActive;
-    ["regenCompetitor","regenOrganizer","newCheckpointBtn","newQuestionBtn","openCompetitionEditBtn"].forEach((id) => {
+    ["regenCompetitor","regenOrganizer","newCheckpointBtn","newQuestionBtn","openCompetitionEditBtn","openTermsBtn"].forEach((id) => {
       const el = byId(id);
       if (el) el.disabled = !isActive;
     });
@@ -2396,9 +2336,12 @@
     const selected = selectedMapLayerCode("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
     if (selected) localStorage.setItem(lastCpDialogMapLayerKey, selected);
     initCheckpointMap();
-    const lat = Number(byId("cpLatitude").value);
-    const lon = Number(byId("cpLongitude").value);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    // Keep this strict: empty inputs must NOT coerce to 0,0.
+    const latRaw = (byId("cpLatitude").value || "").trim();
+    const lonRaw = (byId("cpLongitude").value || "").trim();
+    const lat = Number(latRaw);
+    const lon = Number(lonRaw);
+    if (latRaw !== "" && lonRaw !== "" && Number.isFinite(lat) && Number.isFinite(lon)) {
       setCpCoordinates(lat, lon, true);
     }
     renderExistingCheckpointsOnDialogMap();
@@ -2515,6 +2458,19 @@
   byId("metaCancel").onclick = () => byId("metaDialog").close();
   byId("metaSave").onclick = saveMetaDialog;
   byId("openCompetitionEditBtn").onclick = () => openMetaDialog();
+  byId("openTermsBtn").onclick = () => openTermsDialog();
+  byId("termsCancel").onclick = () => byId("termsDialog").close();
+  byId("termsSave").onclick = () => saveTermsDialog();
+  byId("termsLangSelect").onchange = async (e) => {
+    const nextLang = String(e?.target?.value || "").toLowerCase();
+    if (!nextLang) return;
+    try {
+      await loadCompetitionTermsForLang(nextLang);
+      showMsg("termsMsg", true, "");
+    } catch (err) {
+      showMsg("termsMsg", false, humanizeError(err.message));
+    }
+  };
   byId("codeConfirmNo").onclick = () => {
     pendingCodeType = null;
     pendingOldCode = null;
@@ -2585,4 +2541,7 @@
 </script>
 </body>
 </html>
+
+
+
 

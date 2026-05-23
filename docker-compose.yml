@@ -26,6 +26,8 @@ services:
     container_name: funo_fastapi
     env_file:
       - .env
+    volumes:
+      - ./frontend_dist:/app/frontend_dist:ro
     expose:
       - "8000"
     restart: unless-stopped

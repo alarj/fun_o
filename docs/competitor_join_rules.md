@@ -150,3 +150,50 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - `now` asub vahemikus `starts_at <= now < ends_at`
 
 Muidu tagastatakse viga (mitte edukas sisestus).
+
+## C. Liitumisvoo UX (2-sammuline)
+
+### 1) Uus voog
+
+- VĆµistleja liitumine toimub kahes etapis:
+  - Etapp 1 (`join-preview`): kasutaja sisestab koodi, aliase ja soovi korral e-posti.
+  - Etapp 2 (`join-complete`): kasutajale kuvatakse konkreetse vĆµistluse kasutustingimused ja alles nĆµustumisel tehakse salvestus.
+
+- Etapil 1 kasutatakse nuppu `JĆ¤tka vĆµistlusega liitumist`.
+  - Nupp on aktiivne ainult siis, kui kood ja alias on sisestatud.
+  - Koodi/aliase valideerimine toimub enne tingimuste modali avamist.
+
+### 2) Veateated etapil 1
+
+- Kui kood ei sobi vĆµi vĆµistlus pole liitumiseks sobiv:
+  - kuvame: `Liitumine ei ole vĆµimalik`
+- Kui alias on samas vĆµistluses juba kasutusel:
+  - kuvame: `Valitud alias ei sobi`
+
+### 3) Tingimuste modal (etapp 2)
+
+- Tingimused kuvatakse selle vĆµistluse alusel, millega kasutaja liituda proovib.
+- Tingimuste kuvamine ei salvesta veel midagi.
+- Kasutajal on kaks valikut:
+  - `Jah, olen nĆµus ja liitun vĆµistlusega` -> kutsub `join-complete` (siin tekivad DB kirjed).
+  - `Tagasi` -> salvestust ei tehta.
+
+### 4) Tagasi nupu kĆ¤itumine
+
+- Kui kasutajal oli enne aktiivne vĆµistlus:
+  - sulgeme liitumismodali(d) ja kasutaja jĆ¤Ć¤b olemasoleva vĆµistluse vaatesse.
+- Kui kasutajal aktiivset vĆµistlust ei olnud:
+  - kasutaja viiakse tagasi koodi/aliase sisestamise modali juurde.
+
+### 5) Andmete loomine andmebaasis
+
+- `users` kirje ei tohi tekkida lihtsalt modali avamise, vale koodi vĆµi katkestamisega.
+- `users` kirje tekib ainult eduka `join-complete` korral.
+- `users` ja `competition_participants` kirjed tekivad samas DB transaktsioonis.
+
+## D. Sama v�istlusega uuesti liitumine
+
+- Kui kasutaja on juba aktiivne osaleja samas v�istluses, siis sama v�istluse koodiga uuesti liitumine on keelatud.
+- Sellisel juhul tagastatakse viga ja UI kuvab teate: `Oled juba v�istluse osaleja`.
+- See keeld rakendub s�ltumata sellest, kas sisestatud alias on sama v�i erinev.
+- Eesm�rk: v�ltida aliase vahetust samas v�istluses uuesti liitumise kaudu.

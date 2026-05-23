@@ -24,7 +24,67 @@ body {
   border: 1px solid var(--funo-line);
 }
 
-.hidden { display: none; }
+.hidden { display: none !important; }
+
+.terms-editor-toolbar {
+  margin-bottom: 8px;
+}
+
+.terms-editor-toolbar .miniBtn {
+  min-width: 0;
+  padding: 6px 10px;
+}
+
+.terms-editor-surface {
+  min-height: 0;
+  border: 1px solid #c4d2cc;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.terms-editor-surface:focus {
+  outline: 2px solid #7caab0;
+  outline-offset: 1px;
+}
+
+.terms-editor-surface .ql-toolbar.ql-snow {
+  border: 0;
+  border-bottom: 1px solid #d8e3de;
+}
+
+.terms-editor-surface .ql-container.ql-snow {
+  border: 0;
+  min-height: 440px;
+  font-size: 16px;
+}
+
+.terms-editor-surface .ql-editor {
+  min-height: 420px;
+  line-height: 1.45;
+}
+
+#termsDialog {
+  width: min(1200px, 96vw);
+  max-width: 96vw;
+}
+
+#termsDialog .row.terms-editor-row {
+  display: block;
+}
+
+#termsDialog .row.terms-editor-row > label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+#termsDialog .row.terms-editor-row .terms-editor-toolbar {
+  margin-bottom: 10px;
+}
+
+#termsDialog .row.terms-editor-row .terms-editor-surface {
+  width: 100%;
+}
 
 .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
@@ -99,6 +159,160 @@ html, body { max-width: 100%; overflow-x: hidden; }
       word-break: break-word;
       overflow-wrap: anywhere;
     }
+
+/* Results-specific styles moved from results.html */
+.head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sort-btn { border: 0; background: transparent; padding: 0; margin-left: 4px; cursor: pointer; color: inherit; font-weight: 700; font-size: 14px; }
+.icon-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: #2f7f87;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover { color: #245f65; }
+.reload-icon { width: 18px; height: 18px; display: block; }
+.name-link {
+  color: #0f5f8f;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.name-link:hover { color: #0b4b70; }
+.correct { color: #198754; font-weight: 700; }
+.wrong { color: #d93025; font-weight: 700; }
+.modal.hidden { display: none !important; }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+.modal-card {
+  width: min(980px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #d8d8d8;
+  padding: 14px;
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.modal-title-wrap { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.modal-title { margin: 0; font-size: 28px; }
+.modal-subtitle { margin: 0; font-size: 14px; color: #666; }
+.close-btn {
+  border: 1px solid #2f7f87;
+  background: #2f7f87;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.answer-link {
+  color: #0f5f8f;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.answer-meta { margin-top: 8px; font-size: 14px; color: #555; }
+.answer-variants { margin: 10px 0 0; padding: 0; list-style: none; }
+.answer-variants li { margin: 6px 0; }
+.answer-picked { font-weight: 700; }
+.badge-ok { color: #198754; font-weight: 700; margin-right: 6px; }
+.badge-no { color: #d93025; font-weight: 700; margin-right: 6px; }
+.view-btn {
+  border: 1px solid #2f7f87;
+  background: #2f7f87;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* Superadmin-specific styles moved from superadmin.html */
+.userRow { display: flex; align-items: center; gap: 6px; color: #444; font-size: 14px; }
+.userIcon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.logoutBtnIcon {
+  border: 0;
+  background: transparent;
+  color: #1e1e1e;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+.logoutBtnIcon:hover { color: #2f7f87; }
+.table .nameColCell { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+.table .idColCell, .table .statusColCell, .table .kpCountColCell, .table .locationColCell, .table .orgCodeColCell, .table .startColCell, .table .endColCell { white-space: nowrap; }
+.orgCode { font-family: Consolas, monospace; font-weight: 700; letter-spacing: 0.06em; }
+.codeWrap { display: inline-flex; align-items: center; gap: 6px; }
+.iconBtn {
+  border: 0;
+  background: transparent;
+  color: #1e1e1e;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  line-height: 1;
+}
+.iconBtn:hover { color: #2f7f87; }
+.copyIcon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+.removeIcon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+.cloneIcon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+.sortBtn { border: 0; background: transparent; padding: 0; margin-left: 4px; cursor: pointer; color: inherit; font-weight: 700; font-size: 13px; }
+.organizersCol { white-space: normal; }
+.organizerItem { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+.organizerRemoveBtn { border: 0; background: transparent; color: #b74545; padding: 0; margin: 0; line-height: 1; cursor: pointer; }
+.organizerRemoveBtn:hover { color: #8f2f2f; }
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+.modalCard {
+  width: min(560px, 96vw);
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+@media (max-width: 900px) {
+  .head-row + .card { overflow-x: auto; }
+  #competitorTableWrap,
+  #checkpointTableWrap { overflow-x: auto; }
+  #competitorTableWrap .table,
+  #checkpointTableWrap .table { min-width: 760px; }
+  #appArea .table { min-width: 1080px; }
+}
     .actions-col { white-space: nowrap; }
     .organizers-list { display: flex; flex-direction: column; gap: 4px; }
     .organizer-row { display: flex; align-items: center; gap: 6px; color: #444; }
