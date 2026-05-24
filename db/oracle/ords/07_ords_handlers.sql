@@ -2,6 +2,8 @@
 -- Run as FUNO_API (schema already enabled in ORDS)
 -- Assumes grants from FUNO_APP to FUNO_API are in place.
 
+declare
+  c_pattern_superadmin_translations constant varchar2(64) := 'superadmin/translations';
 begin
   ORDS.DEFINE_MODULE(
     p_module_name    => 'funo.api',
@@ -270,10 +272,10 @@ begin
   );
 
   -- GET /funo/superadmin/translations?lang=et&prefix=competitor.&include_deleted=N
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations');
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => c_pattern_superadmin_translations);
   ORDS.DEFINE_HANDLER(
     p_module_name => 'funo.api',
-    p_pattern     => 'superadmin/translations',
+    p_pattern     => c_pattern_superadmin_translations,
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
     p_source      => q'~
@@ -307,7 +309,7 @@ begin
 
   ORDS.DEFINE_PARAMETER(
     p_module_name        => 'funo.api',
-    p_pattern            => 'superadmin/translations',
+    p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'lang',
     p_bind_variable_name => 'lang',
@@ -317,7 +319,7 @@ begin
   );
   ORDS.DEFINE_PARAMETER(
     p_module_name        => 'funo.api',
-    p_pattern            => 'superadmin/translations',
+    p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'prefix',
     p_bind_variable_name => 'prefix',
@@ -327,7 +329,7 @@ begin
   );
   ORDS.DEFINE_PARAMETER(
     p_module_name        => 'funo.api',
-    p_pattern            => 'superadmin/translations',
+    p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'include_deleted',
     p_bind_variable_name => 'include_deleted',

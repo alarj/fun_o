@@ -75,6 +75,29 @@ UTC_TS_KEYS = {
     "last_submission_at",
 }
 UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
+ADMIN_COMPETITIONS_TERMS_PATH = "admin/competitions/terms"
+API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
+ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
+    (("ORA-01722",), ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")),
+    (("ORA-20031",), ("INVALID_ACCESS_CODE", "api.error.invalid_access_code")),
+    (("ORA-20032",), ("ACCESS_CODE_LIMIT_REACHED", "api.error.access_code_limit_reached")),
+    (("ORA-20033",), ("ALREADY_REGISTERED", "api.error.already_registered")),
+    (("ORA-20060",), ("INVALID_SUBMISSION", "api.error.invalid_submission")),
+    (("ORA-20061",), ("NOT_PARTICIPANT", "api.error.not_participant")),
+    (("ORA-20062",), ("QUESTION_NOT_FOUND", "api.error.invalid_submission")),
+    (("ORA-20063",), ("MISSING_SELECTED_OPTION", "api.error.invalid_submission")),
+    (("ORA-20064",), ("MISSING_ANSWER_TEXT", "api.error.invalid_submission")),
+    (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
+    (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
+    (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
+    (("ORA-20080",), ("INVALID_REQUEST", "api.error.invalid_submission")),
+    (("ORA-20110", "ORA-20115"), ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")),
+    (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
+    (("ORA-20130",), ("ALIAS_TAKEN", "api.error.alias_taken")),
+    (("ORA-20131",), ("ALREADY_PARTICIPANT", "api.error.already_participant")),
+    (("ORA-20102", "ORA-20103", "ORA-20104"), ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")),
+    (("ORA-02290",), ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")),
+)
 
 
 class ApiError(BaseModel):
@@ -622,47 +645,60 @@ def _normalize_ords_payload_datetimes(value: Any, key_hint: str | None = None) -
 
 def _extract_oracle_error(payload: Any) -> tuple[str, str]:
     text = str(payload)
-    if "ORA-01722" in text:
-        return ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")
-    if "ORA-20031" in text:
-        return ("INVALID_ACCESS_CODE", "api.error.invalid_access_code")
-    if "ORA-20032" in text:
-        return ("ACCESS_CODE_LIMIT_REACHED", "api.error.access_code_limit_reached")
-    if "ORA-20033" in text:
-        return ("ALREADY_REGISTERED", "api.error.already_registered")
-    if "ORA-20060" in text:
-        return ("INVALID_SUBMISSION", "api.error.invalid_submission")
-    if "ORA-20061" in text:
-        return ("NOT_PARTICIPANT", "api.error.not_participant")
-    if "ORA-20062" in text:
-        return ("QUESTION_NOT_FOUND", "api.error.invalid_submission")
-    if "ORA-20063" in text:
-        return ("MISSING_SELECTED_OPTION", "api.error.invalid_submission")
-    if "ORA-20064" in text:
-        return ("MISSING_ANSWER_TEXT", "api.error.invalid_submission")
-    if "ORA-20010" in text:
-        return ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")
-    if "ORA-20081" in text:
-        return ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")
-    if "ORA-20082" in text:
-        return ("ALREADY_ORGANIZER", "api.error.already_registered")
-    if "ORA-20080" in text:
-        return ("INVALID_REQUEST", "api.error.invalid_submission")
-    if "ORA-20110" in text or "ORA-20115" in text:
-        return ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")
-    if "ORA-20113" in text:
-        return ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")
-    if "ORA-20130" in text:
-        return ("ALIAS_TAKEN", "api.error.alias_taken")
-    if "ORA-20131" in text:
-        return ("ALREADY_PARTICIPANT", "api.error.already_participant")
+    for ora_codes, mapped_error in ORACLE_ERROR_MAP:
+        if any(ora_code in text for ora_code in ora_codes):
+            return mapped_error
     if "ORA-00001" in text and "UX_ACTIVE_CP_ALIAS_CI" in text.upper():
         return ("ALIAS_TAKEN", "api.error.alias_taken")
-    if "ORA-20102" in text or "ORA-20103" in text or "ORA-20104" in text:
-        return ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")
-    if "ORA-02290" in text:
-        return ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")
     return ("ORDS_ERROR", "api.error.ords_request_failed")
+
+
+def _superadmin_translations_params(
+    lang: str | None,
+    prefix: str | None,
+    include_deleted: str | None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+    if lang:
+        params["lang"] = lang.strip().lower()
+    if prefix:
+        params["prefix"] = prefix.strip()
+    if include_deleted:
+        params["include_deleted"] = include_deleted.strip().upper()
+    return params
+
+
+def _to_superadmin_translation_item(row: dict[str, Any]) -> SuperAdminTranslationItem:
+    return SuperAdminTranslationItem(
+        translation_key=str(row.get("translation_key") or ""),
+        lang_code=str(row.get("lang_code") or ""),
+        text_value=str(row.get("text_value")) if row.get("text_value") is not None else None,
+        is_deleted=str(row.get("is_deleted") or "N").upper() == "Y",
+        updated_at=str(row.get("updated_at")) if row.get("updated_at") is not None else None,
+    )
+
+
+def _resolve_effective_lang(lang_code: str | None) -> str:
+    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
+    return effective_lang
+
+
+async def _fetch_competition_terms(competition_id: int, lang_code: str) -> dict[str, Any]:
+    return await _get_from_ords(
+        ADMIN_COMPETITIONS_TERMS_PATH,
+        {
+            "competition_id": competition_id,
+            "lang_code": lang_code,
+        },
+    )
+
+
+def _should_insert_default_terms(terms: dict[str, Any] | None, effective_lang: str) -> bool:
+    terms_text = terms.get("terms_text") if isinstance(terms, dict) else ""
+    terms_lang = str(terms.get("lang_code") or "").strip().lower() if isinstance(terms, dict) else ""
+    return (not isinstance(terms_text, str) or not terms_text.strip()) or terms_lang != effective_lang
 
 
 def _read_default_terms_html(lang_code: str) -> str:
@@ -726,7 +762,7 @@ async def _ensure_default_terms_for_competition(competition_id: int) -> None:
             continue
         try:
             await _post_to_ords(
-                "admin/competitions/terms",
+                ADMIN_COMPETITIONS_TERMS_PATH,
                 {
                     "competition_id": competition_id,
                     "lang_code": lang,
@@ -1414,7 +1450,7 @@ async def competitor_session(request: Request, response: Response) -> Competitor
     cid = participant.get("competition_id")
     name = participant.get("competition_name")
     if not isinstance(cp_id, int) or not isinstance(cid, int) or not isinstance(name, str):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
 
     _set_competitor_cookies(response, user_id=user_id, competition_participant_id=cp_id)
     return CompetitorSessionResponse(
@@ -1449,7 +1485,7 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
     cid = ords_response.get("competition_id")
     name = ords_response.get("competition_name")
     if not isinstance(cid, int) or not isinstance(name, str):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     terms_raw = ords_response.get("terms")
     terms: CompetitorJoinPreviewTerms | None = None
     if isinstance(terms_raw, dict):
@@ -1481,12 +1517,6 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
         "terms_lang_code": req.terms_lang_code,
         "accept_terms": "Y" if req.accept_terms else "N",
     }
-
-
-@app.post("/api/competitor/terms-cache/reset")
-async def reset_competitor_terms_cache() -> dict[str, Any]:
-    competitor_terms_cache.clear()
-    return {"ok": True, "cache_size": 0}
     if isinstance(user_id, int):
         payload["user_id"] = user_id
     if req.contact_email:
@@ -1497,11 +1527,11 @@ async def reset_competitor_terms_cache() -> dict[str, Any]:
     ords_response = await _post_to_ords("competitor/join-complete", payload)
     effective_user_id = ords_response.get("user_id")
     if not isinstance(effective_user_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     cp_id = ords_response.get("competition_participant_id")
     cid = ords_response.get("competition_id")
     if not isinstance(cp_id, int) or not isinstance(cid, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     switched_from = ords_response.get("switched_from_participant_id")
     switched_from_id = switched_from if isinstance(switched_from, int) else None
     no_change = str(ords_response.get("no_change", "N")).upper() == "Y"
@@ -1512,6 +1542,12 @@ async def reset_competitor_terms_cache() -> dict[str, Any]:
         switched_from_participant_id=switched_from_id,
         no_change=no_change,
     )
+
+
+@app.post("/api/competitor/terms-cache/reset")
+async def reset_competitor_terms_cache() -> dict[str, Any]:
+    competitor_terms_cache.clear()
+    return {"ok": True, "cache_size": 0}
 
 
 @app.get("/api/competitor/terms", response_model=CompetitorTermsResponse)
@@ -1803,7 +1839,7 @@ async def competitor_progress(
     answered_checkpoints = ords_response.get("answered_checkpoints", 0)
     score = ords_response.get("score", 0)
     if not isinstance(total_checkpoints, int) or not isinstance(answered_checkpoints, int) or not isinstance(score, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     return CompetitorProgressResponse(
         competition_id=competition_id,
         user_id=resolved_user_id,
@@ -1868,7 +1904,7 @@ async def competitor_my_submission_detail(
         },
     )
     if not isinstance(ords_response, dict):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
 
     raw_options = ords_response.get("options")
     options: list[CompetitorMySubmissionDetailOption] = []
@@ -2078,7 +2114,7 @@ async def admin_submission_detail(
         },
     )
     if not isinstance(ords_response, dict):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
 
     raw_options = ords_response.get("options")
     options: list[SubmissionDetailOption] = []
@@ -2134,7 +2170,7 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
     )
     checkpoint_id = ords_response.get("checkpoint_id")
     if not isinstance(checkpoint_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     _invalidate_competition_cache(req.competition_id)
     return AdminCreateCheckpointResponse(checkpoint_id=checkpoint_id)
 
@@ -2159,7 +2195,7 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
     )
     question_id = ords_response.get("question_id")
     if not isinstance(question_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     map_checkpoints_cache.clear()
     open_checkpoints_last_response.clear()
     return AdminCreateQuestionResponse(question_id=question_id)
@@ -2182,7 +2218,7 @@ async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, re
     )
     option_id = ords_response.get("option_id")
     if not isinstance(option_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     map_checkpoints_cache.clear()
     open_checkpoints_last_response.clear()
     return AdminCreateQuestionOptionResponse(option_id=option_id)
@@ -2203,7 +2239,7 @@ async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, re
     )
     answer_id = ords_response.get("answer_id")
     if not isinstance(answer_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     map_checkpoints_cache.clear()
     open_checkpoints_last_response.clear()
     return AdminCreateQuestionAnswerResponse(answer_id=answer_id)
@@ -2260,7 +2296,7 @@ async def admin_upsert_access_code(req: AdminUpsertAccessCodeRequest, request: R
     )
     access_code_id = ords_response.get("access_code_id")
     if not isinstance(access_code_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     return AdminUpsertAccessCodeResponse(access_code_id=access_code_id)
 
 
@@ -2354,7 +2390,7 @@ async def superadmin_create_competition(
     competition_id = data.get("competition_id") if isinstance(data, dict) else None
     organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
     if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     await _ensure_default_terms_for_competition(competition_id)
     return SuperAdminCreateCompetitionResponse(
         competition_id=competition_id,
@@ -2381,7 +2417,7 @@ async def superadmin_copy_competition(
     competition_id = data.get("competition_id") if isinstance(data, dict) else None
     organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
     if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", "api.error.invalid_ords_response")
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     await _ensure_default_terms_for_competition(competition_id)
     return SuperAdminCreateCompetitionResponse(
         competition_id=competition_id,
@@ -2415,29 +2451,10 @@ async def superadmin_translations(
     x_user_id: int | None = Header(default=None),
 ) -> SuperAdminTranslationsResponse:
     _ = await _require_system_owner_session_user(request, x_user_id)
-    params: dict[str, Any] = {}
-    if lang:
-        params["lang"] = lang.strip().lower()
-    if prefix:
-        params["prefix"] = prefix.strip()
-    if include_deleted:
-        params["include_deleted"] = include_deleted.strip().upper()
+    params = _superadmin_translations_params(lang, prefix, include_deleted)
     data = await _get_from_ords("superadmin/translations", params)
     raw_items = data.get("items") if isinstance(data, dict) else []
-    items: list[SuperAdminTranslationItem] = []
-    if isinstance(raw_items, list):
-        for row in raw_items:
-            if not isinstance(row, dict):
-                continue
-            items.append(
-                SuperAdminTranslationItem(
-                    translation_key=str(row.get("translation_key") or ""),
-                    lang_code=str(row.get("lang_code") or ""),
-                    text_value=str(row.get("text_value")) if row.get("text_value") is not None else None,
-                    is_deleted=str(row.get("is_deleted") or "N").upper() == "Y",
-                    updated_at=str(row.get("updated_at")) if row.get("updated_at") is not None else None,
-                )
-            )
+    items = [_to_superadmin_translation_item(row) for row in raw_items if isinstance(row, dict)] if isinstance(raw_items, list) else []
     return SuperAdminTranslationsResponse(items=items)
 
 
@@ -2619,28 +2636,14 @@ async def admin_get_competition_terms(
     lang_code: str | None = None,
 ) -> AdminCompetitionTermsResponse:
     _ = _require_google_session_user(request, x_user_id)
-    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
-    if effective_lang not in settings.lang_available:
-        effective_lang = settings.lang_default
-    data = await _get_from_ords(
-        "admin/competitions/terms",
-        {
-            "competition_id": competition_id,
-            "lang_code": effective_lang,
-        },
-    )
+    effective_lang = _resolve_effective_lang(lang_code)
+    data = await _fetch_competition_terms(competition_id, effective_lang)
     terms = data.get("terms") if isinstance(data, dict) else None
-    terms_text = terms.get("terms_text") if isinstance(terms, dict) else ""
-    terms_lang = str(terms.get("lang_code") or "").strip().lower() if isinstance(terms, dict) else ""
-    need_default_insert = (
-        (not isinstance(terms_text, str) or not terms_text.strip())
-        or terms_lang != effective_lang
-    )
-    if need_default_insert:
+    if _should_insert_default_terms(terms, effective_lang):
         default_terms = _read_default_terms_html(effective_lang)
         if default_terms.strip():
             await _post_to_ords(
-                "admin/competitions/terms",
+                ADMIN_COMPETITIONS_TERMS_PATH,
                 {
                     "competition_id": competition_id,
                     "lang_code": effective_lang,
@@ -2648,13 +2651,7 @@ async def admin_get_competition_terms(
                     "updated_by": None,
                 },
             )
-            data = await _get_from_ords(
-                "admin/competitions/terms",
-                {
-                    "competition_id": competition_id,
-                    "lang_code": effective_lang,
-                },
-            )
+            data = await _fetch_competition_terms(competition_id, effective_lang)
             terms = data.get("terms") if isinstance(data, dict) else None
     terms_id = terms.get("terms_id") if isinstance(terms, dict) else None
     terms_text = terms.get("terms_text") if isinstance(terms, dict) else ""
@@ -2674,7 +2671,7 @@ async def admin_update_competition_terms(
 ) -> dict[str, bool]:
     user_id = _require_google_session_user(request, x_user_id)
     await _post_to_ords(
-        "admin/competitions/terms",
+        ADMIN_COMPETITIONS_TERMS_PATH,
         {
             "competition_id": req.competition_id,
             "lang_code": req.lang_code,

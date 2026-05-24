@@ -1027,7 +1027,7 @@
         el("competitionPickerName").textContent = c?.name || "-";
       }
 
-      function renderCheckpointSelect() {
+      function renderCheckpointSelect(preferredCheckpointId = null) {
         const s = el("checkpointSelect");
         s.innerHTML = "";
         if (!state.openItemsLoaded) {
@@ -1049,12 +1049,19 @@
           return;
         }
         s.disabled = false;
+        const preferredIdNum = Number(preferredCheckpointId || 0);
+        let hasPreferred = false;
         state.openItems.forEach((item, idx) => {
           const o = document.createElement("option");
           o.value = String(item.checkpoint_id);
           const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "📍 " : "";
           o.textContent = `${pin}${item.checkpoint_title} (${item.points || 0} p)`;
-          if (idx === 0) o.selected = true;
+          if (preferredIdNum > 0 && Number(item.checkpoint_id) === preferredIdNum) {
+            o.selected = true;
+            hasPreferred = true;
+          } else if (!hasPreferred && idx === 0) {
+            o.selected = true;
+          }
           s.appendChild(o);
         });
         renderQuestionForSelectedCheckpoint();
@@ -1166,28 +1173,34 @@
         await loadOpenCheckpoints();
       }
 
-      async function loadOpenCheckpoints() {
+      async function loadOpenCheckpoints(opts = {}) {
         if (!state.selectedCompetitionId) return;
+        const forceReload = opts && opts.force === true;
+        const preferredCheckpointId = Number(
+          opts?.preferredCheckpointId || el("checkpointSelect")?.value || 0
+        ) || null;
         const geoParams = getGeoQueryParams();
-        const requestKey = `${state.selectedCompetitionId}|${geoParams}`;
+        const requestLang = currentLang();
+        const requestKey = `${state.selectedCompetitionId}|${requestLang}|${geoParams}`;
         const now = Date.now();
 
         if (
+          !forceReload &&
           openCheckpointsClientCache.key === requestKey &&
           now - openCheckpointsClientCache.ts < OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS
         ) {
           state.openItems = [...openCheckpointsClientCache.items];
           state.openItemsLoaded = true;
-          renderCheckpointSelect();
+          renderCheckpointSelect(preferredCheckpointId);
           return;
         }
 
-        const res = await apiGet(`/api/competitor/open-checkpoints?competition_id=${state.selectedCompetitionId}${geoParams}`);
+        const res = await apiGet(`/api/competitor/open-checkpoints?competition_id=${state.selectedCompetitionId}&lang_code=${encodeURIComponent(requestLang)}${geoParams}`);
         if (!res.ok) {
           setMsg("answerMsg", res.userMessage || tr("competitor.msg.open_cp_load_failed"), false);
           state.openItems = [];
           state.openItemsLoaded = true;
-          renderCheckpointSelect();
+          renderCheckpointSelect(preferredCheckpointId);
           return;
         }
         state.openItems = Array.isArray(res.data.items) ? res.data.items : [];
@@ -1197,7 +1210,16 @@
           ts: now,
           items: [...state.openItems],
         };
-        renderCheckpointSelect();
+        renderCheckpointSelect(preferredCheckpointId);
+      }
+
+      async function refreshQuestionsOnLanguageChange(langCode) {
+        const previousCheckpointId = Number(el("checkpointSelect")?.value || 0) || null;
+        await setLanguage(langCode);
+        renderQuestionForSelectedCheckpoint();
+        if (state.selectedCompetitionId && state.openItemsLoaded) {
+          await loadOpenCheckpoints({ force: true, preferredCheckpointId: previousCheckpointId });
+        }
       }
 
       async function loadMapCheckpoints() {
@@ -2073,11 +2095,11 @@
         });
         el("feedbackCloseBtn").addEventListener("click", closeFeedback);
         el("langSelect").addEventListener("change", async (e) => {
-          await setLanguage(e.target.value);
+          await refreshQuestionsOnLanguageChange(e.target.value);
           renderProgressBox();
         });
         el("joinLangSelect").addEventListener("change", async (e) => {
-          await setLanguage(e.target.value);
+          await refreshQuestionsOnLanguageChange(e.target.value);
           renderProgressBox();
         });
 

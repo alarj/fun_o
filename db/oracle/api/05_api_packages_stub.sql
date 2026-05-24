@@ -930,6 +930,8 @@ end pkg_results;
 /
 
 create or replace package body pkg_results as
+  c_json_question_text constant varchar2(30) := 'question_text';
+
   procedure get_competition_score(
     p_competition_id in number,
     p_user_id in number,
@@ -1021,7 +1023,7 @@ create or replace package body pkg_results as
   begin
     l_lang := lower(nvl(trim(p_lang_code), 'et'));
     l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
-    if l_fallback_lang is null or l_fallback_lang = '' then
+    if l_fallback_lang is null then
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
@@ -1104,7 +1106,7 @@ create or replace package body pkg_results as
   begin
     l_lang := lower(nvl(trim(p_lang_code), 'et'));
     l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
-    if l_fallback_lang is null or l_fallback_lang = '' then
+    if l_fallback_lang is null then
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
@@ -1129,7 +1131,7 @@ create or replace package body pkg_results as
     select json_object(
              'submission_id' value s.submission_id,
              'checkpoint_title' value cp.title,
-             'question_text' value nvl(
+             c_json_question_text value nvl(
                qt.question_text,
                nvl(
                  (
@@ -1482,6 +1484,8 @@ end pkg_competitor;
 /
 
 create or replace package body pkg_competitor as
+  c_json_question_text constant varchar2(30) := 'question_text';
+
   procedure get_session_by_participant_json(
     p_user_id in number,
     p_competition_participant_id in number,
@@ -2332,7 +2336,7 @@ create or replace package body pkg_competitor as
     select json_object(
              'submission_id' value s.submission_id,
              'checkpoint_title' value cp.title,
-             'question_text' value qt.question_text,
+             c_json_question_text value qt.question_text,
              'question_type' value q.question_type,
              'points' value nvl(q.points, 0),
              'wrong_points' value nvl(q.wrong_points, 0),
@@ -2634,6 +2638,10 @@ end pkg_admin_content;
 /
 
 create or replace package body pkg_admin_content as
+  c_json_question_text constant varchar2(30) := 'question_text';
+  c_json_updated_at constant varchar2(30) := 'updated_at';
+  c_iso_ts_format constant varchar2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
+
   procedure add_audit(p_entity_type varchar2, p_entity_id number, p_action varchar2, p_by number, p_old clob, p_new clob) is
   begin
     insert into audit_log(audit_id, entity_type, entity_id, action_type, changed_by, changed_at, old_data_json, new_data_json)
@@ -2695,7 +2703,7 @@ create or replace package body pkg_admin_content as
         'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
         'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
         'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'updated_at' value to_char(c.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        c_json_updated_at value to_char(c.updated_at, c_iso_ts_format),
         'organizer_code' value (
           select ac.code
             from competition_access_codes ac
@@ -3516,7 +3524,7 @@ create or replace package body pkg_admin_content as
       'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
       'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
       'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-      'updated_at' value to_char(c.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+      c_json_updated_at value to_char(c.updated_at, c_iso_ts_format),
       'competitor_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='COMPETITOR' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
       'organizer_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='ORGANIZER' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
       'organizers' value (select json_arrayagg(json_object('user_id' value u.user_id, 'full_name' value u.full_name, 'email' value u.email) returning clob) from competition_organizers co join users u on u.user_id=co.user_id where co.competition_id=c.competition_id and (co.end_date is null or co.end_date > sysdate)),
@@ -3590,14 +3598,14 @@ create or replace package body pkg_admin_content as
                'lang_code' value t.lang_code,
                'text_value' value t.text_value,
                'is_deleted' value case when t.end_date is null then 'N' else 'Y' end,
-               'updated_at' value case when t.updated_at is not null then to_char(t.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end
+               c_json_updated_at value case when t.updated_at is not null then to_char(t.updated_at, c_iso_ts_format) else null end
              returning clob
              ) returning clob
            )
       into o_items_json
       from translations t
-     where (l_lang is null or l_lang = '' or lower(t.lang_code) = l_lang)
-       and (l_prefix is null or l_prefix = '' or lower(t.translation_key) like lower(l_prefix) || '%')
+     where (l_lang is null or lower(t.lang_code) = l_lang)
+       and (l_prefix is null or lower(t.translation_key) like lower(l_prefix) || '%')
        and (l_include_deleted = 'Y' or t.end_date is null);
 
     if o_items_json is null then
@@ -3772,7 +3780,7 @@ create or replace package body pkg_admin_content as
     values(seq_question_texts.nextval, o_question_id, l_lang, trim(p_question_text), trunc(sysdate), p_created_by, systimestamp);
 
     add_audit('QUESTION', o_question_id, 'CREATE', p_created_by, null,
-      to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, 'question_text' value trim(p_question_text))));
+      to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, c_json_question_text value trim(p_question_text))));
   end;
 
   procedure update_question(
@@ -3803,7 +3811,7 @@ create or replace package body pkg_admin_content as
     end if;
 
     add_audit('QUESTION', p_question_id, 'UPDATE', p_updated_by, null,
-      to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, 'question_text' value trim(p_question_text))));
+      to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, c_json_question_text value trim(p_question_text))));
   end;
 
   procedure soft_delete_question(p_question_id in number, p_deleted_by in number) is
