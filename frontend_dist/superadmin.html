@@ -1,0 +1,591 @@
+﻿<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
+  <title>fun_o Superadmin</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="loginCard">
+      <h2>Superadmin sisselogimine</h2>
+      <div class="tools">
+        <div id="googleLoginMount"></div>
+      </div>
+      <div id="loginMsg"></div>
+    </div>
+
+    <div class="hidden" id="appArea">
+      <div class="card">
+        <div class="tools" style="justify-content: space-between;">
+          <h1>Superadmin</h1>
+          <div class="tools">
+            <button id="goAdminBtn" class="secondary" type="button">Võistluse korraldamine</button>
+            <div id="currentUserBox" class="userRow" title="-"></div>
+            <button id="logoutBtn" class="logoutBtnIcon" type="button" title="Logi välja" aria-label="Logi välja"></button>
+          </div>
+        </div>
+        <div class="muted">Võistluste loomine ja ülevaade</div>
+      </div>
+
+      <div class="card">
+        <h2>Lisa uus võistlus</h2>
+        <div class="row">
+          <label for="newCompName">Nimi</label>
+          <input id="newCompName" type="text" maxlength="200" />
+        </div>
+        <div class="row">
+          <label for="newCompDesc">Kirjeldus</label>
+          <textarea id="newCompDesc" maxlength="2000"></textarea>
+        </div>
+        <div class="tools">
+          <button id="createCompBtn" type="button">Loo võistlus</button>
+        </div>
+        <div id="createMsg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Võistlused</h2>
+        <table class="table">
+          <colgroup>
+            <col style="width:40px;">
+            <col>
+            <col style="width:92px;">
+            <col style="width:64px;">
+            <col style="width:72px;">
+            <col style="width:114px;">
+            <col style="width:146px;">
+            <col style="width:118px;">
+            <col style="width:118px;">
+            <col style="width:42px;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>ID <button class="sortBtn" id="sortId" type="button">▲</button></th>
+              <th>Nimi <button class="sortBtn" id="sortName" type="button">☰</button></th>
+              <th>Staatus <button class="sortBtn" id="sortStatus" type="button">☰</button></th>
+              <th>KP arv <button class="sortBtn" id="sortCheckpointCount" type="button">☰</button></th>
+              <th>Asukoht</th>
+              <th>Korraldaja kood</th>
+              <th>Korraldajad</th>
+              <th>Algus <button class="sortBtn" id="sortStart" type="button">☰</button></th>
+              <th>Lõpp <button class="sortBtn" id="sortEnd" type="button">☰</button></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="competitionsRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="createResultBackdrop" class="modalBackdrop">
+    <div class="modalCard">
+      <h2 style="margin-top:0;">Võistlus loodud</h2>
+      <div id="createResultText" class="muted" style="margin-bottom:10px;"></div>
+      <div style="font-size:15px; margin-bottom:10px;">
+        Korraldaja kood:
+        <span id="createResultCodeWrap" class="codeWrap">
+          <span id="createResultCode" class="orgCode">-</span>
+          <button id="copyCreatedCodeBtn" class="iconBtn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button>
+        </span>
+      </div>
+      <div class="tools" style="justify-content:flex-end;">
+        <button id="createResultCloseBtn" type="button">Sulge</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="removeOrganizerBackdrop" class="modalBackdrop">
+    <div class="modalCard">
+      <h2 id="removeOrganizerTitle" style="margin-top:0;">Korraldaja eemaldamine</h2>
+      <div id="removeOrganizerText" class="muted" style="margin-bottom:10px;"></div>
+      <div id="removeOrganizerMsg"></div>
+      <div class="tools" id="removeOrganizerActions" style="justify-content:flex-end;">
+        <button id="removeOrganizerNoBtn" class="secondary" type="button">Ei</button>
+        <button id="removeOrganizerYesBtn" type="button">Jah</button>
+      </div>
+      <div class="tools hidden" id="removeOrganizerResultActions" style="justify-content:flex-end;">
+        <button id="removeOrganizerCloseBtn" type="button">Sulge</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="copyCompetitionBackdrop" class="modalBackdrop">
+    <div class="modalCard">
+      <h2 id="copyCompetitionTitle" style="margin-top:0;">Võistluse kopeerimine</h2>
+      <div id="copyCompetitionText" class="muted" style="margin-bottom:10px;"></div>
+      <div id="copyCompetitionFormArea">
+        <div class="yn-inline">
+          <label class="yn-switch" for="copyWithQuestions">
+            <input id="copyWithQuestions" type="checkbox" />
+            <span class="yn-slider"></span>
+          </label>
+          <label for="copyWithQuestions">Kas kopeerime ka küsimused ja vastusevariandid?</label>
+        </div>
+        <div class="yn-inline" style="margin-bottom:10px;">
+          <label class="yn-switch" for="copyWithOrganizers">
+            <input id="copyWithOrganizers" type="checkbox" />
+            <span class="yn-slider"></span>
+          </label>
+          <label for="copyWithOrganizers">Kas kopeerime korraldajad?</label>
+        </div>
+        <div class="muted" style="margin-bottom:8px;">Uue loodava võistlusega peavad osalejad eraldi liituma uue koodi abil. Vana võistluse osalejaid kaasa ei võeta. Korraldajate lisamise kood on uuel võistlusel uus. Võistluse kuupäevad tuleb peale kopeerimist ise määrata.</div>
+      </div>
+      <div id="copyCompetitionMsg"></div>
+      <div class="tools" id="copyCompetitionActions" style="justify-content:flex-end;">
+        <button id="copyCompetitionNoBtn" class="secondary" type="button">Ei</button>
+        <button id="copyCompetitionYesBtn" type="button">Jah</button>
+      </div>
+      <div class="tools hidden" id="copyCompetitionResultActions" style="justify-content:flex-end;">
+        <button id="copyCompetitionCloseBtn" type="button">Sulge</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+
+    let competitionItems = [];
+    let sortKey = "competition_id";
+    let sortDir = "asc";
+    let pendingOrganizerRemoval = null;
+    let pendingCompetitionCopy = null;
+
+    function setMsg(id, ok, text) {
+      const el = byId(id);
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = ok ? "ok" : "err";
+      el.textContent = text;
+    }
+
+    async function get(url) {
+      const r = await fetch(url);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.detail?.message || `HTTP ${r.status}`);
+      return d;
+    }
+
+    async function post(url, payload) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.detail?.message || `HTTP ${r.status}`);
+      return d;
+    }
+
+    function parseUtcDate(ts) {
+      if (!ts) return null;
+      const s = String(ts).trim();
+      if (!s) return null;
+      const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function fmtEt(ts) {
+      if (!ts) return "-";
+      const d = parseUtcDate(ts);
+      if (!d) return ts;
+      const p = (n) => String(n).padStart(2, "0");
+      return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function redirectToAdmin() {
+      window.location.replace("/admin.html");
+    }
+
+    function userIconSvg() {
+      return `<svg class=\"userIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><circle cx=\"12\" cy=\"8.5\" r=\"3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M6.5 18.5c0-3 2.4-5 5.5-5s5.5 2 5.5 5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function copyIconSvg() {
+      return `<svg class=\"copyIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"9\" y=\"4\" width=\"11\" height=\"14\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><rect x=\"4\" y=\"9\" width=\"11\" height=\"11\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/></svg>`;
+    }
+
+    function removeIconSvg() {
+      return `<svg class=\"removeIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/><path d=\"M9 7V5h6v2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/><rect x=\"6\" y=\"7\" width=\"12\" height=\"13\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M10 11v5M14 11v5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function cloneIconSvg() {
+      return `<svg class=\"cloneIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"8\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\" ry=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M8 8H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M11 10h6M11 14h6M11 18h6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function logoutIconSvg() {
+      return `<svg class=\"logoutIcon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/><path d=\"M14 8l6 4-6 4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 12H9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>`;
+    }
+
+    function renderCurrentUser(session) {
+      const box = byId("currentUserBox");
+      const name = (session?.full_name || session?.email || (session?.user_id ? `user#${session.user_id}` : "-")).toString();
+      const email = (session?.email || "").toString();
+      box.title = email || name;
+      box.innerHTML = `${userIconSvg()}<span>${esc(name)}</span>`;
+    }
+
+    async function copyText(value) {
+      const text = String(value || "");
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+
+    function closeCreateResultModal() {
+      byId("createResultBackdrop").style.display = "none";
+    }
+
+    function openCreateResultModal(competitionId, organizerCode) {
+      byId("createResultText").textContent = `Võistlus loodud (id=${competitionId}).`;
+      byId("createResultCode").textContent = organizerCode || "-";
+      byId("createResultBackdrop").style.display = "flex";
+    }
+
+    function parseOrganizers(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+          return [];
+        }
+      }
+      return [];
+    }
+
+    function renderOrganizersCell(organizers, competitionId, competitionName) {
+      if (!organizers.length) return "-";
+      return organizers.map((o) => {
+        const userId = Number(o?.user_id || 0);
+        const name = esc(o?.full_name || o?.email || `user#${userId}`);
+        const safeCompetitionName = esc(competitionName || `#${competitionId}`);
+        return `<div class="organizerItem"><span>${name}</span><button class="organizerRemoveBtn" type="button" data-act="remove-organizer" data-competition-id="${competitionId}" data-competition-name="${safeCompetitionName}" data-user-id="${userId}" data-user-name="${name}" title="Eemalda korraldaja" aria-label="Eemalda korraldaja">${removeIconSvg()}</button></div>`;
+      }).join("");
+    }
+
+    function sortIconFor(key) {
+      if (sortKey !== key) return "☰";
+      return sortDir === "asc" ? "▲" : "▼";
+    }
+
+    function refreshSortIcons() {
+      byId("sortId").textContent = sortIconFor("competition_id");
+      byId("sortName").textContent = sortIconFor("name");
+      byId("sortStatus").textContent = sortIconFor("status");
+      byId("sortCheckpointCount").textContent = sortIconFor("checkpoint_count");
+      byId("sortStart").textContent = sortIconFor("starts_at");
+      byId("sortEnd").textContent = sortIconFor("ends_at");
+    }
+
+    function sortedCompetitions() {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const items = [...competitionItems];
+      items.sort((a, b) => {
+        if (sortKey === "competition_id") return (Number(a.competition_id || 0) - Number(b.competition_id || 0)) * dir;
+        if (sortKey === "name" || sortKey === "status") {
+          return String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (sortKey === "checkpoint_count") {
+          return (Number(a.checkpoint_count || 0) - Number(b.checkpoint_count || 0)) * dir;
+        }
+        if (sortKey === "starts_at" || sortKey === "ends_at") {
+          const av = a[sortKey] ? (parseUtcDate(a[sortKey])?.getTime() ?? 0) : 0;
+          const bv = b[sortKey] ? (parseUtcDate(b[sortKey])?.getTime() ?? 0) : 0;
+          return (av - bv) * dir;
+        }
+        return 0;
+      });
+      return items;
+    }
+
+    function renderCompetitions() {
+      const items = sortedCompetitions();
+      byId("competitionsRows").innerHTML = items.map((x) => {
+        const org = parseOrganizers(x.organizers);
+        const useLocation = String(x.use_location || "N").toUpperCase() === "Y";
+        const showCompetitorLocation = String(x.show_competitor_location || "N").toUpperCase() === "Y";
+        const locationBadges = `${useLocation ? '<span style="font-weight:700;color:#b74545;">📍</span>' : ''}${showCompetitorLocation ? '<span style="font-weight:700;color:#2f8cff;font-size:18px;line-height:1;margin-left:4px;">●</span>' : ''}`;
+        const compId = Number(x.competition_id || 0);
+        const compName = String(x.name || "");
+        const orgText = renderOrganizersCell(org, compId, compName);
+        return `<tr>
+          <td class="idColCell">${Number(x.competition_id || 0)}</td>
+          <td class="nameColCell">${esc(x.name || "-")}</td>
+          <td class="statusColCell">${esc(x.status || "-")}</td>
+          <td class="kpCountColCell">${Number(x.checkpoint_count || 0)}</td>
+          <td class="locationColCell">${locationBadges}</td>
+          <td class="orgCodeColCell">${renderOrganizerCodeCell(x.organizer_code)}</td>
+          <td class="organizersCol">${orgText}</td>
+          <td class="startColCell">${esc(fmtEt(x.starts_at))}</td>
+          <td class="endColCell">${esc(fmtEt(x.ends_at))}</td>
+          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="Kopeeri võistlus" aria-label="Kopeeri võistlus">${cloneIconSvg()}</button></td>
+        </tr>`;
+      }).join("");
+      refreshSortIcons();
+    }
+
+    function setSort(key) {
+      if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
+      else {
+        sortKey = key;
+        sortDir = "asc";
+      }
+      renderCompetitions();
+    }
+
+    async function loadCompetitions() {
+      const d = await get("/api/superadmin/competitions");
+      competitionItems = Array.isArray(d.items) ? d.items : [];
+      renderCompetitions();
+    }
+
+    function closeRemoveOrganizerModal() {
+      pendingOrganizerRemoval = null;
+      setMsg("removeOrganizerMsg", true, "");
+      byId("removeOrganizerBackdrop").style.display = "none";
+      byId("removeOrganizerActions").classList.remove("hidden");
+      byId("removeOrganizerResultActions").classList.add("hidden");
+    }
+
+    function openRemoveOrganizerModal(payload) {
+      pendingOrganizerRemoval = payload;
+      byId("removeOrganizerTitle").textContent = "Korraldaja eemaldamine";
+      byId("removeOrganizerText").textContent = `Soovid ${payload.userName} eemaldada võistluse korraldajate seast?`;
+      setMsg("removeOrganizerMsg", true, "");
+      byId("removeOrganizerActions").classList.remove("hidden");
+      byId("removeOrganizerResultActions").classList.add("hidden");
+      byId("removeOrganizerBackdrop").style.display = "flex";
+    }
+
+    function closeCopyCompetitionModal() {
+      pendingCompetitionCopy = null;
+      setMsg("copyCompetitionMsg", true, "");
+      byId("copyCompetitionBackdrop").style.display = "none";
+      byId("copyCompetitionActions").classList.remove("hidden");
+      byId("copyCompetitionResultActions").classList.add("hidden");
+      byId("copyCompetitionFormArea").classList.remove("hidden");
+      byId("copyWithQuestions").checked = false;
+      byId("copyWithOrganizers").checked = false;
+    }
+
+    function openCopyCompetitionModal(payload) {
+      pendingCompetitionCopy = payload;
+      byId("copyCompetitionTitle").textContent = "Võistluse kopeerimine";
+      byId("copyCompetitionText").textContent = `Soovid kopeerida võistluse ${payload.competitionName} uueks võistluseks.`;
+      setMsg("copyCompetitionMsg", true, "");
+      byId("copyCompetitionActions").classList.remove("hidden");
+      byId("copyCompetitionResultActions").classList.add("hidden");
+      byId("copyCompetitionFormArea").classList.remove("hidden");
+      byId("copyWithQuestions").checked = false;
+      byId("copyWithOrganizers").checked = false;
+      byId("copyCompetitionBackdrop").style.display = "flex";
+    }
+
+    function renderOrganizerCodeCell(code) {
+      const safeCode = String(code || "").trim();
+      if (!safeCode || safeCode === "-") return "-";
+      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="Kopeeri kood" aria-label="Kopeeri kood">${copyIconSvg()}</button></span>`;
+    }
+
+    async function createCompetition() {
+      setMsg("createMsg", true, "");
+      const name = byId("newCompName").value.trim();
+      const description = byId("newCompDesc").value.trim();
+      if (!name) {
+        setMsg("createMsg", false, "Sisesta võistluse nimi.");
+        return;
+      }
+      const d = await post("/api/superadmin/competitions", { name, description: description || null });
+      setMsg("createMsg", true, "");
+      openCreateResultModal(d.competition_id, d.organizer_code);
+      byId("newCompName").value = "";
+      byId("newCompDesc").value = "";
+      await loadCompetitions();
+    }
+
+    async function googleLoginWithCredential(credential) {
+      const login = await post("/api/auth/google", { id_token: credential });
+      try {
+        const sa = await get("/api/superadmin/session");
+        renderCurrentUser({
+          user_id: sa.user_id,
+          full_name: login?.full_name,
+          email: login?.email,
+        });
+      } catch (_e) {
+        redirectToAdmin();
+        return;
+      }
+      byId("loginCard").classList.add("hidden");
+      byId("appArea").classList.remove("hidden");
+      await loadCompetitions();
+    }
+
+    async function initGoogleLogin() {
+      const cfg = await get("/api/auth/google/config");
+      if (!cfg || !cfg.enabled || !cfg.client_id) {
+        setMsg("loginMsg", false, "Google login ei ole serveris seadistatud.");
+        return;
+      }
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+        setMsg("loginMsg", false, "Google login skripti laadimine ebaõnnestus.");
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: cfg.client_id,
+        callback: async (resp) => {
+          try {
+            if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+            await googleLoginWithCredential(resp.credential);
+          } catch (e) {
+            setMsg("loginMsg", false, e.message || "Google sisselogimine ebaõnnestus.");
+          }
+        }
+      });
+      const mount = byId("googleLoginMount");
+      mount.innerHTML = "";
+      window.google.accounts.id.renderButton(mount, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular"
+      });
+    }
+
+    async function init() {
+      byId("logoutBtn").innerHTML = logoutIconSvg();
+      byId("copyCreatedCodeBtn").innerHTML = copyIconSvg();
+      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || "Loomine ebaõnnestus.")));
+      byId("logoutBtn").addEventListener("click", async () => {
+        await post("/api/auth/logout", {});
+        redirectToAdmin();
+      });
+      byId("goAdminBtn").addEventListener("click", () => {
+        window.location.href = "/admin.html";
+      });
+      byId("sortId").addEventListener("click", () => setSort("competition_id"));
+      byId("sortName").addEventListener("click", () => setSort("name"));
+      byId("sortStatus").addEventListener("click", () => setSort("status"));
+      byId("sortCheckpointCount").addEventListener("click", () => setSort("checkpoint_count"));
+      byId("sortStart").addEventListener("click", () => setSort("starts_at"));
+      byId("sortEnd").addEventListener("click", () => setSort("ends_at"));
+      byId("createResultCloseBtn").addEventListener("click", closeCreateResultModal);
+      byId("createResultBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("createResultBackdrop")) closeCreateResultModal();
+      });
+      byId("copyCreatedCodeBtn").addEventListener("click", async () => {
+        const code = byId("createResultCode").textContent || "";
+        await copyText(code);
+      });
+      byId("competitionsRows").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-act]");
+        if (!btn) return;
+        const act = btn.getAttribute("data-act");
+        if (act === "copy-code") {
+          await copyText(btn.getAttribute("data-code") || "");
+          return;
+        }
+        if (act === "remove-organizer") {
+          openRemoveOrganizerModal({
+            competitionId: Number(btn.getAttribute("data-competition-id") || 0),
+            competitionName: btn.getAttribute("data-competition-name") || "",
+            userId: Number(btn.getAttribute("data-user-id") || 0),
+            userName: btn.getAttribute("data-user-name") || "",
+          });
+          return;
+        }
+        if (act === "copy-competition") {
+          openCopyCompetitionModal({
+            competitionId: Number(btn.getAttribute("data-competition-id") || 0),
+            competitionName: btn.getAttribute("data-competition-name") || "",
+          });
+        }
+      });
+      byId("removeOrganizerNoBtn").addEventListener("click", closeRemoveOrganizerModal);
+      byId("removeOrganizerCloseBtn").addEventListener("click", closeRemoveOrganizerModal);
+      byId("removeOrganizerBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("removeOrganizerBackdrop")) closeRemoveOrganizerModal();
+      });
+      byId("removeOrganizerYesBtn").addEventListener("click", async () => {
+        try {
+          if (!pendingOrganizerRemoval) return;
+          await post("/api/superadmin/organizers/remove", {
+            competition_id: pendingOrganizerRemoval.competitionId,
+            user_id: pendingOrganizerRemoval.userId,
+          });
+          byId("removeOrganizerText").textContent = "";
+          setMsg(
+            "removeOrganizerMsg",
+            true,
+            `${pendingOrganizerRemoval.userName} eemaldatud võistluse ${pendingOrganizerRemoval.competitionName} korraldajate seast.`
+          );
+          byId("removeOrganizerActions").classList.add("hidden");
+          byId("removeOrganizerResultActions").classList.remove("hidden");
+          await loadCompetitions();
+        } catch (e) {
+          setMsg("removeOrganizerMsg", false, e.message || "Korraldaja eemaldamine ebaõnnestus.");
+        }
+      });
+      byId("copyCompetitionNoBtn").addEventListener("click", closeCopyCompetitionModal);
+      byId("copyCompetitionCloseBtn").addEventListener("click", closeCopyCompetitionModal);
+      byId("copyCompetitionBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("copyCompetitionBackdrop")) closeCopyCompetitionModal();
+      });
+      byId("copyCompetitionYesBtn").addEventListener("click", async () => {
+        try {
+          if (!pendingCompetitionCopy) return;
+          const res = await post("/api/superadmin/competitions/copy", {
+            source_competition_id: pendingCompetitionCopy.competitionId,
+            copy_questions: byId("copyWithQuestions").checked ? "Y" : "N",
+            copy_organizers: byId("copyWithOrganizers").checked ? "Y" : "N",
+          });
+          closeCopyCompetitionModal();
+          openCreateResultModal(res.competition_id, res.organizer_code);
+          await loadCompetitions();
+        } catch (e) {
+          setMsg("copyCompetitionMsg", false, e.message || "Võistluse kopeerimine ebaõnnestus.");
+        }
+      });
+
+      try {
+        const sa = await get("/api/superadmin/session");
+        const sess = await get("/api/auth/session").catch(() => ({}));
+        byId("loginCard").classList.add("hidden");
+        byId("appArea").classList.remove("hidden");
+        renderCurrentUser({ user_id: sa.user_id, full_name: sess?.full_name, email: sess?.email });
+        await loadCompetitions();
+        return;
+      } catch (_e) {
+        try {
+          const sess = await get("/api/auth/session");
+          if (sess && sess.authenticated) {
+            redirectToAdmin();
+            return;
+          }
+        } catch (__e) {}
+      }
+
+      await initGoogleLogin();
+    }
+
+    init().catch(() => redirectToAdmin());
+  </script>
+</body>
+</html>

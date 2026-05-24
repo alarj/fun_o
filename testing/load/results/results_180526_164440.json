@@ -1,0 +1,5413 @@
+{
+  "run": {
+    "started_at": "2026-05-18T16:44:40",
+    "ended_at": "2026-05-18T19:59:40",
+    "duration_seconds": 11699.771
+  },
+  "parameters": {
+    "host": "https://fun-o.eu",
+    "users": 120,
+    "spawn_rate": 40.0,
+    "run_time": 11700,
+    "headless": true,
+    "only_summary": true,
+    "load_competition_id": 41,
+    "load_access_code_set": true,
+    "load_kp_count": 50,
+    "load_duration_min": 180.0,
+    "load_finish_jitter_pct": 15.0,
+    "load_far_request_multiplier": 4,
+    "load_map_burst_seconds": 5.0,
+    "load_default_radius_m": 25.0,
+    "load_user_prefix": "T",
+    "load_user_count": 200,
+    "load_session_cookie_secure": false,
+    "load_slow_request_ms": 1500.0,
+    "load_max_logged_events": 0,
+    "load_max_body_chars": 0
+  },
+  "stats": {
+    "aggregated": {
+      "num_requests": 30807,
+      "num_failures": 0,
+      "avg_response_time_ms": 186.83807541422843,
+      "min_response_time_ms": 33.077206928282976,
+      "max_response_time_ms": 37976.6025620047,
+      "median_response_time_ms": 56,
+      "current_rps": 0.2,
+      "current_fail_per_sec": 0.0
+    },
+    "entries": [
+      {
+        "method": "GET",
+        "name": "GET /api/competitor/competitions",
+        "num_requests": 120,
+        "num_failures": 0,
+        "avg_response_time_ms": 2015.7370319939218,
+        "min_response_time_ms": 33.077206928282976,
+        "max_response_time_ms": 29289.450139040127,
+        "median_response_time_ms": 120.0,
+        "current_rps": 0.0,
+        "current_fail_per_sec": 0.0
+      },
+      {
+        "method": "GET",
+        "name": "GET /api/competitor/map-checkpoints",
+        "num_requests": 120,
+        "num_failures": 0,
+        "avg_response_time_ms": 2415.2312440235014,
+        "min_response_time_ms": 39.24457193352282,
+        "max_response_time_ms": 24780.556038953364,
+        "median_response_time_ms": 50,
+        "current_rps": 0.0,
+        "current_fail_per_sec": 0.0
+      },
+      {
+        "method": "GET",
+        "name": "GET /api/competitor/open-checkpoints",
+        "num_requests": 29821,
+        "num_failures": 0,
+        "avg_response_time_ms": 151.8072492450614,
+        "min_response_time_ms": 37.02558297663927,
+        "max_response_time_ms": 25936.399197904393,
+        "median_response_time_ms": 56,
+        "current_rps": 0.2,
+        "current_fail_per_sec": 0.0
+      },
+      {
+        "method": "POST",
+        "name": "POST /api/competitions/register",
+        "num_requests": 120,
+        "num_failures": 0,
+        "avg_response_time_ms": 2425.4590546207814,
+        "min_response_time_ms": 48.320919973775744,
+        "max_response_time_ms": 37976.6025620047,
+        "median_response_time_ms": 300.0,
+        "current_rps": 0.0,
+        "current_fail_per_sec": 0.0
+      },
+      {
+        "method": "POST",
+        "name": "POST /api/dev/login",
+        "num_requests": 120,
+        "num_failures": 0,
+        "avg_response_time_ms": 2587.4752053486495,
+        "min_response_time_ms": 155.676243128255,
+        "max_response_time_ms": 25054.46916911751,
+        "median_response_time_ms": 440.0,
+        "current_rps": 0.0,
+        "current_fail_per_sec": 0.0
+      },
+      {
+        "method": "POST",
+        "name": "POST /api/submissions",
+        "num_requests": 506,
+        "num_failures": 0,
+        "avg_response_time_ms": 188.94921982359037,
+        "min_response_time_ms": 41.49105818942189,
+        "max_response_time_ms": 24761.992561165243,
+        "median_response_time_ms": 60,
+        "current_rps": 0.0,
+        "current_fail_per_sec": 0.0
+      }
+    ],
+    "errors": []
+  },
+  "error_events": [],
+  "slow_events": [
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 1535.5164639186114,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T009@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 3368.602467002347,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T031@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12525.54365596734,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T004@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12569.243662059307,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T010@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12576.469875872135,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T033@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12590.425418922678,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T006@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12591.128384927288,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T022@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12602.945193182677,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T002@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12607.411987148225,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T039@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12611.358895897865,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T027@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:40",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12671.969508053735,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T040@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12280.05138086155,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12285.076018190011,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12382.067380007356,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12340.282427845523,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12307.872105157003,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12323.542102007195,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12250.183113850653,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12243.388263043016,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12413.617050973698,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T049@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12477.469287114218,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T063@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12503.889884101227,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T059@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12568.056162912399,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T053@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:41",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12581.534303026274,
+      "response_length": 14,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T074@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12470.517193200067,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12409.620737889782,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12411.150749074295,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12396.391198039055,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12385.953280841932,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12408.043324016035,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12363.44591085799,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12314.666226971895,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12278.56759680435,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12278.981319861487,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12424.76800410077,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T093@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12461.062235059217,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T082@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12468.46480993554,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T116@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12526.01943910122,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T115@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 12580.744406906888,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T103@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4275250&longitude=24.7395358&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12483.423720113933,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4275250",
+        "longitude": "24.7395358",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12503.6999899894,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12559.490045998245,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12517.826093826443,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12502.427340019494,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12508.463584817946,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12423.566551180556,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4780462&longitude=24.6765574&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12382.053120061755,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4780462",
+        "longitude": "24.6765574",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12362.698694923893,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12323.468840913847,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12360.12783413753,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12268.226389074698,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12276.64208994247,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3879400&longitude=24.8191640&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12272.231616079807,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3879400",
+        "longitude": "24.8191640",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12248.244755901396,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12257.283903192729,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12262.882424052805,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12257.296300958842,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4604132&longitude=24.7004204&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12287.925209850073,
+      "response_length": 1416,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4604132",
+        "longitude": "24.7004204",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3936474&longitude=24.7353454&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12279.897947097197,
+      "response_length": 571,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3936474",
+        "longitude": "24.7353454",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4839790&longitude=24.7440714&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12260.505158919841,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4839790",
+        "longitude": "24.7440714",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12255.607241997495,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12267.313485965133,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12255.856797099113,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12250.004107132554,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4243374&longitude=24.7300921&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.74598409608,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4243374",
+        "longitude": "24.7300921",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12254.16377489455,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4687986&longitude=24.8169354&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.954525053501,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4687986",
+        "longitude": "24.8169354",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:47",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4293423&longitude=24.6928868&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.459357026964,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4293423",
+        "longitude": "24.6928868",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:48",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4288400&longitude=24.7035292&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12254.19979984872,
+      "response_length": 1697,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4288400",
+        "longitude": "24.7035292",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:53",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12276.706874836236,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:53",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 12288.991685956717,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:54",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 12268.241242971271,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/dev/login",
+      "url": "https://fun-o.eu/api/dev/login",
+      "status_code": 200,
+      "response_time_ms": 25054.46916911751,
+      "response_length": 15,
+      "exception": null,
+      "path": "/api/dev/login",
+      "query_params": {},
+      "request_body": "{\"email\": \"T100@funo.local\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3957990&longitude=24.7048191&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12261.464498005807,
+      "response_length": 852,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3957990",
+        "longitude": "24.7048191",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4768406&longitude=24.8131056&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.67454406619,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4768406",
+        "longitude": "24.8131056",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 24892.426112899557,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:44:56",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4041459&longitude=24.7943843&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12249.38324582763,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4041459",
+        "longitude": "24.7943843",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:56",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4786620&longitude=24.7151691&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12255.963973002508,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4786620",
+        "longitude": "24.7151691",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:56",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12276.582882972434,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:57",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12251.888770144433,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:57",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4613650&longitude=24.7377814&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12255.62979397364,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4613650",
+        "longitude": "24.7377814",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 24777.401526924223,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:58",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4374431&longitude=24.8158708&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 13253.650777041912,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4374431",
+        "longitude": "24.8158708",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:56",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4190563&longitude=24.8112570&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 15176.079063909128,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4190563",
+        "longitude": "24.8112570",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:06",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4521490&longitude=24.7473376&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 4717.8515158593655,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4521490",
+        "longitude": "24.7473376",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 16241.083041997626,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:43",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 28569.02644294314,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:45:08",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4500796&longitude=24.7216279&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 2792.530344100669,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4500796",
+        "longitude": "24.7216279",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 29289.450139040127,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:00",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12259.429475059733,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:54",
+      "request_type": "GET",
+      "name": "GET /api/competitor/competitions",
+      "url": "https://fun-o.eu/api/competitor/competitions",
+      "status_code": 200,
+      "response_time_ms": 24764.445655979216,
+      "response_length": 170,
+      "exception": null,
+      "path": "/api/competitor/competitions",
+      "query_params": {},
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:42",
+      "request_type": "POST",
+      "name": "POST /api/competitions/register",
+      "url": "https://fun-o.eu/api/competitions/register",
+      "status_code": 400,
+      "response_time_ms": 37976.6025620047,
+      "response_length": 667,
+      "exception": null,
+      "path": "/api/competitions/register",
+      "query_params": {},
+      "request_body": "{\"access_code\": \"508671\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:45:08",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12260.980732971802,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:44:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4548765&longitude=24.8144237&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24769.76215117611,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4548765",
+        "longitude": "24.8144237",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:13",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 12252.576941158623,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:13",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4414997&longitude=24.7582293&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12247.367660049349,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4414997",
+        "longitude": "24.7582293",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:14",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4397518&longitude=24.8033394&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.729874009266,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4397518",
+        "longitude": "24.8033394",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4346882&longitude=24.7130939&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.251898059621,
+      "response_length": 1697,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4346882",
+        "longitude": "24.7130939",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:18",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4643650&longitude=24.7368414&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12262.535165064037,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4643650",
+        "longitude": "24.7368414",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:20",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4414188&longitude=24.7583519&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12256.356979021803,
+      "response_length": 1696,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4414188",
+        "longitude": "24.7583519",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:23",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4171912&longitude=24.7816006&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.353656968102,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4171912",
+        "longitude": "24.7816006",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4329715&longitude=24.7024915&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.585419125855,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4329715",
+        "longitude": "24.7024915",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:16",
+      "request_type": "GET",
+      "name": "GET /api/competitor/map-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/map-checkpoints?competition_id=41",
+      "status_code": 200,
+      "response_time_ms": 24780.556038953364,
+      "response_length": 8948,
+      "exception": null,
+      "path": "/api/competitor/map-checkpoints",
+      "query_params": {
+        "competition_id": "41"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4104576&longitude=24.8292018&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.247679185122,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4104576",
+        "longitude": "24.8292018",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4044734&longitude=24.7667872&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.762277981266,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4044734",
+        "longitude": "24.7667872",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:33",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4066400&longitude=24.7563946&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.54314795509,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4066400",
+        "longitude": "24.7563946",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:34",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4375441&longitude=24.7136604&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.540349839255,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4375441",
+        "longitude": "24.7136604",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4509805&longitude=24.6825263&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.298044109717,
+      "response_length": 1696,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4509805",
+        "longitude": "24.6825263",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:36",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4596155&longitude=24.6892007&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12255.89031400159,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4596155",
+        "longitude": "24.6892007",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:38",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4787037&longitude=24.7229311&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.891474980861,
+      "response_length": 571,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4787037",
+        "longitude": "24.7229311",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4014606&longitude=24.8181590&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.250292036682,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4014606",
+        "longitude": "24.8181590",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4675120&longitude=24.8064822&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.069605160505,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4675120",
+        "longitude": "24.8064822",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4318772&longitude=24.7078041&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.421452870592,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4318772",
+        "longitude": "24.7078041",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4459388&longitude=24.6861702&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.683736125007,
+      "response_length": 1697,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4459388",
+        "longitude": "24.6861702",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4318858&longitude=24.7374012&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12263.28330882825,
+      "response_length": 1694,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4318858",
+        "longitude": "24.7374012",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4828571&longitude=24.7052037&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.843794973567,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4828571",
+        "longitude": "24.7052037",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4139345&longitude=24.7070397&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.914030173793,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4139345",
+        "longitude": "24.7070397",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:47",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4136626&longitude=24.7706940&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.666352083907,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4136626",
+        "longitude": "24.7706940",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:53",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4387492&longitude=24.7585947&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.28286189586,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4387492",
+        "longitude": "24.7585947",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:53",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4756401&longitude=24.7253653&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.325339173898,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4756401",
+        "longitude": "24.7253653",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4459240&longitude=24.6863459&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12253.916291054338,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4459240",
+        "longitude": "24.6863459",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3889139&longitude=24.7432857&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.381820136681,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3889139",
+        "longitude": "24.7432857",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:58",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4719763&longitude=24.8219731&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12249.169026035815,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4719763",
+        "longitude": "24.8219731",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:59",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3958888&longitude=24.7455775&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12256.79535488598,
+      "response_length": 571,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3958888",
+        "longitude": "24.7455775",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:47",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4554370&longitude=24.6925155&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24775.547397788614,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4554370",
+        "longitude": "24.6925155",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:49",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4500952&longitude=24.7506687&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 24771.740528056398,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4500952",
+        "longitude": "24.7506687",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:04",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4181353&longitude=24.7406710&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.878774931654,
+      "response_length": 1415,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4181353",
+        "longitude": "24.7406710",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4171280&longitude=24.7288778&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.980071939528,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4171280",
+        "longitude": "24.7288778",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:45:53",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4462490&longitude=24.7938225&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24767.718146787956,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4462490",
+        "longitude": "24.7938225",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:11",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4705503&longitude=24.8099574&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.58306709677,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4705503",
+        "longitude": "24.8099574",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:01",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4682691&longitude=24.7688017&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24773.171359905973,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4682691",
+        "longitude": "24.7688017",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4024581&longitude=24.6740355&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.361457027495,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4024581",
+        "longitude": "24.6740355",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:19",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4053502&longitude=24.7922626&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12272.385702002794,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4053502",
+        "longitude": "24.7922626",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4243088&longitude=24.7301849&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12253.252872964367,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4243088",
+        "longitude": "24.7301849",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4520821&longitude=24.7889367&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.662336057052,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4520821",
+        "longitude": "24.7889367",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4360091&longitude=24.7995616&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.633429063484,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4360091",
+        "longitude": "24.7995616",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:26",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4544812&longitude=24.7578153&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.451575947925,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4544812",
+        "longitude": "24.7578153",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:26",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4391117&longitude=24.7632553&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12256.588045042008,
+      "response_length": 1413,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4391117",
+        "longitude": "24.7632553",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:15",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4472194&longitude=24.8191727&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24760.059557156637,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4472194",
+        "longitude": "24.8191727",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:18",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4813808&longitude=24.7813709&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24758.01132596098,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4813808",
+        "longitude": "24.7813709",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4029341&longitude=24.7895910&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.260038930923,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4029341",
+        "longitude": "24.7895910",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4031027&longitude=24.8184474&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.514887014404,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4031027",
+        "longitude": "24.8184474",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:34",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4244510&longitude=24.7301859&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12254.002083092928,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4244510",
+        "longitude": "24.7301859",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:36",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4656954&longitude=24.6963498&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.402726914734,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4656954",
+        "longitude": "24.6963498",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:37",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4617274&longitude=24.7349254&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.554899124429,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4617274",
+        "longitude": "24.7349254",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:37",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4609741&longitude=24.7621929&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12256.338952109218,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4609741",
+        "longitude": "24.7621929",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:30",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4242829&longitude=24.7304136&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 24765.155775938183,
+      "response_length": 1413,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4242829",
+        "longitude": "24.7304136",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4347960&longitude=24.6919725&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.151482135057,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4347960",
+        "longitude": "24.6919725",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:48",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4426347&longitude=24.7419827&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12263.198478147388,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4426347",
+        "longitude": "24.7419827",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:48",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4461651&longitude=24.7874559&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.887427013367,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4461651",
+        "longitude": "24.7874559",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:36",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4075750&longitude=24.6760455&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24755.602051969618,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4075750",
+        "longitude": "24.6760455",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:54",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3990371&longitude=24.7564674&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.943850915879,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3990371",
+        "longitude": "24.7564674",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:57",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4349740&longitude=24.7087099&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.05047901161,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4349740",
+        "longitude": "24.7087099",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:46:58",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4737321&longitude=24.7434692&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12259.425812866539,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4737321",
+        "longitude": "24.7434692",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:01",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4633599&longitude=24.7865963&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12259.66522982344,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4633599",
+        "longitude": "24.7865963",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:03",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4095192&longitude=24.8184704&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.854937031865,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4095192",
+        "longitude": "24.8184704",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:03",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4778174&longitude=24.8260489&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.372493131086,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4778174",
+        "longitude": "24.8260489",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4239996&longitude=24.6815971&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.769062830135,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4239996",
+        "longitude": "24.6815971",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:07",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4818670&longitude=24.8026617&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.7610160131,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4818670",
+        "longitude": "24.8026617",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:12",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4315577&longitude=24.8267198&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.478868044913,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4315577",
+        "longitude": "24.8267198",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:19",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4602321&longitude=24.8279346&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.393471146002,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4602321",
+        "longitude": "24.8279346",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:21",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4290015&longitude=24.7033510&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12265.241640852764,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4290015",
+        "longitude": "24.7033510",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:22",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4373867&longitude=24.7607089&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12261.230720905587,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4373867",
+        "longitude": "24.7607089",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:23",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4012296&longitude=24.6966747&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.13296700269,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4012296",
+        "longitude": "24.6966747",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:27",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4426548&longitude=24.7387758&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12251.8425360322,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4426548",
+        "longitude": "24.7387758",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:15",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4002784&longitude=24.7849669&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24756.600295891985,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4002784",
+        "longitude": "24.7849669",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:30",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4503810&longitude=24.7744862&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12259.357450064272,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4503810",
+        "longitude": "24.7744862",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4572950&longitude=24.7247154&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.639340141788,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4572950",
+        "longitude": "24.7247154",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:19",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4101906&longitude=24.7037987&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24757.250886876136,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4101906",
+        "longitude": "24.7037987",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4607885&longitude=24.7190483&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12252.781472168863,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4607885",
+        "longitude": "24.7190483",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4635158&longitude=24.7591779&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.842429094017,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4635158",
+        "longitude": "24.7591779",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:33",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4436336&longitude=24.6933846&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12261.222323868424,
+      "response_length": 1133,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4436336",
+        "longitude": "24.6933846",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4490266&longitude=24.8058973&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12246.670044958591,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4490266",
+        "longitude": "24.8058973",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:36",
+      "request_type": "POST",
+      "name": "POST /api/submissions",
+      "url": "https://fun-o.eu/api/submissions",
+      "status_code": 200,
+      "response_time_ms": 12255.196576938033,
+      "response_length": 78,
+      "exception": null,
+      "path": "/api/submissions",
+      "query_params": {},
+      "request_body": "{\"competition_id\": 41, \"checkpoint_id\": 252, \"question_id\": 207, \"answer_text\": \"NOK\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:47:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4331030&longitude=24.6949747&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24767.87064783275,
+      "response_length": 2256,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4331030",
+        "longitude": "24.6949747",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:38",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4654819&longitude=24.7652174&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.953232895583,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4654819",
+        "longitude": "24.7652174",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:39",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4731043&longitude=24.6857197&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12264.525985810906,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4731043",
+        "longitude": "24.6857197",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4711219&longitude=24.7386683&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.627894092351,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4711219",
+        "longitude": "24.7386683",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4532644&longitude=24.7537048&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12256.498071132228,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4532644",
+        "longitude": "24.7537048",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4360036&longitude=24.8011246&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12256.911426084116,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4360036",
+        "longitude": "24.8011246",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:44",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4383679&longitude=24.7407312&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12256.191967055202,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4383679",
+        "longitude": "24.7407312",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4626996&longitude=24.6963758&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24756.851135054603,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4626996",
+        "longitude": "24.6963758",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4333618&longitude=24.7053414&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12258.829143131152,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4333618",
+        "longitude": "24.7053414",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4142801&longitude=24.6927668&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12260.210351087153,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4142801",
+        "longitude": "24.6927668",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:51",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4412368&longitude=24.7115722&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12258.687015855685,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4412368",
+        "longitude": "24.7115722",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4792154&longitude=24.8171073&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.944579157978,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4792154",
+        "longitude": "24.8171073",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3957484&longitude=24.8150986&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24758.452005917206,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3957484",
+        "longitude": "24.8150986",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:59",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4642485&longitude=24.7369632&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 8230.559302959591,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4642485",
+        "longitude": "24.7369632",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:47:57",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4288440&longitude=24.7033364&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12254.390064859763,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4288440",
+        "longitude": "24.7033364",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:01",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4288997&longitude=24.7104172&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12252.967428183183,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4288997",
+        "longitude": "24.7104172",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:02",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3934931&longitude=24.6841877&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.906793124974,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3934931",
+        "longitude": "24.6841877",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:04",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3979918&longitude=24.8253831&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12282.838387181982,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3979918",
+        "longitude": "24.8253831",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:04",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4053177&longitude=24.8329412&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.68048902601,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4053177",
+        "longitude": "24.8329412",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:08",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4319177&longitude=24.7810048&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.367936074734,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4319177",
+        "longitude": "24.7810048",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:11",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4834990&longitude=24.6997147&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.950833015144,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4834990",
+        "longitude": "24.6997147",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:20",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4609496&longitude=24.7619934&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.319554073736,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4609496",
+        "longitude": "24.7619934",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:24",
+      "request_type": "POST",
+      "name": "POST /api/submissions",
+      "url": "https://fun-o.eu/api/submissions",
+      "status_code": 200,
+      "response_time_ms": 12258.867352968082,
+      "response_length": 77,
+      "exception": null,
+      "path": "/api/submissions",
+      "query_params": {},
+      "request_body": "{\"competition_id\": 41, \"checkpoint_id\": 246, \"question_id\": 201, \"answer_text\": \"OK\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:48:13",
+      "request_type": "POST",
+      "name": "POST /api/submissions",
+      "url": "https://fun-o.eu/api/submissions",
+      "status_code": 200,
+      "response_time_ms": 24761.992561165243,
+      "response_length": 77,
+      "exception": null,
+      "path": "/api/submissions",
+      "query_params": {},
+      "request_body": "{\"competition_id\": 41, \"checkpoint_id\": 271, \"question_id\": 226, \"answer_text\": \"OK\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:48:26",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4619482&longitude=24.7082424&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12252.144771860912,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4619482",
+        "longitude": "24.7082424",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:29",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4711679&longitude=24.8029802&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12246.894997078925,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4711679",
+        "longitude": "24.8029802",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4734085&longitude=24.7675716&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.25518601574,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4734085",
+        "longitude": "24.7675716",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3958875&longitude=24.6935173&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12249.866116093472,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3958875",
+        "longitude": "24.6935173",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:34",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4192165&longitude=24.7617567&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.3337158598,
+      "response_length": 852,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4192165",
+        "longitude": "24.7617567",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4465709&longitude=24.7730138&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12501.41513790004,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4465709",
+        "longitude": "24.7730138",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4363541&longitude=24.8267991&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24785.94539198093,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4363541",
+        "longitude": "24.8267991",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4822882&longitude=24.7952290&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24755.942397983745,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4822882",
+        "longitude": "24.7952290",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:38",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4089149&longitude=24.7891891&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12257.93254096061,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4089149",
+        "longitude": "24.7891891",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4567543&longitude=24.7477375&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12254.058291204274,
+      "response_length": 1416,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4567543",
+        "longitude": "24.7477375",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4526086&longitude=24.7031335&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12257.633432978764,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4526086",
+        "longitude": "24.7031335",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:30",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4287843&longitude=24.7031569&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 24758.388557936996,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4287843",
+        "longitude": "24.7031569",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4211647&longitude=24.7973334&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12263.953994959593,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4211647",
+        "longitude": "24.7973334",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4173798&longitude=24.8192279&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.791906051338,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4173798",
+        "longitude": "24.8192279",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4288433&longitude=24.7104257&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12248.551858821884,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4288433",
+        "longitude": "24.7104257",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4221242&longitude=24.7530723&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 24754.691700916737,
+      "response_length": 1135,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4221242",
+        "longitude": "24.7530723",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4536775&longitude=24.6911987&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.101836165413,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4536775",
+        "longitude": "24.6911987",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:50",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3930254&longitude=24.6861907&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 14102.065315004438,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3930254",
+        "longitude": "24.6861907",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:55",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4620671&longitude=24.6732817&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12266.193253919482,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4620671",
+        "longitude": "24.6732817",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:56",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4149718&longitude=24.7322559&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12254.905564012006,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4149718",
+        "longitude": "24.7322559",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:58",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4729789&longitude=24.7438115&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.40309489891,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4729789",
+        "longitude": "24.7438115",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:48:59",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4160780&longitude=24.6907519&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.611929085106,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4160780",
+        "longitude": "24.6907519",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:01",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4285040&longitude=24.7147832&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.38561487943,
+      "response_length": 570,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4285040",
+        "longitude": "24.7147832",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:07",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4233479&longitude=24.7176555&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12250.58086682111,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4233479",
+        "longitude": "24.7176555",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:09",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4084158&longitude=24.7109102&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12249.509564833716,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4084158",
+        "longitude": "24.7109102",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:10",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4427622&longitude=24.7389036&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12252.643782878295,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4427622",
+        "longitude": "24.7389036",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:12",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4280183&longitude=24.7535676&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12258.358894847333,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4280183",
+        "longitude": "24.7535676",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:12",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4319392&longitude=24.7074592&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12249.74450818263,
+      "response_length": 1697,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4319392",
+        "longitude": "24.7074592",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:06",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4020073&longitude=24.7664944&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24757.620024029166,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4020073",
+        "longitude": "24.7664944",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:19",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4149414&longitude=24.7319014&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12255.151986144483,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4149414",
+        "longitude": "24.7319014",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:21",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4281583&longitude=24.7227224&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.56686415337,
+      "response_length": 1696,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4281583",
+        "longitude": "24.7227224",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:26",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4169593&longitude=24.7402294&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12259.632179047912,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4169593",
+        "longitude": "24.7402294",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:27",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4757278&longitude=24.7357506&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12258.074444020167,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4757278",
+        "longitude": "24.7357506",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:27",
+      "request_type": "POST",
+      "name": "POST /api/submissions",
+      "url": "https://fun-o.eu/api/submissions",
+      "status_code": 200,
+      "response_time_ms": 12257.862519007176,
+      "response_length": 78,
+      "exception": null,
+      "path": "/api/submissions",
+      "query_params": {},
+      "request_body": "{\"competition_id\": 41, \"checkpoint_id\": 254, \"question_id\": 209, \"answer_text\": \"NOK\"}"
+    },
+    {
+      "timestamp": "2026-05-18T16:49:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4764860&longitude=24.7997217&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12255.961967166513,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4764860",
+        "longitude": "24.7997217",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:31",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4525073&longitude=24.7035590&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12269.41714505665,
+      "response_length": 1694,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4525073",
+        "longitude": "24.7035590",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4154165&longitude=24.7623911&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12255.90547802858,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4154165",
+        "longitude": "24.7623911",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:37",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4738301&longitude=24.7574440&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12250.343530904502,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4738301",
+        "longitude": "24.7574440",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4150305&longitude=24.7117499&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24755.96521794796,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4150305",
+        "longitude": "24.7117499",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:41",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4853010&longitude=24.7856083&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12260.575141059235,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4853010",
+        "longitude": "24.7856083",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:30",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4451479&longitude=24.8262185&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24757.27365911007,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4451479",
+        "longitude": "24.8262185",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4451946&longitude=24.6921930&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12271.130168111995,
+      "response_length": 1414,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4451946",
+        "longitude": "24.6921930",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4573441&longitude=24.7331975&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12247.790503082797,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4573441",
+        "longitude": "24.7331975",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:47",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4687711&longitude=24.7231289&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12252.288087969646,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4687711",
+        "longitude": "24.7231289",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:48",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4105761&longitude=24.6853522&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.513260908425,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4105761",
+        "longitude": "24.6853522",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:51",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4056949&longitude=24.6782730&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12246.667267056182,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4056949",
+        "longitude": "24.6782730",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4133916&longitude=24.7937960&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12253.539229976013,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4133916",
+        "longitude": "24.7937960",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:57",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4866090&longitude=24.6871967&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.547368967906,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4866090",
+        "longitude": "24.6871967",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:58",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4227935&longitude=24.8198293&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12254.076599143445,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4227935",
+        "longitude": "24.8198293",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:49:50",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4858526&longitude=24.7898812&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 24756.831072969362,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4858526",
+        "longitude": "24.7898812",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4793964&longitude=24.7330285&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12258.545557036996,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4793964",
+        "longitude": "24.7330285",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4278044&longitude=24.8007231&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.62144398503,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4278044",
+        "longitude": "24.8007231",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:07",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4381558&longitude=24.7163190&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.032850006595,
+      "response_length": 1413,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4381558",
+        "longitude": "24.7163190",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:08",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4440715&longitude=24.7375275&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 12247.889140853658,
+      "response_length": 1415,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4440715",
+        "longitude": "24.7375275",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:10",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4070864&longitude=24.7317453&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12249.851146014407,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4070864",
+        "longitude": "24.7317453",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:13",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4814125&longitude=24.8049515&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.337099121884,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4814125",
+        "longitude": "24.8049515",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4497010&longitude=24.8064056&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12260.796505957842,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4497010",
+        "longitude": "24.8064056",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:18",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4668670&longitude=24.7483597&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12258.022201946005,
+      "response_length": 1416,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4668670",
+        "longitude": "24.7483597",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:27",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4570914&longitude=24.6974017&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12259.335567010567,
+      "response_length": 1133,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4570914",
+        "longitude": "24.6974017",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:32",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4758884&longitude=24.6898585&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12248.160458169878,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4758884",
+        "longitude": "24.6898585",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:34",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4435356&longitude=24.7215048&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 12251.954518957064,
+      "response_length": 1134,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4435356",
+        "longitude": "24.7215048",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3972186&longitude=24.8114606&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 10518.9279881306,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3972186",
+        "longitude": "24.8114606",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:39",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4014921&longitude=24.6864107&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 6818.3851120993495,
+      "response_length": 572,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4014921",
+        "longitude": "24.6864107",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4344205&longitude=24.7370296&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 11017.14608212933,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4344205",
+        "longitude": "24.7370296",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4683447&longitude=24.7903470&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 11224.31958396919,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4683447",
+        "longitude": "24.7903470",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4776817&longitude=24.7237567&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2695.1537770219147,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4776817",
+        "longitude": "24.7237567",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:37",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4631062&longitude=24.7449702&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 9338.257864816114,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4631062",
+        "longitude": "24.7449702",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:30",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4691958&longitude=24.7580984&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 16423.51413797587,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4691958",
+        "longitude": "24.7580984",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:50:22",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4191469&longitude=24.7181224&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 25936.399197904393,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4191469",
+        "longitude": "24.7181224",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:58:34",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3991784&longitude=24.7746338&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3006.898378022015,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3991784",
+        "longitude": "24.7746338",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:58:35",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4349904&longitude=24.7237211&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1528.4848872106522,
+      "response_length": 853,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4349904",
+        "longitude": "24.7237211",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T16:59:00",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4159368&longitude=24.7325686&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2380.6663879659027,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4159368",
+        "longitude": "24.7325686",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:08:40",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4428357&longitude=24.7999844&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2161.297590006143,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4428357",
+        "longitude": "24.7999844",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:18:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4609007&longitude=24.7622595&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 1821.162038948387,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4609007",
+        "longitude": "24.7622595",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:18:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4740844&longitude=24.7721772&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2160.5176059529185,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4740844",
+        "longitude": "24.7721772",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:41:07",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4600935&longitude=24.8239764&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3533.7054459378123,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4600935",
+        "longitude": "24.8239764",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:45:13",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4815591&longitude=24.7990984&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2757.186448900029,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4815591",
+        "longitude": "24.7990984",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:49:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4218840&longitude=24.7248656&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1518.7454319093376,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4218840",
+        "longitude": "24.7248656",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:49:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3952965&longitude=24.7320753&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2128.078281180933,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3952965",
+        "longitude": "24.7320753",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:52:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4215144&longitude=24.7382034&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2262.24406901747,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4215144",
+        "longitude": "24.7382034",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T17:52:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4217020&longitude=24.8292138&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4376.90348806791,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4217020",
+        "longitude": "24.8292138",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:09:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4524327&longitude=24.6903870&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1559.6197489649057,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4524327",
+        "longitude": "24.6903870",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:09:46",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4332763&longitude=24.8198049&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2081.500732107088,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4332763",
+        "longitude": "24.8198049",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:09:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4294682&longitude=24.7186058&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4422.68642806448,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4294682",
+        "longitude": "24.7186058",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:20:00",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4003557&longitude=24.7313768&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3658.7549240794033,
+      "response_length": 573,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4003557",
+        "longitude": "24.7313768",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:30:42",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4028761&longitude=24.7601343&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2381.9886120036244,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4028761",
+        "longitude": "24.7601343",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:30:43",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4725121&longitude=24.7431572&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1747.5461750291288,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4725121",
+        "longitude": "24.7431572",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:33:21",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3912992&longitude=24.7134165&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4483.15940820612,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3912992",
+        "longitude": "24.7134165",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:33:23",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4370996&longitude=24.7534687&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 2329.4363429304212,
+      "response_length": 854,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4370996",
+        "longitude": "24.7534687",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:45:16",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4620005&longitude=24.7082715&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 4123.279271880165,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4620005",
+        "longitude": "24.7082715",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:47:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4243501&longitude=24.7301780&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 1576.8577470444143,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4243501",
+        "longitude": "24.7301780",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:50:00",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4375223&longitude=24.7608288&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 1543.0572361219674,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4375223",
+        "longitude": "24.7608288",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4292266&longitude=24.7669393&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 4623.823137953877,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4292266",
+        "longitude": "24.7669393",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:18",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4688218&longitude=24.6863169&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3766.615319997072,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4688218",
+        "longitude": "24.6863169",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:18",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4357551&longitude=24.6864939&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4404.735122108832,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4357551",
+        "longitude": "24.6864939",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:24",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4336569&longitude=24.7675982&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2758.359660161659,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4336569",
+        "longitude": "24.7675982",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:25",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4298312&longitude=24.7777145&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1501.878865994513,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4298312",
+        "longitude": "24.7777145",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:23",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3891068&longitude=24.7597145&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4053.528231102973,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3891068",
+        "longitude": "24.7597145",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T18:53:23",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4672046&longitude=24.7405720&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3840.0651710107923,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4672046",
+        "longitude": "24.7405720",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:00:21",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4380788&longitude=24.6793311&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3385.9347489196807,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4380788",
+        "longitude": "24.6793311",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:10:48",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4528748&longitude=24.7176397&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1519.8967750184238,
+      "response_length": 292,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4528748",
+        "longitude": "24.7176397",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:10:45",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4185086&longitude=24.8066855&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4451.411996036768,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4185086",
+        "longitude": "24.8066855",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:21:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4091233&longitude=24.7295020&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2359.2412730213255,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4091233",
+        "longitude": "24.7295020",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:21:06",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3976963&longitude=24.6742886&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2141.9050509575754,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3976963",
+        "longitude": "24.6742886",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:21:05",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4841523&longitude=24.7192077&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2371.01647304371,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4841523",
+        "longitude": "24.7192077",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:21:06",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4309157&longitude=24.7036266&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1612.2328869532794,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4309157",
+        "longitude": "24.7036266",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:23:47",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4676793&longitude=24.7427179&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1755.000449018553,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4676793",
+        "longitude": "24.7427179",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:24:03",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.3915866&longitude=24.8277862&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 1638.198863947764,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.3915866",
+        "longitude": "24.8277862",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:30:53",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4145603&longitude=24.7913565&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2600.3925409168005,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4145603",
+        "longitude": "24.7913565",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:30:51",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4360362&longitude=24.7949933&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 4112.265157047659,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4360362",
+        "longitude": "24.7949933",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:30:52",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4490505&longitude=24.7752167&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 3405.0385169684887,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4490505",
+        "longitude": "24.7752167",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:30:51",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4293066&longitude=24.7671867&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 4216.292016906664,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4293066",
+        "longitude": "24.7671867",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:32:04",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4222971&longitude=24.7202479&radius_m=15.00",
+      "status_code": 200,
+      "response_time_ms": 2448.729680851102,
+      "response_length": 291,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4222971",
+        "longitude": "24.7202479",
+        "radius_m": "15.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:41:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4756684&longitude=24.6859126&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2422.893149079755,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4756684",
+        "longitude": "24.6859126",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:41:17",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4269146&longitude=24.7610686&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2534.973098896444,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4269146",
+        "longitude": "24.7610686",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    },
+    {
+      "timestamp": "2026-05-18T19:41:19",
+      "request_type": "GET",
+      "name": "GET /api/competitor/open-checkpoints",
+      "url": "https://fun-o.eu/api/competitor/open-checkpoints?competition_id=41&latitude=59.4812812&longitude=24.6910777&radius_m=20.00",
+      "status_code": 200,
+      "response_time_ms": 2258.7804282084107,
+      "response_length": 12,
+      "exception": null,
+      "path": "/api/competitor/open-checkpoints",
+      "query_params": {
+        "competition_id": "41",
+        "latitude": "59.4812812",
+        "longitude": "24.6910777",
+        "radius_m": "20.00"
+      },
+      "request_body": null
+    }
+  ]
+}

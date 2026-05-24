@@ -1,0 +1,164 @@
+# Süsteemi arhitektuur (seisuga tänane kood)
+
+See dokument kirjeldab ainult neid arhitektuuriosi, mis on repo olemasoleva koodi ja dokumentidega tõendatavad.
+
+Allikad:
+- `backend/README.md`
+- `docs/erd.md`
+- `docs/location_rules.md`
+- `docs/competitor_join_rules.md`
+- `docker-compose.yml`
+- `nginx/default.conf`
+
+## 1) Andmebaas
+
+Mida teeb:
+- Hoidab põhiandmeid: kasutajad, rollid, võistlused, osalused, kontrollpunktid, küsimused, valikud/õiged vastused, tulemused, audit.
+- Hoiab liitumise, küsimuste ja tulemuste jaoks vajalikke ärireeglitega seotud välju (sh ajaraamid, staatused, asukohareeglid, tingimuste versioonid).
+- Kasutab pehme kustutamise mudelit (`start_date`, `end_date`) enamikus äritabelites; `submissions` tabel on dokumentatsiooni järgi erand.
+
+Miks nii on tehtud:
+- Ärireeglid ja andmekonsistents on tsentraalselt DB-s (FK-d, kontrollid, aktiivse kirje mõiste).
+- Audit ja soft-delete võimaldavad ajaloolist jälgitavust.
+- Ajalised ja staatusekontrollid toetavad võistluse elutsüklit (DRAFT/INACTIVE/ACTIVE + ajavahemik).
+
+Tehnoloogia:
+- Oracle Autonomous Database
+- SQL + PL/SQL
+- Andmemudel kirjeldatud ERD-s
+
+Viited:
+- `docs/erd.md`
+- `docs/location_rules.md`
+- `docs/competitor_join_rules.md`
+
+## 2) ORDS kui baasi liides
+
+Mida teeb:
+- Avaldab DB funktsioonid HTTP endpointidena.
+- FastAPI kutsed lähevad ORDS endpointidesse, mitte otse DB draiveriga SQL-i täitma.
+- Tagastab JSON vastuseid, mida backend ootab kindlas formaadis.
+
+Miks nii on tehtud:
+- DB äriloogika jääb DB pakettidesse; ORDS toimib standardse REST-kihina.
+- Backendile tekib stabiilne HTTP-leping (`/auth/google/upsert`, `/competitions/register`, `/submissions`, jne).
+- Errorite kaardistus on võimalik teha ühtselt backendi tasemel ORA-koodide põhjal.
+
+Tehnoloogia:
+- Oracle REST Data Services (ORDS)
+- ORDS moodulid/handlerid
+- ORDS endpointide lepingud on kirjeldatud backend README-s
+
+Viited:
+- `backend/README.md`
+- `db/oracle/ords/07_ords_handlers.sql`
+
+## 3) FastAPI (veebiliidese backend)
+
+Mida teeb:
+- Pakub frontendile `/api/*` endpointid.
+- Verifitseerib Google id_token'i (README järgi tokeninfo MVP lähenemine).
+- Vahendab päringud ORDS-i ning kaardistab vead rakenduse veakoodideks.
+- Haldab sessiooniküpsist (`funo_session` vaikimisi) ja kasutaja sidumist päringutega.
+- Laeb i18n tõlked mällu ning pakub reload endpointi.
+- Pakub ka kaardikihtide konfiguratsiooni endpointi (`/api/map-layers`) README kirjelduse järgi.
+
+Miks nii on tehtud:
+- Frontend ei pea teadma ORDS/Oracle detaili.
+- Autentimine, sessioon ja veakäsitlus on ühes kontrollitavas kihis.
+- Ühtne API leping lihtsustab frontend arendust.
+
+Tehnoloogia:
+- Python + FastAPI
+- `httpx` väliskutseteks (ORDS, Google)
+- `.env` põhine konfiguratsioon
+
+Viited:
+- `backend/README.md`
+- `backend/app/main.py`
+
+## 4) Frontend
+
+Mida teeb:
+- Kuvab kasutajaliidest, mida nginx serveerib kataloogist `frontend_dist`.
+- Tarbib backendi `/api/*` endpointe.
+- Kasutab backendi antud andmeid võistluste, KP-de, küsimuste, tulemuste ja i18n kuvamiseks.
+- Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
+
+Miks nii on tehtud:
+- Staatilise frontendi serveerimine nginx-ist on lihtne ja odav.
+- Frontend jääb õhukeseks kliendiks; äriloogika ja turvakontroll on backend/DB kihis.
+
+Tehnoloogia:
+- HTML
+- Vanilla JavaScript (inline `<script>` failis `frontend_dist/index.html`)
+- CSS
+- Leaflet (`leaflet`), `proj4`, `proj4leaflet` kaardifunktsioonide jaoks
+- HTTP API kaudu suhtlus FastAPI-ga
+
+Viited:
+- `frontend_dist/index.html`
+- `backend/README.md`
+
+## 5) Välised ressursid
+
+Mida teeb:
+- Google OAuth / tokeninfo: kasutaja identiteedi kontroll backendi autentimisvoos.
+- Kaardipakkujad: Mapy.cz ja MapTiler võtmed/URL-id map layerite jaoks (README järgi).
+- Oracle Cloud ORDS URL: backendi ORDS baas-URL.
+
+Miks nii on tehtud:
+- Identiteedi kontroll delegeeritakse Google'ile.
+- Kaardikihtide jaoks kasutatakse valmis teenuseid, mitte oma tile-serverit.
+- ORDS kaudu välditakse otse DB ühenduse avamist frontendile.
+
+Tehnoloogia:
+- Google tokeninfo
+- Map provider API võtmed (`MAPYCZ_API_KEY`, `MAPTILER_API_KEY`)
+- ORDS public URL
+
+Viited:
+- `backend/README.md`
+- `docs/location_rules.md`
+
+## 6) Dockerdamine (konteineriarhitektuur)
+
+Mida teeb:
+- Käivitab rakenduse komponendid konteinerites.
+- Seob frontend serveerimise ja API reverse proxy nginx-i kaudu.
+- Võimaldab eraldi testimise konteinerit (`testing`) profiili alusel.
+
+Miks nii on tehtud:
+- Ühtne käivitusviis eri keskkondades.
+- Lihtsam sõltuvuste haldus (nginx/FastAPI/locust eraldi konteinerites).
+- Võrgutus ja sõltuvused (`depends_on`, eraldi `funo_net`) on deklareeritud.
+
+Tehnoloogia:
+- Docker Compose (`version: "3.9"`)
+
+Konteinerid ja rollid:
+- `funo_nginx` (`nginx:1.27-alpine`)
+  - Serveerib staatilist frontendit (`./frontend_dist`).
+  - Kasutab `nginx/default.conf` konfiguratsiooni.
+  - On avalik sisenemispunkt (`80`, `443`).
+  - Mountib TLS sertifikaadid (`/etc/letsencrypt`) read-only.
+- `funo_fastapi` (build `./backend/Dockerfile`)
+  - Käitab FastAPI backendi.
+  - Loeb keskkonnamuutujad `.env` failist.
+  - Avab konteinerivõrgus pordi `8000` (`expose`).
+- `funo_testing` (`locustio/locust:2.29.1`, profile `testing`)
+  - Koormustestide konteiner.
+  - Mountib testiskriptid kaustast `./testing/load`.
+  - Käivitub ainult siis, kui Compose profile `testing` on sisse lülitatud.
+
+Viited:
+- `docker-compose.yml`
+- `nginx/default.conf`
+
+## Kihtide koosmõju (koodist tuletatud)
+
+1. Nginx võtab vastu veebipäringud ja serveerib frontendit ning proxydab API FastAPI-le.
+2. Frontend kutsub FastAPI `/api/*` endpointid.
+3. FastAPI valideerib autentimise/sessiooni ja kutsub ORDS endpointid.
+4. ORDS handlerid käivitavad DB pakette või päringuid.
+5. DB tagastab tulemuse, mis liigub ORDS -> FastAPI -> frontend.

@@ -1,0 +1,759 @@
+﻿<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
+  <title>fun_o tulemused</title>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head-row">
+        <h1 id="pageTitle">Tulemused - v&otilde;istleja vaade</h1>
+        <button id="viewToggleBtn" class="view-btn" type="button">KP vaade</button>
+      </div>
+      <div class="muted" id="subtitle">-</div>
+      <div class="tools muted" style="margin-top:6px;">
+        <span id="lastRefresh">-</span>
+        <span>&bull;</span>
+        <span id="autoRefreshLabel">Automaatne v&auml;rskendus: 60 s</span>
+        <button id="refreshNowBtn" class="icon-btn" title="V&auml;rskenda kohe" aria-label="V&auml;rskenda kohe">
+          <svg class="reload-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 5v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 11a8 8 0 0 0-14.6-4.6L2 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M4 19v-6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 13a8 8 0 0 0 14.6 4.6L22 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="topMsg"></div>
+    </div>
+
+    <div class="card" id="competitorTableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Koht</th>
+            <th>V&otilde;istleja <button class="sort-btn" id="sortName">&#9776;</button></th>
+            <th>L&auml;bitud KP arv <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
+            <th>Punktid <button class="sort-btn" id="sortScore">&#9660;</button></th>
+            <th>Viimane KP <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
+            <th>Viimane vastus <button class="sort-btn" id="sortLast">&#9776;</button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="card hidden" id="checkpointTableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>KP <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
+            <th>KP viimase l&auml;bimise aeg <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
+            <th>KP viimati l&auml;binud v&otilde;istleja <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
+            <th>KP punktid <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
+            <th><span class="correct">&#10003;</span> <button class="sort-btn" id="cSortCorrect">&#9776;</button></th>
+            <th><span class="wrong">&#10007;</span> <button class="sort-btn" id="cSortWrong">&#9776;</button></th>
+          </tr>
+        </thead>
+        <tbody id="checkpointRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="participantModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="participantModalTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <h2 id="participantModalTitle" class="modal-title">V&otilde;istleja KP-d</h2>
+          <div id="participantModalStats" class="modal-subtitle"></div>
+        </div>
+        <button id="participantModalClose" class="close-btn" type="button">Sulge</button>
+      </div>
+      <div id="participantModalMsg"></div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>KP title <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
+            <th>KP l&auml;bimise aeg <button class="sort-btn" id="pSortTime">&#9776;</button></th>
+            <th>KP punktid <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
+            <th>Vastus <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
+            <th>&Otilde;ige / vale <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
+          </tr>
+        </thead>
+        <tbody id="participantRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="answerDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="answerDetailTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="answerDetailTitle" class="modal-title">Vastuse detail</h2>
+        <button id="answerDetailClose" class="close-btn" type="button">Sulge</button>
+      </div>
+      <div id="answerDetailMsg"></div>
+      <div id="answerQuestion" style="font-size:18px; font-weight:700;"></div>
+      <ul id="answerVariants" class="answer-variants"></ul>
+      <div class="answer-meta" id="answerSubmittedAt"></div>
+      <div class="answer-meta" id="answerAwardedPoints"></div>
+    </div>
+  </div>
+
+  <div id="checkpointRespondersModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="checkpointRespondersTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="checkpointRespondersTitle" class="modal-title">KP vastajad</h2>
+        <button id="checkpointRespondersClose" class="close-btn" type="button">Sulge</button>
+      </div>
+      <div id="checkpointRespondersMsg"></div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Võistleja <button class="sort-btn" id="crSortName">&#9650;</button></th>
+            <th>Tulemus <button class="sort-btn" id="crSortResult">&#9776;</button></th>
+          </tr>
+        </thead>
+        <tbody id="checkpointRespondersRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+    const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    const normAnswer = (v) => (v ?? "").toString().trim().toLocaleLowerCase("et");
+    const params = new URLSearchParams(window.location.search);
+    const competitionId = Number(params.get("competition_id") || 0);
+
+    let items = [];
+    let sortKey = "score";
+    let sortDir = "desc";
+    let checkpointItems = [];
+    let competitorUserIdByName = new Map();
+    let checkpointSortKey = "checkpoint_title";
+    let checkpointSortDir = "asc";
+    let currentView = "competitor";
+    let currentParticipantUserId = null;
+    let participantItems = [];
+    let participantSortKey = "checkpoint_title";
+    let participantSortDir = "asc";
+    let refreshTimer = null;
+    let autoRefreshEnabled = false;
+    let checkpointResponderItems = [];
+    let checkpointResponderSortKey = "competitor_name";
+    let checkpointResponderSortDir = "asc";
+
+    function showMsg(ok, text) {
+      const el = byId("topMsg");
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = `msg ${ok ? "ok" : "err"}`;
+      el.textContent = text;
+    }
+
+    function showModalMsg(ok, text) {
+      const el = byId("participantModalMsg");
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = `msg ${ok ? "ok" : "err"}`;
+      el.textContent = text;
+    }
+
+    function showAnswerDetailMsg(ok, text) {
+      const el = byId("answerDetailMsg");
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = `msg ${ok ? "ok" : "err"}`;
+      el.textContent = text;
+    }
+
+    function showCheckpointRespondersMsg(ok, text) {
+      const el = byId("checkpointRespondersMsg");
+      if (!text) { el.className = ""; el.textContent = ""; return; }
+      el.className = `msg ${ok ? "ok" : "err"}`;
+      el.textContent = text;
+    }
+
+    function checkpointResponderSortIconFor(key) {
+      if (checkpointResponderSortKey !== key) return "\u2630";
+      return checkpointResponderSortDir === "asc" ? "\u25b2" : "\u25bc";
+    }
+
+    function refreshCheckpointResponderSortIcons() {
+      byId("crSortName").textContent = checkpointResponderSortIconFor("competitor_name");
+      byId("crSortResult").textContent = checkpointResponderSortIconFor("is_correct");
+    }
+
+    function sortCheckpointResponders() {
+      const dir = checkpointResponderSortDir === "asc" ? 1 : -1;
+      const arr = [...checkpointResponderItems];
+      arr.sort((a, b) => {
+        if (checkpointResponderSortKey === "competitor_name") {
+          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        const av = String(a.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
+        const bv = String(b.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
+        if (av !== bv) return (av - bv) * dir;
+        return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" });
+      });
+      return arr;
+    }
+
+    function renderCheckpointRespondersRows() {
+      const rows = sortCheckpointResponders();
+      if (!rows.length) {
+        byId("checkpointRespondersRows").innerHTML = `<tr><td colspan="2">Sellel KP-l vastuseid ei ole.</td></tr>`;
+        refreshCheckpointResponderSortIcons();
+        return;
+      }
+      byId("checkpointRespondersRows").innerHTML = rows.map((r) => {
+        const ok = String(r.is_correct || "N").toUpperCase() === "Y";
+        const nm = r.competitor_name || `Kasutaja #${Number(r.user_id || 0)}`;
+        return `<tr>
+          <td>${esc(nm)}</td>
+          <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
+        </tr>`;
+      }).join("");
+      refreshCheckpointResponderSortIcons();
+    }
+
+    function setCheckpointResponderSort(key) {
+      if (checkpointResponderSortKey === key) checkpointResponderSortDir = checkpointResponderSortDir === "asc" ? "desc" : "asc";
+      else {
+        checkpointResponderSortKey = key;
+        checkpointResponderSortDir = key === "competitor_name" ? "asc" : "desc";
+      }
+      renderCheckpointRespondersRows();
+    }
+
+    function parseUtcDate(ts) {
+      if (!ts) return null;
+      const s = String(ts).trim();
+      if (!s) return null;
+      const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function fmtEtLocal(ts) {
+      if (!ts) return "-";
+      const d = parseUtcDate(ts);
+      if (!d) return ts;
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function fmtNow() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    async function get(url) {
+      const r = await fetch(url);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.detail?.message || `HTTP ${r.status}`);
+      return data;
+    }
+
+    function sortIconFor(key) {
+      if (sortKey !== key) return "\u2630";
+      return sortDir === "asc" ? "\u25b2" : "\u25bc";
+    }
+
+    function refreshSortIcons() {
+      byId("sortName").textContent = sortIconFor("competitor_name");
+      byId("sortAnswered").textContent = sortIconFor("answered_checkpoints");
+      byId("sortScore").textContent = sortIconFor("score");
+      byId("sortLastCheckpoint").textContent = sortIconFor("last_checkpoint");
+      byId("sortLast").textContent = sortIconFor("last_submission_at");
+    }
+
+    function participantSortIconFor(key) {
+      if (participantSortKey !== key) return "\u2630";
+      return participantSortDir === "asc" ? "\u25b2" : "\u25bc";
+    }
+
+    function refreshParticipantSortIcons() {
+      byId("pSortTitle").textContent = participantSortIconFor("checkpoint_title");
+      byId("pSortTime").textContent = participantSortIconFor("submitted_at");
+      byId("pSortPoints").textContent = participantSortIconFor("awarded_points");
+      byId("pSortAnswer").textContent = participantSortIconFor("answer_text");
+      byId("pSortCorrect").textContent = participantSortIconFor("is_correct");
+    }
+
+    function checkpointSortIconFor(key) {
+      if (checkpointSortKey !== key) return "\u2630";
+      return checkpointSortDir === "asc" ? "\u25b2" : "\u25bc";
+    }
+
+    function refreshCheckpointSortIcons() {
+      byId("cSortTitle").textContent = checkpointSortIconFor("checkpoint_title");
+      byId("cSortLastTime").textContent = checkpointSortIconFor("last_submission_at");
+      byId("cSortLastTeam").textContent = checkpointSortIconFor("last_team");
+      byId("cSortPoints").textContent = checkpointSortIconFor("checkpoint_points");
+      byId("cSortCorrect").textContent = checkpointSortIconFor("correct_count");
+      byId("cSortWrong").textContent = checkpointSortIconFor("wrong_count");
+    }
+
+    function sortItems() {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const arr = [...items];
+      arr.sort((a, b) => {
+        if (sortKey === "competitor_name") {
+          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (sortKey === "answered_checkpoints" || sortKey === "score") {
+          return ((Number(a[sortKey] || 0) - Number(b[sortKey] || 0)) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+        }
+        if (sortKey === "last_checkpoint") {
+          return String(a.last_checkpoint || "").localeCompare(String(b.last_checkpoint || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (sortKey === "last_submission_at") {
+          const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
+          const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
+          return ((av - bv) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+        }
+        return 0;
+      });
+      return arr;
+    }
+
+    function computeRanksByScore(sourceItems) {
+      const scoreSorted = [...sourceItems].sort((a, b) => {
+        const sa = Number(a.score || 0);
+        const sb = Number(b.score || 0);
+        if (sa !== sb) return sb - sa;
+        return Number(a.user_id || 0) - Number(b.user_id || 0);
+      });
+      const rankByUserId = new Map();
+      let prevScore = null;
+      let prevRank = 0;
+      for (let i = 0; i < scoreSorted.length; i += 1) {
+        const row = scoreSorted[i];
+        const score = Number(row.score || 0);
+        const rank = (prevScore !== null && score === prevScore) ? prevRank : (i + 1);
+        rankByUserId.set(Number(row.user_id || 0), rank);
+        prevScore = score;
+        prevRank = rank;
+      }
+      return rankByUserId;
+    }
+
+    function renderRows() {
+      const sorted = sortItems();
+      const rankByUserId = computeRanksByScore(items);
+      byId("rows").innerHTML = sorted.map((r) => {
+        const name = r.competitor_name || `Kasutaja #${r.user_id}`;
+        const rank = rankByUserId.get(Number(r.user_id || 0)) || "-";
+        return `<tr>
+          <td>${rank}</td>
+          <td><button class="name-link" data-act="open-participant" data-user-id="${Number(r.user_id)}" data-name="${esc(name)}">${esc(name)}</button></td>
+          <td>${Number(r.answered_checkpoints || 0)}</td>
+          <td>${Number(r.score || 0)}</td>
+          <td>${esc(r.last_checkpoint || "-")}</td>
+          <td>${esc(fmtEtLocal(r.last_submission_at))}</td>
+        </tr>`;
+      }).join("");
+      refreshSortIcons();
+    }
+
+    function sortCheckpointItems() {
+      const dir = checkpointSortDir === "asc" ? 1 : -1;
+      const arr = [...checkpointItems];
+      arr.sort((a, b) => {
+        if (checkpointSortKey === "checkpoint_title" || checkpointSortKey === "last_team") {
+          return String(a[checkpointSortKey] || "").localeCompare(String(b[checkpointSortKey] || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (checkpointSortKey === "checkpoint_points" || checkpointSortKey === "correct_count" || checkpointSortKey === "wrong_count") {
+          return (Number(a[checkpointSortKey] || 0) - Number(b[checkpointSortKey] || 0)) * dir;
+        }
+        if (checkpointSortKey === "last_submission_at") {
+          const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
+          const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
+          return (av - bv) * dir;
+        }
+        return 0;
+      });
+      return arr;
+    }
+
+    function renderCheckpointRows() {
+      const sorted = sortCheckpointItems();
+      byId("checkpointRows").innerHTML = sorted.map((r) => `<tr>
+        <td>${esc(r.checkpoint_title || "-")}</td>
+        <td>${esc(fmtEtLocal(r.last_submission_at))}</td>
+        <td>${renderCheckpointLastCompetitorCell(r.last_team)}</td>
+        <td>${Number(r.checkpoint_points || 0)}</td>
+        <td>${renderCheckpointResultCountCell(r, "correct")}</td>
+        <td>${renderCheckpointResultCountCell(r, "wrong")}</td>
+      </tr>`).join("");
+      refreshCheckpointSortIcons();
+    }
+
+    function renderCheckpointResultCountCell(row, kind) {
+      const count = Number(kind === "correct" ? row.correct_count : row.wrong_count) || 0;
+      const checkpointId = Number(row.checkpoint_id || 0);
+      if (checkpointId <= 0) return String(count);
+      return `<button class="name-link" data-act="open-checkpoint-responders" data-checkpoint-id="${checkpointId}" data-checkpoint-title="${esc(row.checkpoint_title || "-")}">${count}</button>`;
+    }
+
+    function renderCheckpointLastCompetitorCell(lastTeam) {
+      const name = String(lastTeam || "").trim();
+      if (!name || name === "-") return "-";
+      const userId = competitorUserIdByName.get(name);
+      if (!userId) return esc(name);
+      return `<button class="name-link" data-act="open-participant" data-user-id="${Number(userId)}" data-name="${esc(name)}">${esc(name)}</button>`;
+    }
+
+    async function refreshCompetitorLookup() {
+      const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}`);
+      const lookup = new Map();
+      const list = Array.isArray(d.items) ? d.items : [];
+      for (const item of list) {
+        const uid = Number(item?.user_id || 0);
+        const nm = String(item?.competitor_name || "").trim();
+        if (uid > 0 && nm) lookup.set(nm, uid);
+      }
+      competitorUserIdByName = lookup;
+    }
+
+    function sortParticipantItems() {
+      const dir = participantSortDir === "asc" ? 1 : -1;
+      const arr = [...participantItems];
+      arr.sort((a, b) => {
+        if (participantSortKey === "checkpoint_title" || participantSortKey === "answer_text") {
+          return String(a[participantSortKey] || "").localeCompare(String(b[participantSortKey] || ""), "et", { sensitivity: "base" }) * dir;
+        }
+        if (participantSortKey === "awarded_points") {
+          return (Number(a.awarded_points || 0) - Number(b.awarded_points || 0)) * dir;
+        }
+        if (participantSortKey === "submitted_at") {
+          const av = a.submitted_at ? (parseUtcDate(a.submitted_at)?.getTime() ?? 0) : 0;
+          const bv = b.submitted_at ? (parseUtcDate(b.submitted_at)?.getTime() ?? 0) : 0;
+          return (av - bv) * dir;
+        }
+        if (participantSortKey === "is_correct") {
+          const av = String(a.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
+          const bv = String(b.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
+          return (av - bv) * dir;
+        }
+        return 0;
+      });
+      return arr;
+    }
+
+    function renderParticipantRows() {
+      if (participantItems.length === 0) {
+        byId("participantModalStats").innerHTML = "Punktid kokku: <strong>0</strong> &nbsp;&nbsp; L\u00e4bitud KP: <strong>0</strong>";
+        byId("participantRows").innerHTML = `<tr><td colspan="5">Sellel v\u00f5istlejal ei ole veel vastuseid.</td></tr>`;
+        refreshParticipantSortIcons();
+        return;
+      }
+      const totalPoints = participantItems.reduce((sum, r) => sum + Number(r.awarded_points || 0), 0);
+      const answeredCount = new Set(
+        participantItems
+          .map((r) => String(r.checkpoint_title || "").trim())
+          .filter((v) => v.length > 0)
+      ).size;
+      byId("participantModalStats").innerHTML = `Punktid kokku: <strong>${totalPoints}</strong> &nbsp;&nbsp; L\u00e4bitud KP: <strong>${answeredCount}</strong>`;
+      const rows = sortParticipantItems();
+      byId("participantRows").innerHTML = rows.map((r) => {
+        const ok = String(r.is_correct || "N").toUpperCase() === "Y";
+        return `<tr>
+          <td>${esc(r.checkpoint_title || "-")}</td>
+          <td>${esc(fmtEtLocal(r.submitted_at))}</td>
+          <td>${Number(r.awarded_points || 0)}</td>
+          <td><button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(r.answer_text || "-")}</button></td>
+          <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
+        </tr>`;
+      }).join("");
+      refreshParticipantSortIcons();
+    }
+
+    function setParticipantSort(key) {
+      if (participantSortKey === key) participantSortDir = participantSortDir === "asc" ? "desc" : "asc";
+      else {
+        participantSortKey = key;
+        participantSortDir = key === "checkpoint_title" ? "asc" : "desc";
+      }
+      renderParticipantRows();
+    }
+
+    function setCheckpointSort(key) {
+      if (checkpointSortKey === key) checkpointSortDir = checkpointSortDir === "asc" ? "desc" : "asc";
+      else {
+        checkpointSortKey = key;
+        checkpointSortDir = key === "checkpoint_title" ? "asc" : "desc";
+      }
+      renderCheckpointRows();
+    }
+
+    function isWithinActiveWindow(overview) {
+      const status = String(overview?.status || "").toUpperCase();
+      if (status !== "ACTIVE") return false;
+      const now = new Date();
+      const startsAt = overview?.starts_at ? parseUtcDate(overview.starts_at) : null;
+      const endsAt = overview?.ends_at ? parseUtcDate(overview.ends_at) : null;
+      if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) return false;
+      if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) return false;
+      return true;
+    }
+
+    async function loadCompetitionTitle() {
+      const d = await get(`/api/admin/competition-overview?competition_id=${competitionId}`);
+      const v = d?.data || {};
+      const name = v.name || "-";
+      byId("subtitle").textContent = `${name} (id=${competitionId})`;
+      autoRefreshEnabled = isWithinActiveWindow(v);
+      byId("autoRefreshLabel").textContent = autoRefreshEnabled ? "Automaatne v\u00e4rskendus: 60 s" : "Automaatne v\u00e4rskendus: v\u00e4ljas";
+    }
+
+    async function refreshData(silent = false) {
+      try {
+        if (currentView === "competitor") {
+          const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}`);
+          items = Array.isArray(d.items) ? d.items : [];
+          competitorUserIdByName = new Map();
+          for (const item of items) {
+            const uid = Number(item?.user_id || 0);
+            const nm = String(item?.competitor_name || "").trim();
+            if (uid > 0 && nm) competitorUserIdByName.set(nm, uid);
+          }
+          renderRows();
+        } else {
+          const [d] = await Promise.all([
+            get(`/api/admin/checkpoint-results?competition_id=${competitionId}`),
+            refreshCompetitorLookup(),
+          ]);
+          checkpointItems = Array.isArray(d.items) ? d.items : [];
+          renderCheckpointRows();
+        }
+        byId("lastRefresh").textContent = `Uuendatud: ${fmtNow()}`;
+        if (!silent) showMsg(true, "");
+      } catch (e) {
+        showMsg(false, e.message || "Tulemuste laadimine eba&otilde;nnestus.");
+      }
+    }
+
+    function setSort(key) {
+      if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
+      else { sortKey = key; sortDir = key === "score" ? "desc" : "asc"; }
+      renderRows();
+    }
+
+    function applyView() {
+      const competitorActive = currentView === "competitor";
+      byId("competitorTableWrap").classList.toggle("hidden", !competitorActive);
+      byId("checkpointTableWrap").classList.toggle("hidden", competitorActive);
+      byId("viewToggleBtn").textContent = competitorActive ? "KP vaade" : "V\u00f5istleja vaade";
+      byId("pageTitle").textContent = competitorActive ? "Tulemused - v\u00f5istleja vaade" : "Tulemused - KP vaade";
+    }
+
+    async function toggleView() {
+      currentView = currentView === "competitor" ? "checkpoint" : "competitor";
+      applyView();
+      await refreshData();
+    }
+
+    async function openParticipantModal(userId, name) {
+      byId("participantModalTitle").textContent = `V\u00f5istleja KP-d: ${name}`;
+      participantItems = [];
+      participantSortKey = "checkpoint_title";
+      participantSortDir = "asc";
+      byId("participantModalStats").textContent = "";
+      byId("participantRows").innerHTML = "";
+      refreshParticipantSortIcons();
+      showModalMsg(true, "");
+      byId("participantModal").classList.remove("hidden");
+
+      try {
+        const d = await get(`/api/admin/participant-submissions?competition_id=${competitionId}&user_id=${Number(userId)}`);
+        participantItems = Array.isArray(d.items) ? d.items : [];
+        renderParticipantRows();
+      } catch (e) {
+        showModalMsg(false, e.message || "Vastuste laadimine eba&otilde;nnestus.");
+      }
+    }
+
+    function closeParticipantModal() {
+      byId("participantModal").classList.add("hidden");
+      byId("participantRows").innerHTML = "";
+      showModalMsg(true, "");
+    }
+
+    function closeAnswerDetailModal() {
+      byId("answerDetailModal").classList.add("hidden");
+      byId("answerQuestion").textContent = "";
+      byId("answerVariants").innerHTML = "";
+      byId("answerSubmittedAt").textContent = "";
+      byId("answerAwardedPoints").textContent = "";
+      showAnswerDetailMsg(true, "");
+    }
+
+    function closeCheckpointRespondersModal() {
+      byId("checkpointRespondersModal").classList.add("hidden");
+      byId("checkpointRespondersRows").innerHTML = "";
+      checkpointResponderItems = [];
+      showCheckpointRespondersMsg(true, "");
+    }
+
+    async function openCheckpointRespondersModal(checkpointId, checkpointTitle) {
+      byId("checkpointRespondersTitle").textContent = `KP vastajad: ${checkpointTitle || "-"}`;
+      byId("checkpointRespondersRows").innerHTML = "";
+      checkpointResponderSortKey = "competitor_name";
+      checkpointResponderSortDir = "asc";
+      checkpointResponderItems = [];
+      refreshCheckpointResponderSortIcons();
+      showCheckpointRespondersMsg(true, "");
+      byId("checkpointRespondersModal").classList.remove("hidden");
+      try {
+        const d = await get(`/api/admin/checkpoint-responders?competition_id=${competitionId}&checkpoint_id=${Number(checkpointId)}`);
+        checkpointResponderItems = Array.isArray(d.items) ? d.items : [];
+        renderCheckpointRespondersRows();
+      } catch (e) {
+        showCheckpointRespondersMsg(false, e.message || "KP vastajate laadimine ebaõnnestus.");
+      }
+    }
+
+    async function openAnswerDetailModal(userId, submissionId) {
+      byId("answerDetailModal").classList.remove("hidden");
+      byId("answerQuestion").textContent = "";
+      byId("answerVariants").innerHTML = "";
+      byId("answerSubmittedAt").textContent = "";
+      byId("answerAwardedPoints").textContent = "";
+      showAnswerDetailMsg(true, "");
+
+      try {
+        const d = await get(`/api/admin/submission-detail?competition_id=${competitionId}&user_id=${Number(userId)}&submission_id=${Number(submissionId)}`);
+        const qText = d.question_text || "-";
+        const pts = Number(d.points || 0);
+        const wPts = Number(d.wrong_points || 0);
+        const competitorAnswer = String(d.competitor_answer || "");
+        const variants = Array.isArray(d.options) ? d.options : [];
+
+        byId("answerQuestion").textContent = `${qText} (${pts} / ${wPts})`;
+        byId("answerSubmittedAt").textContent = `Vastamise aeg: ${fmtEtLocal(d.submitted_at)}`;
+        byId("answerAwardedPoints").textContent = `Teenitud punktid: ${Number(d.awarded_points || 0)}`;
+
+        if (variants.length === 0) {
+          byId("answerVariants").innerHTML = `<li><strong>${esc(competitorAnswer || "-")}</strong></li>`;
+          return;
+        }
+
+        const normalizedAnswer = normAnswer(competitorAnswer);
+        let matchedByText = false;
+        const rendered = variants.map((v) => {
+          const isCorrect = String(v.is_correct || "N").toUpperCase() === "Y";
+          const selectedByFlag = String(v.is_selected || "N").toUpperCase() === "Y";
+          const selectedByText = normalizedAnswer && normAnswer(v.option_text || "") === normalizedAnswer;
+          if (selectedByText) matchedByText = true;
+          const isSelected = selectedByFlag || selectedByText;
+          const icon = isCorrect ? "&#10003;" : "&#10007;";
+          const iconCls = isCorrect ? "badge-ok" : "badge-no";
+          const txt = esc(v.option_text || "-");
+          return `<li><span class="${iconCls}">${icon}</span><span class="${isSelected ? "answer-picked" : ""}">${txt}</span></li>`;
+        });
+        if (normalizedAnswer && !matchedByText) {
+          rendered.push(`<li><span class="badge-no">&#10007;</span><span class="answer-picked">${esc(competitorAnswer)}</span> <span style="color:#666;">(Sinu vastus)</span></li>`);
+        }
+        byId("answerVariants").innerHTML = rendered.join("");
+      } catch (e) {
+        showAnswerDetailMsg(false, e.message || "Detaili laadimine eba&otilde;nnestus.");
+      }
+    }
+
+    async function init() {
+      if (!competitionId) {
+        showMsg(false, "Puudub competition_id.");
+        return;
+      }
+      byId("sortName").onclick = () => setSort("competitor_name");
+      byId("sortAnswered").onclick = () => setSort("answered_checkpoints");
+      byId("sortScore").onclick = () => setSort("score");
+      byId("sortLastCheckpoint").onclick = () => setSort("last_checkpoint");
+      byId("sortLast").onclick = () => setSort("last_submission_at");
+
+      byId("refreshNowBtn").onclick = () => refreshData();
+      byId("participantModalClose").onclick = closeParticipantModal;
+      byId("answerDetailClose").onclick = closeAnswerDetailModal;
+      byId("checkpointRespondersClose").onclick = closeCheckpointRespondersModal;
+      byId("crSortName").onclick = () => setCheckpointResponderSort("competitor_name");
+      byId("crSortResult").onclick = () => setCheckpointResponderSort("is_correct");
+      byId("pSortTitle").onclick = () => setParticipantSort("checkpoint_title");
+      byId("pSortTime").onclick = () => setParticipantSort("submitted_at");
+      byId("pSortPoints").onclick = () => setParticipantSort("awarded_points");
+      byId("pSortAnswer").onclick = () => setParticipantSort("answer_text");
+      byId("pSortCorrect").onclick = () => setParticipantSort("is_correct");
+      byId("participantModal").addEventListener("click", (e) => {
+        if (e.target === byId("participantModal")) closeParticipantModal();
+      });
+      byId("answerDetailModal").addEventListener("click", (e) => {
+        if (e.target === byId("answerDetailModal")) closeAnswerDetailModal();
+      });
+      byId("checkpointRespondersModal").addEventListener("click", (e) => {
+        if (e.target === byId("checkpointRespondersModal")) closeCheckpointRespondersModal();
+      });
+
+      byId("participantRows").addEventListener("click", (e) => {
+        const btn = e.target.closest('[data-act="open-answer-detail"]');
+        if (!btn) return;
+        const submissionId = Number(btn.getAttribute("data-submission-id") || 0);
+        if (!submissionId) return;
+        if (!currentParticipantUserId) return;
+        openAnswerDetailModal(currentParticipantUserId, submissionId).catch(() => {});
+      });
+
+      byId("rows").addEventListener("click", (e) => {
+        const btn = e.target.closest('[data-act="open-participant"]');
+        if (!btn) return;
+        const userId = Number(btn.getAttribute("data-user-id"));
+        const name = btn.getAttribute("data-name") || `Kasutaja #${userId}`;
+        currentParticipantUserId = userId;
+        openParticipantModal(userId, name).catch(() => {});
+      });
+      byId("checkpointRows").addEventListener("click", (e) => {
+        const respondersBtn = e.target.closest('[data-act="open-checkpoint-responders"]');
+        if (respondersBtn) {
+          const checkpointId = Number(respondersBtn.getAttribute("data-checkpoint-id") || 0);
+          const checkpointTitle = respondersBtn.getAttribute("data-checkpoint-title") || "-";
+          if (checkpointId > 0) openCheckpointRespondersModal(checkpointId, checkpointTitle).catch(() => {});
+          return;
+        }
+        const btn = e.target.closest('[data-act="open-participant"]');
+        if (!btn) return;
+        const userId = Number(btn.getAttribute("data-user-id"));
+        const name = btn.getAttribute("data-name") || `Kasutaja #${userId}`;
+        currentParticipantUserId = userId;
+        openParticipantModal(userId, name).catch(() => {});
+      });
+
+      byId("viewToggleBtn").onclick = () => { toggleView().catch(() => {}); };
+      byId("cSortTitle").onclick = () => setCheckpointSort("checkpoint_title");
+      byId("cSortLastTime").onclick = () => setCheckpointSort("last_submission_at");
+      byId("cSortLastTeam").onclick = () => setCheckpointSort("last_team");
+      byId("cSortPoints").onclick = () => setCheckpointSort("checkpoint_points");
+      byId("cSortCorrect").onclick = () => setCheckpointSort("correct_count");
+      byId("cSortWrong").onclick = () => setCheckpointSort("wrong_count");
+
+      applyView();
+
+      await loadCompetitionTitle();
+      await refreshData();
+
+      if (autoRefreshEnabled) {
+        refreshTimer = setInterval(() => {
+          refreshData(true).catch(() => {});
+        }, 60000);
+      }
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    });
+
+    init().catch((e) => showMsg(false, e.message || "Lehe avamine eba&otilde;nnestus."));
+  </script>
+</body>
+</html>
+

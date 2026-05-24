@@ -1,0 +1,117 @@
+﻿{
+  "items": [
+    {
+      "code": "maaamet_kaart",
+      "label": "Maa-amet kaart",
+      "url_template": "https://tiles.maaamet.ee/tm/tms/1.0.0/kaart@GMC/{z}/{x}/{y}.png?ASUTUS=FUNO&KESKKOND=LIVE&IS=ADMIN",
+      "attribution": "&copy; Maa- ja Ruumiamet",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "tms": true,
+      "participant_default": false
+    },
+    {
+      "code": "maaamet_pohikaart",
+      "label": "Maa-amet Eesti pohikaart",
+      "url_template": "https://tiles.maaamet.ee/tm/wmts/1.0.0/epk_v/default/LEST/{z}/{y}/{x}.png",
+      "attribution": "&copy; Maa- ja Ruumiamet",
+      "max_zoom": 14,
+      "min_zoom": 0,
+      "tms": false,
+      "layer_type": "xyz",
+      "crs": "EPSG:3301",
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "maaamet_foto",
+      "label": "Maa-amet ortofoto",
+      "url_template": "https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{y}.jpeg?ASUTUS=FUNO&KESKKOND=LIVE&IS=ADMIN",
+      "attribution": "&copy; Maa- ja Ruumiamet",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "tms": true,
+      "participant_default": false
+    },
+    {
+      "code": "maaamet_hybriid",
+      "label": "Maa-amet hybriidkaart",
+      "url_template": "https://tiles.maaamet.ee/tm/tms/1.0.0/hybriid@GMC/{z}/{x}/{y}.png?ASUTUS=FUNO&KESKKOND=LIVE&IS=ADMIN",
+      "attribution": "&copy; Maa- ja Ruumiamet",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "tms": true,
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "osm",
+      "label": "OpenStreetMap",
+      "url_template": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "&copy; OpenStreetMap contributors",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "participant_default": true
+    },
+    {
+      "code": "osm_hot",
+      "label": "OpenStreetMap HOT",
+      "url_template": "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+      "attribution": "&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team",
+      "max_zoom": 20,
+      "min_zoom": 0,
+	  "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "carto_light",
+      "label": "Carto Positron",
+      "url_template": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      "attribution": "&copy; OpenStreetMap contributors &copy; CARTO",
+      "max_zoom": 20,
+      "min_zoom": 0,
+	  "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "mapycz_outdoor",
+      "label": "Mapy.cz Outdoor",
+      "url_template": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey={MAPYCZ_API_KEY}&lang=en",
+      "attribution": "&copy; Seznam.cz, a.s. / Mapy.cz",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "maptiler_outdoor",
+      "label": "MapTiler Outdoor",
+      "url_template": "https://api.maptiler.com/maps/outdoor/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
+      "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors",
+      "max_zoom": 20,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+	{
+      "code": "maptiler_topo_v2",
+      "label": "MapTiler topo",
+      "url_template": "https://api.maptiler.com/maps/topo-v2/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
+      "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors",
+      "max_zoom": 20,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+	{
+      "code": "maptiler_hybrid",
+      "label": "MapTiler hybrid",
+      "url_template": "https://api.maptiler.com/maps/hybrid-v4/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
+      "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors",
+      "max_zoom": 20,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    }
+  ]
+}
