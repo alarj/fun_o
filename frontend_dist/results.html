@@ -10,8 +10,14 @@
   <div class="wrap">
     <div class="card">
       <div class="head-row">
-        <h1 id="pageTitle">Tulemused - v&otilde;istleja vaade</h1>
-        <button id="viewToggleBtn" class="view-btn" type="button">KP vaade</button>
+        <h1 id="pageTitle" data-i18n="results.page_title_competitor">Tulemused - võistleja vaade</h1>
+        <div class="tools">
+          <select id="langSelect" style="width:72px; min-width:72px;">
+            <option value="et">ET</option>
+            <option value="en">EN</option>
+          </select>
+          <button id="viewToggleBtn" class="view-btn" type="button">KP vaade</button>
+        </div>
       </div>
       <div class="muted" id="subtitle">-</div>
       <div class="tools muted" style="margin-top:6px;">
@@ -34,12 +40,12 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Koht</th>
-            <th>V&otilde;istleja <button class="sort-btn" id="sortName">&#9776;</button></th>
-            <th>L&auml;bitud KP arv <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
-            <th>Punktid <button class="sort-btn" id="sortScore">&#9660;</button></th>
-            <th>Viimane KP <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
-            <th>Viimane vastus <button class="sort-btn" id="sortLast">&#9776;</button></th>
+            <th data-i18n="results.table.rank">Koht</th>
+            <th><span data-i18n="results.table.competitor">Võistleja</span> <button class="sort-btn" id="sortName">&#9776;</button></th>
+            <th><span data-i18n="results.table.answered_cp">Läbitud KP arv</span> <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
+            <th><span data-i18n="results.table.score">Punktid</span> <button class="sort-btn" id="sortScore">&#9660;</button></th>
+            <th><span data-i18n="results.table.last_cp">Viimane KP</span> <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
+            <th><span data-i18n="results.table.last_answer">Viimane vastus</span> <button class="sort-btn" id="sortLast">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -50,10 +56,10 @@
       <table class="table">
         <thead>
           <tr>
-            <th>KP <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
-            <th>KP viimase l&auml;bimise aeg <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
-            <th>KP viimati l&auml;binud v&otilde;istleja <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
-            <th>KP punktid <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.cp">KP</span> <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
+            <th><span data-i18n="results.cp_table.last_time">KP viimase läbimise aeg</span> <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.last_competitor">KP viimati läbinud võistleja</span> <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.points">KP punktid</span> <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
             <th><span class="correct">&#10003;</span> <button class="sort-btn" id="cSortCorrect">&#9776;</button></th>
             <th><span class="wrong">&#10007;</span> <button class="sort-btn" id="cSortWrong">&#9776;</button></th>
           </tr>
@@ -67,20 +73,20 @@
     <div class="modal-card">
       <div class="modal-head">
         <div class="modal-title-wrap">
-          <h2 id="participantModalTitle" class="modal-title">V&otilde;istleja KP-d</h2>
+          <h2 id="participantModalTitle" class="modal-title">Võistleja KP-d</h2>
           <div id="participantModalStats" class="modal-subtitle"></div>
         </div>
-        <button id="participantModalClose" class="close-btn" type="button">Sulge</button>
+        <button id="participantModalClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
       </div>
       <div id="participantModalMsg"></div>
       <table class="table">
         <thead>
           <tr>
-            <th>KP title <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
-            <th>KP l&auml;bimise aeg <button class="sort-btn" id="pSortTime">&#9776;</button></th>
-            <th>KP punktid <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
-            <th>Vastus <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
-            <th>&Otilde;ige / vale <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.cp_title">KP title</span> <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
+            <th><span data-i18n="results.participant_table.time">KP läbimise aeg</span> <button class="sort-btn" id="pSortTime">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.points">KP punktid</span> <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.answer">Vastus</span> <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.correct_wrong">Õige / vale</span> <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="participantRows"></tbody>
@@ -91,8 +97,8 @@
   <div id="answerDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="answerDetailTitle">
     <div class="modal-card">
       <div class="modal-head">
-        <h2 id="answerDetailTitle" class="modal-title">Vastuse detail</h2>
-        <button id="answerDetailClose" class="close-btn" type="button">Sulge</button>
+        <h2 id="answerDetailTitle" class="modal-title" data-i18n="results.answer.title">Vastuse detail</h2>
+        <button id="answerDetailClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
       </div>
       <div id="answerDetailMsg"></div>
       <div id="answerQuestion" style="font-size:18px; font-weight:700;"></div>
@@ -106,14 +112,14 @@
     <div class="modal-card">
       <div class="modal-head">
         <h2 id="checkpointRespondersTitle" class="modal-title">KP vastajad</h2>
-        <button id="checkpointRespondersClose" class="close-btn" type="button">Sulge</button>
+        <button id="checkpointRespondersClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
       </div>
       <div id="checkpointRespondersMsg"></div>
       <table class="table">
         <thead>
           <tr>
-            <th>Võistleja <button class="sort-btn" id="crSortName">&#9650;</button></th>
-            <th>Tulemus <button class="sort-btn" id="crSortResult">&#9776;</button></th>
+            <th><span data-i18n="results.responders_table.competitor">Võistleja</span> <button class="sort-btn" id="crSortName">&#9650;</button></th>
+            <th><span data-i18n="results.responders_table.result">Tulemus</span> <button class="sort-btn" id="crSortResult">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="checkpointRespondersRows"></tbody>
@@ -124,9 +130,14 @@
   <script>
     const byId = (id) => document.getElementById(id);
     const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
-    const normAnswer = (v) => (v ?? "").toString().trim().toLocaleLowerCase("et");
+    const normAnswer = (v) => (v ?? "").toString().trim().toLocaleLowerCase(currentUiLang || "et");
+    const adminLangCookieName = "funo_admin_ui_lang";
     const params = new URLSearchParams(window.location.search);
     const competitionId = Number(params.get("competition_id") || 0);
+    let i18nMeta = { default_lang: "et", available_langs: ["et", "en"] };
+    let i18nCurrent = {};
+    let i18nDefault = {};
+    let currentUiLang = "et";
 
     let items = [];
     let sortKey = "score";
@@ -145,6 +156,29 @@
     let checkpointResponderItems = [];
     let checkpointResponderSortKey = "competitor_name";
     let checkpointResponderSortDir = "asc";
+
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + days * 86400000);
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const prefix = `${name}=`;
+      const parts = (document.cookie || "").split(";").map((x) => x.trim());
+      const found = parts.find((p) => p.startsWith(prefix));
+      return found ? decodeURIComponent(found.substring(prefix.length)) : "";
+    }
+    function tr(key, fallback = "") {
+      if (Object.prototype.hasOwnProperty.call(i18nCurrent, key)) return i18nCurrent[key];
+      if (Object.prototype.hasOwnProperty.call(i18nDefault, key)) return i18nDefault[key];
+      return fallback || key;
+    }
+    function pickText(preferred, fallback) {
+      const p = (preferred ?? "").toString().trim();
+      if (p) return p;
+      const f = (fallback ?? "").toString().trim();
+      return f || "---";
+    }
 
     function showMsg(ok, text) {
       const el = byId("topMsg");
@@ -189,12 +223,12 @@
       const arr = [...checkpointResponderItems];
       arr.sort((a, b) => {
         if (checkpointResponderSortKey === "competitor_name") {
-          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" }) * dir;
+          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         const av = String(a.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
         const bv = String(b.is_correct || "N").toUpperCase() === "Y" ? 1 : 0;
         if (av !== bv) return (av - bv) * dir;
-        return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" });
+        return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), currentUiLang || "et", { sensitivity: "base" });
       });
       return arr;
     }
@@ -202,13 +236,13 @@
     function renderCheckpointRespondersRows() {
       const rows = sortCheckpointResponders();
       if (!rows.length) {
-        byId("checkpointRespondersRows").innerHTML = `<tr><td colspan="2">Sellel KP-l vastuseid ei ole.</td></tr>`;
+        byId("checkpointRespondersRows").innerHTML = `<tr><td colspan="2">${esc(tr("results.responders.none", "Sellel KP-l vastuseid ei ole."))}</td></tr>`;
         refreshCheckpointResponderSortIcons();
         return;
       }
       byId("checkpointRespondersRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
-        const nm = r.competitor_name || `Kasutaja #${Number(r.user_id || 0)}`;
+        const nm = r.competitor_name || `${tr("results.user_fallback_prefix", "Kasutaja")} #${Number(r.user_id || 0)}`;
         return `<tr>
           <td>${esc(nm)}</td>
           <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
@@ -256,6 +290,45 @@
       return data;
     }
 
+    async function loadI18nMeta() {
+      const d = await get("/api/i18n/meta");
+      const langs = Array.isArray(d?.available_langs) ? d.available_langs.map((x) => String(x).toLowerCase()) : [];
+      const def = String(d?.default_lang || "et").toLowerCase();
+      i18nMeta = { default_lang: def || "et", available_langs: langs.length ? langs : [def || "et"] };
+      byId("langSelect").innerHTML = i18nMeta.available_langs.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("");
+    }
+    async function loadI18nForLanguage(lang) {
+      const req = String(lang || i18nMeta.default_lang || "et").toLowerCase();
+      const effective = i18nMeta.available_langs.includes(req) ? req : i18nMeta.default_lang;
+      const cur = await get(`/api/i18n/translations?lang=${encodeURIComponent(effective)}`);
+      i18nCurrent = (cur && cur.items && typeof cur.items === "object") ? cur.items : {};
+      const fallbackLang = String(i18nMeta.default_lang || "et").toLowerCase();
+      if (effective === fallbackLang) {
+        i18nDefault = i18nCurrent;
+      } else {
+        const def = await get(`/api/i18n/translations?lang=${encodeURIComponent(fallbackLang)}`);
+        i18nDefault = (def && def.items && typeof def.items === "object") ? def.items : {};
+      }
+      currentUiLang = effective;
+      byId("langSelect").value = effective;
+      setCookie(adminLangCookieName, effective, 365);
+      document.documentElement.lang = effective;
+    }
+
+    function applyStaticTexts() {
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (!key) return;
+        el.textContent = tr(key, el.textContent || key);
+      });
+      byId("autoRefreshLabel").textContent = autoRefreshEnabled
+        ? tr("results.auto_refresh_on", "Automaatne värskendus: 60 s")
+        : tr("results.auto_refresh_off", "Automaatne värskendus: väljas");
+      byId("refreshNowBtn").title = tr("results.refresh_now_btn", "Värskenda kohe");
+      byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn", "Värskenda kohe"));
+      applyView();
+    }
+
     function sortIconFor(key) {
       if (sortKey !== key) return "\u2630";
       return sortDir === "asc" ? "\u25b2" : "\u25bc";
@@ -301,13 +374,13 @@
       const arr = [...items];
       arr.sort((a, b) => {
         if (sortKey === "competitor_name") {
-          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), "et", { sensitivity: "base" }) * dir;
+          return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         if (sortKey === "answered_checkpoints" || sortKey === "score") {
           return ((Number(a[sortKey] || 0) - Number(b[sortKey] || 0)) * dir) || (Number(b.score || 0) - Number(a.score || 0));
         }
         if (sortKey === "last_checkpoint") {
-          return String(a.last_checkpoint || "").localeCompare(String(b.last_checkpoint || ""), "et", { sensitivity: "base" }) * dir;
+          return String(a.last_checkpoint || "").localeCompare(String(b.last_checkpoint || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         if (sortKey === "last_submission_at") {
           const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
@@ -344,7 +417,7 @@
       const sorted = sortItems();
       const rankByUserId = computeRanksByScore(items);
       byId("rows").innerHTML = sorted.map((r) => {
-        const name = r.competitor_name || `Kasutaja #${r.user_id}`;
+        const name = r.competitor_name || `${tr("results.user_fallback_prefix", "Kasutaja")} #${r.user_id}`;
         const rank = rankByUserId.get(Number(r.user_id || 0)) || "-";
         return `<tr>
           <td>${rank}</td>
@@ -363,7 +436,7 @@
       const arr = [...checkpointItems];
       arr.sort((a, b) => {
         if (checkpointSortKey === "checkpoint_title" || checkpointSortKey === "last_team") {
-          return String(a[checkpointSortKey] || "").localeCompare(String(b[checkpointSortKey] || ""), "et", { sensitivity: "base" }) * dir;
+          return String(a[checkpointSortKey] || "").localeCompare(String(b[checkpointSortKey] || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         if (checkpointSortKey === "checkpoint_points" || checkpointSortKey === "correct_count" || checkpointSortKey === "wrong_count") {
           return (Number(a[checkpointSortKey] || 0) - Number(b[checkpointSortKey] || 0)) * dir;
@@ -407,7 +480,7 @@
     }
 
     async function refreshCompetitorLookup() {
-      const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}`);
+      const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}&lang_code=${encodeURIComponent(currentUiLang)}`);
       const lookup = new Map();
       const list = Array.isArray(d.items) ? d.items : [];
       for (const item of list) {
@@ -423,7 +496,7 @@
       const arr = [...participantItems];
       arr.sort((a, b) => {
         if (participantSortKey === "checkpoint_title" || participantSortKey === "answer_text") {
-          return String(a[participantSortKey] || "").localeCompare(String(b[participantSortKey] || ""), "et", { sensitivity: "base" }) * dir;
+          return String(a[participantSortKey] || "").localeCompare(String(b[participantSortKey] || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         if (participantSortKey === "awarded_points") {
           return (Number(a.awarded_points || 0) - Number(b.awarded_points || 0)) * dir;
@@ -445,8 +518,8 @@
 
     function renderParticipantRows() {
       if (participantItems.length === 0) {
-        byId("participantModalStats").innerHTML = "Punktid kokku: <strong>0</strong> &nbsp;&nbsp; L\u00e4bitud KP: <strong>0</strong>";
-        byId("participantRows").innerHTML = `<tr><td colspan="5">Sellel v\u00f5istlejal ei ole veel vastuseid.</td></tr>`;
+        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","Läbitud KP")}: <strong>0</strong>`;
+        byId("participantRows").innerHTML = `<tr><td colspan="5">${esc(tr("results.participant.none","Sellel võistlejal ei ole veel vastuseid."))}</td></tr>`;
         refreshParticipantSortIcons();
         return;
       }
@@ -456,7 +529,7 @@
           .map((r) => String(r.checkpoint_title || "").trim())
           .filter((v) => v.length > 0)
       ).size;
-      byId("participantModalStats").innerHTML = `Punktid kokku: <strong>${totalPoints}</strong> &nbsp;&nbsp; L\u00e4bitud KP: <strong>${answeredCount}</strong>`;
+      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","Läbitud KP")}: <strong>${answeredCount}</strong>`;
       const rows = sortParticipantItems();
       byId("participantRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
@@ -506,13 +579,13 @@
       const name = v.name || "-";
       byId("subtitle").textContent = `${name} (id=${competitionId})`;
       autoRefreshEnabled = isWithinActiveWindow(v);
-      byId("autoRefreshLabel").textContent = autoRefreshEnabled ? "Automaatne v\u00e4rskendus: 60 s" : "Automaatne v\u00e4rskendus: v\u00e4ljas";
+      applyStaticTexts();
     }
 
     async function refreshData(silent = false) {
       try {
         if (currentView === "competitor") {
-          const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}`);
+          const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}&lang_code=${encodeURIComponent(currentUiLang)}`);
           items = Array.isArray(d.items) ? d.items : [];
           competitorUserIdByName = new Map();
           for (const item of items) {
@@ -523,16 +596,16 @@
           renderRows();
         } else {
           const [d] = await Promise.all([
-            get(`/api/admin/checkpoint-results?competition_id=${competitionId}`),
+            get(`/api/admin/checkpoint-results?competition_id=${competitionId}&lang_code=${encodeURIComponent(currentUiLang)}`),
             refreshCompetitorLookup(),
           ]);
           checkpointItems = Array.isArray(d.items) ? d.items : [];
           renderCheckpointRows();
         }
-        byId("lastRefresh").textContent = `Uuendatud: ${fmtNow()}`;
+        byId("lastRefresh").textContent = `${tr("results.last_refresh", "Uuendatud")}: ${fmtNow()}`;
         if (!silent) showMsg(true, "");
       } catch (e) {
-        showMsg(false, e.message || "Tulemuste laadimine eba&otilde;nnestus.");
+        showMsg(false, e.message || tr("results.load_failed", "Tulemuste laadimine ebaõnnestus."));
       }
     }
 
@@ -546,8 +619,12 @@
       const competitorActive = currentView === "competitor";
       byId("competitorTableWrap").classList.toggle("hidden", !competitorActive);
       byId("checkpointTableWrap").classList.toggle("hidden", competitorActive);
-      byId("viewToggleBtn").textContent = competitorActive ? "KP vaade" : "V\u00f5istleja vaade";
-      byId("pageTitle").textContent = competitorActive ? "Tulemused - v\u00f5istleja vaade" : "Tulemused - KP vaade";
+      byId("viewToggleBtn").textContent = competitorActive
+        ? tr("results.toggle_checkpoint_view", "KP vaade")
+        : tr("results.toggle_competitor_view", "Võistleja vaade");
+      byId("pageTitle").textContent = competitorActive
+        ? tr("results.page_title_competitor", "Tulemused - võistleja vaade")
+        : tr("results.page_title_checkpoint", "Tulemused - KP vaade");
     }
 
     async function toggleView() {
@@ -557,7 +634,7 @@
     }
 
     async function openParticipantModal(userId, name) {
-      byId("participantModalTitle").textContent = `V\u00f5istleja KP-d: ${name}`;
+      byId("participantModalTitle").textContent = `${tr("results.participant.title","Võistleja KP-d")}: ${name}`;
       participantItems = [];
       participantSortKey = "checkpoint_title";
       participantSortDir = "asc";
@@ -568,11 +645,11 @@
       byId("participantModal").classList.remove("hidden");
 
       try {
-        const d = await get(`/api/admin/participant-submissions?competition_id=${competitionId}&user_id=${Number(userId)}`);
+        const d = await get(`/api/admin/participant-submissions?competition_id=${competitionId}&user_id=${Number(userId)}&lang_code=${encodeURIComponent(currentUiLang)}`);
         participantItems = Array.isArray(d.items) ? d.items : [];
         renderParticipantRows();
       } catch (e) {
-        showModalMsg(false, e.message || "Vastuste laadimine eba&otilde;nnestus.");
+        showModalMsg(false, e.message || tr("results.answers.load_failed","Vastuste laadimine ebaõnnestus."));
       }
     }
 
@@ -599,7 +676,7 @@
     }
 
     async function openCheckpointRespondersModal(checkpointId, checkpointTitle) {
-      byId("checkpointRespondersTitle").textContent = `KP vastajad: ${checkpointTitle || "-"}`;
+      byId("checkpointRespondersTitle").textContent = `${tr("results.responders.title","KP vastajad")}: ${checkpointTitle || "-"}`;
       byId("checkpointRespondersRows").innerHTML = "";
       checkpointResponderSortKey = "competitor_name";
       checkpointResponderSortDir = "asc";
@@ -612,7 +689,7 @@
         checkpointResponderItems = Array.isArray(d.items) ? d.items : [];
         renderCheckpointRespondersRows();
       } catch (e) {
-        showCheckpointRespondersMsg(false, e.message || "KP vastajate laadimine ebaõnnestus.");
+        showCheckpointRespondersMsg(false, e.message || tr("results.responders.load_failed","KP vastajate laadimine ebaõnnestus."));
       }
     }
 
@@ -625,19 +702,19 @@
       showAnswerDetailMsg(true, "");
 
       try {
-        const d = await get(`/api/admin/submission-detail?competition_id=${competitionId}&user_id=${Number(userId)}&submission_id=${Number(submissionId)}`);
-        const qText = d.question_text || "-";
+        const d = await get(`/api/admin/submission-detail?competition_id=${competitionId}&user_id=${Number(userId)}&submission_id=${Number(submissionId)}&lang_code=${encodeURIComponent(currentUiLang)}`);
+        const qText = pickText(d.question_text, d.question_text_fallback);
         const pts = Number(d.points || 0);
         const wPts = Number(d.wrong_points || 0);
         const competitorAnswer = String(d.competitor_answer || "");
         const variants = Array.isArray(d.options) ? d.options : [];
 
         byId("answerQuestion").textContent = `${qText} (${pts} / ${wPts})`;
-        byId("answerSubmittedAt").textContent = `Vastamise aeg: ${fmtEtLocal(d.submitted_at)}`;
-        byId("answerAwardedPoints").textContent = `Teenitud punktid: ${Number(d.awarded_points || 0)}`;
+        byId("answerSubmittedAt").textContent = `${tr("results.answer.submitted_at","Vastamise aeg")}: ${fmtEtLocal(d.submitted_at)}`;
+        byId("answerAwardedPoints").textContent = `${tr("results.answer.awarded_points","Teenitud punktid")}: ${Number(d.awarded_points || 0)}`;
 
         if (variants.length === 0) {
-          byId("answerVariants").innerHTML = `<li><strong>${esc(competitorAnswer || "-")}</strong></li>`;
+          byId("answerVariants").innerHTML = `<li><strong>${esc(competitorAnswer || "---")}</strong></li>`;
           return;
         }
 
@@ -651,23 +728,28 @@
           const isSelected = selectedByFlag || selectedByText;
           const icon = isCorrect ? "&#10003;" : "&#10007;";
           const iconCls = isCorrect ? "badge-ok" : "badge-no";
-          const txt = esc(v.option_text || "-");
+          const txt = esc(pickText(v.option_text, v.option_text_fallback));
           return `<li><span class="${iconCls}">${icon}</span><span class="${isSelected ? "answer-picked" : ""}">${txt}</span></li>`;
         });
         if (normalizedAnswer && !matchedByText) {
-          rendered.push(`<li><span class="badge-no">&#10007;</span><span class="answer-picked">${esc(competitorAnswer)}</span> <span style="color:#666;">(Sinu vastus)</span></li>`);
+          rendered.push(`<li><span class="badge-no">&#10007;</span><span class="answer-picked">${esc(competitorAnswer)}</span> <span style="color:#666;">(${esc(tr("results.answer.your_answer","Sinu vastus"))})</span></li>`);
         }
         byId("answerVariants").innerHTML = rendered.join("");
       } catch (e) {
-        showAnswerDetailMsg(false, e.message || "Detaili laadimine eba&otilde;nnestus.");
+        showAnswerDetailMsg(false, e.message || tr("results.answer.detail_load_failed","Detaili laadimine ebaõnnestus."));
       }
     }
 
     async function init() {
       if (!competitionId) {
-        showMsg(false, "Puudub competition_id.");
+        showMsg(false, tr("results.missing_competition_id", "Puudub competition_id."));
         return;
       }
+      await loadI18nMeta();
+      const saved = (getCookie(adminLangCookieName) || "").toLowerCase();
+      const initial = i18nMeta.available_langs.includes(saved) ? saved : i18nMeta.default_lang;
+      await loadI18nForLanguage(initial);
+      applyStaticTexts();
       byId("sortName").onclick = () => setSort("competitor_name");
       byId("sortAnswered").onclick = () => setSort("answered_checkpoints");
       byId("sortScore").onclick = () => setSort("score");
@@ -675,6 +757,21 @@
       byId("sortLast").onclick = () => setSort("last_submission_at");
 
       byId("refreshNowBtn").onclick = () => refreshData();
+      byId("langSelect").addEventListener("change", async (e) => {
+        try {
+          await loadI18nForLanguage(e.target.value);
+          applyStaticTexts();
+          await loadCompetitionTitle();
+          await refreshData(true);
+          if (!byId("participantModal").classList.contains("hidden") && currentParticipantUserId) {
+            const t = byId("participantModalTitle").textContent || "";
+            const n = t.includes(":") ? t.split(":").slice(1).join(":").trim() : (tr("results.user_fallback_prefix", "Kasutaja") + ` #${currentParticipantUserId}`);
+            await openParticipantModal(currentParticipantUserId, n);
+          }
+        } catch (err) {
+          showMsg(false, err?.message || tr("results.lang_switch_failed", "Keelevahetus ebaõnnestus."));
+        }
+      });
       byId("participantModalClose").onclick = closeParticipantModal;
       byId("answerDetailClose").onclick = closeAnswerDetailModal;
       byId("checkpointRespondersClose").onclick = closeCheckpointRespondersModal;
@@ -708,7 +805,7 @@
         const btn = e.target.closest('[data-act="open-participant"]');
         if (!btn) return;
         const userId = Number(btn.getAttribute("data-user-id"));
-        const name = btn.getAttribute("data-name") || `Kasutaja #${userId}`;
+        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix", "Kasutaja")} #${userId}`;
         currentParticipantUserId = userId;
         openParticipantModal(userId, name).catch(() => {});
       });
@@ -723,7 +820,7 @@
         const btn = e.target.closest('[data-act="open-participant"]');
         if (!btn) return;
         const userId = Number(btn.getAttribute("data-user-id"));
-        const name = btn.getAttribute("data-name") || `Kasutaja #${userId}`;
+        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix", "Kasutaja")} #${userId}`;
         currentParticipantUserId = userId;
         openParticipantModal(userId, name).catch(() => {});
       });
@@ -752,7 +849,7 @@
       if (refreshTimer) clearInterval(refreshTimer);
     });
 
-    init().catch((e) => showMsg(false, e.message || "Lehe avamine eba&otilde;nnestus."));
+    init().catch((e) => showMsg(false, e.message || tr("results.open_failed", "Lehe avamine ebaõnnestus.")));
   </script>
 </body>
 </html>

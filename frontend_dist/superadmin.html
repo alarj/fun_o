@@ -10,7 +10,7 @@
 <body>
   <div class="wrap">
     <div class="card" id="loginCard">
-      <h2>Superadmin sisselogimine</h2>
+      <h2 data-i18n="superadmin.login.heading">Superadmin sisselogimine</h2>
       <div class="tools">
         <div id="googleLoginMount"></div>
       </div>
@@ -19,35 +19,44 @@
 
     <div class="hidden" id="appArea">
       <div class="card">
-        <div class="tools" style="justify-content: space-between;">
-          <h1>Superadmin</h1>
-          <div class="tools">
-            <button id="goAdminBtn" class="secondary" type="button">Võistluse korraldamine</button>
-            <div id="currentUserBox" class="userRow" title="-"></div>
-            <button id="logoutBtn" class="logoutBtnIcon" type="button" title="Logi välja" aria-label="Logi välja"></button>
+        <div class="tools superTopBar">
+          <h1 data-i18n="superadmin.page.heading">Superadmin</h1>
+          <div class="superTopBarRight">
+            <div class="tools superTopActionsRow">
+              <button id="openTranslationsBtn" class="secondary" type="button" data-i18n="superadmin.top.translations_btn">Tõlked</button>
+              <button id="goAdminBtn" class="secondary" type="button" data-i18n="superadmin.top.admin_btn">Võistluse korraldamine</button>
+            </div>
+            <div class="superTopUserRow">
+              <div id="currentUserBox" class="userRow" title="-"></div>
+              <select id="langSelect" class="superLangSelect">
+                <option value="et">ET</option>
+                <option value="en">EN</option>
+              </select>
+              <button id="logoutBtn" class="logoutBtnIcon" type="button" title="Logi välja" aria-label="Logi välja"></button>
+            </div>
           </div>
         </div>
-        <div class="muted">Võistluste loomine ja ülevaade</div>
+        <div class="muted" data-i18n="superadmin.page.subtitle">Võistluste loomine ja ülevaade</div>
       </div>
 
       <div class="card">
-        <h2>Lisa uus võistlus</h2>
+        <h2 data-i18n="superadmin.create.heading">Lisa uus võistlus</h2>
         <div class="row">
-          <label for="newCompName">Nimi</label>
+          <label for="newCompName" data-i18n="superadmin.create.name_label">Nimi</label>
           <input id="newCompName" type="text" maxlength="200" />
         </div>
         <div class="row">
-          <label for="newCompDesc">Kirjeldus</label>
+          <label for="newCompDesc" data-i18n="superadmin.create.desc_label">Kirjeldus</label>
           <textarea id="newCompDesc" maxlength="2000"></textarea>
         </div>
         <div class="tools">
-          <button id="createCompBtn" type="button">Loo võistlus</button>
+          <button id="createCompBtn" type="button" data-i18n="superadmin.create.create_btn">Loo võistlus</button>
         </div>
         <div id="createMsg"></div>
       </div>
 
       <div class="card">
-        <h2>Võistlused</h2>
+        <h2 data-i18n="superadmin.list.heading">Võistlused</h2>
         <table class="table">
           <colgroup>
             <col style="width:40px;">
@@ -64,58 +73,59 @@
           <thead>
             <tr>
               <th>ID <button class="sortBtn" id="sortId" type="button">▲</button></th>
-              <th>Nimi <button class="sortBtn" id="sortName" type="button">☰</button></th>
-              <th>Staatus <button class="sortBtn" id="sortStatus" type="button">☰</button></th>
-              <th>KP arv <button class="sortBtn" id="sortCheckpointCount" type="button">☰</button></th>
-              <th>Asukoht</th>
-              <th>Korraldaja kood</th>
-              <th>Korraldajad</th>
-              <th>Algus <button class="sortBtn" id="sortStart" type="button">☰</button></th>
-              <th>Lõpp <button class="sortBtn" id="sortEnd" type="button">☰</button></th>
+              <th><span data-i18n="superadmin.list.name_col">Nimi</span> <button class="sortBtn" id="sortName" type="button">☰</button></th>
+              <th><span data-i18n="superadmin.list.status_col">Staatus</span> <button class="sortBtn" id="sortStatus" type="button">☰</button></th>
+              <th><span data-i18n="superadmin.list.kp_count_col">KP arv</span> <button class="sortBtn" id="sortCheckpointCount" type="button">☰</button></th>
+              <th data-i18n="superadmin.list.location_col">Asukoht</th>
+              <th data-i18n="superadmin.list.org_code_col">Korraldaja kood</th>
+              <th data-i18n="superadmin.list.orgs_col">Korraldajad</th>
+              <th><span data-i18n="superadmin.list.starts_col">Algus</span> <button class="sortBtn" id="sortStart" type="button">☰</button></th>
+              <th><span data-i18n="superadmin.list.ends_col">Lõpp</span> <button class="sortBtn" id="sortEnd" type="button">☰</button></th>
               <th></th>
             </tr>
           </thead>
           <tbody id="competitionsRows"></tbody>
         </table>
       </div>
+
     </div>
   </div>
 
   <div id="createResultBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 style="margin-top:0;">Võistlus loodud</h2>
+      <h2 style="margin-top:0;" data-i18n="superadmin.created.heading">Võistlus loodud</h2>
       <div id="createResultText" class="muted" style="margin-bottom:10px;"></div>
       <div style="font-size:15px; margin-bottom:10px;">
-        Korraldaja kood:
+        <span data-i18n="superadmin.created.org_code_label">Korraldaja kood:</span>
         <span id="createResultCodeWrap" class="codeWrap">
           <span id="createResultCode" class="orgCode">-</span>
           <button id="copyCreatedCodeBtn" class="iconBtn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button>
         </span>
       </div>
       <div class="tools" style="justify-content:flex-end;">
-        <button id="createResultCloseBtn" type="button">Sulge</button>
+        <button id="createResultCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
       </div>
     </div>
   </div>
 
   <div id="removeOrganizerBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 id="removeOrganizerTitle" style="margin-top:0;">Korraldaja eemaldamine</h2>
+      <h2 id="removeOrganizerTitle" style="margin-top:0;" data-i18n="superadmin.remove_org.heading">Korraldaja eemaldamine</h2>
       <div id="removeOrganizerText" class="muted" style="margin-bottom:10px;"></div>
       <div id="removeOrganizerMsg"></div>
       <div class="tools" id="removeOrganizerActions" style="justify-content:flex-end;">
-        <button id="removeOrganizerNoBtn" class="secondary" type="button">Ei</button>
-        <button id="removeOrganizerYesBtn" type="button">Jah</button>
+        <button id="removeOrganizerNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">Ei</button>
+        <button id="removeOrganizerYesBtn" type="button" data-i18n="superadmin.common.yes_btn">Jah</button>
       </div>
       <div class="tools hidden" id="removeOrganizerResultActions" style="justify-content:flex-end;">
-        <button id="removeOrganizerCloseBtn" type="button">Sulge</button>
+        <button id="removeOrganizerCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
       </div>
     </div>
   </div>
 
   <div id="copyCompetitionBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 id="copyCompetitionTitle" style="margin-top:0;">Võistluse kopeerimine</h2>
+      <h2 id="copyCompetitionTitle" style="margin-top:0;" data-i18n="superadmin.copy.heading">Võistluse kopeerimine</h2>
       <div id="copyCompetitionText" class="muted" style="margin-bottom:10px;"></div>
       <div id="copyCompetitionFormArea">
         <div class="yn-inline">
@@ -123,24 +133,70 @@
             <input id="copyWithQuestions" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
-          <label for="copyWithQuestions">Kas kopeerime ka küsimused ja vastusevariandid?</label>
+          <label for="copyWithQuestions" data-i18n="superadmin.copy.with_questions_label">Kas kopeerime ka küsimused ja vastusevariandid?</label>
         </div>
         <div class="yn-inline" style="margin-bottom:10px;">
           <label class="yn-switch" for="copyWithOrganizers">
             <input id="copyWithOrganizers" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
-          <label for="copyWithOrganizers">Kas kopeerime korraldajad?</label>
+          <label for="copyWithOrganizers" data-i18n="superadmin.copy.with_organizers_label">Kas kopeerime korraldajad?</label>
         </div>
-        <div class="muted" style="margin-bottom:8px;">Uue loodava võistlusega peavad osalejad eraldi liituma uue koodi abil. Vana võistluse osalejaid kaasa ei võeta. Korraldajate lisamise kood on uuel võistlusel uus. Võistluse kuupäevad tuleb peale kopeerimist ise määrata.</div>
+        <div class="muted" style="margin-bottom:8px;" data-i18n="superadmin.copy.help_text">Uue loodava võistlusega peavad osalejad eraldi liituma uue koodi abil. Vana võistluse osalejaid kaasa ei võeta. Korraldajate lisamise kood on uuel võistlusel uus. Võistluse kuupäevad tuleb peale kopeerimist ise määrata.</div>
       </div>
       <div id="copyCompetitionMsg"></div>
       <div class="tools" id="copyCompetitionActions" style="justify-content:flex-end;">
-        <button id="copyCompetitionNoBtn" class="secondary" type="button">Ei</button>
-        <button id="copyCompetitionYesBtn" type="button">Jah</button>
+        <button id="copyCompetitionNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">Ei</button>
+        <button id="copyCompetitionYesBtn" type="button" data-i18n="superadmin.common.yes_btn">Jah</button>
       </div>
       <div class="tools hidden" id="copyCompetitionResultActions" style="justify-content:flex-end;">
-        <button id="copyCompetitionCloseBtn" type="button">Sulge</button>
+        <button id="copyCompetitionCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="translationsBackdrop" class="modalBackdrop">
+    <div class="modalCard" style="width:min(1200px,96vw); max-height:92vh; display:flex; flex-direction:column;">
+      <h2 style="margin-top:0;" data-i18n="superadmin.translations.heading">Tõlgete haldus</h2>
+      <div class="row">
+        <label for="trSearchInput" data-i18n="superadmin.translations.search_label">Otsing (võti või tekst)</label>
+        <input id="trSearchInput" type="text" placeholder="nt competitor.join või Continue joining" data-i18n-placeholder="superadmin.translations.search_placeholder" />
+      </div>
+      <div class="tools">
+        <button id="trLoadBtn" type="button" data-i18n="superadmin.translations.load_btn">Lae tõlked</button>
+        <button id="trCreateBtn" class="secondary" type="button" data-i18n="superadmin.translations.new_key_btn">Lisa uus võti</button>
+        <button id="trReloadCacheBtn" class="secondary" type="button" data-i18n="superadmin.translations.reload_btn">Uuenda i18n cache</button>
+        <button id="trCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+      </div>
+      <div id="trMsg"></div>
+      <div style="overflow:auto; border:1px solid #d7ddd8; border-radius:10px; margin-top:8px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th data-i18n="superadmin.translations.key_col">Võti</th>
+              <th>ET</th>
+              <th>EN</th>
+              <th style="width:100px;"></th>
+            </tr>
+          </thead>
+          <tbody id="trRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="trEditBackdrop" class="modalBackdrop">
+    <div class="modalCard" style="width:min(960px,96vw); max-height:92vh; display:flex; flex-direction:column;">
+      <h2 id="trEditTitle" style="margin-top:0;" data-i18n="superadmin.translations.edit_heading">Tõlke muutmine</h2>
+      <div class="row">
+        <label for="trKeyInput" data-i18n="superadmin.translations.key_label">Võti</label>
+        <input id="trKeyInput" type="text" maxlength="300" placeholder="competitor.join.code_label" data-i18n-placeholder="superadmin.translations.key_placeholder" />
+      </div>
+      <div id="trLangEditorRows" style="overflow:auto; margin-top:6px;"></div>
+      <div id="trEditMsg"></div>
+      <div class="tools" style="justify-content:flex-end; margin-top:10px;">
+        <button id="trEditCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+        <button id="trSaveBtn" type="button" data-i18n="superadmin.common.save_btn">Salvesta</button>
       </div>
     </div>
   </div>
@@ -154,6 +210,69 @@
     let sortDir = "asc";
     let pendingOrganizerRemoval = null;
     let pendingCompetitionCopy = null;
+    let translationItems = [];
+    let i18nLangs = ["et", "en"];
+    let trLoaded = false;
+    let trEditorOriginal = {};
+    let trEditorMode = "create";
+    const uiLangCookieName = "funo_admin_ui_lang";
+    let i18nMeta = { default_lang: "et", available_langs: ["et", "en"] };
+    let i18nItems = {};
+    let currentUiLang = "et";
+
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + days * 86400000);
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const prefix = `${name}=`;
+      const parts = (document.cookie || "").split(";").map((x) => x.trim());
+      const found = parts.find((p) => p.startsWith(prefix));
+      return found ? decodeURIComponent(found.substring(prefix.length)) : "";
+    }
+    function tr(key, fallback = "") {
+      return Object.prototype.hasOwnProperty.call(i18nItems, key) ? i18nItems[key] : fallback;
+    }
+    function applyI18n() {
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (!key) return;
+        el.textContent = tr(key, el.textContent || key);
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        if (!key) return;
+        const fallback = el.getAttribute("placeholder") || key;
+        el.setAttribute("placeholder", tr(key, fallback));
+      });
+      byId("logoutBtn").title = tr("superadmin.top.logout_btn", "Logi välja");
+      byId("logoutBtn").setAttribute("aria-label", tr("superadmin.top.logout_btn", "Logi välja"));
+    }
+    async function loadI18nMeta() {
+      const d = await get("/api/i18n/meta");
+      const langs = Array.isArray(d?.available_langs) ? d.available_langs.map((x) => String(x).toLowerCase()) : [];
+      const def = String(d?.default_lang || "et").toLowerCase();
+      i18nMeta = { default_lang: def || "et", available_langs: langs.length ? langs : [def || "et"] };
+      const sel = byId("langSelect");
+      sel.innerHTML = i18nMeta.available_langs.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("");
+    }
+    async function loadTranslationsForLang(lang) {
+      const lc = String(lang || i18nMeta.default_lang || "et").toLowerCase();
+      const d = await get(`/api/i18n/translations?lang=${encodeURIComponent(lc)}`);
+      i18nItems = (d && d.items && typeof d.items === "object") ? d.items : {};
+    }
+    async function setLanguage(lang) {
+      const lc = String(lang || i18nMeta.default_lang || "et").toLowerCase();
+      currentUiLang = i18nMeta.available_langs.includes(lc) ? lc : (i18nMeta.default_lang || "et");
+      await loadTranslationsForLang(currentUiLang);
+      document.documentElement.lang = currentUiLang;
+      byId("langSelect").value = currentUiLang;
+      setCookie(uiLangCookieName, currentUiLang, 365);
+      applyI18n();
+      renderCompetitions();
+      if (trLoaded) renderTranslations();
+    }
 
     function setMsg(id, ok, text) {
       const el = byId(id);
@@ -252,7 +371,7 @@
     }
 
     function openCreateResultModal(competitionId, organizerCode) {
-      byId("createResultText").textContent = `Võistlus loodud (id=${competitionId}).`;
+      byId("createResultText").textContent = `${tr("superadmin.created.msg_prefix","Võistlus loodud")} (id=${competitionId}).`;
       byId("createResultCode").textContent = organizerCode || "-";
       byId("createResultBackdrop").style.display = "flex";
     }
@@ -276,7 +395,7 @@
         const userId = Number(o?.user_id || 0);
         const name = esc(o?.full_name || o?.email || `user#${userId}`);
         const safeCompetitionName = esc(competitionName || `#${competitionId}`);
-        return `<div class="organizerItem"><span>${name}</span><button class="organizerRemoveBtn" type="button" data-act="remove-organizer" data-competition-id="${competitionId}" data-competition-name="${safeCompetitionName}" data-user-id="${userId}" data-user-name="${name}" title="Eemalda korraldaja" aria-label="Eemalda korraldaja">${removeIconSvg()}</button></div>`;
+        return `<div class="organizerItem"><span>${name}</span><button class="organizerRemoveBtn" type="button" data-act="remove-organizer" data-competition-id="${competitionId}" data-competition-name="${safeCompetitionName}" data-user-id="${userId}" data-user-name="${name}" title="${esc(tr("superadmin.org.remove_btn","Eemalda korraldaja"))}" aria-label="${esc(tr("superadmin.org.remove_btn","Eemalda korraldaja"))}">${removeIconSvg()}</button></div>`;
       }).join("");
     }
 
@@ -335,7 +454,7 @@
           <td class="organizersCol">${orgText}</td>
           <td class="startColCell">${esc(fmtEt(x.starts_at))}</td>
           <td class="endColCell">${esc(fmtEt(x.ends_at))}</td>
-          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="Kopeeri võistlus" aria-label="Kopeeri võistlus">${cloneIconSvg()}</button></td>
+          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="${esc(tr("superadmin.copy.copy_btn","Kopeeri võistlus"))}" aria-label="${esc(tr("superadmin.copy.copy_btn","Kopeeri võistlus"))}">${cloneIconSvg()}</button></td>
         </tr>`;
       }).join("");
       refreshSortIcons();
@@ -356,6 +475,163 @@
       renderCompetitions();
     }
 
+    function normalizeTranslationItems(items) {
+      return (Array.isArray(items) ? items : []).map((x) => ({
+        translation_key: String(x?.translation_key || ""),
+        lang_code: String(x?.lang_code || "").toLowerCase(),
+        text_value: (x?.text_value ?? "").toString(),
+      })).filter((x) => x.translation_key && x.lang_code);
+    }
+
+    function groupedTranslations() {
+      const grouped = new Map();
+      translationItems.forEach((row) => {
+        const key = row.translation_key;
+        if (!grouped.has(key)) grouped.set(key, { key, texts: {} });
+        grouped.get(key).texts[row.lang_code] = row.text_value || "";
+      });
+      return Array.from(grouped.values()).sort((a, b) =>
+        String(a.key || "").localeCompare(String(b.key || ""), "et", { sensitivity: "base" })
+      );
+    }
+
+    function renderTranslations() {
+      const q = (byId("trSearchInput").value || "").trim().toLowerCase();
+      const items = groupedTranslations().filter((x) => {
+        if (!q) return true;
+        if (x.key.toLowerCase().includes(q)) return true;
+        return Object.values(x.texts || {}).some((v) => String(v || "").toLowerCase().includes(q));
+      });
+      byId("trRows").innerHTML = items.map((x) => {
+        const et = x.texts.et || "";
+        const en = x.texts.en || "";
+        return `<tr>
+          <td>${esc(x.key)}</td>
+          <td>${esc(et)}</td>
+          <td>${esc(en)}</td>
+          <td><button class="secondary" type="button" data-act="tr-edit" data-key="${esc(x.key)}">${esc(tr("superadmin.common.edit_btn","Muuda"))}</button></td>
+        </tr>`;
+      }).join("");
+      setMsg("trMsg", true, `${tr("superadmin.translations.shown_prefix","Kuvatud")}: ${items.length} ${tr("superadmin.translations.keys_suffix","võtit")}.`);
+    }
+
+    async function loadTranslations() {
+      const q = new URLSearchParams();
+      q.set("include_deleted", "N");
+      const d = await get(`/api/superadmin/translations?${q.toString()}`);
+      translationItems = normalizeTranslationItems(d.items);
+      trLoaded = true;
+      renderTranslations();
+      setMsg("trMsg", true, `${tr("superadmin.translations.loaded_prefix","Laetud")}: ${translationItems.length} ${tr("superadmin.translations.rows_suffix","kirjet")}.`);
+    }
+
+    async function loadI18nLangs() {
+      const langs = Array.isArray(i18nMeta?.available_langs) ? i18nMeta.available_langs : [];
+      i18nLangs = langs.map((x) => String(x || "").toLowerCase().trim()).filter(Boolean);
+      if (!i18nLangs.length) i18nLangs = ["et", "en"];
+    }
+
+    function closeTranslationsModal() {
+      byId("translationsBackdrop").style.display = "none";
+    }
+
+    function openTranslationsModal() {
+      byId("translationsBackdrop").style.display = "flex";
+      setMsg("trMsg", true, trLoaded ? "" : tr("superadmin.translations.load_hint","Vajuta 'Lae tõlked'."));
+      if (trLoaded) renderTranslations();
+    }
+
+    function closeTranslationEditorModal() {
+      byId("trEditBackdrop").style.display = "none";
+      setMsg("trEditMsg", true, "");
+    }
+
+    function buildEditorRows(textsByLang) {
+      byId("trLangEditorRows").innerHTML = i18nLangs.map((lang) => {
+        const value = String(textsByLang?.[lang] || "");
+        return `
+          <div class="row">
+            <label for="trText_${esc(lang)}">${esc(lang.toUpperCase())}</label>
+            <div class="tools" style="align-items:flex-start; gap:8px;">
+              <textarea id="trText_${esc(lang)}" data-lang="${esc(lang)}" class="trLangText" maxlength="4000" style="min-height:90px;">${esc(value)}</textarea>
+              <button type="button" class="organizerRemoveBtn" data-act="tr-mark-delete" data-lang="${esc(lang)}" title="${esc(tr("superadmin.translations.delete_lang_btn","Kustuta selle keele tõlge"))}" aria-label="${esc(tr("superadmin.translations.delete_lang_btn","Kustuta selle keele tõlge"))}">${removeIconSvg()}</button>
+            </div>
+          </div>
+          <div class="muted" id="trDeleteMark_${esc(lang)}"></div>
+        `;
+      }).join("");
+    }
+
+    function openTranslationEditorModal(key) {
+      const k = String(key || "").trim();
+      trEditorMode = k ? "edit" : "create";
+      trEditorOriginal = {};
+      translationItems.forEach((row) => {
+        if (row.translation_key === k) trEditorOriginal[row.lang_code] = row.text_value || "";
+      });
+      byId("trEditTitle").textContent = trEditorMode === "edit"
+        ? tr("superadmin.translations.edit_heading","Tõlke muutmine")
+        : tr("superadmin.translations.new_heading","Uue tõlke lisamine");
+      byId("trKeyInput").value = k;
+      byId("trKeyInput").readOnly = trEditorMode === "edit";
+      buildEditorRows(trEditorOriginal);
+      byId("trEditBackdrop").style.display = "flex";
+      setMsg("trEditMsg", true, "");
+    }
+
+    async function saveTranslationDiff() {
+      const key = byId("trKeyInput").value.trim();
+      if (!key) {
+        setMsg("trEditMsg", false, tr("superadmin.translations.key_required","Võti on kohustuslik."));
+        return;
+      }
+      const ops = [];
+      i18nLangs.forEach((lang) => {
+        const ta = byId(`trText_${lang}`);
+        const mark = byId(`trDeleteMark_${lang}`);
+        const deleted = mark?.dataset?.delete === "Y";
+        const nextVal = String(ta?.value || "");
+        const oldVal = String(trEditorOriginal?.[lang] || "");
+        const hadOld = Object.prototype.hasOwnProperty.call(trEditorOriginal || {}, lang);
+        if (deleted && hadOld) {
+          ops.push({ type: "delete", lang });
+          return;
+        }
+        if (deleted && !hadOld) return;
+        if (nextVal.trim() === "" && !hadOld) return;
+        if (!hadOld || nextVal !== oldVal) {
+          ops.push({ type: "upsert", lang, text: nextVal });
+        }
+      });
+      if (!ops.length) {
+        setMsg("trEditMsg", true, tr("superadmin.translations.no_changes","Muudatusi pole."));
+        return;
+      }
+      for (const op of ops) {
+        if (op.type === "delete") {
+          await post("/api/superadmin/translations/delete", { translation_key: key, lang_code: op.lang });
+        } else {
+          await post("/api/superadmin/translations/upsert", {
+            translation_key: key,
+            lang_code: op.lang,
+            text_value: op.text,
+          });
+        }
+      }
+      await loadTranslations();
+      setMsg(
+        "trMsg",
+        true,
+        `${tr("superadmin.translations.updated_msg","Tõlge uuendatud.")} ${tr("superadmin.translations.reload_hint","Muudatuste rakendamiseks vajuta 'Uuenda i18n cache'.")}`
+      );
+      closeTranslationEditorModal();
+    }
+
+    async function reloadI18nCache() {
+      await post("/api/i18n/reload", {});
+      setMsg("trMsg", true, tr("superadmin.translations.cache_reloaded","i18n cache uuendatud."));
+    }
+
     function closeRemoveOrganizerModal() {
       pendingOrganizerRemoval = null;
       setMsg("removeOrganizerMsg", true, "");
@@ -366,8 +642,8 @@
 
     function openRemoveOrganizerModal(payload) {
       pendingOrganizerRemoval = payload;
-      byId("removeOrganizerTitle").textContent = "Korraldaja eemaldamine";
-      byId("removeOrganizerText").textContent = `Soovid ${payload.userName} eemaldada võistluse korraldajate seast?`;
+      byId("removeOrganizerTitle").textContent = tr("superadmin.remove_org.heading","Korraldaja eemaldamine");
+      byId("removeOrganizerText").textContent = `${tr("superadmin.remove_org.confirm_prefix","Soovid")} ${payload.userName} ${tr("superadmin.remove_org.confirm_suffix","eemaldada võistluse korraldajate seast?")}`;
       setMsg("removeOrganizerMsg", true, "");
       byId("removeOrganizerActions").classList.remove("hidden");
       byId("removeOrganizerResultActions").classList.add("hidden");
@@ -387,8 +663,8 @@
 
     function openCopyCompetitionModal(payload) {
       pendingCompetitionCopy = payload;
-      byId("copyCompetitionTitle").textContent = "Võistluse kopeerimine";
-      byId("copyCompetitionText").textContent = `Soovid kopeerida võistluse ${payload.competitionName} uueks võistluseks.`;
+      byId("copyCompetitionTitle").textContent = tr("superadmin.copy.heading","Võistluse kopeerimine");
+      byId("copyCompetitionText").textContent = `${tr("superadmin.copy.confirm_prefix","Soovid kopeerida võistluse")} ${payload.competitionName} ${tr("superadmin.copy.confirm_suffix","uueks võistluseks.")}`;
       setMsg("copyCompetitionMsg", true, "");
       byId("copyCompetitionActions").classList.remove("hidden");
       byId("copyCompetitionResultActions").classList.add("hidden");
@@ -401,7 +677,7 @@
     function renderOrganizerCodeCell(code) {
       const safeCode = String(code || "").trim();
       if (!safeCode || safeCode === "-") return "-";
-      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="Kopeeri kood" aria-label="Kopeeri kood">${copyIconSvg()}</button></span>`;
+      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="${esc(tr("superadmin.common.copy_code_btn","Kopeeri kood"))}" aria-label="${esc(tr("superadmin.common.copy_code_btn","Kopeeri kood"))}">${copyIconSvg()}</button></span>`;
     }
 
     async function createCompetition() {
@@ -409,7 +685,7 @@
       const name = byId("newCompName").value.trim();
       const description = byId("newCompDesc").value.trim();
       if (!name) {
-        setMsg("createMsg", false, "Sisesta võistluse nimi.");
+        setMsg("createMsg", false, tr("superadmin.create.name_required","Sisesta võistluse nimi."));
         return;
       }
       const d = await post("/api/superadmin/competitions", { name, description: description || null });
@@ -435,27 +711,31 @@
       }
       byId("loginCard").classList.add("hidden");
       byId("appArea").classList.remove("hidden");
+      await loadI18nMeta();
+      const savedLang = (getCookie(uiLangCookieName) || "").trim().toLowerCase();
+      await setLanguage(savedLang && i18nMeta.available_langs.includes(savedLang) ? savedLang : i18nMeta.default_lang);
+      await loadI18nLangs();
       await loadCompetitions();
     }
 
     async function initGoogleLogin() {
       const cfg = await get("/api/auth/google/config");
       if (!cfg || !cfg.enabled || !cfg.client_id) {
-        setMsg("loginMsg", false, "Google login ei ole serveris seadistatud.");
+        setMsg("loginMsg", false, tr("superadmin.login.google_not_configured","Google login ei ole serveris seadistatud."));
         return;
       }
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        setMsg("loginMsg", false, "Google login skripti laadimine ebaõnnestus.");
+        setMsg("loginMsg", false, tr("superadmin.login.google_script_failed","Google login skripti laadimine ebaõnnestus."));
         return;
       }
       window.google.accounts.id.initialize({
         client_id: cfg.client_id,
         callback: async (resp) => {
           try {
-            if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+            if (!resp || !resp.credential) throw new Error(tr("superadmin.login.google_credential_missing","Google credential puudub."));
             await googleLoginWithCredential(resp.credential);
           } catch (e) {
-            setMsg("loginMsg", false, e.message || "Google sisselogimine ebaõnnestus.");
+            setMsg("loginMsg", false, e.message || tr("superadmin.login.google_failed","Google sisselogimine ebaõnnestus."));
           }
         }
       });
@@ -472,13 +752,20 @@
     async function init() {
       byId("logoutBtn").innerHTML = logoutIconSvg();
       byId("copyCreatedCodeBtn").innerHTML = copyIconSvg();
-      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || "Loomine ebaõnnestus.")));
+      await loadI18nMeta();
+      const savedLangPre = (getCookie(uiLangCookieName) || "").trim().toLowerCase();
+      await setLanguage(savedLangPre && i18nMeta.available_langs.includes(savedLangPre) ? savedLangPre : i18nMeta.default_lang);
+      await loadI18nLangs();
+      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || tr("superadmin.create.failed","Loomine ebaõnnestus."))));
       byId("logoutBtn").addEventListener("click", async () => {
         await post("/api/auth/logout", {});
         redirectToAdmin();
       });
       byId("goAdminBtn").addEventListener("click", () => {
         window.location.href = "/admin.html";
+      });
+      byId("langSelect").addEventListener("change", async (e) => {
+        await setLanguage(e.target.value || i18nMeta.default_lang || "et");
       });
       byId("sortId").addEventListener("click", () => setSort("competition_id"));
       byId("sortName").addEventListener("click", () => setSort("name"));
@@ -531,16 +818,12 @@
             user_id: pendingOrganizerRemoval.userId,
           });
           byId("removeOrganizerText").textContent = "";
-          setMsg(
-            "removeOrganizerMsg",
-            true,
-            `${pendingOrganizerRemoval.userName} eemaldatud võistluse ${pendingOrganizerRemoval.competitionName} korraldajate seast.`
-          );
+          setMsg("removeOrganizerMsg", true, `${pendingOrganizerRemoval.userName} ${tr("superadmin.remove_org.removed_mid","eemaldatud võistluse")} ${pendingOrganizerRemoval.competitionName} ${tr("superadmin.remove_org.removed_suffix","korraldajate seast.")}`);
           byId("removeOrganizerActions").classList.add("hidden");
           byId("removeOrganizerResultActions").classList.remove("hidden");
           await loadCompetitions();
         } catch (e) {
-          setMsg("removeOrganizerMsg", false, e.message || "Korraldaja eemaldamine ebaõnnestus.");
+          setMsg("removeOrganizerMsg", false, e.message || tr("superadmin.remove_org.failed","Korraldaja eemaldamine ebaõnnestus."));
         }
       });
       byId("copyCompetitionNoBtn").addEventListener("click", closeCopyCompetitionModal);
@@ -560,8 +843,48 @@
           openCreateResultModal(res.competition_id, res.organizer_code);
           await loadCompetitions();
         } catch (e) {
-          setMsg("copyCompetitionMsg", false, e.message || "Võistluse kopeerimine ebaõnnestus.");
+          setMsg("copyCompetitionMsg", false, e.message || tr("superadmin.copy.failed","Võistluse kopeerimine ebaõnnestus."));
         }
+      });
+      byId("openTranslationsBtn").addEventListener("click", () => openTranslationsModal());
+      byId("trCloseBtn").addEventListener("click", closeTranslationsModal);
+      byId("translationsBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("translationsBackdrop")) closeTranslationsModal();
+      });
+      byId("trLoadBtn").addEventListener("click", () => loadTranslations().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.load_failed","Tõlgete laadimine ebaõnnestus."))));
+      byId("trCreateBtn").addEventListener("click", () => openTranslationEditorModal(""));
+      byId("trReloadCacheBtn").addEventListener("click", () => reloadI18nCache().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.cache_reload_failed","Cache uuendamine ebaõnnestus."))));
+      byId("trSearchInput").addEventListener("input", () => { if (trLoaded) renderTranslations(); });
+      byId("trRows").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act='tr-edit']");
+        if (!btn) return;
+        openTranslationEditorModal(btn.getAttribute("data-key") || "");
+      });
+      byId("trLangEditorRows").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act='tr-mark-delete']");
+        if (!btn) return;
+        const lang = btn.getAttribute("data-lang") || "";
+        const marker = byId(`trDeleteMark_${lang}`);
+        const cur = marker?.dataset?.delete === "Y";
+        if (marker) {
+          marker.dataset.delete = cur ? "N" : "Y";
+          marker.textContent = cur ? "" : tr("superadmin.translations.delete_mark_msg","Märge: selle keele tõlge kustutatakse salvestamisel.");
+        }
+      });
+      byId("trLangEditorRows").addEventListener("input", (e) => {
+        const ta = e.target.closest(".trLangText");
+        if (!ta) return;
+        const lang = ta.getAttribute("data-lang") || "";
+        const marker = byId(`trDeleteMark_${lang}`);
+        if (marker?.dataset?.delete === "Y") {
+          marker.dataset.delete = "N";
+          marker.textContent = "";
+        }
+      });
+      byId("trEditCloseBtn").addEventListener("click", closeTranslationEditorModal);
+      byId("trSaveBtn").addEventListener("click", () => saveTranslationDiff().catch((e) => setMsg("trEditMsg", false, e.message || tr("superadmin.translations.save_failed","Tõlke salvestamine ebaõnnestus."))));
+      byId("trEditBackdrop").addEventListener("click", (e) => {
+        if (e.target === byId("trEditBackdrop")) closeTranslationEditorModal();
       });
 
       try {

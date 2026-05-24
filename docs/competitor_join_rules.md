@@ -271,3 +271,35 @@ Muidu tagastatakse viga (mitte edukas sisestus).
   - võti: `lang_code`
   - TTL: puudub
   - reload endpoint: `POST /api/i18n/reload`
+
+## G. Index vaate i18n reeglid
+
+- Koik `index.html` UI tekstid (sh modalid ja kasutajale kuvatavad API veateated) peavad tulema `translations` tabelist.
+- Votmete muster: `competitor.*` (nt `competitor.join.code_label`).
+- Votmeid UI-s ei taaskasutata eri kohtades; igal nupul/labelil oma key.
+- Muutujatega tekstides kasutatakse named-placeholder formaati:
+  - naide: `competitor.results.progress_line = "KP: {answered} / {total} Punktid: {score}"`.
+- Fallback:
+  1. valitud keel
+  2. `.env` `LANG_DEFAULT`
+  3. key nimi ise
+- Esmalaadimisel kasutatakse `.env` `LANG_DEFAULT` keelt.
+- Kasutaja valik salvestatakse cookie-s (`funo_ui_lang`).
+- Keelevaliku valikud tulevad `.env` muutujast `LANG_AVAILABLE`.
+- Sama keelevalik rakendub ka tingimustele, kirjeldusele ja kusimustele; kui valitud keeles puudub sisu, kasutatakse fallback default keelt.
+
+## H. Multikeelsuse uldpohimote (koik vaated)
+
+- Sama fallback-reegel kehtib koigis mitmekeelsetes vaadetes:
+  - `index.html` (voistleja)
+  - `admin.html`
+  - `superadmin.html`
+  - `results.html`
+- UI tekstide fallback:
+  1. valitud keel
+  2. `.env` `LANG_DEFAULT`
+  3. voti nimi (translation key)
+- Andmepohiste tekstide fallback (kusimus, vastusevariant jms):
+  1. valitud keel
+  2. `.env` `LANG_DEFAULT`
+  3. `---` (viga ei tohi tekkida)

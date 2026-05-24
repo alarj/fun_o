@@ -902,6 +902,8 @@ create or replace package pkg_results as
   procedure get_participant_submissions(
     p_competition_id in number,
     p_user_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     o_items_json out clob
   );
 
@@ -909,6 +911,8 @@ create or replace package pkg_results as
     p_competition_id in number,
     p_user_id in number,
     p_submission_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     o_item_json out clob
   );
 
@@ -1008,9 +1012,22 @@ create or replace package body pkg_results as
   procedure get_participant_submissions(
     p_competition_id in number,
     p_user_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     o_items_json out clob
   ) is
+    l_lang varchar2(10);
+    l_fallback_lang varchar2(10);
   begin
+    l_lang := lower(nvl(trim(p_lang_code), 'et'));
+    l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
+    if l_fallback_lang is null or l_fallback_lang = '' then
+      l_fallback_lang := 'et';
+    end if;
+    if l_fallback_lang = l_lang then
+      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+    end if;
+
     select json_arrayagg(
              json_object(
                'checkpoint_title' value x.checkpoint_title,
@@ -1036,7 +1053,7 @@ create or replace package body pkg_results as
                       select qot_et.option_text
                         from question_option_texts qot_et
                        where qot_et.option_id = s.selected_option_id
-                         and lower(qot_et.lang_code) = 'et'
+                         and lower(qot_et.lang_code) = l_lang
                        fetch first 1 row only
                     ),
                     nvl(
@@ -1044,10 +1061,10 @@ create or replace package body pkg_results as
                         select qot_en.option_text
                           from question_option_texts qot_en
                          where qot_en.option_id = s.selected_option_id
-                           and lower(qot_en.lang_code) = 'en'
+                           and lower(qot_en.lang_code) = l_fallback_lang
                          fetch first 1 row only
                       ),
-                      qo.option_code
+                      '---'
                     )
                   )
                   else dbms_lob.substr(s.answer_text, 4000, 1)
@@ -1074,13 +1091,26 @@ create or replace package body pkg_results as
     p_competition_id in number,
     p_user_id in number,
     p_submission_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     o_item_json out clob
   ) is
     l_question_id questions.question_id%type;
     l_question_type questions.question_type%type;
     l_selected_option_id submissions.selected_option_id%type;
     l_answer_text clob;
+    l_lang varchar2(10);
+    l_fallback_lang varchar2(10);
   begin
+    l_lang := lower(nvl(trim(p_lang_code), 'et'));
+    l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
+    if l_fallback_lang is null or l_fallback_lang = '' then
+      l_fallback_lang := 'et';
+    end if;
+    if l_fallback_lang = l_lang then
+      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+    end if;
+
     select s.question_id,
            q.question_type,
            s.selected_option_id,
@@ -1099,7 +1129,21 @@ create or replace package body pkg_results as
     select json_object(
              'submission_id' value s.submission_id,
              'checkpoint_title' value cp.title,
-             'question_text' value qt.question_text,
+             'question_text' value nvl(
+               qt.question_text,
+               nvl(
+                 (
+                   select qtf.question_text
+                     from question_texts qtf
+                    where qtf.question_id = q.question_id
+                      and lower(qtf.lang_code) = l_fallback_lang
+                      and qtf.start_date <= cast(s.submitted_at as date)
+                      and (qtf.end_date is null or qtf.end_date > cast(s.submitted_at as date))
+                    fetch first 1 row only
+                 ),
+                 '---'
+               )
+             ),
              'question_type' value q.question_type,
              'points' value nvl(q.points, 0),
              'wrong_points' value nvl(q.wrong_points, 0),
@@ -1114,7 +1158,7 @@ create or replace package body pkg_results as
                    select qot_et.option_text
                      from question_option_texts qot_et
                     where qot_et.option_id = s.selected_option_id
-                      and lower(qot_et.lang_code) = 'et'
+                      and lower(qot_et.lang_code) = l_lang
                       and qot_et.start_date <= cast(s.submitted_at as date)
                       and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
                     fetch first 1 row only
@@ -1124,19 +1168,12 @@ create or replace package body pkg_results as
                      select qot_en.option_text
                        from question_option_texts qot_en
                       where qot_en.option_id = s.selected_option_id
-                        and lower(qot_en.lang_code) = 'en'
+                        and lower(qot_en.lang_code) = l_fallback_lang
                         and qot_en.start_date <= cast(s.submitted_at as date)
                         and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
                       fetch first 1 row only
                    ),
-                   (
-                     select qo.option_code
-                       from question_options qo
-                      where qo.option_id = s.selected_option_id
-                        and qo.start_date <= cast(s.submitted_at as date)
-                        and (qo.end_date is null or qo.end_date > cast(s.submitted_at as date))
-                      fetch first 1 row only
-                   )
+                   '---'
                  )
                )
                else dbms_lob.substr(s.answer_text, 4000, 1)
@@ -1150,7 +1187,7 @@ create or replace package body pkg_results as
                                 select qot_et.option_text
                                   from question_option_texts qot_et
                                  where qot_et.option_id = qo.option_id
-                                   and lower(qot_et.lang_code) = 'et'
+                                   and lower(qot_et.lang_code) = l_lang
                                    and qot_et.start_date <= cast(s.submitted_at as date)
                                    and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
                                  fetch first 1 row only
@@ -1160,12 +1197,12 @@ create or replace package body pkg_results as
                                   select qot_en.option_text
                                     from question_option_texts qot_en
                                    where qot_en.option_id = qo.option_id
-                                     and lower(qot_en.lang_code) = 'en'
+                                     and lower(qot_en.lang_code) = l_fallback_lang
                                      and qot_en.start_date <= cast(s.submitted_at as date)
                                      and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
                                    fetch first 1 row only
                                 ),
-                                qo.option_code
+                                '---'
                               )
                             ),
                             'is_correct' value case when qo.is_correct = 'Y' then 'Y' else 'N' end,
@@ -1207,7 +1244,9 @@ create or replace package body pkg_results as
         on q.question_id = s.question_id
       left join question_texts qt
         on qt.question_id = q.question_id
-       and lower(qt.lang_code) = 'et'
+       and lower(qt.lang_code) = l_lang
+       and qt.start_date <= cast(s.submitted_at as date)
+       and (qt.end_date is null or qt.end_date > cast(s.submitted_at as date))
      where s.submission_id = p_submission_id
        and s.competition_id = p_competition_id
        and s.user_id = p_user_id;
@@ -1436,6 +1475,7 @@ create or replace package pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     p_submission_id in number,
+    p_lang_code in varchar2,
     o_item_json out clob
   );
 end pkg_competitor;
@@ -2280,9 +2320,15 @@ create or replace package body pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     p_submission_id in number,
+    p_lang_code in varchar2,
     o_item_json out clob
   ) is
+    l_lang varchar2(10);
+    l_fallback_lang varchar2(10);
   begin
+    l_lang := lower(nvl(trim(p_lang_code), 'et'));
+    l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+
     select json_object(
              'submission_id' value s.submission_id,
              'checkpoint_title' value cp.title,
@@ -2301,7 +2347,7 @@ create or replace package body pkg_competitor as
                    select qot_et.option_text
                      from question_option_texts qot_et
                     where qot_et.option_id = s.selected_option_id
-                      and lower(qot_et.lang_code) = 'et'
+                      and lower(qot_et.lang_code) = l_lang
                       and qot_et.start_date <= cast(s.submitted_at as date)
                       and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
                     fetch first 1 row only
@@ -2311,7 +2357,7 @@ create or replace package body pkg_competitor as
                      select qot_en.option_text
                        from question_option_texts qot_en
                       where qot_en.option_id = s.selected_option_id
-                        and lower(qot_en.lang_code) = 'en'
+                        and lower(qot_en.lang_code) = l_fallback_lang
                         and qot_en.start_date <= cast(s.submitted_at as date)
                         and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
                       fetch first 1 row only
@@ -2355,7 +2401,7 @@ create or replace package body pkg_competitor as
                                 select qot_et.option_text
                                   from question_option_texts qot_et
                                  where qot_et.option_id = qo.option_id
-                                   and lower(qot_et.lang_code) = 'et'
+                                   and lower(qot_et.lang_code) = l_lang
                                    and qot_et.start_date <= cast(s.submitted_at as date)
                                    and (qot_et.end_date is null or qot_et.end_date > cast(s.submitted_at as date))
                                  fetch first 1 row only
@@ -2365,7 +2411,7 @@ create or replace package body pkg_competitor as
                                   select qot_en.option_text
                                     from question_option_texts qot_en
                                    where qot_en.option_id = qo.option_id
-                                     and lower(qot_en.lang_code) = 'en'
+                                     and lower(qot_en.lang_code) = l_fallback_lang
                                      and qot_en.start_date <= cast(s.submitted_at as date)
                                      and (qot_en.end_date is null or qot_en.end_date > cast(s.submitted_at as date))
                                    fetch first 1 row only
@@ -2412,7 +2458,7 @@ create or replace package body pkg_competitor as
         on q.question_id = s.question_id
       left join question_texts qt
         on qt.question_id = q.question_id
-       and lower(qt.lang_code) = 'et'
+       and lower(qt.lang_code) = l_lang
        and qt.start_date <= cast(s.submitted_at as date)
        and (qt.end_date is null or qt.end_date > cast(s.submitted_at as date))
      where s.user_id = p_user_id
@@ -2502,6 +2548,23 @@ create or replace package pkg_admin_content as
   );
   procedure get_competition_overview_json(p_competition_id in number, o_overview_json out clob);
   procedure get_questions_overview_json(p_competition_id in number, o_questions_json out clob);
+  procedure list_translations_json(
+    p_lang in varchar2,
+    p_prefix in varchar2,
+    p_include_deleted in varchar2,
+    o_items_json out clob
+  );
+  procedure upsert_translation(
+    p_translation_key in varchar2,
+    p_lang_code in varchar2,
+    p_text_value in clob,
+    p_updated_by in number
+  );
+  procedure soft_delete_translation(
+    p_translation_key in varchar2,
+    p_lang_code in varchar2,
+    p_deleted_by in number
+  );
 
   procedure create_checkpoint(
     p_competition_id in number,
@@ -3509,6 +3572,92 @@ create or replace package body pkg_admin_content as
      order by nvl(cp.order_no, 999999), cp.checkpoint_id;
 
     if o_questions_json is null then o_questions_json := '[]'; end if;
+  end;
+
+  procedure list_translations_json(
+    p_lang in varchar2,
+    p_prefix in varchar2,
+    p_include_deleted in varchar2,
+    o_items_json out clob
+  ) is
+    l_lang varchar2(10) := lower(trim(nvl(p_lang, '')));
+    l_prefix varchar2(300) := trim(nvl(p_prefix, ''));
+    l_include_deleted varchar2(1) := upper(trim(nvl(p_include_deleted, 'N')));
+  begin
+    select json_arrayagg(
+             json_object(
+               'translation_key' value t.translation_key,
+               'lang_code' value t.lang_code,
+               'text_value' value t.text_value,
+               'is_deleted' value case when t.end_date is null then 'N' else 'Y' end,
+               'updated_at' value case when t.updated_at is not null then to_char(t.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end
+             returning clob
+             ) returning clob
+           )
+      into o_items_json
+      from translations t
+     where (l_lang is null or l_lang = '' or lower(t.lang_code) = l_lang)
+       and (l_prefix is null or l_prefix = '' or lower(t.translation_key) like lower(l_prefix) || '%')
+       and (l_include_deleted = 'Y' or t.end_date is null);
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure upsert_translation(
+    p_translation_key in varchar2,
+    p_lang_code in varchar2,
+    p_text_value in clob,
+    p_updated_by in number
+  ) is
+    l_key varchar2(300) := trim(p_translation_key);
+    l_lang varchar2(10) := lower(trim(p_lang_code));
+    l_text clob := p_text_value;
+  begin
+    if l_key is null or l_lang is null then
+      raise_application_error(-20190, 'translation_key and lang_code are required');
+    end if;
+
+    update translations t
+       set t.text_value = l_text,
+           t.end_date = null,
+           t.updated_at = systimestamp,
+           t.updated_by = p_updated_by
+     where t.translation_key = l_key
+       and lower(t.lang_code) = l_lang
+       and t.end_date is null;
+
+    if sql%rowcount = 0 then
+      insert into translations (
+        translation_id, translation_key, lang_code, text_value,
+        start_date, created_at, created_by, updated_at, updated_by
+      ) values (
+        seq_translations.nextval, l_key, l_lang, l_text,
+        trunc(sysdate), systimestamp, p_updated_by, systimestamp, p_updated_by
+      );
+    end if;
+  end;
+
+  procedure soft_delete_translation(
+    p_translation_key in varchar2,
+    p_lang_code in varchar2,
+    p_deleted_by in number
+  ) is
+    l_key varchar2(300) := trim(p_translation_key);
+    l_lang varchar2(10) := lower(trim(p_lang_code));
+  begin
+    if l_key is null or l_lang is null then
+      raise_application_error(-20191, 'translation_key and lang_code are required');
+    end if;
+
+    update translations t
+       set t.end_date = trunc(sysdate),
+           t.updated_at = systimestamp,
+           t.updated_by = p_deleted_by
+     where t.translation_key = l_key
+       and lower(t.lang_code) = l_lang
+       and t.end_date is null;
   end;
 
   procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is

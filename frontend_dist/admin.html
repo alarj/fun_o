@@ -40,18 +40,16 @@
       </div>
 
       <div class="card" id="competitionOverviewCard">
-        <div class="tools" style="justify-content:space-between; align-items:center;">
-          <div class="tools" style="align-items:center;">
-            <h1 id="cName">-</h1>
-            <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">📍</span>
-            <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">●</span>
-            <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda võistlust</button>
-            <button id="openResultsBtn" class="secondary">Tulemused</button>
-            <button id="openTermsBtn" class="secondary">Tingimused</button>
-          </div>
-          <div class="tools">
-            <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
-          </div>
+        <div class="tools adminTopLine">
+          <h1 id="cName">-</h1>
+          <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">📍</span>
+          <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">●</span>
+          <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda võistlust</button>
+          <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">Tulemused</button>
+          <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">Tingimused</button>
+          <span class="adminTopLineSpacer"></span>
+          <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali võistlus</button>
+          <select id="uiLangApp" class="superLangSelect"></select>
         </div>
         <div id="cDesc" style="margin-bottom:6px;"></div>
         <div class="cols" style="margin-top:10px;">
@@ -71,8 +69,8 @@
           <div></div>
         </div>
         <div class="cols" style="margin-top:14px;">
-          <div><strong data-i18n="admin.comp.competitor_code_label">Võistlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
-          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.competitor_code_label">Võistlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
+          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
           <div><strong data-i18n="admin.comp.organizers_label">Korraldajad</strong><div id="organizers" class="muted">-</div></div>
         </div>
         <div id="topMsg"></div>
@@ -82,7 +80,7 @@
         <div class="tools" style="justify-content:space-between;">
           <h3 data-i18n="admin.cp_table.heading">Kontrollpunktid</h3>
           <div class="tools">
-            <button id="showCheckpointMapBtn" class="secondary hidden">Näita kaardil</button>
+            <button id="showCheckpointMapBtn" class="secondary hidden" data-i18n="admin.cp_table.show_on_map_btn">Näita kaardil</button>
             <button id="newCheckpointBtn" data-i18n="admin.cp_table.new_cp_btn">+ Uus kontrollpunkt</button>
             <button id="newQuestionBtn" data-i18n="admin.cp_table.new_q_btn">+ Uus küsimus</button>
           </div>
@@ -94,7 +92,7 @@
               <th style="width:72px;"><strong data-i18n="admin.cp_table.points_col">Punktid</strong> <button type="button" id="sortByPointsIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">☰</button></th>
               <th style="width:320px;"><strong data-i18n="admin.cp_table.question_et_col">Küsimus (et)</strong> <button type="button" id="sortByQuestionEtIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">☰</button></th>
               <th style="width:130px;" data-i18n="admin.cp_table.qtype_col">Küsimuse tüüp</th>
-              <th id="cpLocationColHead" style="width:120px;" title="Asukoht">📍</th>
+              <th id="cpLocationColHead" style="width:120px;" data-i18n-title="admin.cp_table.location_col_title" title="Asukoht">📍</th>
               <th style="width:240px;"></th>
             </tr>
           </thead>
@@ -106,11 +104,11 @@
 
   <dialog id="cpDialog">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:nowrap;">
-      <h3 id="cpTitle" style="margin:0; white-space:nowrap;">Kontrollpunkt</h3>
+      <h3 id="cpTitle" style="margin:0; white-space:nowrap;" data-i18n="admin.cp_dialog.heading">Kontrollpunkt</h3>
       <div class="tools" style="display:flex; flex-wrap:nowrap; gap:8px; align-items:center;">
         <select id="cpDialogMapLayerSelect" style="width:240px; min-width:240px;"></select>
-        <button id="cpToggleExistingBtn" class="secondary" type="button">Olemasolevad KP-d</button>
-        <button id="cpMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+        <button id="cpToggleExistingBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.existing_btn">Olemasolevad KP-d</button>
+        <button id="cpMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.expand_btn">Suurenda</button>
       </div>
     </div>
     <input id="cpId" type="hidden" />
@@ -118,11 +116,11 @@
     <div class="row"><label data-i18n="admin.cp_dialog.title_label">Title *</label><input id="cpName" /></div>
     <div class="row"><label data-i18n="admin.cp_dialog.location_label">Location hint</label><input id="cpLocation" /></div>
     <div class="row"><label data-i18n="admin.cp_dialog.order_label">Order no</label><input id="cpOrder" type="number" /></div>
-    <div class="row cp-gps-row"><label>Laiuskraad</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
-    <div class="row cp-gps-row"><label>Pikkuskraad</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
-    <div class="row cp-gps-row"><label>KP raadius (m)</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.latitude_label">Laiuskraad</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.longitude_label">Pikkuskraad</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.radius_label">KP raadius (m)</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
     <div class="row cp-gps-row">
-      <label>Asukoht kohustuslik</label>
+      <label data-i18n="admin.cp_dialog.location_required_label">Asukoht kohustuslik</label>
       <div class="yn-switch-wrap">
         <label class="yn-switch" for="cpLocationRequired">
           <input id="cpLocationRequired" type="checkbox" />
@@ -133,7 +131,7 @@
     <div class="dialog-actions">
       <button id="cpDelete" class="warn" type="button" data-i18n="admin.cp_dialog.delete_btn">Kustuta KP</button>
       <div class="dialog-right">
-        <button id="cpOpenQuestion" class="secondary" type="button">Uus küsimus</button>
+        <button id="cpOpenQuestion" class="secondary" type="button" data-i18n="admin.cp_dialog.open_question_new">Uus küsimus</button>
         <button id="cpCancel" class="secondary" type="button" data-i18n="admin.cp_dialog.close_btn">Sulge</button>
         <button id="cpSave" type="button" data-i18n="admin.cp_dialog.save_btn">Salvesta</button>
       </div>
@@ -142,14 +140,14 @@
   </dialog>
 
   <dialog id="qDialog">
-    <h3 id="qTitle">Küsimus</h3>
+    <h3 id="qTitle" data-i18n="admin.q_dialog.heading">Küsimus</h3>
     <input id="qId" type="hidden" />
     <div class="row"><label data-i18n="admin.q_dialog.checkpoint_label">Kontrollpunkt *</label><select id="qCheckpoint"></select></div>
     <div id="questionLangRows"></div>
     <div class="row"><label data-i18n="admin.q_dialog.type_label">Küsimuse tüüp *</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
     <div class="row"><label data-i18n="admin.q_dialog.points_label">Punktid</label><input id="qPoints" type="number" value="0" /></div>
-    <div class="row"><label>Vale vastuse punktid</label><input id="qWrongPoints" type="number" value="0" /></div>
-    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">Sisestuse tüüp</label><select id="qInputType"><option value="">(puudub)</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
+    <div class="row"><label data-i18n="admin.q_dialog.wrong_points_label">Vale vastuse punktid</label><input id="qWrongPoints" type="number" value="0" /></div>
+    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">Sisestuse tüüp</label><select id="qInputType"><option value="" data-i18n="admin.q_dialog.input_type_none">(puudub)</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
     <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">Sisestuse max pikkus</label><input id="qInputMax" type="number" /></div>
 
     <div id="singleChoiceBlock">
@@ -201,18 +199,18 @@
 
   <dialog id="cpOverviewMapDialog">
     <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <h3 style="margin:0;">Näita kaardil</h3>
-      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button">Suurenda</button>
+      <h3 style="margin:0;" data-i18n="admin.cp_overview.heading">Näita kaardil</h3>
+      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_overview.expand_btn">Suurenda</button>
     </div>
     <div id="cpOverviewMap"></div>
     <div class="dialog-actions">
       <div class="dialog-right">
-        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button">Ava tähised</button>
-        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button">Sule tähised</button>
+        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.open_labels_btn">Ava tähised</button>
+        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.close_labels_btn">Sule tähised</button>
         <select id="cpOverviewMapLayerSelect" style="min-width:210px;"></select>
       </div>
       <div class="dialog-right">
-        <button id="cpOverviewMapCloseBtn" class="secondary" type="button">Sulge</button>
+        <button id="cpOverviewMapCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
       </div>
     </div>
   </dialog>
@@ -220,7 +218,7 @@
   <dialog id="competitionPickerDialog">
     <div class="tools" style="justify-content:space-between; align-items:center;">
       <h3 data-i18n="admin.comp_picker.heading">Vali võistlus</h3>
-      <button id="goSuperadminBtn" class="secondary hidden" type="button">Kõik võistlused</button>
+      <button id="goSuperadminBtn" class="secondary hidden" type="button" data-i18n="admin.comp_picker.all_competitions_btn">Kõik võistlused</button>
     </div>
     <div class="row">
       <label data-i18n="admin.comp_picker.label">Võistlus</label>
@@ -229,12 +227,12 @@
         <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">Vali</button>
       </div>
     </div>
-    <div class="modal-sep">Või liitu koodiga</div>
+    <div class="modal-sep" data-i18n="admin.comp_picker.or_join_code_sep">Või liitu koodiga</div>
     <div class="row">
       <label data-i18n="admin.join_code.label">Sisesta korraldaja kood</label>
       <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
         <input id="competitionPickerJoinCode" />
-        <button id="competitionPickerJoinSave" type="button">Sisesta</button>
+        <button id="competitionPickerJoinSave" type="button" data-i18n="admin.join_code.enter_btn">Sisesta</button>
       </div>
     </div>
     <div id="competitionPickerJoinMsg"></div>
@@ -252,17 +250,17 @@
     <div class="row"><label data-i18n="admin.meta.desc_label">Kirjeldus</label><textarea id="metaDescInput"></textarea></div>
     <div class="row"><label data-i18n="admin.meta.status_label">Staatus</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
     <div class="row">
-      <label>Asukohaseaded</label>
+      <label data-i18n="admin.meta.location_settings_label">Asukohaseaded</label>
       <div class="yn-inline-row">
         <div class="yn-inline">
-          <span>Kasuta asukohta</span>
+          <span data-i18n="admin.meta.use_location_label">Kasuta asukohta</span>
           <label class="yn-switch" for="metaUseLocationInput">
             <input id="metaUseLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
         </div>
         <div class="yn-inline">
-          <span>Võistleja asukoht kaardil</span>
+          <span data-i18n="admin.meta.show_competitor_location_label">Võistleja asukoht kaardil</span>
           <label class="yn-switch" for="metaShowCompetitorLocationInput">
             <input id="metaShowCompetitorLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
@@ -270,10 +268,10 @@
         </div>
       </div>
     </div>
-    <div class="row"><label>Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
+    <div class="row"><label data-i18n="admin.meta.default_radius_label">Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
     <div class="row"><label data-i18n="admin.dates.start_label">Võistluse algus (dd.mm.yyyy hh:mm)</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><label data-i18n="admin.dates.end_label">Võistluse lõpp (dd.mm.yyyy hh:mm)</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
-    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button">Kaardi valik</button></div></div>
+    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">Kaardi valik</button></div></div>
     <div id="metaMsg"></div>
     <div class="dialog-actions">
       <div></div>
@@ -285,13 +283,13 @@
   </dialog>
 
   <dialog id="termsDialog">
-    <h3>Võistluse tingimused</h3>
+    <h3 data-i18n="admin.terms.heading">Võistluse tingimused</h3>
     <div class="row">
-      <label>Keel</label>
+      <label data-i18n="admin.terms.lang_label">Keel</label>
       <select id="termsLangSelect"></select>
     </div>
     <div class="row terms-editor-row">
-      <label>HTML tingimused</label>
+      <label data-i18n="admin.terms.html_label">HTML tingimused</label>
       <div id="termsHtmlEditor" class="terms-editor-surface"></div>
       <textarea id="termsHtmlInput" class="hidden"></textarea>
     </div>
@@ -299,22 +297,22 @@
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="termsCancel" class="secondary" type="button">Sulge</button>
-        <button id="termsSave" type="button">Salvesta</button>
+        <button id="termsCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
+        <button id="termsSave" type="button" data-i18n="admin.common.save_btn">Salvesta</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="participantMapLayersDialog">
-    <h3>Võistleja kaardid</h3>
-    <div class="muted">Vali kaardid, mida võistlejale selle võistluse jaoks kuvada.</div>
+    <h3 data-i18n="admin.participant_layers.heading">Võistleja kaardid</h3>
+    <div class="muted" data-i18n="admin.participant_layers.help_text">Vali kaardid, mida võistlejale selle võistluse jaoks kuvada.</div>
     <div id="participantMapLayersList" class="layer-list"></div>
     <div id="participantMapLayersMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="participantMapLayersCancel" class="secondary" type="button">Sulge</button>
-        <button id="participantMapLayersSave" type="button">Salvesta</button>
+        <button id="participantMapLayersCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
+        <button id="participantMapLayersSave" type="button" data-i18n="admin.common.save_btn">Salvesta</button>
       </div>
     </div>
   </dialog>
@@ -342,7 +340,7 @@
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="codeResultOk" type="button">OK</button>
+        <button id="codeResultOk" type="button" data-i18n="admin.common.ok_btn">OK</button>
       </div>
     </div>
   </dialog>
@@ -400,6 +398,18 @@
       const key = el.getAttribute("data-i18n");
       el.textContent = tr(key, el.textContent);
     });
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      el.setAttribute("title", tr(key, el.getAttribute("title") || key));
+    });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-aria-label");
+      el.setAttribute("aria-label", tr(key, el.getAttribute("aria-label") || key));
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      el.setAttribute("placeholder", tr(key, el.getAttribute("placeholder") || key));
+    });
   };
   const showMsg = (id, ok, text) => {
     const el = byId(id);
@@ -443,7 +453,7 @@
   };
   const qTextId = (lang) => `qText_${lang}`;
   const langLabel = (code) => (code || "").toLowerCase() === "en" ? "EN" : "ET";
-  const uiLangCookieName = "funo_ui_lang";
+  const uiLangCookieName = "funo_admin_ui_lang";
   const lastCompCookieName = () => currentUserId ? `funo_last_competition_u${currentUserId}` : null;
   const setCookie = (name, value, days = 365) => {
     const d = new Date();
@@ -464,7 +474,7 @@
     const r = await fetch(url);
     const d = await r.json();
     if (!r.ok) {
-      const err = new Error(d?.detail?.message || d?.detail?.code || "Viga");
+      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short", "Viga"));
       err.details = d?.detail?.details || null;
       err.code = d?.detail?.code || null;
       throw err;
@@ -475,7 +485,7 @@
     const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) {
-      const err = new Error(d?.detail?.message || d?.detail?.code || "Viga");
+      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short", "Viga"));
       err.details = d?.detail?.details || null;
       err.code = d?.detail?.code || null;
       throw err;
@@ -523,10 +533,12 @@
   }
 
   function renderLangSelector() {
-    const sel = byId("uiLang");
-    if (!sel) return;
-    sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
-    sel.value = currentUiLang;
+    ["uiLang", "uiLangApp"].forEach((id) => {
+      const sel = byId(id);
+      if (!sel) return;
+      sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
+      sel.value = currentUiLang;
+    });
   }
 
   function renderTermsLangSelector() {
@@ -554,7 +566,7 @@
 
   function initTermsEditor() {
     if (termsQuill) return;
-    if (!window.Quill) throw new Error("Editor ei laadinud.");
+    if (!window.Quill) throw new Error(tr("admin.msg.editor_not_loaded", "Editor ei laadinud."));
     termsQuill = new Quill("#termsHtmlEditor", {
       theme: "snow",
       modules: {
@@ -1096,7 +1108,9 @@
     cpOverviewFullscreen = !!fullscreen;
     const dlg = byId("cpOverviewMapDialog");
     dlg.classList.toggle("fullscreen", cpOverviewFullscreen);
-    byId("cpOverviewMapToggleSizeBtn").textContent = cpOverviewFullscreen ? "Taasta" : "Suurenda";
+    byId("cpOverviewMapToggleSizeBtn").textContent = cpOverviewFullscreen
+      ? tr("admin.common.restore_btn", "Taasta")
+      : tr("admin.cp_overview.expand_btn", "Suurenda");
     setTimeout(() => {
       if (cpOverviewMap) cpOverviewMap.invalidateSize();
     }, 30);
@@ -1106,7 +1120,9 @@
     cpDialogFullscreen = !!fullscreen;
     const dlg = byId("cpDialog");
     dlg.classList.toggle("fullscreen", cpDialogFullscreen);
-    byId("cpMapToggleSizeBtn").textContent = cpDialogFullscreen ? "Taasta" : "Suurenda";
+    byId("cpMapToggleSizeBtn").textContent = cpDialogFullscreen
+      ? tr("admin.common.restore_btn", "Taasta")
+      : tr("admin.cp_dialog.expand_btn", "Suurenda");
     setTimeout(() => {
       if (cpMap) cpMap.invalidateSize();
     }, 30);
@@ -1370,7 +1386,7 @@
       const email = (o?.email || "").toString();
       const tooltip = email || name;
       const logout = isCurrent
-        ? `<button class="logout-btn logout-btn-inline" title="Logi välja" aria-label="Logi välja">${logoutIconSvg()}</button>`
+        ? `<button class="logout-btn logout-btn-inline" title="${esc(tr("admin.common.logout_btn", "Logi välja"))}" aria-label="${esc(tr("admin.common.logout_btn", "Logi välja"))}">${logoutIconSvg()}</button>`
         : "";
       return `<div class="organizer-row ${isCurrent ? "current" : ""}" title="${esc(tooltip)}">${isCurrent ? userIconSvg() : ""}<span>${esc(name)}</span>${logout}</div>`;
     }).join("");
@@ -1409,11 +1425,11 @@
     try {
       const cfg = await get("/api/auth/google/config");
       if (!cfg || !cfg.enabled || !cfg.client_id) {
-        showMsg("loginMsg", false, "Google login ei ole serveris seadistatud.");
+        showMsg("loginMsg", false, tr("admin.msg.google_not_configured", "Google login ei ole serveris seadistatud."));
         return;
       }
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        showMsg("loginMsg", false, "Google login skripti laadimine ebaõnnestus.");
+        showMsg("loginMsg", false, tr("admin.msg.google_script_failed", "Google login skripti laadimine ebaõnnestus."));
         return;
       }
       window.google.accounts.id.initialize({
@@ -1423,7 +1439,7 @@
             if (!resp || !resp.credential) throw new Error("Google credential puudub.");
             await googleLoginWithCredential(resp.credential);
           } catch (e) {
-            showMsg("loginMsg", false, humanizeError(e.message || "Google sisselogimine ebaõnnestus."));
+            showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed", "Google sisselogimine ebaõnnestus.")));
           }
         }
       });
@@ -1436,7 +1452,7 @@
         shape: "rectangular"
       });
     } catch (e) {
-      showMsg("loginMsg", false, humanizeError(e.message || "Google sisselogimine ebaõnnestus."));
+      showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed", "Google sisselogimine ebaõnnestus.")));
     }
   }
 
@@ -1623,8 +1639,8 @@
         }</td>
         <td class="actions-col">
           <div class="tools">
-            <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn","Muuda küsimust"))}</button>
-            <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn","Muuda KP-d"))}</button>
+            <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn", currentUiLang === "et" ? "Muuda küsimust" : "Edit question"))}</button>
+            <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn", currentUiLang === "et" ? "Muuda KP-d" : "Edit checkpoint"))}</button>
           </div>
         </td>
       </tr>`;
@@ -2112,7 +2128,7 @@
     const btn = byId("metaMapLayersBtn");
     if (!btn) return;
     const n = Array.isArray(competitionParticipantLayerCodes) ? competitionParticipantLayerCodes.length : 0;
-    btn.textContent = `Kaardi valik (${n})`;
+    btn.textContent = `${tr("admin.meta.map_layers_btn", "Kaardi valik")} (${n})`;
   }
 
   function renderParticipantMapLayersDialog() {
@@ -2149,7 +2165,7 @@
   async function saveParticipantMapLayersDialog() {
     const selected = selectedParticipantLayersFromDialog();
     if (!selected.length) {
-      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali vähemalt üks kaart."));
       return;
     }
     const prevSorted = [...competitionParticipantLayerCodes].sort();
@@ -2164,7 +2180,7 @@
     competitionParticipantLayerCodes = selected;
     participantLayerSelection = [...selected];
     updateMetaMapLayersButtonLabel();
-    showMsg("participantMapLayersMsg", true, "Kaartide valik salvestatud.");
+    showMsg("participantMapLayersMsg", true, tr("admin.msg.map_layers_saved", "Kaartide valik salvestatud."));
     setTimeout(() => byId("participantMapLayersDialog").close(), 350);
   }
 
@@ -2234,6 +2250,12 @@
     await loadTranslations(currentUiLang);
     renderRows();
   };
+  byId("uiLangApp").onchange = async () => {
+    currentUiLang = byId("uiLangApp").value || defaultLang;
+    setCookie(uiLangCookieName, currentUiLang);
+    await loadTranslations(currentUiLang);
+    renderRows();
+  };
   byId("organizers").addEventListener("click", async (e) => {
     const btn = e.target.closest(".logout-btn-inline");
     if (!btn) return;
@@ -2244,10 +2266,10 @@
       currentUserEmail = "";
       byId("appArea").classList.add("hidden");
       byId("loginCard").classList.remove("hidden");
-      showMsg("loginMsg", true, "Väljalogimine õnnestus.");
+      showMsg("loginMsg", true, tr("admin.msg.logout_ok", "Väljalogimine õnnestus."));
       await initGoogleLogin();
     } catch (err) {
-      showMsg("topMsg", false, humanizeError(err.message || "Väljalogimine ebaõnnestus."));
+      showMsg("topMsg", false, humanizeError(err.message || tr("admin.msg.logout_failed", "Väljalogimine ebaõnnestus.")));
     }
   });
   byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
@@ -2385,7 +2407,7 @@
   byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
     if (!selectedParticipantLayersFromDialog().length) {
       e.preventDefault();
-      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali vähemalt üks kaart."));
     }
   });
   byId("cpOpenQuestion").onclick = () => {
@@ -2411,7 +2433,7 @@
   byId("metaMapLayersBtn").onclick = () => openParticipantMapLayersDialog().catch(e => showMsg("metaMsg", false, humanizeError(e.message, e.details)));
   byId("participantMapLayersCancel").onclick = () => {
     if (!selectedParticipantLayersFromDialog().length) {
-      showMsg("participantMapLayersMsg", false, "Vali vähemalt üks kaart.");
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali vähemalt üks kaart."));
       return;
     }
     byId("participantMapLayersDialog").close();

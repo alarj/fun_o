@@ -340,6 +340,11 @@ class I18nMetaResponse(BaseModel):
     available_langs: list[str]
 
 
+class IntroContentResponse(BaseModel):
+    lang_code: str | None = None
+    html: str
+
+
 class GoogleClientConfigResponse(BaseModel):
     client_id: str | None = None
     enabled: bool
@@ -492,6 +497,25 @@ class SuperAdminCopyCompetitionRequest(BaseModel):
 class SuperAdminRemoveOrganizerRequest(BaseModel):
     competition_id: int
     user_id: int
+
+class SuperAdminTranslationItem(BaseModel):
+    translation_key: str
+    lang_code: str
+    text_value: str | None = None
+    is_deleted: bool = False
+    updated_at: str | None = None
+
+class SuperAdminTranslationsResponse(BaseModel):
+    items: list[SuperAdminTranslationItem]
+
+class SuperAdminTranslationUpsertRequest(BaseModel):
+    translation_key: str = Field(min_length=1, max_length=300)
+    lang_code: str = Field(min_length=2, max_length=10)
+    text_value: str = Field(min_length=1, max_length=4000)
+
+class SuperAdminTranslationDeleteRequest(BaseModel):
+    translation_key: str = Field(min_length=1, max_length=300)
+    lang_code: str = Field(min_length=2, max_length=10)
 
 
 class SuperAdminSessionResponse(BaseModel):
@@ -666,6 +690,33 @@ def _read_default_terms_html(lang_code: str) -> str:
     )
 
 
+def _read_content_html_with_fallback(prefix: str, lang_code: str | None) -> tuple[str | None, str]:
+    requested = (lang_code or "").strip().lower()
+    candidates: list[str] = []
+    for candidate in [
+        requested,
+        (settings.lang_default or "et").strip().lower(),
+        "et",
+        "en",
+        *[str(x).strip().lower() for x in settings.lang_available],
+    ]:
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
+    for lang in candidates:
+        filename = f"{prefix}_{lang}.html"
+        for base_dir in CONTENT_DEFAULTS_DIR_CANDIDATES:
+            path = os.path.join(base_dir, filename)
+            try:
+                with open(path, "r", encoding="utf-8-sig") as f:
+                    content = f.read()
+                if content.strip():
+                    return (lang, content)
+            except Exception:
+                continue
+    return (None, "")
+
+
 async def _ensure_default_terms_for_competition(competition_id: int) -> None:
     if not isinstance(competition_id, int):
         return
@@ -818,6 +869,13 @@ def _require_google_session_user(request: Request, x_user_id: int | None = None)
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
 
     return session_user_id
+
+
+def _resolve_ui_lang(lang_code: str | None) -> str:
+    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
+    return effective_lang
 
 
 async def _require_system_owner_session_user(request: Request, x_user_id: int | None = None) -> int:
@@ -1105,6 +1163,12 @@ async def get_i18n_meta() -> I18nMetaResponse:
     if default_lang not in langs:
         langs = [default_lang] + langs
     return I18nMetaResponse(default_lang=default_lang, available_langs=langs)
+
+
+@app.get("/api/content/intro", response_model=IntroContentResponse)
+async def get_intro_content(lang: str | None = None) -> IntroContentResponse:
+    resolved_lang, html = _read_content_html_with_fallback("intro", lang)
+    return IntroContentResponse(lang_code=resolved_lang, html=html or "")
 
 
 @app.get("/api/map-layers", response_model=MapLayersResponse)
@@ -1786,16 +1850,21 @@ async def competitor_my_submission_detail(
     competition_id: int,
     submission_id: int,
     request: Request,
+    lang_code: str | None = None,
     user_id: int | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorMySubmissionDetailResponse:
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
+    effective_lang = (lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
     ords_response = await _get_from_ords(
         "competitor/my-submission-detail",
         {
             "competition_id": competition_id,
             "user_id": resolved_user_id,
             "submission_id": submission_id,
+            "lang_code": effective_lang,
         },
     )
     if not isinstance(ords_response, dict):
@@ -1836,13 +1905,16 @@ async def competitor_my_submission_detail(
 async def admin_leaderboard(
     competition_id: int,
     request: Request,
+    lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> LeaderboardResponse:
     _ = _require_google_session_user(request, x_user_id)
+    effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/leaderboard",
         {
             "competition_id": competition_id,
+            "lang_code": effective_lang,
         },
     )
 
@@ -1871,13 +1943,16 @@ async def admin_leaderboard(
 async def admin_checkpoint_results(
     competition_id: int,
     request: Request,
+    lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> CheckpointResultsResponse:
     _ = _require_google_session_user(request, x_user_id)
+    effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/checkpoint-results",
         {
             "competition_id": competition_id,
+            "lang_code": effective_lang,
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
@@ -1942,14 +2017,18 @@ async def admin_participant_submissions(
     competition_id: int,
     user_id: int,
     request: Request,
+    lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> ParticipantSubmissionsResponse:
     _ = _require_google_session_user(request, x_user_id)
+    effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/participant-submissions",
         {
             "competition_id": competition_id,
             "user_id": user_id,
+            "lang_code": effective_lang,
+            "default_lang_code": settings.lang_default,
         },
     )
 
@@ -1983,15 +2062,19 @@ async def admin_submission_detail(
     user_id: int,
     submission_id: int,
     request: Request,
+    lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> SubmissionDetailResponse:
     _ = _require_google_session_user(request, x_user_id)
+    effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/submission-detail",
         {
             "competition_id": competition_id,
             "user_id": user_id,
             "submission_id": submission_id,
+            "lang_code": effective_lang,
+            "default_lang_code": settings.lang_default,
         },
     )
     if not isinstance(ords_response, dict):
@@ -2321,6 +2404,73 @@ async def superadmin_remove_organizer(
             "removed_by": user_id,
         },
     )
+    return {"ok": True}
+
+@app.get("/api/superadmin/translations", response_model=SuperAdminTranslationsResponse)
+async def superadmin_translations(
+    request: Request,
+    lang: str | None = None,
+    prefix: str | None = None,
+    include_deleted: str | None = None,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminTranslationsResponse:
+    _ = await _require_system_owner_session_user(request, x_user_id)
+    params: dict[str, Any] = {}
+    if lang:
+        params["lang"] = lang.strip().lower()
+    if prefix:
+        params["prefix"] = prefix.strip()
+    if include_deleted:
+        params["include_deleted"] = include_deleted.strip().upper()
+    data = await _get_from_ords("superadmin/translations", params)
+    raw_items = data.get("items") if isinstance(data, dict) else []
+    items: list[SuperAdminTranslationItem] = []
+    if isinstance(raw_items, list):
+        for row in raw_items:
+            if not isinstance(row, dict):
+                continue
+            items.append(
+                SuperAdminTranslationItem(
+                    translation_key=str(row.get("translation_key") or ""),
+                    lang_code=str(row.get("lang_code") or ""),
+                    text_value=str(row.get("text_value")) if row.get("text_value") is not None else None,
+                    is_deleted=str(row.get("is_deleted") or "N").upper() == "Y",
+                    updated_at=str(row.get("updated_at")) if row.get("updated_at") is not None else None,
+                )
+            )
+    return SuperAdminTranslationsResponse(items=items)
+
+
+@app.post("/api/superadmin/translations/upsert")
+async def superadmin_translations_upsert(
+    req: SuperAdminTranslationUpsertRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, Any]:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    payload = {
+        "translation_key": req.translation_key.strip(),
+        "lang_code": req.lang_code.strip().lower(),
+        "text_value": req.text_value,
+        "updated_by": user_id,
+    }
+    await _post_to_ords("superadmin/translations/upsert", payload)
+    return {"ok": True}
+
+
+@app.post("/api/superadmin/translations/delete")
+async def superadmin_translations_delete(
+    req: SuperAdminTranslationDeleteRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, Any]:
+    user_id = await _require_system_owner_session_user(request, x_user_id)
+    payload = {
+        "translation_key": req.translation_key.strip(),
+        "lang_code": req.lang_code.strip().lower(),
+        "deleted_by": user_id,
+    }
+    await _post_to_ords("superadmin/translations/delete", payload)
     return {"ok": True}
 
 

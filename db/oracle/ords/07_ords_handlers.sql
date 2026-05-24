@@ -269,6 +269,126 @@ begin
     ]'
   );
 
+  -- GET /funo/superadmin/translations?lang=et&prefix=competitor.&include_deleted=N
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'superadmin/translations',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_lang varchar2(10) := lower(trim(nvl(:lang, '')));
+        l_prefix varchar2(300) := trim(nvl(:prefix, ''));
+        l_include_deleted varchar2(1) := upper(trim(nvl(:include_deleted, 'N')));
+        l_items clob;
+        l_json clob;
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
+      begin
+        FUNO_APP.pkg_admin_content.list_translations_json(
+          p_lang => l_lang,
+          p_prefix => l_prefix,
+          p_include_deleted => l_include_deleted,
+          o_items_json => l_items
+        );
+        l_json := '{"items":' || nvl(l_items, '[]') || '}';
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        l_len := dbms_lob.getlength(l_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
+      end;
+    ~'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'superadmin/translations',
+    p_method             => 'GET',
+    p_name               => 'lang',
+    p_bind_variable_name => 'lang',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'superadmin/translations',
+    p_method             => 'GET',
+    p_name               => 'prefix',
+    p_bind_variable_name => 'prefix',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'superadmin/translations',
+    p_method             => 'GET',
+    p_name               => 'include_deleted',
+    p_bind_variable_name => 'include_deleted',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
+  -- POST /funo/superadmin/translations/upsert
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations/upsert');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'superadmin/translations/upsert',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.upsert_translation(
+          p_translation_key => trim(l_body.get_string('translation_key')),
+          p_lang_code => lower(trim(l_body.get_string('lang_code'))),
+          p_text_value => l_body.get_string('text_value'),
+          p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
+        );
+
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
+  -- POST /funo/superadmin/translations/delete (soft delete)
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations/delete');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'superadmin/translations/delete',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.soft_delete_translation(
+          p_translation_key => trim(l_body.get_string('translation_key')),
+          p_lang_code => lower(trim(l_body.get_string('lang_code'))),
+          p_deleted_by => case when l_body.has('deleted_by') then l_body.get_number('deleted_by') else null end
+        );
+
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
+  );
+
   -- GET /funo/admin/questions-overview?competition_id=..
   ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions-overview');
   ORDS.DEFINE_HANDLER(
@@ -988,6 +1108,7 @@ begin
           p_user_id => to_number(:user_id),
           p_competition_id => to_number(:competition_id),
           p_submission_id => to_number(:submission_id),
+          p_lang_code => :lang_code,
           o_item_json => l_json
         );
         owa_util.mime_header('application/json', false);
@@ -1024,6 +1145,16 @@ begin
     p_bind_variable_name => 'submission_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/my-submission-detail',
+    p_method             => 'GET',
+    p_name               => 'lang_code',
+    p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
     p_access_method      => 'IN'
   );
 
@@ -1221,6 +1352,8 @@ begin
         FUNO_APP.pkg_results.get_participant_submissions(
           p_competition_id => to_number(:competition_id),
           p_user_id        => to_number(:user_id),
+          p_lang_code      => nvl(:lang_code, 'et'),
+          p_default_lang_code => nvl(:default_lang_code, 'et'),
           o_items_json     => l_items_json
         );
 
@@ -1239,6 +1372,28 @@ begin
     p_bind_variable_name => 'competition_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/participant-submissions',
+    p_method             => 'GET',
+    p_name               => 'lang_code',
+    p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/participant-submissions',
+    p_method             => 'GET',
+    p_name               => 'default_lang_code',
+    p_bind_variable_name => 'default_lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
     p_access_method      => 'IN'
   );
 
@@ -1272,6 +1427,8 @@ begin
           p_competition_id => to_number(:competition_id),
           p_user_id        => to_number(:user_id),
           p_submission_id  => to_number(:submission_id),
+          p_lang_code      => nvl(:lang_code, 'et'),
+          p_default_lang_code => nvl(:default_lang_code, 'et'),
           o_item_json      => l_item_json
         );
 
@@ -1290,6 +1447,28 @@ begin
     p_bind_variable_name => 'competition_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/submission-detail',
+    p_method             => 'GET',
+    p_name               => 'lang_code',
+    p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/submission-detail',
+    p_method             => 'GET',
+    p_name               => 'default_lang_code',
+    p_bind_variable_name => 'default_lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
     p_access_method      => 'IN'
   );
 

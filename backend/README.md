@@ -73,6 +73,15 @@ I18n cache reload:
 - Example:
   `curl -sS -X POST "http://localhost:8080/api/i18n/reload"`
 
+Superadmin translations management:
+- `GET /api/superadmin/translations?prefix=competitor.&lang=et&include_deleted=N`
+- `POST /api/superadmin/translations/upsert`
+  - body: `{ "translation_key": "...", "lang_code": "et", "text_value": "..." }`
+- `POST /api/superadmin/translations/delete` (soft-delete)
+  - body: `{ "translation_key": "...", "lang_code": "et" }`
+- These endpoints only write to database (no automatic i18n cache reload).
+- After completing translation edits, run `POST /api/i18n/reload` to apply changes to runtime cache.
+
 Database scripts added:
 - ORDS handlers: `db/oracle/ords/07_ords_handlers.sql`
 - App packages with active-record business checks: `db/oracle/api/05_api_packages_stub.sql`
@@ -292,6 +301,25 @@ This section reflects current behavior in `backend/app/main.py`.
 - Invalidated/reset:
   - `POST /api/i18n/reload` clears + reloads.
   - Process restart clears + reloads.
+
+### Multilingual fallback rules (all views)
+
+- UI texts (buttons, headings, static labels):
+  1. selected language
+  2. `.env` `LANG_DEFAULT`
+  3. translation key string
+
+- Data-driven content texts (for example question text and option text):
+  1. selected language
+  2. `.env` `LANG_DEFAULT`
+  3. `---` (must not throw UI error)
+
+Scope:
+- Apply this exact fallback order in all multilingual views:
+  - `index.html` (competitor)
+  - `admin.html`
+  - `superadmin.html`
+  - `results.html`
 
 ### 2) `map_layers_cache`
 - Purpose: parsed `backend/app/map_layers.json` (+ API key substitution).
