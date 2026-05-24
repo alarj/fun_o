@@ -133,11 +133,27 @@
       .introModal {
         width: min(960px, 96vw);
         max-width: 96vw;
-        max-height: 88vh;
-        overflow: auto;
       }
       .introBody { font-size: 18px; line-height: 1.45; color: #1d2830; }
       .introBody img { max-width: 100%; height: auto; }
+      .introBodyScroll {
+        border: 1px solid #d4ddd2;
+        border-radius: 10px;
+        padding: 10px;
+        max-height: 62vh;
+        overflow: auto;
+      }
+      .introActions {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .introCloseBtn {
+        width: auto !important;
+        min-width: 90px;
+        padding: 8px 14px;
+        font-size: 16px;
+        line-height: 1.2;
+      }
       .termsBody {
         border: 1px solid #d4ddd2;
         border-radius: 10px;
@@ -234,7 +250,9 @@
         color: #4f5a61;
         text-align: center;
         line-height: 1.35;
-        white-space: nowrap;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: normal;
       }
       .myResInfoLine a {
         color: #145a8a;
@@ -327,6 +345,9 @@
           <div id="myResultsProgress" class="myResProgress">KP: 0 / 0  Punktid: 0</div>
           <button id="myResultsBtn">Tulemused</button>
           <div class="myResInfoLine">
+            Tahad ise lõbusat võistlust korraldada? <a id="openIntroLinkFooter" href="#">Loe täpsemalt siit!</a>
+          </div>
+          <div class="myResInfoLine">
             Võistluse <a id="openCompetitionTermsLink" href="#">tingimused</a> | (C) alar, MIT licence
           </div>
         </div>
@@ -398,11 +419,14 @@
     </div>
     <div id="introBackdrop" class="modalBackdrop">
       <div class="modal introModal">
-        <div class="myResHead" style="margin-bottom:6px;">
-          <h3 style="margin:0; font-size:30px;">fun_o tutvustus</h3>
-          <button id="closeIntroBtn" class="secondary miniBtn">Sulge</button>
+        <h3 style="margin:0 0 10px 0; font-size:30px;">fun_o tutvustus</h3>
+        <div class="introBodyScroll">
+          <div id="introBody" class="introBody"></div>
         </div>
-        <div id="introBody" class="introBody"></div>
+        <div style="height:8px"></div>
+        <div class="introActions">
+          <button id="closeIntroBtn" class="secondary introCloseBtn">Sulge</button>
+        </div>
       </div>
     </div>
     <div id="competitionTermsBackdrop" class="modalBackdrop">
@@ -1770,6 +1794,10 @@
           el("joinByCodeBackdrop").style.display = "none";
         });
         el("openIntroLink").addEventListener("click", (e) => {
+          e.preventDefault();
+          openIntroModal().catch(() => {});
+        });
+        el("openIntroLinkFooter").addEventListener("click", (e) => {
           e.preventDefault();
           openIntroModal().catch(() => {});
         });
