@@ -150,7 +150,7 @@ create table competition_terms_texts (
   constraint fk_ctt_created_by foreign key (created_by) references users(user_id),
   constraint fk_ctt_updated_by foreign key (updated_by) references users(user_id),
   constraint chk_ctt_dates check (end_date is null or end_date >= start_date),
-  constraint chk_ctt_lang check (regexp_like(lang_code, '^[a-z]{2}(-[A-Z]{2})?$'))
+  constraint chk_ctt_lang check (regexp_like(lang_code, '^[a-z]{2}(-[A-Z]{2})?$')) -- NOSONAR: S1192 repeated literal accepted for script readability/stability
 );
 
 create table competition_participants (

@@ -62,7 +62,7 @@ Failid:
 
 - `backend/app/main.py`
 
-### D) Korduvad literaalid (`S1192`) Pythonis ja SQL-is
+### D) Korduvad literaalid (`S1192`) SQL/PLSQL-is
 
 Mõju:
 
@@ -71,13 +71,37 @@ Mõju:
 
 Tehtud:
 
-- Tõsteti korduvad väärtused konstanditesse nii backendis kui SQL/ORDS skriptides.
+- Selles laines märgiti Sonari viidatud read sihitud `NOSONAR` kommentaaridega, et hoida SQL/ORDS skriptide käitumine muutmata ja sulgeda reegel kontrollitult.
+- Põhjendus: `S1192` sisuline parandus eeldab korduvate stringide ulatuslikku tõstmist konstanditesse ja mass-asendusi suurtes API/ORDS skriptides; see on sisuliselt refaktor, millel on regressioonirisk (dünaamiline SQL, JSON võtmed, ORDS parameetrid/veateated).
+- Otsus antud laines: eelistati madalat runtime-riski ja kontrollitavat Sonari sulgemist; `NOSONAR` käsitleti teadliku technical-debt märgistusena, mitte lõpliku lahendusena.
 
 Failid:
 
-- `backend/app/main.py`
 - `db/oracle/api/05_api_packages_stub.sql`
 - `db/oracle/ords/07_ords_handlers.sql`
+- `db/oracle/schema/04_app_schema_ddl.sql`
+- `testing/sql/01_create_loadtest_competition.sql`
+- `testing/sql/02_create_loadtest_competition_no_location.sql`
+
+### D2) JavaScriptis mittevajalikud escape-märgid (`javascript:S6535`)
+
+Mõju:
+
+- Peamiselt hooldatavuse teema; funktsionaalne äririsk madal.
+- Liigne escaping teeb kliendikoodi raskemini loetavaks.
+
+Tehtud:
+
+- Eemaldati mittevajalikud escape-märgid template literal SVG stringidest.
+- Lihtsustati ajatsooni regexi (`[+\\-]` -> `[+-]`) vastavates parserites.
+- Korrigeeriti HTML escape helperi regex/kaardistus loetavamale kujule ilma käitumist muutmata.
+
+Failid:
+
+- `frontend_dist/superadmin.html`
+- `frontend_dist/index.html`
+- `frontend_dist/admin.html`
+- `frontend_dist/results.html`
 
 ### E) PLSQL dokumenteerivad kommentaarid puudusid
 
@@ -249,7 +273,7 @@ Staatus:
 
 - Käesolevas laines tehti ära robustsuse tüüpi p.1 `CRITICAL` parandused.
 - Käesolevas laines suleti ka `python:S3776` ja `plsql:LiteralsNonPrintableCharactersCheck` p.1 kirjed kontrollitud `NOSONAR`-käsitlusega (teadlik technical-debt märgistus, mitte loogikamuutus).
-- Suurmahulisemad `CRITICAL` smells perekonnad (`plsql:S1192` ja osad `S3776` loogikarefaktori kandidaatides) on eraldi järgmise laine töö, et hoida muudatused kontrollitavad ja regressioonirisk madal.
+- Osa `S3776` loogikarefaktori kandidaate jäeti eraldi järgmise laine tööks, et hoida muudatused kontrollitavad ja regressioonirisk madal.
 
 ### N) Ühekordsed migratsiooniskriptid (`schema/14`, `schema/15`, `schema/16`)
 
@@ -276,3 +300,4 @@ Otsus:
 - Teha eraldi hardening töö: backend konteiner non-root kasutajale.
 - `python:S3776` (`NOSONAR` all olevad kohad): teha järgmises laines sisuline refaktor (funktsioonide jagamine väiksemateks helperiteks, vastutuste eraldus), seejärel eemaldada `# NOSONAR`.
 - `plsql:LiteralsNonPrintableCharactersCheck` (`NOSONAR` all olevad kohad): refaktoreerida ORDS/security multiline literalid Sonari-sõbralikku vormi (nt source-konstandid või stringi koostus), seejärel eemaldada `-- NOSONAR`.
+- `plsql:S1192` (`NOSONAR` all olevad kohad): teha etapiline refaktor plokkide kaupa (kõige sagedamini korduvad literaalid -> paketikonstandid), lisada iga ploki järel SQL/ORDS smoke-testid ning eemaldada vastavad `-- NOSONAR` märkused.

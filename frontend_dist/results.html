@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="et">
 <head>
   <meta charset="utf-8" />
@@ -10,7 +10,7 @@
   <div class="wrap">
     <div class="card">
       <div class="head-row">
-        <h1 id="pageTitle" data-i18n="results.page_title_competitor">Tulemused - võistleja vaade</h1>
+        <h1 id="pageTitle" data-i18n="results.page_title_competitor">Tulemused - v�istleja vaade</h1>
         <div class="tools">
           <select id="langSelect" style="width:72px; min-width:72px;">
             <option value="et">ET</option>
@@ -41,8 +41,8 @@
         <thead>
           <tr>
             <th data-i18n="results.table.rank">Koht</th>
-            <th><span data-i18n="results.table.competitor">Võistleja</span> <button class="sort-btn" id="sortName">&#9776;</button></th>
-            <th><span data-i18n="results.table.answered_cp">Läbitud KP arv</span> <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
+            <th><span data-i18n="results.table.competitor">V�istleja</span> <button class="sort-btn" id="sortName">&#9776;</button></th>
+            <th><span data-i18n="results.table.answered_cp">L�bitud KP arv</span> <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
             <th><span data-i18n="results.table.score">Punktid</span> <button class="sort-btn" id="sortScore">&#9660;</button></th>
             <th><span data-i18n="results.table.last_cp">Viimane KP</span> <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
             <th><span data-i18n="results.table.last_answer">Viimane vastus</span> <button class="sort-btn" id="sortLast">&#9776;</button></th>
@@ -57,8 +57,8 @@
         <thead>
           <tr>
             <th><span data-i18n="results.cp_table.cp">KP</span> <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
-            <th><span data-i18n="results.cp_table.last_time">KP viimase läbimise aeg</span> <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
-            <th><span data-i18n="results.cp_table.last_competitor">KP viimati läbinud võistleja</span> <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.last_time">KP viimase l�bimise aeg</span> <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.last_competitor">KP viimati l�binud v�istleja</span> <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
             <th><span data-i18n="results.cp_table.points">KP punktid</span> <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
             <th><span class="correct">&#10003;</span> <button class="sort-btn" id="cSortCorrect">&#9776;</button></th>
             <th><span class="wrong">&#10007;</span> <button class="sort-btn" id="cSortWrong">&#9776;</button></th>
@@ -73,7 +73,7 @@
     <div class="modal-card">
       <div class="modal-head">
         <div class="modal-title-wrap">
-          <h2 id="participantModalTitle" class="modal-title">Võistleja KP-d</h2>
+          <h2 id="participantModalTitle" class="modal-title">V�istleja KP-d</h2>
           <div id="participantModalStats" class="modal-subtitle"></div>
         </div>
         <button id="participantModalClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
@@ -83,10 +83,10 @@
         <thead>
           <tr>
             <th><span data-i18n="results.participant_table.cp_title">KP title</span> <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
-            <th><span data-i18n="results.participant_table.time">KP läbimise aeg</span> <button class="sort-btn" id="pSortTime">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.time">KP l�bimise aeg</span> <button class="sort-btn" id="pSortTime">&#9776;</button></th>
             <th><span data-i18n="results.participant_table.points">KP punktid</span> <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
             <th><span data-i18n="results.participant_table.answer">Vastus</span> <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
-            <th><span data-i18n="results.participant_table.correct_wrong">Õige / vale</span> <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.correct_wrong">�ige / vale</span> <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="participantRows"></tbody>
@@ -118,7 +118,7 @@
       <table class="table">
         <thead>
           <tr>
-            <th><span data-i18n="results.responders_table.competitor">Võistleja</span> <button class="sort-btn" id="crSortName">&#9650;</button></th>
+            <th><span data-i18n="results.responders_table.competitor">V�istleja</span> <button class="sort-btn" id="crSortName">&#9650;</button></th>
             <th><span data-i18n="results.responders_table.result">Tulemus</span> <button class="sort-btn" id="crSortResult">&#9776;</button></th>
           </tr>
         </thead>
@@ -129,7 +129,7 @@
 
   <script>
     const byId = (id) => document.getElementById(id);
-    const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    const esc = (v) => (v ?? "").toString().replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
     const normAnswer = (v) => (v ?? "").toString().trim().toLocaleLowerCase(currentUiLang || "et");
     const adminLangCookieName = "funo_admin_ui_lang";
     const params = new URLSearchParams(window.location.search);
@@ -210,7 +210,7 @@
 
     function checkpointResponderSortIconFor(key) {
       if (checkpointResponderSortKey !== key) return "\u2630";
-      return checkpointResponderSortDir === "asc" ? "\u25b2" : "\u25bc";
+      return checkpointResponderSortDir === "asc" ? "\u25B2" : "\u25BC";
     }
 
     function refreshCheckpointResponderSortIcons() {
@@ -264,7 +264,7 @@
       if (!ts) return null;
       const s = String(ts).trim();
       if (!s) return null;
-      const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+      const iso = /z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
       const d = new Date(iso);
       return Number.isNaN(d.getTime()) ? null : d;
     }
@@ -322,16 +322,16 @@
         el.textContent = tr(key, el.textContent || key);
       });
       byId("autoRefreshLabel").textContent = autoRefreshEnabled
-        ? tr("results.auto_refresh_on", "Automaatne värskendus: 60 s")
-        : tr("results.auto_refresh_off", "Automaatne värskendus: väljas");
-      byId("refreshNowBtn").title = tr("results.refresh_now_btn", "Värskenda kohe");
-      byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn", "Värskenda kohe"));
+        ? tr("results.auto_refresh_on", "Automaatne v�rskendus: 60 s")
+        : tr("results.auto_refresh_off", "Automaatne v�rskendus: v�ljas");
+      byId("refreshNowBtn").title = tr("results.refresh_now_btn", "V�rskenda kohe");
+      byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn", "V�rskenda kohe"));
       applyView();
     }
 
     function sortIconFor(key) {
       if (sortKey !== key) return "\u2630";
-      return sortDir === "asc" ? "\u25b2" : "\u25bc";
+      return sortDir === "asc" ? "\u25B2" : "\u25BC";
     }
 
     function refreshSortIcons() {
@@ -344,7 +344,7 @@
 
     function participantSortIconFor(key) {
       if (participantSortKey !== key) return "\u2630";
-      return participantSortDir === "asc" ? "\u25b2" : "\u25bc";
+      return participantSortDir === "asc" ? "\u25B2" : "\u25BC";
     }
 
     function refreshParticipantSortIcons() {
@@ -357,7 +357,7 @@
 
     function checkpointSortIconFor(key) {
       if (checkpointSortKey !== key) return "\u2630";
-      return checkpointSortDir === "asc" ? "\u25b2" : "\u25bc";
+      return checkpointSortDir === "asc" ? "\u25B2" : "\u25BC";
     }
 
     function refreshCheckpointSortIcons() {
@@ -518,8 +518,8 @@
 
     function renderParticipantRows() {
       if (participantItems.length === 0) {
-        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","Läbitud KP")}: <strong>0</strong>`;
-        byId("participantRows").innerHTML = `<tr><td colspan="5">${esc(tr("results.participant.none","Sellel võistlejal ei ole veel vastuseid."))}</td></tr>`;
+        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","L�bitud KP")}: <strong>0</strong>`;
+        byId("participantRows").innerHTML = `<tr><td colspan="5">${esc(tr("results.participant.none","Sellel v�istlejal ei ole veel vastuseid."))}</td></tr>`;
         refreshParticipantSortIcons();
         return;
       }
@@ -529,7 +529,7 @@
           .map((r) => String(r.checkpoint_title || "").trim())
           .filter((v) => v.length > 0)
       ).size;
-      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","Läbitud KP")}: <strong>${answeredCount}</strong>`;
+      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","L�bitud KP")}: <strong>${answeredCount}</strong>`;
       const rows = sortParticipantItems();
       byId("participantRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
@@ -605,7 +605,7 @@
         byId("lastRefresh").textContent = `${tr("results.last_refresh", "Uuendatud")}: ${fmtNow()}`;
         if (!silent) showMsg(true, "");
       } catch (e) {
-        showMsg(false, e.message || tr("results.load_failed", "Tulemuste laadimine ebaõnnestus."));
+        showMsg(false, e.message || tr("results.load_failed", "Tulemuste laadimine eba�nnestus."));
       }
     }
 
@@ -621,9 +621,9 @@
       byId("checkpointTableWrap").classList.toggle("hidden", competitorActive);
       byId("viewToggleBtn").textContent = competitorActive
         ? tr("results.toggle_checkpoint_view", "KP vaade")
-        : tr("results.toggle_competitor_view", "Võistleja vaade");
+        : tr("results.toggle_competitor_view", "V�istleja vaade");
       byId("pageTitle").textContent = competitorActive
-        ? tr("results.page_title_competitor", "Tulemused - võistleja vaade")
+        ? tr("results.page_title_competitor", "Tulemused - v�istleja vaade")
         : tr("results.page_title_checkpoint", "Tulemused - KP vaade");
     }
 
@@ -634,7 +634,7 @@
     }
 
     async function openParticipantModal(userId, name) {
-      byId("participantModalTitle").textContent = `${tr("results.participant.title","Võistleja KP-d")}: ${name}`;
+      byId("participantModalTitle").textContent = `${tr("results.participant.title","V�istleja KP-d")}: ${name}`;
       participantItems = [];
       participantSortKey = "checkpoint_title";
       participantSortDir = "asc";
@@ -649,7 +649,7 @@
         participantItems = Array.isArray(d.items) ? d.items : [];
         renderParticipantRows();
       } catch (e) {
-        showModalMsg(false, e.message || tr("results.answers.load_failed","Vastuste laadimine ebaõnnestus."));
+        showModalMsg(false, e.message || tr("results.answers.load_failed","Vastuste laadimine eba�nnestus."));
       }
     }
 
@@ -689,7 +689,7 @@
         checkpointResponderItems = Array.isArray(d.items) ? d.items : [];
         renderCheckpointRespondersRows();
       } catch (e) {
-        showCheckpointRespondersMsg(false, e.message || tr("results.responders.load_failed","KP vastajate laadimine ebaõnnestus."));
+        showCheckpointRespondersMsg(false, e.message || tr("results.responders.load_failed","KP vastajate laadimine eba�nnestus."));
       }
     }
 
@@ -736,7 +736,7 @@
         }
         byId("answerVariants").innerHTML = rendered.join("");
       } catch (e) {
-        showAnswerDetailMsg(false, e.message || tr("results.answer.detail_load_failed","Detaili laadimine ebaõnnestus."));
+        showAnswerDetailMsg(false, e.message || tr("results.answer.detail_load_failed","Detaili laadimine eba�nnestus."));
       }
     }
 
@@ -769,7 +769,7 @@
             await openParticipantModal(currentParticipantUserId, n);
           }
         } catch (err) {
-          showMsg(false, err?.message || tr("results.lang_switch_failed", "Keelevahetus ebaõnnestus."));
+          showMsg(false, err?.message || tr("results.lang_switch_failed", "Keelevahetus eba�nnestus."));
         }
       });
       byId("participantModalClose").onclick = closeParticipantModal;
@@ -849,7 +849,7 @@
       if (refreshTimer) clearInterval(refreshTimer);
     });
 
-    init().catch((e) => showMsg(false, e.message || tr("results.open_failed", "Lehe avamine ebaõnnestus.")));
+    init().catch((e) => showMsg(false, e.message || tr("results.open_failed", "Lehe avamine eba�nnestus.")));
   </script>
 </body>
 </html>

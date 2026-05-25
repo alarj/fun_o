@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="et">
   <head>
     <meta charset="utf-8" />
@@ -376,8 +376,8 @@
           <table class="myResTable">
             <thead>
               <tr>
-                <th><span id="myResThKp"></span> <button id="mrSortTitle" class="sortTiny">☰</button></th>
-                <th><span id="myResThTime"></span> <button id="mrSortTime" class="sortTiny">▼</button></th>
+                <th><span id="myResThKp"></span> <button id="mrSortTitle" class="sortTiny">?</button></th>
+                <th><span id="myResThTime"></span> <button id="mrSortTime" class="sortTiny">?</button></th>
                 <th id="myResThPoints"></th>
               </tr>
             </thead>
@@ -472,13 +472,13 @@
         <div class="mapActions">
           <button id="compMapShowKpBtn"></button>
           <button id="compMapFollowBtn" class="secondary"></button>
-          <button id="compMapInfoBtn" class="secondary iconBtn" title="">ℹ</button>
+          <button id="compMapInfoBtn" class="secondary iconBtn" title="Info">&#8505;</button>
           <button id="compMapLayerBtn" class="secondary iconBtn" title="" style="display:none;">
             <svg class="layerIconSvg" viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M12 2 1 7l11 5 9-4.09V17h2V7L12 2Zm0 12L1 9v3l11 5 11-5V9l-11 5Zm0 5L1 14v3l11 5 11-5v-3l-11 5Z"/>
             </svg>
           </button>
-          <button id="compMapCloseBtn" class="secondary iconBtn" title="">✕</button>
+          <button id="compMapCloseBtn" class="secondary iconBtn" title="Sulge">&#10005;</button>
         </div>
       </div>
     </div>
@@ -656,7 +656,7 @@
       }
 
       function esc(v) {
-        return (v ?? "").toString().replace(/[&<>\"']/g, (m) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#039;" }[m]));
+        return (v ?? "").toString().replace(/[&<>"']/g, (m) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" }[m]));
       }
       function normAnswer(v) {
         return (v ?? "").toString().trim().toLocaleLowerCase("et");
@@ -666,7 +666,7 @@
         if (!ts) return null;
         const s = String(ts).trim();
         if (!s) return null;
-        const iso = /z$/i.test(s) || /[+\-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
+        const iso = /z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s) ? s : `${s}Z`;
         const d = new Date(iso);
         return Number.isNaN(d.getTime()) ? null : d;
       }
@@ -1071,7 +1071,7 @@
         state.openItems.forEach((item, idx) => {
           const o = document.createElement("option");
           o.value = String(item.checkpoint_id);
-          const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "📍 " : "";
+          const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "&#128205; " : "";
           o.textContent = `${pin}${item.checkpoint_title} (${item.points || 0} p)`;
           if (preferredIdNum > 0 && Number(item.checkpoint_id) === preferredIdNum) {
             o.selected = true;
@@ -1604,8 +1604,8 @@
       }
 
       function mySortIconFor(key) {
-        if (myResultsSortKey !== key) return "☰";
-        return myResultsSortDir === "asc" ? "▲" : "▼";
+        if (myResultsSortKey !== key) return "\u2630";
+        return myResultsSortDir === "asc" ? "\u25B2" : "\u25BC";
       }
 
       function refreshMySortIcons() {
@@ -1695,12 +1695,12 @@
             const selectedByText = normalizedAnswer && normAnswer(o.option_text || "") === normalizedAnswer;
             if (selectedByText) matchedByText = true;
             const s = selectedByFlag || selectedByText;
-            const icon = c ? "✓" : "✗";
+            const icon = c ? "\u2713" : "\u2717";
             const cls = c ? "okI" : "noI";
             return `<li><span class="${cls}">${icon}</span><span class="${s ? "ansPicked" : ""}">${esc(o.option_text || "-")}</span></li>`;
           });
           if (normalizedAnswer && !matchedByText) {
-            rendered.push(`<li><span class="noI">✗</span><span class="ansPicked">${esc(answer)}</span> <span style="color:#5f6b70;">(${tr("competitor.answer_detail.your_answer")})</span></li>`);
+            rendered.push(`<li><span class="noI">\u2717</span><span class="ansPicked">${esc(answer)}</span> <span style="color:#5f6b70;">(${tr("competitor.answer_detail.your_answer")})</span></li>`);
           }
           el("myAnswerVariants").innerHTML = rendered.join("");
         }

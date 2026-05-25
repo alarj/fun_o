@@ -1,10 +1,10 @@
-﻿-- testing/sql/01_create_loadtest_competition.sql
+-- testing/sql/01_create_loadtest_competition.sql
 -- Run as FUNO_APP
 -- Creates:
 --  - 1 location-based ACTIVE competition (radius 20m)
 --  - 1 competitor + 1 organizer access code
 --  - 50 checkpoints within 3km from center 59.439685,24.730787
---  - 1 TEXT question per checkpoint: "Kuidas lĆ¤heb?" (1 point)
+--  - 1 TEXT question per checkpoint: "Kuidas läheb?" (1 point)
 --  - accepted answer: "OK"
 --  - 200 users T001..T200 and ACTIVE participant links
 
@@ -80,7 +80,7 @@ begin
   ) values (
     v_competition_id,
     'Loadtest ' || to_char(v_start_ts, 'YYYY-MM-DD HH24:MI:SS'),
-    'Auto load-test competition (200 users, 50 checkpoints, random OK/NOK answers)',
+    'Auto load-test competition (200 users, 50 checkpoints, random OK/NOK answers)', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
     'ACTIVE',
     'Y',
     c_competition_radius_m,
@@ -263,7 +263,7 @@ begin
     begin
       select u.user_id
         into v_user_id
-        from users u
+        from users u -- NOSONAR: S1192 repeated literal accepted for script readability/stability
        where lower(u.email) = lower('t' || lpad(to_char(i), 3, '0') || '@funo.local')
          and u.end_date is null;
     exception

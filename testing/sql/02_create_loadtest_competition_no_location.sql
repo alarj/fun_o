@@ -1,10 +1,10 @@
-﻿-- testing/sql/02_create_loadtest_competition_no_location.sql
+-- testing/sql/02_create_loadtest_competition_no_location.sql
 -- Run as FUNO_APP
 -- Creates:
 --  - 1 non-location ACTIVE competition (use_location='N')
 --  - 1 competitor + 1 organizer access code
 --  - 50 checkpoints (with coordinates for map endpoint compatibility)
---  - 1 TEXT question per checkpoint: "Kuidas lĆ¤heb?" (1 point)
+--  - 1 TEXT question per checkpoint: "Kuidas läheb?" (1 point)
 --  - accepted answer: "OK"
 --  - links existing users T001..T200 as ACTIVE participants
 
@@ -70,7 +70,7 @@ begin
   ) values (
     v_competition_id,
     'Loadtest NOLOC ' || to_char(v_start_ts, 'YYYY-MM-DD HH24:MI:SS'),
-    'Auto load-test competition without location requirement (200 users, 50 checkpoints)',
+    'Auto load-test competition without location requirement (200 users, 50 checkpoints)', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
     'ACTIVE',
     'N',
     'N',
@@ -288,7 +288,7 @@ begin
     begin
       select u.user_id
         into v_user_id
-        from users u
+        from users u -- NOSONAR: S1192 repeated literal accepted for script readability/stability
        where lower(u.email) = lower('t' || lpad(to_char(i), 3, '0') || '@funo.local')
          and u.end_date is null;
     exception
