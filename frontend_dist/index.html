@@ -1071,7 +1071,7 @@
         state.openItems.forEach((item, idx) => {
           const o = document.createElement("option");
           o.value = String(item.checkpoint_id);
-          const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "&#128205; " : "";
+          const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "\uD83D\uDCCD " : "";
           o.textContent = `${pin}${item.checkpoint_title} (${item.points || 0} p)`;
           if (preferredIdNum > 0 && Number(item.checkpoint_id) === preferredIdNum) {
             o.selected = true;
