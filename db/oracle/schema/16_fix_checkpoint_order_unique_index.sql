@@ -10,7 +10,12 @@ begin
    where index_name = 'UX_ACTIVE_CP_ORDER';
 
   if l_count > 0 then
-    execute immediate 'drop index UX_ACTIVE_CP_ORDER';
+    begin
+      execute immediate 'drop index UX_ACTIVE_CP_ORDER';
+    exception
+      when others then
+        raise_application_error(-20004, 'Failed to drop index UX_ACTIVE_CP_ORDER: ' || sqlerrm);
+    end;
   end if;
 end;
 /
@@ -19,4 +24,3 @@ create unique index UX_ACTIVE_CP_ORDER on CHECKPOINTS (
   case when end_date is null and order_no is not null then competition_id end,
   case when end_date is null and order_no is not null then order_no end
 );
-

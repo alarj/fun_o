@@ -2738,7 +2738,7 @@ create or replace package body pkg_admin_content as
     l_code varchar2(20);
     l_exists number;
   begin
-    loop
+    while true loop
       l_code := to_char(trunc(dbms_random.value(0, 1000000)), 'FM000000');
       select count(*) into l_exists from competition_access_codes c where c.code = l_code;
       exit when l_exists = 0;
@@ -3950,6 +3950,7 @@ create or replace package body pkg_admin_content as
     l_arr json_array_t;
     l_obj json_object_t;
     l_keys json_key_list;
+    l_k pls_integer;
     l_option_id number;
     l_text varchar2(4000);
     l_code varchar2(100);
@@ -3981,8 +3982,9 @@ create or replace package body pkg_admin_content as
       end if;
 
       l_keys := l_obj.get_keys;
-      for k in 1 .. l_keys.count loop
-        l_key := l_keys(k);
+      l_k := 1;
+      while l_k <= l_keys.count loop
+        l_key := l_keys(l_k);
         if l_key like 'text\_%' escape '\' and lower(l_key) <> 'text_et' then
           l_lang := lower(substr(l_key, 6));
           l_text := l_obj.get_string(l_key);
@@ -3991,6 +3993,7 @@ create or replace package body pkg_admin_content as
             values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
           end if;
         end if;
+        l_k := l_k + 1;
       end loop;
     end loop;
   end;

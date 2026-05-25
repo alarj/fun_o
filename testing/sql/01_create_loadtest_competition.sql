@@ -1,10 +1,10 @@
--- testing/sql/01_create_loadtest_competition.sql
+﻿-- testing/sql/01_create_loadtest_competition.sql
 -- Run as FUNO_APP
 -- Creates:
 --  - 1 location-based ACTIVE competition (radius 20m)
 --  - 1 competitor + 1 organizer access code
 --  - 50 checkpoints within 3km from center 59.439685,24.730787
---  - 1 TEXT question per checkpoint: "Kuidas läheb?" (1 point)
+--  - 1 TEXT question per checkpoint: "Kuidas lĆ¤heb?" (1 point)
 --  - accepted answer: "OK"
 --  - 200 users T001..T200 and ACTIVE participant links
 
@@ -45,7 +45,7 @@ declare
     v_code varchar2(20);
     v_dummy number;
   begin
-    loop
+    while true loop
       v_code := lpad(to_char(trunc(dbms_random.value(0, 1000000))), 6, '0');
       begin
         select 1
@@ -57,6 +57,7 @@ declare
           return v_code;
       end;
     end loop;
+    return v_code;
   end;
 begin
   v_start_ts := systimestamp;

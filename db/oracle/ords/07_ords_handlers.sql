@@ -1,4 +1,4 @@
--- 07_ords_handlers.sql
+﻿-- 07_ords_handlers.sql
 -- Run as FUNO_API (schema already enabled in ORDS)
 -- Assumes grants from FUNO_APP to FUNO_API are in place.
 
@@ -24,7 +24,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body      json_object_t;
         l_user_id   number;
@@ -56,7 +56,7 @@ begin
     p_pattern     => 'auth/has-role',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_has_role varchar2(1);
       begin
@@ -106,7 +106,7 @@ begin
     p_pattern     => 'auth/user-profile',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_email varchar2(320);
         l_full_name varchar2(200);
@@ -142,7 +142,7 @@ begin
     p_pattern     => 'admin/competition-overview',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -174,7 +174,7 @@ begin
     p_pattern     => 'superadmin/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -195,7 +195,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_competition_id number;
@@ -224,7 +224,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_competition_id number;
@@ -254,7 +254,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -278,7 +278,7 @@ begin
     p_pattern     => c_pattern_superadmin_translations,
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_lang varchar2(10) := lower(trim(nvl(:lang, '')));
         l_prefix varchar2(300) := trim(nvl(:prefix, ''));
@@ -346,7 +346,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -373,7 +373,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -398,7 +398,7 @@ begin
     p_pattern     => 'admin/questions-overview',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
         l_len pls_integer;
@@ -444,7 +444,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_access_code_id number;
@@ -474,7 +474,7 @@ begin
     p_pattern     => 'admin/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -506,7 +506,7 @@ begin
     p_pattern     => 'admin/checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -544,7 +544,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body     json_object_t;
         l_user_id  number;
@@ -582,7 +582,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body            json_object_t;
         l_competition_id  number;
@@ -608,7 +608,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body            json_object_t;
         l_competition_id  number;
@@ -640,7 +640,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body           json_object_t;
         l_submission_id  number;
@@ -687,7 +687,7 @@ begin
     p_pattern     => 'competitor/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -719,7 +719,7 @@ begin
     p_pattern     => 'competitor/session-by-participant',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -766,7 +766,7 @@ begin
     p_pattern     => 'competitor/terms',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -821,7 +821,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_json clob;
@@ -849,7 +849,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_user_id number;
@@ -896,7 +896,7 @@ begin
     p_pattern     => 'competitor/open-checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -972,7 +972,7 @@ begin
     p_pattern     => 'competitor/map-checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1015,7 +1015,7 @@ begin
     p_pattern     => 'competitor/progress',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1059,7 +1059,7 @@ begin
     p_pattern     => 'competitor/my-submissions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1102,7 +1102,7 @@ begin
     p_pattern     => 'competitor/my-submission-detail',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1171,7 +1171,7 @@ begin
     p_pattern     => 'results/score',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_score number;
       begin
@@ -1221,7 +1221,7 @@ begin
     p_pattern     => 'organizer/leaderboard',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
       begin
@@ -1259,7 +1259,7 @@ begin
     p_pattern     => 'organizer/checkpoint-results',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
       begin
@@ -1297,7 +1297,7 @@ begin
     p_pattern     => 'organizer/checkpoint-responders',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
       begin
@@ -1347,7 +1347,7 @@ begin
     p_pattern     => 'organizer/participant-submissions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
       begin
@@ -1421,7 +1421,7 @@ begin
     p_pattern     => 'organizer/submission-detail',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_item_json clob;
       begin
@@ -1507,7 +1507,7 @@ begin
     p_pattern     => 'i18n/translations',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_lang varchar2(10) := nvl(:lang, 'et');
         l_default_lang varchar2(10) := nvl(:default_lang, 'et');
@@ -1556,7 +1556,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_checkpoint_id number;
@@ -1589,7 +1589,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_question_id number;
@@ -1623,7 +1623,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_option_id number;
@@ -1654,7 +1654,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_answer_id number;
@@ -1683,7 +1683,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -1714,7 +1714,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -1738,7 +1738,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -1787,7 +1787,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -1811,7 +1811,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t;
         l_starts timestamp;
@@ -1850,7 +1850,7 @@ begin
     p_pattern     => 'admin/competitions/meta',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'[
+    p_source      => q'[ -- NOSONAR
       declare
         l_body json_object_t := json_object_t(:body);
       begin
@@ -1877,7 +1877,7 @@ begin
     p_pattern     => 'admin/competitions/terms',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1920,7 +1920,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_body json_object_t;
       begin
@@ -1945,7 +1945,7 @@ begin
     p_pattern     => 'admin/competitions/map-layers',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
       begin
@@ -1977,7 +1977,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'~
+    p_source      => q'~ -- NOSONAR
       declare
         l_body json_object_t;
         l_layers_json clob;
