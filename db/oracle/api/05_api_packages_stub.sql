@@ -2,6 +2,7 @@
 -- Run as FUNO_APP
 
 create or replace package pkg_auth as
+  -- upsert_google_user: Inserts or updates google user data.
   procedure upsert_google_user(
     p_google_sub in varchar2,
     p_email in varchar2,
@@ -9,18 +10,21 @@ create or replace package pkg_auth as
     o_user_id out number
   );
 
+  -- resolve_user_for_dev: Resolves and returns an effective identifier or entity.
   procedure resolve_user_for_dev(
     p_user_id in number,
     p_email in varchar2,
     o_user_id out number
   );
 
+  -- has_active_role: Checks whether the requested condition is satisfied.
   procedure has_active_role(
     p_user_id in number,
     p_role_code in varchar2,
     o_has_role out varchar2
   );
 
+  -- get_user_profile: Returns user profile data.
   procedure get_user_profile(
     p_user_id in number,
     o_email out varchar2,
@@ -30,6 +34,7 @@ end pkg_auth;
 /
 
 create or replace package body pkg_auth as
+  -- upsert_google_user: Inserts or updates google user data.
   procedure upsert_google_user(
     p_google_sub in varchar2,
     p_email in varchar2,
@@ -65,6 +70,7 @@ create or replace package body pkg_auth as
     end;
   end;
 
+  -- resolve_user_for_dev: Resolves and returns an effective identifier or entity.
   procedure resolve_user_for_dev(
     p_user_id in number,
     p_email in varchar2,
@@ -108,6 +114,7 @@ create or replace package body pkg_auth as
     end if;
   end;
 
+  -- has_active_role: Checks whether the requested condition is satisfied.
   procedure has_active_role(
     p_user_id in number,
     p_role_code in varchar2,
@@ -135,6 +142,7 @@ create or replace package body pkg_auth as
     end if;
   end;
 
+  -- get_user_profile: Returns user profile data.
   procedure get_user_profile(
     p_user_id in number,
     o_email out varchar2,
@@ -163,6 +171,7 @@ end pkg_auth;
 /
 
 create or replace package pkg_competitions as
+  -- create_competition: Creates a new competition record.
   procedure create_competition(
     p_name in varchar2,
     p_description in varchar2,
@@ -170,18 +179,21 @@ create or replace package pkg_competitions as
     o_competition_id out number
   );
 
+  -- register_to_competition: Performs this business operation according to package rules.
   procedure register_to_competition(
     p_user_id in number,
     p_access_code in varchar2,
     o_competition_id out number
   );
 
+  -- add_organizer: Performs this business operation according to package rules.
   procedure add_organizer(
     p_competition_id in number,
     p_target_user_id in number,
     p_assigned_by in number
   );
 
+  -- register_organizer_by_code: Performs this business operation according to package rules.
   procedure register_organizer_by_code(
     p_user_id in number,
     p_access_code in varchar2,
@@ -191,6 +203,7 @@ end pkg_competitions;
 /
 
 create or replace package body pkg_competitions as
+  -- create_competition: Creates a new competition record.
   procedure create_competition(
     p_name in varchar2,
     p_description in varchar2,
@@ -210,6 +223,7 @@ create or replace package body pkg_competitions as
     );
   end;
 
+  -- register_to_competition: Performs this business operation according to package rules.
   procedure register_to_competition(
     p_user_id in number,
     p_access_code in varchar2,
@@ -389,6 +403,7 @@ create or replace package body pkg_competitions as
      where access_code_id = l_access_code_id;
   end;
 
+  -- add_organizer: Performs this business operation according to package rules.
   procedure add_organizer(
     p_competition_id in number,
     p_target_user_id in number,
@@ -447,6 +462,7 @@ create or replace package body pkg_competitions as
     );
   end;
 
+  -- register_organizer_by_code: Performs this business operation according to package rules.
   procedure register_organizer_by_code(
     p_user_id in number,
     p_access_code in varchar2,
@@ -514,6 +530,7 @@ end pkg_competitions;
 /
 
 create or replace package pkg_questions as
+  -- create_question: Creates a new question record.
   procedure create_question(
     p_checkpoint_id in number,
     p_question_text in varchar2,
@@ -523,6 +540,7 @@ create or replace package pkg_questions as
     o_question_id out number
   );
 
+  -- update_question: Updates existing data for question.
   procedure update_question(
     p_question_id in number,
     p_checkpoint_id in number,
@@ -539,6 +557,7 @@ end pkg_questions;
 /
 
 create or replace package body pkg_questions as
+  -- create_question: Creates a new question record.
   procedure create_question(
     p_checkpoint_id in number,
     p_question_text in varchar2,
@@ -594,6 +613,7 @@ create or replace package body pkg_questions as
     );
   end;
 
+  -- update_question: Updates existing data for question.
   procedure update_question(
     p_question_id in number,
     p_checkpoint_id in number,
@@ -658,11 +678,13 @@ end pkg_questions;
 /
 
 create or replace package pkg_submissions as
+  -- normalize_text: Normalizes input value(s) according to the expected format.
   function normalize_text(
     p_value in varchar2,
     p_mode in varchar2
   ) return varchar2 deterministic;
 
+  -- submit_answer: Performs this business operation according to package rules.
   procedure submit_answer(
     p_user_id in number,
     p_competition_id in number,
@@ -682,6 +704,7 @@ end pkg_submissions;
 /
 
 create or replace package body pkg_submissions as
+  -- normalize_text: Normalizes input value(s) according to the expected format.
   function normalize_text(
     p_value in varchar2,
     p_mode in varchar2
@@ -700,6 +723,7 @@ create or replace package body pkg_submissions as
     end if;
   end;
 
+  -- submit_answer: Performs this business operation according to package rules.
   procedure submit_answer(
     p_user_id in number,
     p_competition_id in number,
@@ -843,6 +867,7 @@ end pkg_submissions;
 /
 
 create or replace package pkg_i18n as
+  -- get_translations_json: Returns a JSON object for the requested translations.
   procedure get_translations_json(
     p_lang_code in varchar2,
     p_default_lang_code in varchar2,
@@ -852,6 +877,7 @@ end pkg_i18n;
 /
 
 create or replace package body pkg_i18n as
+  -- get_translations_json: Returns a JSON object for the requested translations.
   procedure get_translations_json(
     p_lang_code in varchar2,
     p_default_lang_code in varchar2,
@@ -888,17 +914,20 @@ end pkg_i18n;
 /
 
 create or replace package pkg_results as
+  -- get_competition_score: Returns competition score data.
   procedure get_competition_score(
     p_competition_id in number,
     p_user_id in number,
     o_score out number
   );
 
+  -- get_competition_leaderboard: Returns competition leaderboard data.
   procedure get_competition_leaderboard(
     p_competition_id in number,
     o_items_json out clob
   );
 
+  -- get_participant_submissions: Returns participant submissions data.
   procedure get_participant_submissions(
     p_competition_id in number,
     p_user_id in number,
@@ -907,6 +936,7 @@ create or replace package pkg_results as
     o_items_json out clob
   );
 
+  -- get_submission_detail: Returns submission detail data.
   procedure get_submission_detail(
     p_competition_id in number,
     p_user_id in number,
@@ -916,11 +946,13 @@ create or replace package pkg_results as
     o_item_json out clob
   );
 
+  -- get_checkpoint_results: Returns checkpoint results data.
   procedure get_checkpoint_results(
     p_competition_id in number,
     o_items_json out clob
   );
 
+  -- get_checkpoint_responders: Returns checkpoint responders data.
   procedure get_checkpoint_responders(
     p_competition_id in number,
     p_checkpoint_id in number,
@@ -932,6 +964,7 @@ end pkg_results;
 create or replace package body pkg_results as
   c_json_question_text constant varchar2(30) := 'question_text';
 
+  -- get_competition_score: Returns competition score data.
   procedure get_competition_score(
     p_competition_id in number,
     p_user_id in number,
@@ -945,6 +978,7 @@ create or replace package body pkg_results as
        and s.user_id = p_user_id;
   end;
 
+  -- get_competition_leaderboard: Returns competition leaderboard data.
   procedure get_competition_leaderboard(
     p_competition_id in number,
     o_items_json out clob
@@ -1011,6 +1045,7 @@ create or replace package body pkg_results as
     end if;
   end;
 
+  -- get_participant_submissions: Returns participant submissions data.
   procedure get_participant_submissions(
     p_competition_id in number,
     p_user_id in number,
@@ -1089,6 +1124,7 @@ create or replace package body pkg_results as
     end if;
   end;
 
+  -- get_submission_detail: Returns submission detail data.
   procedure get_submission_detail(
     p_competition_id in number,
     p_user_id in number,
@@ -1261,6 +1297,7 @@ create or replace package body pkg_results as
       o_item_json := '{}';
   end;
 
+  -- get_checkpoint_results: Returns checkpoint results data.
   procedure get_checkpoint_results(
     p_competition_id in number,
     o_items_json out clob
@@ -1348,6 +1385,7 @@ create or replace package body pkg_results as
     end if;
   end;
 
+  -- get_checkpoint_responders: Returns checkpoint responders data.
   procedure get_checkpoint_responders(
     p_competition_id in number,
     p_checkpoint_id in number,
@@ -1406,12 +1444,14 @@ end pkg_results;
 /
 
 create or replace package pkg_competitor as
+  -- get_session_by_participant_json: Returns a JSON object for the requested session by participant.
   procedure get_session_by_participant_json(
     p_user_id in number,
     p_competition_participant_id in number,
     o_item_json out clob
   );
 
+  -- join_preview_json: Performs this business operation according to package rules.
   procedure join_preview_json(
     p_user_id in number,
     p_access_code in varchar2,
@@ -1420,6 +1460,7 @@ create or replace package pkg_competitor as
     o_item_json out clob
   );
 
+  -- join_by_code: Performs this business operation according to package rules.
   procedure join_by_code(
     p_user_id in number,
     p_access_code in varchar2,
@@ -1436,10 +1477,12 @@ create or replace package pkg_competitor as
     o_no_change out varchar2
   );
 
+  -- list_my_competitions_json: Returns a JSON array for the requested my competitions.
   procedure list_my_competitions_json(
     p_user_id in number,
     o_items_json out clob
   );
+  -- get_terms_for_competition_json: Returns a JSON object for the requested terms for competition.
   procedure get_terms_for_competition_json(
     p_user_id in number,
     p_competition_id in number,
@@ -1447,6 +1490,7 @@ create or replace package pkg_competitor as
     o_item_json out clob
   );
 
+  -- list_open_checkpoints_json: Returns a JSON array for the requested open checkpoints.
   procedure list_open_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
@@ -1456,23 +1500,27 @@ create or replace package pkg_competitor as
     o_items_json out clob
   );
 
+  -- list_map_checkpoints_json: Returns a JSON array for the requested map checkpoints.
   procedure list_map_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob
   );
+  -- get_progress_json: Returns a JSON object for the requested progress.
   procedure get_progress_json(
     p_user_id in number,
     p_competition_id in number,
     o_progress_json out clob
   );
 
+  -- list_my_submissions_json: Returns a JSON array for the requested my submissions.
   procedure list_my_submissions_json(
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob
   );
 
+  -- get_my_submission_detail_json: Returns a JSON object for the requested my submission detail.
   procedure get_my_submission_detail_json(
     p_user_id in number,
     p_competition_id in number,
@@ -1486,6 +1534,7 @@ end pkg_competitor;
 create or replace package body pkg_competitor as
   c_json_question_text constant varchar2(30) := 'question_text';
 
+  -- get_session_by_participant_json: Returns a JSON object for the requested session by participant.
   procedure get_session_by_participant_json(
     p_user_id in number,
     p_competition_participant_id in number,
@@ -1526,6 +1575,7 @@ create or replace package body pkg_competitor as
     end;
   end;
 
+  -- join_preview_json: Performs this business operation according to package rules.
   procedure join_preview_json(
     p_user_id in number,
     p_access_code in varchar2,
@@ -1684,6 +1734,7 @@ create or replace package body pkg_competitor as
      where c.competition_id = l_competition_id;
   end;
 
+  -- join_by_code: Performs this business operation according to package rules.
   procedure join_by_code(
     p_user_id in number,
     p_access_code in varchar2,
@@ -1868,6 +1919,7 @@ create or replace package body pkg_competitor as
      where access_code_id = l_access_code_id;
   end;
 
+  -- get_terms_for_competition_json: Returns a JSON object for the requested terms for competition.
   procedure get_terms_for_competition_json(
     p_user_id in number,
     p_competition_id in number,
@@ -1962,6 +2014,7 @@ create or replace package body pkg_competitor as
       from dual;
   end;
 
+  -- list_my_competitions_json: Returns a JSON array for the requested my competitions.
   procedure list_my_competitions_json(
     p_user_id in number,
     o_items_json out clob
@@ -2007,6 +2060,7 @@ create or replace package body pkg_competitor as
     end if;
   end;
 
+  -- list_open_checkpoints_json: Returns a JSON array for the requested open checkpoints.
   procedure list_open_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
@@ -2176,6 +2230,7 @@ create or replace package body pkg_competitor as
     end if;
   end;
 
+  -- list_map_checkpoints_json: Returns a JSON array for the requested map checkpoints.
   procedure list_map_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
@@ -2233,6 +2288,7 @@ create or replace package body pkg_competitor as
     end if;
   end;
 
+  -- get_progress_json: Returns a JSON object for the requested progress.
   procedure get_progress_json(
     p_user_id in number,
     p_competition_id in number,
@@ -2280,6 +2336,7 @@ create or replace package body pkg_competitor as
       from dual;
   end;
 
+  -- list_my_submissions_json: Returns a JSON array for the requested my submissions.
   procedure list_my_submissions_json(
     p_user_id in number,
     p_competition_id in number,
@@ -2320,6 +2377,7 @@ create or replace package body pkg_competitor as
     end if;
   end;
 
+  -- get_my_submission_detail_json: Returns a JSON object for the requested my submission detail.
   procedure get_my_submission_detail_json(
     p_user_id in number,
     p_competition_id in number,
@@ -2480,8 +2538,11 @@ end pkg_competitor;
 /
 
 create or replace package pkg_admin_content as
+  -- list_competitions_json: Returns a JSON array for the requested competitions.
   procedure list_competitions_json(p_user_id in number, o_items_json out clob);
+  -- list_all_competitions_json: Returns a JSON array for the requested all competitions.
   procedure list_all_competitions_json(o_items_json out clob);
+  -- create_empty_competition: Creates a new empty competition record.
   procedure create_empty_competition(
     p_name in varchar2,
     p_description in varchar2,
@@ -2489,6 +2550,7 @@ create or replace package pkg_admin_content as
     o_competition_id out number,
     o_organizer_code out varchar2
   );
+  -- copy_competition: Copies data from source entities according to provided flags.
   procedure copy_competition(
     p_source_competition_id in number,
     p_copy_questions in varchar2,
@@ -2497,17 +2559,20 @@ create or replace package pkg_admin_content as
     o_competition_id out number,
     o_organizer_code out varchar2
   );
+  -- remove_competition_organizer: Removes the requested relation or assignment.
   procedure remove_competition_organizer(
     p_competition_id in number,
     p_user_id in number,
     p_removed_by in number
   );
+  -- update_competition_dates: Updates existing data for competition dates.
   procedure update_competition_dates(
     p_competition_id in number,
     p_starts_at in timestamp,
     p_ends_at in timestamp,
     p_updated_by in number
   );
+  -- update_competition_meta: Updates existing data for competition meta.
   procedure update_competition_meta(
     p_competition_id in number,
     p_name in varchar2,
@@ -2518,28 +2583,34 @@ create or replace package pkg_admin_content as
     p_radius_m in number,
     p_updated_by in number
   );
+  -- get_competition_terms_json: Returns a JSON object for the requested competition terms.
   procedure get_competition_terms_json(
     p_competition_id in number,
     p_lang_code in varchar2,
     p_default_terms_text in clob,
     o_item_json out clob
   );
+  -- set_competition_terms_text: Sets competition terms text values.
   procedure set_competition_terms_text(
     p_competition_id in number,
     p_lang_code in varchar2,
     p_terms_text in clob,
     p_updated_by in number
   );
+  -- get_participant_map_layers_json: Returns a JSON object for the requested participant map layers.
   procedure get_participant_map_layers_json(
     p_competition_id in number,
     o_items_json out clob
   );
+  -- set_participant_map_layers: Sets participant map layers values.
   procedure set_participant_map_layers(
     p_competition_id in number,
     p_layer_codes_json in clob,
     p_updated_by in number
   );
+  -- list_checkpoints_json: Returns a JSON array for the requested checkpoints.
   procedure list_checkpoints_json(p_competition_id in number, o_items_json out clob);
+  -- upsert_access_code: Inserts or updates access code data.
   procedure upsert_access_code(
     p_competition_id in number,
     p_code_type in varchar2,
@@ -2550,26 +2621,32 @@ create or replace package pkg_admin_content as
     p_created_by in number,
     o_access_code_id out number
   );
+  -- get_competition_overview_json: Returns a JSON object for the requested competition overview.
   procedure get_competition_overview_json(p_competition_id in number, o_overview_json out clob);
+  -- get_questions_overview_json: Returns a JSON object for the requested questions overview.
   procedure get_questions_overview_json(p_competition_id in number, o_questions_json out clob);
+  -- Lists translations filtered by language, key prefix, and include-deleted flag.
   procedure list_translations_json(
     p_lang in varchar2,
     p_prefix in varchar2,
     p_include_deleted in varchar2,
     o_items_json out clob
   );
+  -- Inserts or updates a translation text for a given translation key and language.
   procedure upsert_translation(
     p_translation_key in varchar2,
     p_lang_code in varchar2,
     p_text_value in clob,
     p_updated_by in number
   );
+  -- Soft-deletes a translation by marking it inactive (end-dated) for the given key and language.
   procedure soft_delete_translation(
     p_translation_key in varchar2,
     p_lang_code in varchar2,
     p_deleted_by in number
   );
 
+  -- create_checkpoint: Creates a new checkpoint record.
   procedure create_checkpoint(
     p_competition_id in number,
     p_title in varchar2,
@@ -2582,6 +2659,7 @@ create or replace package pkg_admin_content as
     p_created_by in number,
     o_checkpoint_id out number
   );
+  -- update_checkpoint: Updates existing data for checkpoint.
   procedure update_checkpoint(
     p_checkpoint_id in number,
     p_title in varchar2,
@@ -2593,8 +2671,10 @@ create or replace package pkg_admin_content as
     p_location_required in varchar2,
     p_updated_by in number
   );
+  -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
   procedure soft_delete_checkpoint(p_checkpoint_id in number, p_deleted_by in number);
 
+  -- create_question: Creates a new question record.
   procedure create_question(
     p_checkpoint_id in number,
     p_question_type in varchar2,
@@ -2608,6 +2688,7 @@ create or replace package pkg_admin_content as
     p_created_by in number,
     o_question_id out number
   );
+  -- update_question: Updates existing data for question.
   procedure update_question(
     p_question_id in number,
     p_checkpoint_id in number,
@@ -2621,14 +2702,17 @@ create or replace package pkg_admin_content as
     p_question_text in varchar2,
     p_updated_by in number
   );
+  -- soft_delete_question: Soft-deletes the target record by end-dating it.
   procedure soft_delete_question(p_question_id in number, p_deleted_by in number);
 
+  -- replace_question_options_et: Replaces existing records with the provided payload for question options et.
   procedure replace_question_options_et(
     p_question_id in number,
     p_options_json in clob,
     p_updated_by in number
   );
 
+  -- replace_question_answers: Replaces existing records with the provided payload for question answers.
   procedure replace_question_answers(
     p_question_id in number,
     p_answers_json in clob,
@@ -2642,12 +2726,14 @@ create or replace package body pkg_admin_content as
   c_json_updated_at constant varchar2(30) := 'updated_at';
   c_iso_ts_format constant varchar2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
 
+  -- add_audit: Performs this business operation according to package rules.
   procedure add_audit(p_entity_type varchar2, p_entity_id number, p_action varchar2, p_by number, p_old clob, p_new clob) is
   begin
     insert into audit_log(audit_id, entity_type, entity_id, action_type, changed_by, changed_at, old_data_json, new_data_json)
     values (seq_audit_log.nextval, p_entity_type, p_entity_id, p_action, p_by, systimestamp, p_old, p_new);
   end;
 
+  -- generate_unique_access_code: Generates and returns a new value with required uniqueness/format.
   function generate_unique_access_code return varchar2 is
     l_code varchar2(20);
     l_exists number;
@@ -2660,6 +2746,7 @@ create or replace package body pkg_admin_content as
     return l_code;
   end;
 
+  -- list_competitions_json: Returns a JSON array for the requested competitions.
   procedure list_competitions_json(p_user_id in number, o_items_json out clob) is
   begin
     select json_arrayagg(
@@ -2684,6 +2771,7 @@ create or replace package body pkg_admin_content as
     if o_items_json is null then o_items_json := '[]'; end if;
   end;
 
+  -- list_all_competitions_json: Returns a JSON array for the requested all competitions.
   procedure list_all_competitions_json(o_items_json out clob) is
   begin
     select json_arrayagg(
@@ -2743,6 +2831,7 @@ create or replace package body pkg_admin_content as
     if o_items_json is null then o_items_json := '[]'; end if;
   end;
 
+  -- create_empty_competition: Creates a new empty competition record.
   procedure create_empty_competition(
     p_name in varchar2,
     p_description in varchar2,
@@ -2797,6 +2886,7 @@ create or replace package body pkg_admin_content as
     );
   end;
 
+  -- copy_competition: Copies data from source entities according to provided flags.
   procedure copy_competition(
     p_source_competition_id in number,
     p_copy_questions in varchar2,
@@ -3029,6 +3119,7 @@ create or replace package body pkg_admin_content as
     );
   end;
 
+  -- remove_competition_organizer: Removes the requested relation or assignment.
   procedure remove_competition_organizer(
     p_competition_id in number,
     p_user_id in number,
@@ -3074,6 +3165,7 @@ create or replace package body pkg_admin_content as
     );
   end;
 
+  -- update_competition_dates: Updates existing data for competition dates.
   procedure update_competition_dates(
     p_competition_id in number,
     p_starts_at in timestamp,
@@ -3093,6 +3185,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object('starts_at' value to_char(p_starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'), 'ends_at' value to_char(p_ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'))));
   end;
 
+  -- update_competition_meta: Updates existing data for competition meta.
   procedure update_competition_meta(
     p_competition_id in number,
     p_name in varchar2,
@@ -3150,6 +3243,7 @@ create or replace package body pkg_admin_content as
       )));
   end;
 
+  -- get_competition_terms_json: Returns a JSON object for the requested competition terms.
   procedure get_competition_terms_json(
     p_competition_id in number,
     p_lang_code in varchar2,
@@ -3248,6 +3342,7 @@ create or replace package body pkg_admin_content as
       from dual;
   end;
 
+  -- set_competition_terms_text: Sets competition terms text values.
   procedure set_competition_terms_text(
     p_competition_id in number,
     p_lang_code in varchar2,
@@ -3309,6 +3404,7 @@ create or replace package body pkg_admin_content as
     );
   end;
 
+  -- get_participant_map_layers_json: Returns a JSON object for the requested participant map layers.
   procedure get_participant_map_layers_json(
     p_competition_id in number,
     o_items_json out clob
@@ -3329,6 +3425,7 @@ create or replace package body pkg_admin_content as
     end if;
   end;
 
+  -- set_participant_map_layers: Sets participant map layers values.
   procedure set_participant_map_layers(
     p_competition_id in number,
     p_layer_codes_json in clob,
@@ -3428,6 +3525,7 @@ create or replace package body pkg_admin_content as
     end if;
   end;
 
+  -- list_checkpoints_json: Returns a JSON array for the requested checkpoints.
   procedure list_checkpoints_json(p_competition_id in number, o_items_json out clob) is
   begin
     select json_arrayagg(json_object(
@@ -3448,6 +3546,7 @@ create or replace package body pkg_admin_content as
     if o_items_json is null then o_items_json := '[]'; end if;
   end;
 
+  -- upsert_access_code: Inserts or updates access code data.
   procedure upsert_access_code(
     p_competition_id in number, p_code_type in varchar2, p_code in varchar2, p_status in varchar2,
     p_expires_at in timestamp, p_max_uses in number, p_created_by in number, o_access_code_id out number
@@ -3505,6 +3604,7 @@ create or replace package body pkg_admin_content as
     end;
   end;
 
+  -- get_competition_overview_json: Returns a JSON object for the requested competition overview.
   procedure get_competition_overview_json(p_competition_id in number, o_overview_json out clob) is
     l_dummy number;
   begin
@@ -3536,6 +3636,7 @@ create or replace package body pkg_admin_content as
        and (c.end_date is null or c.end_date > sysdate);
   end;
 
+  -- get_questions_overview_json: Returns a JSON object for the requested questions overview.
   procedure get_questions_overview_json(p_competition_id in number, o_questions_json out clob) is
   begin
     select json_arrayagg(
@@ -3582,6 +3683,7 @@ create or replace package body pkg_admin_content as
     if o_questions_json is null then o_questions_json := '[]'; end if;
   end;
 
+  -- list_translations_json: Returns a JSON array for the requested translations.
   procedure list_translations_json(
     p_lang in varchar2,
     p_prefix in varchar2,
@@ -3613,6 +3715,7 @@ create or replace package body pkg_admin_content as
     end if;
   end;
 
+  -- upsert_translation: Inserts or updates translation data.
   procedure upsert_translation(
     p_translation_key in varchar2,
     p_lang_code in varchar2,
@@ -3647,6 +3750,7 @@ create or replace package body pkg_admin_content as
     end if;
   end;
 
+  -- soft_delete_translation: Soft-deletes the target record by end-dating it.
   procedure soft_delete_translation(
     p_translation_key in varchar2,
     p_lang_code in varchar2,
@@ -3668,6 +3772,7 @@ create or replace package body pkg_admin_content as
        and t.end_date is null;
   end;
 
+  -- create_checkpoint: Creates a new checkpoint record.
   procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is
     l_dummy number;
     l_use_location varchar2(1);
@@ -3704,6 +3809,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object('competition_id' value p_competition_id,'title' value trim(p_title))));
   end;
 
+  -- update_checkpoint: Updates existing data for checkpoint.
   procedure update_checkpoint(p_checkpoint_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_updated_by in number) is
     l_competition_id number;
     l_dummy number;
@@ -3738,6 +3844,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object('title' value trim(p_title), 'order_no' value p_order_no, 'location_hint' value p_location_hint, 'latitude' value p_latitude, 'longitude' value p_longitude, 'radius_m' value p_radius_m, 'location_required' value l_location_required)));
   end;
 
+  -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
   procedure soft_delete_checkpoint(p_checkpoint_id in number, p_deleted_by in number) is
     l_cnt number;
   begin
@@ -3751,6 +3858,7 @@ create or replace package body pkg_admin_content as
     add_audit('CHECKPOINT', p_checkpoint_id, 'SOFT_DELETE', p_deleted_by, null, null);
   end;
 
+  -- create_question: Creates a new question record.
   procedure create_question(
     p_checkpoint_id in number, p_question_type in varchar2, p_input_type in varchar2, p_input_max_length in number,
     p_input_pattern in varchar2, p_points in number, p_wrong_points in number, p_lang_code in varchar2,
@@ -3783,6 +3891,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, c_json_question_text value trim(p_question_text))));
   end;
 
+  -- update_question: Updates existing data for question.
   procedure update_question(
     p_question_id in number, p_checkpoint_id in number, p_question_type in varchar2, p_input_type in varchar2,
     p_input_max_length in number, p_input_pattern in varchar2, p_points in number, p_wrong_points in number,
@@ -3814,6 +3923,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object('checkpoint_id' value p_checkpoint_id, 'question_type' value p_question_type, c_json_question_text value trim(p_question_text))));
   end;
 
+  -- soft_delete_question: Soft-deletes the target record by end-dating it.
   procedure soft_delete_question(p_question_id in number, p_deleted_by in number) is
   begin
     update question_answers set end_date = trunc(sysdate), updated_by = p_deleted_by, updated_at = systimestamp
@@ -3835,6 +3945,7 @@ create or replace package body pkg_admin_content as
     add_audit('QUESTION', p_question_id, 'SOFT_DELETE', p_deleted_by, null, null);
   end;
 
+  -- replace_question_options_et: Replaces existing records with the provided payload for question options et.
   procedure replace_question_options_et(p_question_id in number, p_options_json in clob, p_updated_by in number) is
     l_arr json_array_t;
     l_obj json_object_t;
@@ -3884,6 +3995,7 @@ create or replace package body pkg_admin_content as
     end loop;
   end;
 
+  -- replace_question_answers: Replaces existing records with the provided payload for question answers.
   procedure replace_question_answers(p_question_id in number, p_answers_json in clob, p_updated_by in number) is
     l_arr json_array_t;
     l_obj json_object_t;
