@@ -8,6 +8,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - Määrab, kas võistlus kasutab asukohaloogikat üldse.
 - `competitions.radius_m` (number, meetrites)
   - Vaikimisi kauguslävi, mida kasutatakse KP-de puhul, kui KP-l eraldi raadiust pole määratud.
+- `competitions.show_competitor_location` (`Y`/`N`)
+  - Määrab, kas võistleja asukohta kuvatakse kaardil ja kas kaardivaates kasutatakse jälgimisrežiimi.
 
 ## 2. Kontrollpunkti taseme parameetrid
 
@@ -35,13 +37,50 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 ## 4. Võistleja vaate reeglid
 
 - Kui asukoht on saadaval:
-  - Võib pakkuda eelisjärjekorras lähedal olevaid KP-sid (raadiuse alusel).
+  - süsteem võib pakkuda eelisjärjekorras lähedal olevaid KP-sid.
 - Kui asukohta ei saa (luba puudub/GPS viga/seade ei toeta):
-  - Võistleja saab KP käsitsi valida (fallback).
+  - võistleja saab KP käsitsi valida (fallback).
 - Kui GPS täpsus on halb:
   - KP käsitsi valik peab jääma võimalikuks.
 
-## 5. Vastuse salvestamine
+## 5. Kaardivaade ja avamise reeglid
+
+- Kaardivaate aluskiht (`layer`) salvestatakse cookie-sse võistlusepõhiselt.
+- Kaardivaate `center + zoom` salvestatakse cookie-sse võistlusepõhiselt ja projektsioonipõhiselt (per CRS):
+  - eraldi vaade `EPSG:3857` jaoks;
+  - eraldi vaade `EPSG:3301` jaoks.
+- CRS vahetusel (`3857 <-> 3301`) taastatakse kohe siht-CRS-i viimane salvestatud vaade.
+- Kui siht-CRS-il varasemat vaadet pole, kasutatakse hetkeks aktiivset vaadet ja salvestatakse see uue CRS-i vaateks.
+- Kaardi avamisel:
+  - kui salvestatud vaade on olemas, taastatakse viimane `zoom`;
+  - kui kasutaja asukoht on teada ja follow-režiim on sees, nihutatakse kaart kasutaja asukohale nii, et salvestatud zoom jääb samaks;
+  - kui salvestatud vaadet pole, kasutatakse fallback reegleid:
+    - kasutaja asukoht olemas -> `setView(user, 15)`;
+    - kasutaja asukohta pole, kuid KP-d on olemas -> `fitBounds(KP-d)` + minimaalne avasuum 10;
+    - puuduvad nii asukoht kui KP-d -> vaikimisi Eesti vaade (`58.8, 25.4`, zoom 8).
+- Kui GPS asukoht saabub viitega pärast kaardi avamist:
+  - follow-režiimis tehakse `panTo(user)` (keskpunkt uuendatakse) ilma zoomi jõuga muutmata.
+
+## 6. KP klikid kaardil ja ligipääsukontroll
+
+- KP markerile klikk kuvab koheselt popupi tekstiga:
+  - vastamata: `KP XX (Y p)`;
+  - vastatud: `KP XX (Y p) Läbitud!`.
+- `location_required='N'` KP puhul võib küsimus avaneda kohe.
+- `location_required='Y'` KP puhul tehakse taustal ligipääsukontroll:
+  - frontend saadab geolokatsiooni FastAPI-le;
+  - FastAPI teeb eelkontrolli (distants + cache-põhine filter);
+  - FastAPI küsib ORDS-ist lõpliku avatavuse ainult kandidaatide jaoks.
+- Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
+
+## 7. `Info` nupu käitumine kaardis
+
+- `Info` nupp avab/sulgeb KP popupid.
+- Kui popupid avatakse, võib süsteem samal ajal teha taustal bulk-ligipääsukontrolli asukohanõudega KP-dele:
+  - FastAPI filtreerib kandidaadid;
+  - ORDS-i pöördutakse ainult kandidaatide kinnitamiseks.
+
+## 8. Vastuse salvestamine
 
 - Võistleja asukoht vastamise hetkel salvestatakse `submissions` kirjele:
   - `latitude`
@@ -49,14 +88,14 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - `accuracy_m` (kui olemas)
 - Uut eraldi asukohatabelit ei looda.
 
-## 6. Raadiuse arvutamise reegel
+## 9. Raadiuse arvutamise reegel
 
 KP efektiivne raadius:
 
 1. kui `checkpoints.radius_m` on määratud, kasutatakse seda;
 2. muidu kasutatakse `competitions.radius_m`.
 
-## 7. Liitumise ja aktiivsuse reeglid (võistleja)
+## 10. Liitumise ja aktiivsuse reeglid (võistleja)
 
 Koodiga liituda saab ainult võistlusega, mis on:
 
@@ -67,14 +106,14 @@ Koodiga liituda saab ainult võistlusega, mis on:
 
 Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sama üldise teate (detaili ei avaldata).
 
-## 8. Soft delete põhimõte API vastustes
+## 11. Soft delete põhimõte API vastustes
 
 - ORDS teenused ei tagasta vaikimisi soft-deleted kirjeid.
 - Kui tulevikus on vaja kustutatud kirjeid näidata, tehakse selleks eraldi teenus.
 
-## 9. Admin UI käitumine (kokkulepitud)
+## 12. Admin UI käitumine (kokkulepitud)
 
-- Asukohaandmete muutmine toimub võistluse ühisest „Muuda võistlust” vormist.
+- Asukohaandmete muutmine toimub võistluse ühisest “Muuda võistlust” vormist.
 - KP muutmisaknas:
   - kaart kuvatakse ainult siis, kui `use_location='Y'`;
   - KP raadius mõjutab kaardil kuvatavat ringi;

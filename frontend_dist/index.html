@@ -554,6 +554,7 @@
       let baseMapLayer = null;
       let compMapCurrentCrs = "EPSG:3857";
       let compMapOpenedOnce = false;
+      let mapViewPersistenceEnabled = false;
       const mapLayersByCode = {};
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
       const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
@@ -1249,7 +1250,8 @@
 
       function getMapViewCookieKey() {
         const cid = Number(state.selectedCompetitionId || 0);
-        return cid > 0 ? `funo_comp_map_view_c${cid}` : "funo_comp_map_view";
+        const crsSuffix = String(compMapCurrentCrs || "EPSG:3857").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        return cid > 0 ? `funo_comp_map_view_c${cid}_${crsSuffix}` : `funo_comp_map_view_${crsSuffix}`;
       }
       function getMapLayerCookieKey() {
         const cid = Number(state.selectedCompetitionId || 0);
@@ -1257,16 +1259,20 @@
       }
 
       function saveCompMapView() {
-        if (!compMap) return;
+        if (!compMap || !mapViewPersistenceEnabled) return;
         const c = compMap.getCenter();
         const z = compMap.getZoom();
         setCookie(getMapViewCookieKey(), `${c.lat.toFixed(7)},${c.lng.toFixed(7)},${z}`, 30);
       }
 
       function restoreCompMapView() {
-        const raw = getCookie(getMapViewCookieKey());
-        if (!raw) return false;
-        const parts = raw.split(",");
+        const key = getMapViewCookieKey();
+        const raw = getCookie(key);
+        const legacyCid = Number(state.selectedCompetitionId || 0);
+        const legacyKey = legacyCid > 0 ? `funo_comp_map_view_c${legacyCid}` : "funo_comp_map_view";
+        const effectiveRaw = raw || getCookie(legacyKey);
+        if (!effectiveRaw) return false;
+        const parts = effectiveRaw.split(",");
         if (parts.length !== 3) return false;
         const lat = Number(parts[0]);
         const lng = Number(parts[1]);
@@ -1388,7 +1394,12 @@
         setCookie(getMapLayerCookieKey(), activeMapLayerCode, 30);
         if (previousView) {
           mapProgrammaticMove = true;
-          compMap.setView([previousView.lat, previousView.lon], previousView.zoom, { animate: false });
+          const restored = restoreCompMapView();
+          if (!restored) {
+            // No saved view for target CRS yet, keep continuity with previous map view.
+            compMap.setView([previousView.lat, previousView.lon], previousView.zoom, { animate: false });
+            saveCompMapView();
+          }
           setTimeout(() => { mapProgrammaticMove = false; }, 250);
         }
         renderCompMapLayerList();
@@ -1415,15 +1426,111 @@
       }
 
       function anyMapPopupOpen() {
-        return mapRings.some((ring) => !!ring.getPopup()?.isOpen());
+        return mapRings.some((entry) => !!entry.ring?.getPopup()?.isOpen());
       }
 
       function setMapInfoVisibility(show) {
         mapInfoVisible = !!show;
         if (mapInfoVisible) {
-          mapRings.forEach((ring) => ring.openPopup());
+          mapRings.forEach((entry) => entry.ring?.openPopup());
         } else {
-          mapRings.forEach((ring) => ring.closePopup());
+          mapRings.forEach((entry) => entry.ring?.closePopup());
+        }
+      }
+
+      function checkpointPopupLabel(cp) {
+        const points = Number(cp?.points || 0);
+        const base = `${cp?.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
+        return String(cp?.is_answered || "N").toUpperCase() === "Y"
+          ? `${base} ${tr("competitor.map.checkpoint_passed_suffix")}`
+          : base;
+      }
+
+      function getOpenItemByCheckpointId(checkpointId) {
+        const cpId = Number(checkpointId || 0);
+        if (!cpId) return null;
+        return state.openItems.find((x) => Number(x?.checkpoint_id || 0) === cpId) || null;
+      }
+
+      function openQuestionFromCheckpointId(checkpointId) {
+        const item = getOpenItemByCheckpointId(checkpointId);
+        if (!item) return false;
+        const select = el("checkpointSelect");
+        if (!select || select.disabled) return false;
+        select.value = String(checkpointId);
+        renderQuestionForSelectedCheckpoint();
+        return true;
+      }
+
+      async function checkCheckpointAccess(checkpointIds) {
+        if (!state.selectedCompetitionId) return [];
+        const ids = (checkpointIds || []).map((x) => Number(x || 0)).filter((x) => x > 0);
+        if (!ids.length) return [];
+        const payload = {
+          competition_id: state.selectedCompetitionId,
+          checkpoint_ids: ids,
+          latitude: state.geo.enabled ? state.geo.latitude : null,
+          longitude: state.geo.enabled ? state.geo.longitude : null,
+          radius_m: state.geo.enabled ? state.geo.radius_m : null,
+        };
+        const res = await apiPost("/api/competitor/checkpoint-access", payload);
+        if (!res.ok) return [];
+        return Array.isArray(res.data?.items) ? res.data.items : [];
+      }
+
+      async function handleMapCheckpointClick(cp) {
+        const cpId = Number(cp?.checkpoint_id || 0);
+        if (!cpId || state.feedbackOpen) return;
+        const requiresLocation = String(cp?.location_required || "N").toUpperCase() === "Y";
+        if (requiresLocation) {
+          await requestGeolocation({ maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
+          if (!state.geo.enabled) {
+            if (state.geo.error) setMsg("answerMsg", state.geo.error, false);
+            return;
+          }
+        }
+        const accessItems = await checkCheckpointAccess([cpId]);
+        const access = accessItems.find((x) => Number(x?.checkpoint_id || 0) === cpId) || null;
+        if (!access || access.can_open !== true) {
+          if (String(access?.reason || "") === "answered") {
+            cp.is_answered = "Y";
+          }
+          return;
+        }
+        await loadOpenCheckpoints({ force: true, preferredCheckpointId: cpId });
+        if (openQuestionFromCheckpointId(cpId)) {
+          closeCompMapModal();
+        }
+      }
+
+      async function handleMapInfoAccessCheck() {
+        const candidates = mapRings
+          .map((entry) => entry?.cp)
+          .filter((cp) => cp && String(cp.location_required || "N").toUpperCase() === "Y" && String(cp.is_answered || "N").toUpperCase() !== "Y")
+          .map((cp) => Number(cp.checkpoint_id || 0))
+          .filter((x) => x > 0);
+        if (!candidates.length) return;
+        await requestGeolocation({ maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
+        if (!state.geo.enabled) return;
+        const accessItems = await checkCheckpointAccess(candidates);
+        let preferredCheckpointId = 0;
+        accessItems.forEach((entry) => {
+          const cpId = Number(entry?.checkpoint_id || 0);
+          if (!cpId) return;
+          const ringEntry = mapRings.find((x) => Number(x?.cp?.checkpoint_id || 0) === cpId);
+          if (!ringEntry || !ringEntry.cp) return;
+          if (String(entry.reason || "") === "answered") {
+            ringEntry.cp.is_answered = "Y";
+            ringEntry.ring?.setPopupContent(checkpointPopupLabel(ringEntry.cp));
+          }
+          if (!preferredCheckpointId && entry.can_open === true) {
+            preferredCheckpointId = cpId;
+          }
+        });
+        if (!preferredCheckpointId) return;
+        await loadOpenCheckpoints({ force: true, preferredCheckpointId });
+        if (openQuestionFromCheckpointId(preferredCheckpointId)) {
+          closeCompMapModal();
         }
       }
 
@@ -1451,9 +1558,12 @@
             fillOpacity: 0,
           }).addTo(compMapLayer);
           const points = Number(cp.points || 0);
-          const popupText = `${cp.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
+          const popupText = checkpointPopupLabel(cp);
           ring.bindPopup(popupText, { autoClose: false, closeOnClick: false, autoPan: false });
-          mapRings.push(ring);
+          ring.on("click", () => {
+            handleMapCheckpointClick(cp).catch(() => {});
+          });
+          mapRings.push({ ring, cp });
           checkpointBounds.push([lat, lon]);
         });
         const hasUserGeo = selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
@@ -1471,8 +1581,12 @@
         if (!preserveViewport) {
           const restored = forceInitialFit ? false : restoreCompMapView();
           if (mapFollowUser && hasUserGeo) {
-            const followZoom = Math.max(Number(compMap.getZoom() || 0), 16);
-            compMap.setView([state.geo.latitude, state.geo.longitude], followZoom, { animate: false });
+            if (restored) {
+              // Keep previously saved zoom; only center to current user location.
+              compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
+            } else {
+              compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+            }
           } else if (checkpointBounds.length) {
             if (!restored || forceInitialFit) {
               compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
@@ -1541,6 +1655,7 @@
       }
 
       async function openCompMapModal() {
+        mapViewPersistenceEnabled = false;
         mapFollowUser = true;
         updateFollowButton();
         await requestFreshGeolocationForMapOpen();
@@ -1573,8 +1688,10 @@
         }
         renderCompMapLayerList();
         compMap.invalidateSize();
-        renderCompMap(state.mapItems, { forceInitialFit: !compMapOpenedOnce });
+        renderCompMap(state.mapItems, { forceInitialFit: false });
         compMapOpenedOnce = true;
+        mapViewPersistenceEnabled = true;
+        saveCompMapView();
         startMapGeolocationWatch();
       }
 
@@ -2006,8 +2123,12 @@
         el("mapBtn").addEventListener("click", openCompMapModal);
         el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
         el("compMapInfoBtn").addEventListener("click", () => {
-          if (anyMapPopupOpen()) setMapInfoVisibility(false);
-          else setMapInfoVisibility(true);
+          if (anyMapPopupOpen()) {
+            setMapInfoVisibility(false);
+            return;
+          }
+          setMapInfoVisibility(true);
+          handleMapInfoAccessCheck().catch(() => {});
         });
         el("compMapLayerBtn").addEventListener("click", () => {
           renderCompMapLayerList();

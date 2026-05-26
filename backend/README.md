@@ -355,12 +355,25 @@ Scope:
 - Purpose: short throttle cache for `GET /api/competitor/open-checkpoints`.
 - Key: `competition_id:user_id`.
 - TTL: `OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2`.
+- Reuse condition: cached response is reused only when request geo signature matches
+  (`latitude|longitude|radius_m` normalized to a stable signature).
 - Filled: each successful response.
 - Invalidated/reset:
   - naturally overwritten by next response.
   - cleared together with map checkpoint cache on admin content mutations.
   - competition-scoped clear via `_invalidate_competition_cache(...)`.
   - process restart clears all.
+
+### 5a) `POST /api/competitor/checkpoint-access` behavior
+- Purpose: pre-validate map checkpoint availability with FastAPI-side filtering.
+- Input: `competition_id`, `checkpoint_ids[]`, optional `latitude/longitude/radius_m`.
+- Data source:
+  - uses `map_checkpoints_cache` (same `competition_id:user_id` cache as map view) for checkpoint metadata and `is_answered` hint.
+  - if needed, performs final ORDS confirmation via `competitor/open-checkpoints`.
+- Rules:
+  - `location_required='N'` can be opened without geo gate.
+  - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
+  - final “open/not open” decision for candidates comes from ORDS response.
 
 ### 6) `competitor_terms_cache`
 - Purpose: cached terms payload for `GET /api/competitor/terms`.

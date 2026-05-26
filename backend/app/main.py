@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import time
@@ -249,6 +250,22 @@ class CompetitorCompetitionsResponse(BaseModel):
 class CompetitorOpenCheckpointsResponse(BaseModel):
     items: list[dict[str, Any]]
 
+class CompetitorCheckpointAccessRequest(BaseModel):
+    competition_id: int
+    checkpoint_ids: list[int] = []
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_m: float | None = None
+    user_id: int | None = None
+
+class CompetitorCheckpointAccessEntry(BaseModel):
+    checkpoint_id: int
+    can_open: bool
+    needs_ords: bool = False
+    reason: str | None = None
+
+class CompetitorCheckpointAccessResponse(BaseModel):
+    items: list[CompetitorCheckpointAccessEntry]
 class CompetitorMySubmissionEntry(BaseModel):
     checkpoint_title: str | None = None
     submission_id: int | None = None
@@ -1140,6 +1157,15 @@ def _open_checkpoints_key(*, competition_id: int, user_id: int) -> str:
     return f"{competition_id}:{user_id}"
 
 
+def _open_checkpoints_signature(latitude: float | None, longitude: float | None, radius_m: float | None) -> str:
+    def _fmt(v: float | None) -> str:
+        if not isinstance(v, (int, float)):
+            return "none"
+        return f"{float(v):.6f}"
+
+    return f"{_fmt(latitude)}|{_fmt(longitude)}|{_fmt(radius_m)}"
+
+
 def _purge_expired_map_cache(now: float | None = None) -> None:
     current = now if now is not None else time.monotonic()
     expired_keys: list[str] = []
@@ -1165,6 +1191,39 @@ def _invalidate_competition_cache(competition_id: int | None) -> None:
     for key in list(open_checkpoints_last_response.keys()):
         if key.startswith(prefix):
             open_checkpoints_last_response.pop(key, None)
+
+
+def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    earth_radius_m = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
+    return 2.0 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
+
+
+async def _get_map_checkpoints_items(competition_id: int, user_id: int) -> list[dict[str, Any]]:
+    now = time.monotonic()
+    _purge_expired_map_cache(now)
+    key = _map_cache_key(competition_id=competition_id, user_id=user_id)
+    cached = map_checkpoints_cache.get(key)
+    if isinstance(cached, dict):
+        cached_items = cached.get("items")
+        if isinstance(cached_items, list):
+            return cached_items
+
+    ords_response = await _get_from_ords(
+        "competitor/map-checkpoints",
+        {
+            "competition_id": competition_id,
+            "user_id": user_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
+    items = raw_items if isinstance(raw_items, list) else []
+    map_checkpoints_cache[key] = {"cached_at": now, "items": items}
+    return items
 
 
 @app.on_event("startup")
@@ -1742,14 +1801,17 @@ async def competitor_open_checkpoints(
 ) -> CompetitorOpenCheckpointsResponse:
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
     now = time.monotonic()
+    req_signature = _open_checkpoints_signature(latitude, longitude, radius_m)
     key = _open_checkpoints_key(competition_id=competition_id, user_id=resolved_user_id)
     previous = open_checkpoints_last_response.get(key)
     if previous:
         previous_at = previous.get("response_at")
         previous_items = previous.get("items")
+        previous_signature = previous.get("signature")
         if (
             isinstance(previous_at, float)
             and isinstance(previous_items, list)
+            and previous_signature == req_signature
             and (now - previous_at) <= OPEN_CHECKPOINTS_THROTTLE_SECONDS
         ):
             return CompetitorOpenCheckpointsResponse(items=previous_items)
@@ -1766,7 +1828,7 @@ async def competitor_open_checkpoints(
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
     items = raw_items if isinstance(raw_items, list) else []
-    open_checkpoints_last_response[key] = {"response_at": now, "items": items}
+    open_checkpoints_last_response[key] = {"response_at": now, "items": items, "signature": req_signature}
     return CompetitorOpenCheckpointsResponse(items=items)
 
 
@@ -1778,26 +1840,96 @@ async def competitor_map_checkpoints(
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorOpenCheckpointsResponse:
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
-    now = time.monotonic()
-    _purge_expired_map_cache(now)
-    key = _map_cache_key(competition_id=competition_id, user_id=resolved_user_id)
-    cached = map_checkpoints_cache.get(key)
-    if cached:
-        cached_items = cached.get("items")
-        if isinstance(cached_items, list):
-            return CompetitorOpenCheckpointsResponse(items=cached_items)
-
-    ords_response = await _get_from_ords(
-        "competitor/map-checkpoints",
-        {
-            "competition_id": competition_id,
-            "user_id": resolved_user_id,
-        },
-    )
-    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    items = raw_items if isinstance(raw_items, list) else []
-    map_checkpoints_cache[key] = {"cached_at": now, "items": items}
+    items = await _get_map_checkpoints_items(competition_id=competition_id, user_id=resolved_user_id)
     return CompetitorOpenCheckpointsResponse(items=items)
+
+
+@app.post("/api/competitor/checkpoint-access", response_model=CompetitorCheckpointAccessResponse)
+async def competitor_checkpoint_access(
+    req: CompetitorCheckpointAccessRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitorCheckpointAccessResponse:
+    resolved_user_id = _resolve_user_id(request, req.user_id, x_user_id)
+    map_items = await _get_map_checkpoints_items(competition_id=req.competition_id, user_id=resolved_user_id)
+    by_id: dict[int, dict[str, Any]] = {}
+    for row in map_items:
+        if not isinstance(row, dict):
+            continue
+        cp_id = row.get("checkpoint_id")
+        if isinstance(cp_id, int):
+            by_id[cp_id] = row
+
+    requested_ids = [cp_id for cp_id in req.checkpoint_ids if isinstance(cp_id, int)]
+    if not requested_ids:
+        return CompetitorCheckpointAccessResponse(items=[])
+
+    items: list[CompetitorCheckpointAccessEntry] = []
+    candidate_ids: list[int] = []
+    lat = req.latitude if isinstance(req.latitude, (int, float)) else None
+    lon = req.longitude if isinstance(req.longitude, (int, float)) else None
+    base_radius = req.radius_m if isinstance(req.radius_m, (int, float)) else None
+
+    for cp_id in requested_ids:
+        cp = by_id.get(cp_id)
+        if not isinstance(cp, dict):
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="not_found"))
+            continue
+        if str(cp.get("is_answered", "N")).upper() == "Y":
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="answered"))
+            continue
+        location_required = str(cp.get("location_required", "N")).upper() == "Y"
+        if not location_required:
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=True, reason="no_location_required"))
+            continue
+        if lat is None or lon is None:
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="missing_location"))
+            continue
+
+        cp_lat = cp.get("latitude")
+        cp_lon = cp.get("longitude")
+        cp_radius = cp.get("radius_m")
+        if not isinstance(cp_lat, (int, float)) or not isinstance(cp_lon, (int, float)):
+            candidate_ids.append(cp_id)
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
+            continue
+        effective_radius = cp_radius if isinstance(cp_radius, (int, float)) and cp_radius > 0 else base_radius
+        if not isinstance(effective_radius, (int, float)) or effective_radius <= 0:
+            candidate_ids.append(cp_id)
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
+            continue
+        distance_m = _haversine_meters(float(lat), float(lon), float(cp_lat), float(cp_lon))
+        if distance_m <= float(effective_radius):
+            candidate_ids.append(cp_id)
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
+        else:
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="too_far"))
+
+    if candidate_ids:
+        ords_response = await _get_from_ords(
+            "competitor/open-checkpoints",
+            {
+                "competition_id": req.competition_id,
+                "user_id": resolved_user_id,
+                "latitude": lat,
+                "longitude": lon,
+                "radius_m": base_radius,
+            },
+        )
+        raw = ords_response.get("items") if isinstance(ords_response, dict) else []
+        open_ids: set[int] = set()
+        if isinstance(raw, list):
+            for row in raw:
+                if isinstance(row, dict) and isinstance(row.get("checkpoint_id"), int):
+                    open_ids.add(int(row["checkpoint_id"]))
+        for entry in items:
+            if not entry.needs_ords:
+                continue
+            entry.needs_ords = False
+            entry.can_open = entry.checkpoint_id in open_ids
+            entry.reason = "open" if entry.can_open else "not_open"
+
+    return CompetitorCheckpointAccessResponse(items=items)
 
 
 @app.get("/api/results/score", response_model=ScoreResponse)
@@ -2681,6 +2813,10 @@ async def admin_update_competition_terms(
     )
     competitor_terms_cache.clear()
     return {"ok": True}
+
+
+
+
 
 
 
