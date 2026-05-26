@@ -33,6 +33,7 @@ class Settings:
     session_cookie_secure: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
     lang_default: str = os.getenv("LANG_DEFAULT", "et").strip() or "et"
+    promo100_max_total_competitions: int = int(os.getenv("PROMO100_MAX_TOTAL_COMPETITIONS", "100"))
 
 
 settings = Settings()
@@ -526,6 +527,12 @@ class SuperAdminCreateCompetitionRequest(BaseModel):
 class SuperAdminCreateCompetitionResponse(BaseModel):
     competition_id: int
     organizer_code: str
+
+
+class AdminPromoBootstrapResponse(BaseModel):
+    attempted: bool
+    created: bool
+    competition_id: int | None = None
 
 
 class SuperAdminCopyCompetitionRequest(BaseModel):
@@ -1750,6 +1757,9 @@ async def submit_answer(
             "api.error.invalid_ords_response_score",
             {"ords_response": ords_response},
         )
+    # Event-driven cache refresh for competitor status after successful submit.
+    map_checkpoints_cache.pop(_map_cache_key(competition_id=req.competition_id, user_id=user_id), None)
+    open_checkpoints_last_response.pop(_open_checkpoints_key(competition_id=req.competition_id, user_id=user_id), None)
     return SubmitAnswerResponse(
         submission_id=submission_id,
         is_correct=(is_correct_raw == "Y"),
@@ -2438,6 +2448,63 @@ async def admin_competitions(request: Request, x_user_id: int | None = Header(de
     data = await _get_from_ords("admin/competitions", {"user_id": user_id})
     items = data.get("items") if isinstance(data, dict) else []
     return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
+
+
+@app.post("/api/admin/promo100/bootstrap", response_model=AdminPromoBootstrapResponse)
+async def admin_promo100_bootstrap(request: Request, x_user_id: int | None = Header(default=None)) -> AdminPromoBootstrapResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    if settings.promo100_max_total_competitions <= 0:
+        return AdminPromoBootstrapResponse(attempted=False, created=False)
+
+    mine_data = await _get_from_ords("admin/competitions", {"user_id": user_id})
+    mine_items = mine_data.get("items") if isinstance(mine_data, dict) else []
+    if isinstance(mine_items, list) and len(mine_items) > 0:
+        return AdminPromoBootstrapResponse(attempted=True, created=False)
+
+    all_data = await _get_from_ords("superadmin/competitions", {})
+    all_items = all_data.get("items") if isinstance(all_data, dict) else []
+    total_competitions = len(all_items) if isinstance(all_items, list) else 0
+    if total_competitions >= settings.promo100_max_total_competitions:
+        return AdminPromoBootstrapResponse(attempted=True, created=False)
+
+    profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+    email = profile.get("email") if isinstance(profile, dict) else None
+    if not isinstance(email, str) or "@" not in email:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
+    local_part = email.split("@", 1)[0].strip()
+    if not local_part:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
+
+    create_data = await _post_to_ords(
+        "superadmin/competitions",
+        {
+            "name": f"{local_part} võistlus",
+            "description": "Sinu esimene võistlus siin -- muuda see endale sobivaks ja kutsu sõbrad osalema!",
+            "created_by": user_id,
+        },
+    )
+    competition_id = create_data.get("competition_id") if isinstance(create_data, dict) else None
+    organizer_code = create_data.get("organizer_code") if isinstance(create_data, dict) else None
+    if not isinstance(competition_id, int):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    if not isinstance(organizer_code, str) or not organizer_code.strip():
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+
+    # Ensure the newly created competition is immediately linked to the logged-in
+    # user as organizer (same mechanism as organizer access-code join flow).
+    join_data = await _post_to_ords(
+        "organizers/register",
+        {
+            "user_id": user_id,
+            "access_code": organizer_code.strip(),
+        },
+    )
+    joined_competition_id = join_data.get("competition_id") if isinstance(join_data, dict) else None
+    if not isinstance(joined_competition_id, int) or joined_competition_id != competition_id:
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+
+    await _ensure_default_terms_for_competition(competition_id)
+    return AdminPromoBootstrapResponse(attempted=True, created=True, competition_id=competition_id)
 
 
 @app.get("/api/admin/competitions/map-layers", response_model=AdminCompetitionMapLayersResponse)

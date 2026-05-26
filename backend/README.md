@@ -1,4 +1,4 @@
-﻿# FastAPI <-> ORDS integration notes
+# FastAPI <-> ORDS integration notes
 
 FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/auth/google/upsert`
@@ -31,7 +31,7 @@ Session cookie flow:
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
+- Optional: `SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
@@ -346,6 +346,7 @@ Scope:
 - TTL: `MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900` (15 min).
 - Filled: first request per key.
 - Invalidated/reset:
+  - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.
   - full clear on admin content mutations (checkpoint/question/option/answer create-update-delete).
   - competition-scoped clear via `_invalidate_competition_cache(...)` on competition meta/date updates and some competition-level mutations.
@@ -375,6 +376,10 @@ Scope:
   - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
   - final “open/not open” decision for candidates comes from ORDS response.
 
+Frontend event-driven refresh notes:
+- After successful answer submit, UI updates the answered checkpoint status locally (`is_answered='Y'`) for visible map markers.
+- After opening competitor results (`/api/competitor/my-submissions`), UI refreshes map checkpoints from `/api/competitor/map-checkpoints` to keep map answered flags aligned.
+
 ### 6) `competitor_terms_cache`
 - Purpose: cached terms payload for `GET /api/competitor/terms`.
 - Key: `competition_id|lang_code`.
@@ -384,3 +389,17 @@ Scope:
   - `POST /api/admin/competitions/terms` clears whole terms cache.
   - manual reset endpoint exists: `POST /api/competitor/terms-cache/reset`.
   - process restart clears all.
+
+Strict UI i18n implementation rule (all views):
+- Do not hardcode human-readable UI text in HTML/JS for buttons, headings, labels, dialogs, or messages.
+- Use `tr("translation.key")` in JS (no second-argument fallback text).
+- For HTML nodes with `data-i18n`, the element text must be the translation key string itself.
+- Required pattern example:
+  - Correct: `<h2 data-i18n="admin.login.heading">admin.login.heading</h2>`
+  - Incorrect: `<h2 data-i18n="admin.login.heading">Admin sisselogimine</h2>`
+  - Incorrect: `tr("admin.login.heading", "Admin sisselogimine")`
+- Effective fallback chain for UI text is:
+  1) selected language
+  2) `.env LANG_DEFAULT`
+  3) translation key string
+- Do not replace or alter icon glyphs/entities while making i18n-only text changes.

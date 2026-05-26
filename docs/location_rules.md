@@ -66,6 +66,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - KP markerile klikk kuvab koheselt popupi tekstiga:
   - vastamata: `KP XX (Y p)`;
   - vastatud: `KP XX (Y p) Läbitud!`.
+- `is_answered` on kasutajapõhine cache-andmestik.
+- Cache võib olla pika TTL-iga, kuid staatus värskendatakse sündmuspõhiselt:
+  - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
+  - kui kasutaja avab `Tulemused` (`Kuva tulemused`), värskendatakse kasutaja kaardi KP staatus.
 - `location_required='N'` KP puhul võib küsimus avaneda kohe.
 - `location_required='Y'` KP puhul tehakse taustal ligipääsukontroll:
   - frontend saadab geolokatsiooni FastAPI-le;

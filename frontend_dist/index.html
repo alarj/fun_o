@@ -1182,6 +1182,22 @@
         progressCache.key = getProgressCacheKey();
         saveProgressCookie();
         renderProgressBox();
+
+        const answeredCpId = Number(item?.checkpoint_id || 0);
+        if (answeredCpId > 0 && Array.isArray(state.mapItems)) {
+          state.mapItems.forEach((cp) => {
+            if (Number(cp?.checkpoint_id || 0) === answeredCpId) {
+              cp.is_answered = "Y";
+            }
+          });
+          mapRings.forEach((entry) => {
+            if (Number(entry?.cp?.checkpoint_id || 0) === answeredCpId) {
+              if (entry.cp) entry.cp.is_answered = "Y";
+              entry.ring?.setPopupContent(checkpointPopupLabel(entry.cp));
+            }
+          });
+        }
+
         showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
       }
 
@@ -1780,6 +1796,10 @@
           return;
         }
         myResultsItems = Array.isArray(res.data.items) ? res.data.items : [];
+        state.mapItems = await loadMapCheckpoints();
+        if (compMap && el("compMapBackdrop")?.style?.display === "block") {
+          renderCompMap(state.mapItems || [], { preserveViewport: true });
+        }
         renderMyResults();
         setMyResultsOpen(true);
       }

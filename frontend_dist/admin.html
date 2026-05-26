@@ -26,7 +26,7 @@
 <body>
   <div class="wrap">
     <div class="card" id="loginCard">
-      <h2 data-i18n="admin.login.heading">Admin sisselogimine</h2>
+      <h2 data-i18n="admin.login.heading">admin.login.heading</h2>
       <div class="tools" style="justify-content:space-between; align-items:center;">
         <div id="googleLoginMount"></div>
         <select id="uiLang" style="width:100px;"></select>
@@ -36,14 +36,14 @@
 
     <div id="appArea" class="hidden">
       <div class="card hidden" id="noOrgCard">
-        <h3 data-i18n="admin.no_org.heading">Sa ei ole �hegi v�istluse korraldaja.</h3>
+        <h3 data-i18n="admin.no_org.heading">admin.no_org.heading</h3>
         <div class="row">
-          <label data-i18n="admin.no_org.code_label">Sisesta v�istluse kood, mida korraldad</label>
+          <label data-i18n="admin.no_org.code_label">admin.no_org.code_label</label>
           <input id="organizerJoinCodeNoComp" />
         </div>
         <div class="tools">
-          <button id="organizerJoinCancelNoComp" class="secondary" data-i18n="admin.no_org.cancel_btn">Katkesta</button>
-          <button id="organizerJoinSaveNoComp" data-i18n="admin.no_org.save_btn">Salvesta</button>
+          <button id="organizerJoinCancelNoComp" class="secondary" data-i18n="admin.no_org.cancel_btn">admin.no_org.cancel_btn</button>
+          <button id="organizerJoinSaveNoComp" data-i18n="admin.no_org.save_btn">admin.no_org.save_btn</button>
         </div>
         <div id="noOrgMsg"></div>
       </div>
@@ -53,54 +53,54 @@
           <h1 id="cName">-</h1>
           <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">&#128205;</span>
           <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">?</span>
-          <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">Muuda v�istlust</button>
-          <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">Tulemused</button>
-          <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">Tingimused</button>
+          <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
+          <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
+          <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
           <span class="adminTopLineSpacer"></span>
-          <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">Vali v�istlus</button>
+          <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">admin.comp.pick_comp_btn</button>
           <select id="uiLangApp" class="superLangSelect"></select>
         </div>
         <div id="cDesc" style="margin-bottom:6px;"></div>
         <div class="cols" style="margin-top:10px;">
-          <div><strong data-i18n="admin.comp.status_label">Staatus</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="cStatus" style="min-width:72px;">-</div></div></div>
-          <div><strong data-i18n="admin.comp.created_label">Loodud</strong><div id="cCreated">-</div></div>
-          <div><strong data-i18n="admin.comp.updated_label">Muudetud</strong><div id="cUpdated">-</div></div>
+          <div><strong data-i18n="admin.comp.status_label">admin.comp.status_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="cStatus" style="min-width:72px;">-</div></div></div>
+          <div><strong data-i18n="admin.comp.created_label">admin.comp.created_label</strong><div id="cCreated">-</div></div>
+          <div><strong data-i18n="admin.comp.updated_label">admin.comp.updated_label</strong><div id="cUpdated">-</div></div>
         </div>
         <div class="cols" style="margin-top:10px;">
           <div>
-            <strong data-i18n="admin.comp.starts_label">V�istluse algus</strong>
+            <strong data-i18n="admin.comp.starts_label">admin.comp.starts_label</strong>
             <div id="cStarts" style="margin-top:4px;">-</div>
           </div>
           <div>
-            <strong data-i18n="admin.comp.ends_label">V�istluse l�pp</strong>
+            <strong data-i18n="admin.comp.ends_label">admin.comp.ends_label</strong>
             <div id="cEnds2" style="margin-top:4px;">-</div>
           </div>
           <div></div>
         </div>
         <div class="cols" style="margin-top:14px;">
-          <div><strong data-i18n="admin.comp.competitor_code_label">V�istlejate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">Genereeri uus</button></div></div>
-          <div><strong data-i18n="admin.comp.organizer_code_label">Korraldajate kood</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">Genereeri uus</button></div></div>
-          <div><strong data-i18n="admin.comp.organizers_label">Korraldajad</strong><div id="organizers" class="muted">-</div></div>
+          <div><strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div></div>
+          <div><strong data-i18n="admin.comp.organizer_code_label">admin.comp.organizer_code_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">admin.comp.regen_organizer_btn</button></div></div>
+          <div><strong data-i18n="admin.comp.organizers_label">admin.comp.organizers_label</strong><div id="organizers" class="muted">-</div></div>
         </div>
         <div id="topMsg"></div>
       </div>
 
       <div class="card" id="checkpointsCard">
         <div class="tools" style="justify-content:space-between;">
-          <h3 data-i18n="admin.cp_table.heading">Kontrollpunktid</h3>
+          <h3 data-i18n="admin.cp_table.heading">admin.cp_table.heading</h3>
           <div class="tools">
-            <button id="showCheckpointMapBtn" class="secondary hidden" data-i18n="admin.cp_table.show_on_map_btn">N�ita kaardil</button>
-            <button id="newCheckpointBtn" data-i18n="admin.cp_table.new_cp_btn">+ Uus kontrollpunkt</button>
-            <button id="newQuestionBtn" data-i18n="admin.cp_table.new_q_btn">+ Uus k�simus</button>
+            <button id="showCheckpointMapBtn" class="secondary hidden" data-i18n="admin.cp_table.show_on_map_btn">admin.cp_table.show_on_map_btn</button>
+            <button id="newCheckpointBtn" data-i18n="admin.cp_table.new_cp_btn">admin.cp_table.new_cp_btn</button>
+            <button id="newQuestionBtn" data-i18n="admin.cp_table.new_q_btn">admin.cp_table.new_q_btn</button>
           </div>
         </div>
         <table class="table">
           <thead>
             <tr>
-              <th style="width:90px;"><strong data-i18n="admin.cp_table.cp_title_col">KP title</strong> <button type="button" id="sortByTitleIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
-              <th style="width:72px;"><strong data-i18n="admin.cp_table.points_col">Punktid</strong> <button type="button" id="sortByPointsIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
-              <th style="width:320px;"><strong data-i18n="admin.cp_table.question_et_col">K�simus (et)</strong> <button type="button" id="sortByQuestionEtIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
-              <th style="width:130px;" data-i18n="admin.cp_table.qtype_col">K�simuse t��p</th>
+              <th style="width:90px;"><strong data-i18n="admin.cp_table.cp_title_col">admin.cp_table.cp_title_col</strong> <button type="button" id="sortByTitleIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
+              <th style="width:72px;"><strong data-i18n="admin.cp_table.points_col">admin.cp_table.points_col</strong> <button type="button" id="sortByPointsIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
+              <th style="width:320px;"><strong data-i18n="admin.cp_table.question_et_col">admin.cp_table.question_et_col</strong> <button type="button" id="sortByQuestionEtIcon" class="secondary" style="padding:0;border:0;background:none;color:inherit;font-weight:700;font-size:14px;">?</button></th>
+              <th style="width:130px;" data-i18n="admin.cp_table.qtype_col">admin.cp_table.qtype_col</th>
               <th id="cpLocationColHead" style="width:120px;" data-i18n-title="admin.cp_table.location_col_title" title="Asukoht">&#128205;</th>
               <th style="width:240px;"></th>
             </tr>
@@ -113,23 +113,23 @@
 
   <dialog id="cpDialog">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:nowrap;">
-      <h3 id="cpTitle" style="margin:0; white-space:nowrap;" data-i18n="admin.cp_dialog.heading">Kontrollpunkt</h3>
+      <h3 id="cpTitle" style="margin:0; white-space:nowrap;" data-i18n="admin.cp_dialog.heading">admin.cp_dialog.heading</h3>
       <div class="tools" style="display:flex; flex-wrap:nowrap; gap:8px; align-items:center;">
         <select id="cpDialogMapLayerSelect" style="width:240px; min-width:240px;"></select>
-        <button id="cpToggleExistingBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.existing_btn">Olemasolevad KP-d</button>
-        <button id="cpMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.expand_btn">Suurenda</button>
+        <button id="cpToggleExistingBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.existing_btn">admin.cp_dialog.existing_btn</button>
+        <button id="cpMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.expand_btn">admin.cp_dialog.expand_btn</button>
       </div>
     </div>
     <input id="cpId" type="hidden" />
     <div id="cpMap"></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.title_label">Title *</label><input id="cpName" /></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.location_label">Location hint</label><input id="cpLocation" /></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.order_label">Order no</label><input id="cpOrder" type="number" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.latitude_label">Laiuskraad</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.longitude_label">Pikkuskraad</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.radius_label">KP raadius (m)</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><input id="cpLocation" /></div>
+    <div class="row"><label data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
+    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
     <div class="row cp-gps-row">
-      <label data-i18n="admin.cp_dialog.location_required_label">Asukoht kohustuslik</label>
+      <label data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label>
       <div class="yn-switch-wrap">
         <label class="yn-switch" for="cpLocationRequired">
           <input id="cpLocationRequired" type="checkbox" />
@@ -138,29 +138,29 @@
       </div>
     </div>
     <div class="dialog-actions">
-      <button id="cpDelete" class="warn" type="button" data-i18n="admin.cp_dialog.delete_btn">Kustuta KP</button>
+      <button id="cpDelete" class="warn" type="button" data-i18n="admin.cp_dialog.delete_btn">admin.cp_dialog.delete_btn</button>
       <div class="dialog-right">
-        <button id="cpOpenQuestion" class="secondary" type="button" data-i18n="admin.cp_dialog.open_question_new">Uus küsimus</button>
-        <button id="cpCancel" class="secondary" type="button" data-i18n="admin.cp_dialog.close_btn">Sulge</button>
-        <button id="cpSave" type="button" data-i18n="admin.cp_dialog.save_btn">Salvesta</button>
+        <button id="cpOpenQuestion" class="secondary" type="button" data-i18n="admin.cp_dialog.open_question_new">admin.cp_dialog.open_question_new</button>
+        <button id="cpCancel" class="secondary" type="button" data-i18n="admin.cp_dialog.close_btn">admin.cp_dialog.close_btn</button>
+        <button id="cpSave" type="button" data-i18n="admin.cp_dialog.save_btn">admin.cp_dialog.save_btn</button>
       </div>
     </div>
     <div id="cpMsg"></div>
   </dialog>
 
   <dialog id="qDialog">
-    <h3 id="qTitle" data-i18n="admin.q_dialog.heading">K�simus</h3>
+    <h3 id="qTitle" data-i18n="admin.q_dialog.heading">admin.q_dialog.heading</h3>
     <input id="qId" type="hidden" />
-    <div class="row"><label data-i18n="admin.q_dialog.checkpoint_label">Kontrollpunkt *</label><select id="qCheckpoint"></select></div>
+    <div class="row"><label data-i18n="admin.q_dialog.checkpoint_label">admin.q_dialog.checkpoint_label</label><select id="qCheckpoint"></select></div>
     <div id="questionLangRows"></div>
-    <div class="row"><label data-i18n="admin.q_dialog.type_label">K�simuse t��p *</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
-    <div class="row"><label data-i18n="admin.q_dialog.points_label">Punktid</label><input id="qPoints" type="number" value="0" /></div>
-    <div class="row"><label data-i18n="admin.q_dialog.wrong_points_label">Vale vastuse punktid</label><input id="qWrongPoints" type="number" value="0" /></div>
-    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">Sisestuse t��p</label><select id="qInputType"><option value="" data-i18n="admin.q_dialog.input_type_none">(puudub)</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
-    <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">Sisestuse max pikkus</label><input id="qInputMax" type="number" /></div>
+    <div class="row"><label data-i18n="admin.q_dialog.type_label">admin.q_dialog.type_label</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
+    <div class="row"><label data-i18n="admin.q_dialog.points_label">admin.q_dialog.points_label</label><input id="qPoints" type="number" value="0" /></div>
+    <div class="row"><label data-i18n="admin.q_dialog.wrong_points_label">admin.q_dialog.wrong_points_label</label><input id="qWrongPoints" type="number" value="0" /></div>
+    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">admin.q_dialog.input_type_label</label><select id="qInputType"><option value="" data-i18n="admin.q_dialog.input_type_none">admin.q_dialog.input_type_none</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
+    <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">admin.q_dialog.input_max_label</label><input id="qInputMax" type="number" /></div>
 
     <div id="singleChoiceBlock">
-      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.options_heading">Valikvastused</h4>
+      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.options_heading">admin.q_dialog.options_heading</h4>
       <table class="table q-options-table">
         <colgroup>
           <col class="code-col" />
@@ -170,37 +170,37 @@
         </colgroup>
         <thead>
           <tr>
-            <th data-i18n="admin.q_dialog.options_code_col">Kood</th>
+            <th data-i18n="admin.q_dialog.options_code_col">admin.q_dialog.options_code_col</th>
             <th id="optionLangHead"></th>
-            <th data-i18n="admin.q_dialog.options_correct_col">�ige</th>
+            <th data-i18n="admin.q_dialog.options_correct_col">admin.q_dialog.options_correct_col</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="optionRows"></tbody>
       </table>
-      <div class="tools"><button id="addOptionBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_option_btn">+ Lisa variant</button></div>
+      <div class="tools"><button id="addOptionBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_option_btn">admin.q_dialog.add_option_btn</button></div>
     </div>
 
     <div id="textAnswersBlock" class="hidden">
-      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.answers_heading">�iged vastused (TEXT)</h4>
+      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.answers_heading">admin.q_dialog.answers_heading</h4>
       <table class="table">
         <thead>
           <tr>
-            <th data-i18n="admin.q_dialog.answers_value_col">Vastus *</th>
-            <th data-i18n="admin.q_dialog.answers_mode_col">Normalize mode</th>
+            <th data-i18n="admin.q_dialog.answers_value_col">admin.q_dialog.answers_value_col</th>
+            <th data-i18n="admin.q_dialog.answers_mode_col">admin.q_dialog.answers_mode_col</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="answerRows"></tbody>
       </table>
-      <div class="tools"><button id="addAnswerBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_answer_btn">+ Lisa vastus</button></div>
+      <div class="tools"><button id="addAnswerBtn" type="button" class="secondary" data-i18n="admin.q_dialog.add_answer_btn">admin.q_dialog.add_answer_btn</button></div>
     </div>
 
     <div class="dialog-actions">
-      <button id="qDelete" class="warn" type="button" data-i18n="admin.q_dialog.delete_btn">Kustuta k�simus</button>
+      <button id="qDelete" class="warn" type="button" data-i18n="admin.q_dialog.delete_btn">admin.q_dialog.delete_btn</button>
       <div class="dialog-right">
-        <button id="qCancel" class="secondary" type="button" data-i18n="admin.q_dialog.close_btn">Sulge</button>
-        <button id="qSave" type="button" data-i18n="admin.q_dialog.save_btn">Salvesta</button>
+        <button id="qCancel" class="secondary" type="button" data-i18n="admin.q_dialog.close_btn">admin.q_dialog.close_btn</button>
+        <button id="qSave" type="button" data-i18n="admin.q_dialog.save_btn">admin.q_dialog.save_btn</button>
       </div>
     </div>
     <div id="qMsg"></div>
@@ -208,68 +208,68 @@
 
   <dialog id="cpOverviewMapDialog">
     <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <h3 style="margin:0;" data-i18n="admin.cp_overview.heading">N�ita kaardil</h3>
-      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_overview.expand_btn">Suurenda</button>
+      <h3 style="margin:0;" data-i18n="admin.cp_overview.heading">admin.cp_overview.heading</h3>
+      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_overview.expand_btn">admin.cp_overview.expand_btn</button>
     </div>
     <div id="cpOverviewMap"></div>
     <div class="dialog-actions">
       <div class="dialog-right">
-        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.open_labels_btn">Ava t�hised</button>
-        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.close_labels_btn">Sule t�hised</button>
+        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.open_labels_btn">admin.cp_overview.open_labels_btn</button>
+        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.close_labels_btn">admin.cp_overview.close_labels_btn</button>
         <select id="cpOverviewMapLayerSelect" style="min-width:210px;"></select>
       </div>
       <div class="dialog-right">
-        <button id="cpOverviewMapCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
+        <button id="cpOverviewMapCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="competitionPickerDialog">
     <div class="tools" style="justify-content:space-between; align-items:center;">
-      <h3 data-i18n="admin.comp_picker.heading">Vali v�istlus</h3>
-      <button id="goSuperadminBtn" class="secondary hidden" type="button" data-i18n="admin.comp_picker.all_competitions_btn">K�ik v�istlused</button>
+      <h3 data-i18n="admin.comp_picker.heading">admin.comp_picker.heading</h3>
+      <button id="goSuperadminBtn" class="secondary hidden" type="button" data-i18n="admin.comp_picker.all_competitions_btn">admin.comp_picker.all_competitions_btn</button>
     </div>
     <div class="row">
-      <label data-i18n="admin.comp_picker.label">V�istlus</label>
+      <label data-i18n="admin.comp_picker.label">admin.comp_picker.label</label>
       <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
         <select id="competitionSelect"></select>
-        <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">Vali</button>
+        <button id="competitionPickerApply" type="button" data-i18n="admin.comp_picker.select_btn">admin.comp_picker.select_btn</button>
       </div>
     </div>
-    <div class="modal-sep" data-i18n="admin.comp_picker.or_join_code_sep">V�i liitu koodiga</div>
+    <div class="modal-sep" data-i18n="admin.comp_picker.or_join_code_sep">admin.comp_picker.or_join_code_sep</div>
     <div class="row">
-      <label data-i18n="admin.join_code.label">Sisesta korraldaja kood</label>
+      <label data-i18n="admin.join_code.label">admin.join_code.label</label>
       <div class="tools" style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
         <input id="competitionPickerJoinCode" />
-        <button id="competitionPickerJoinSave" type="button" data-i18n="admin.join_code.enter_btn">Sisesta</button>
+        <button id="competitionPickerJoinSave" type="button" data-i18n="admin.join_code.enter_btn">admin.join_code.enter_btn</button>
       </div>
     </div>
     <div id="competitionPickerJoinMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="competitionPickerCancel" class="secondary" type="button" data-i18n="admin.comp_picker.close_btn">Sulge</button>
+        <button id="competitionPickerCancel" class="secondary" type="button" data-i18n="admin.comp_picker.close_btn">admin.comp_picker.close_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="metaDialog">
-    <h3 id="metaDialogTitle" data-i18n="admin.meta.edit_comp_title">Muuda v�istlust</h3>
-    <div class="row"><label data-i18n="admin.meta.name_label">Nimi</label><input id="metaNameInput" /></div>
-    <div class="row"><label data-i18n="admin.meta.desc_label">Kirjeldus</label><textarea id="metaDescInput"></textarea></div>
-    <div class="row"><label data-i18n="admin.meta.status_label">Staatus</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
+    <h3 id="metaDialogTitle" data-i18n="admin.meta.edit_comp_title">admin.meta.edit_comp_title</h3>
+    <div class="row"><label data-i18n="admin.meta.name_label">admin.meta.name_label</label><input id="metaNameInput" /></div>
+    <div class="row"><label data-i18n="admin.meta.desc_label">admin.meta.desc_label</label><textarea id="metaDescInput"></textarea></div>
+    <div class="row"><label data-i18n="admin.meta.status_label">admin.meta.status_label</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
     <div class="row">
-      <label data-i18n="admin.meta.location_settings_label">Asukohaseaded</label>
+      <label data-i18n="admin.meta.location_settings_label">admin.meta.location_settings_label</label>
       <div class="yn-inline-row">
         <div class="yn-inline">
-          <span data-i18n="admin.meta.use_location_label">Kasuta asukohta</span>
+          <span data-i18n="admin.meta.use_location_label">admin.meta.use_location_label</span>
           <label class="yn-switch" for="metaUseLocationInput">
             <input id="metaUseLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
         </div>
         <div class="yn-inline">
-          <span data-i18n="admin.meta.show_competitor_location_label">V�istleja asukoht kaardil</span>
+          <span data-i18n="admin.meta.show_competitor_location_label">admin.meta.show_competitor_location_label</span>
           <label class="yn-switch" for="metaShowCompetitorLocationInput">
             <input id="metaShowCompetitorLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
@@ -277,28 +277,28 @@
         </div>
       </div>
     </div>
-    <div class="row"><label data-i18n="admin.meta.default_radius_label">Vaikeraadius (m)</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
-    <div class="row"><label data-i18n="admin.dates.start_label">V�istluse algus (dd.mm.yyyy hh:mm)</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
-    <div class="row"><label data-i18n="admin.dates.end_label">V�istluse l�pp (dd.mm.yyyy hh:mm)</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
-    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">Kaardi valik</button></div></div>
+    <div class="row"><label data-i18n="admin.meta.default_radius_label">admin.meta.default_radius_label</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
+    <div class="row"><label data-i18n="admin.dates.start_label">admin.dates.start_label</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
+    <div class="row"><label data-i18n="admin.dates.end_label">admin.dates.end_label</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button></div></div>
     <div id="metaMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="metaCancel" class="secondary" type="button" data-i18n="admin.meta.cancel_btn">Katkesta</button>
-        <button id="metaSave" type="button" data-i18n="admin.meta.save_btn">Salvesta</button>
+        <button id="metaCancel" class="secondary" type="button" data-i18n="admin.meta.cancel_btn">admin.meta.cancel_btn</button>
+        <button id="metaSave" type="button" data-i18n="admin.meta.save_btn">admin.meta.save_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="termsDialog">
-    <h3 data-i18n="admin.terms.heading">V�istluse tingimused</h3>
+    <h3 data-i18n="admin.terms.heading">admin.terms.heading</h3>
     <div class="row">
-      <label data-i18n="admin.terms.lang_label">Keel</label>
+      <label data-i18n="admin.terms.lang_label">admin.terms.lang_label</label>
       <select id="termsLangSelect"></select>
     </div>
     <div class="row terms-editor-row">
-      <label data-i18n="admin.terms.html_label">HTML tingimused</label>
+      <label data-i18n="admin.terms.html_label">admin.terms.html_label</label>
       <div id="termsHtmlEditor" class="terms-editor-surface"></div>
       <textarea id="termsHtmlInput" class="hidden"></textarea>
     </div>
@@ -306,74 +306,74 @@
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="termsCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
-        <button id="termsSave" type="button" data-i18n="admin.common.save_btn">Salvesta</button>
+        <button id="termsCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        <button id="termsSave" type="button" data-i18n="admin.common.save_btn">admin.common.save_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="participantMapLayersDialog">
-    <h3 data-i18n="admin.participant_layers.heading">V�istleja kaardid</h3>
-    <div class="muted" data-i18n="admin.participant_layers.help_text">Vali kaardid, mida v�istlejale selle v�istluse jaoks kuvada.</div>
+    <h3 data-i18n="admin.participant_layers.heading">admin.participant_layers.heading</h3>
+    <div class="muted" data-i18n="admin.participant_layers.help_text">admin.participant_layers.help_text</div>
     <div id="participantMapLayersList" class="layer-list"></div>
     <div id="participantMapLayersMsg"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="participantMapLayersCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">Sulge</button>
-        <button id="participantMapLayersSave" type="button" data-i18n="admin.common.save_btn">Salvesta</button>
+        <button id="participantMapLayersCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        <button id="participantMapLayersSave" type="button" data-i18n="admin.common.save_btn">admin.common.save_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="codeConfirmDialog">
-    <h3 data-i18n="admin.code_confirm.heading">Koodi muutmine</h3>
+    <h3 data-i18n="admin.code_confirm.heading">admin.code_confirm.heading</h3>
     <div id="codeConfirmText"></div>
     <div style="margin-top:10px;">
-      <span data-i18n="admin.code_confirm.line1">Arvesta, et senised koodid kaotavad kehtivuse.</span><br>
-      <span data-i18n="admin.code_confirm.line2">K�ikidele seni liitunud kasutajatele j��b ligip��s alles, aga uued liitumised on v�imalikud vaid uue koodiga.</span>
+      <span data-i18n="admin.code_confirm.line1">admin.code_confirm.line1</span><br>
+      <span data-i18n="admin.code_confirm.line2">admin.code_confirm.line2</span>
     </div>
-    <div style="margin-top:10px;"><strong data-i18n="admin.code_confirm.ask">Muudad koodi?</strong></div>
+    <div style="margin-top:10px;"><strong data-i18n="admin.code_confirm.ask">admin.code_confirm.ask</strong></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="codeConfirmNo" class="secondary" type="button" data-i18n="admin.code_confirm.no_btn">Ei</button>
-        <button id="codeConfirmYes" type="button" data-i18n="admin.code_confirm.yes_btn">Jah</button>
+        <button id="codeConfirmNo" class="secondary" type="button" data-i18n="admin.code_confirm.no_btn">admin.code_confirm.no_btn</button>
+        <button id="codeConfirmYes" type="button" data-i18n="admin.code_confirm.yes_btn">admin.code_confirm.yes_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="codeResultDialog">
-    <h3 data-i18n="admin.code_result.heading">Kood muudetud</h3>
+    <h3 data-i18n="admin.code_result.heading">admin.code_result.heading</h3>
     <div id="codeResultText"></div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="codeResultOk" type="button" data-i18n="admin.common.ok_btn">OK</button>
+        <button id="codeResultOk" type="button" data-i18n="admin.common.ok_btn">admin.common.ok_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="cpDeleteDialog">
-    <h3 data-i18n="admin.cp_delete.heading">Kustuta kontrollpunkt</h3>
-    <div data-i18n="admin.cp_delete.confirm">Oled kindel, et kustutad kontrollpunkti?</div>
+    <h3 data-i18n="admin.cp_delete.heading">admin.cp_delete.heading</h3>
+    <div data-i18n="admin.cp_delete.confirm">admin.cp_delete.confirm</div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="cpDeleteNo" class="secondary" type="button" data-i18n="admin.cp_delete.cancel_btn">Katkesta</button>
-        <button id="cpDeleteYes" class="warn" type="button" data-i18n="admin.cp_delete.delete_btn">Kustuta</button>
+        <button id="cpDeleteNo" class="secondary" type="button" data-i18n="admin.cp_delete.cancel_btn">admin.cp_delete.cancel_btn</button>
+        <button id="cpDeleteYes" class="warn" type="button" data-i18n="admin.cp_delete.delete_btn">admin.cp_delete.delete_btn</button>
       </div>
     </div>
   </dialog>
 
   <dialog id="qDeleteDialog">
-    <h3 data-i18n="admin.q_delete.heading">Kustuta k�simus</h3>
-    <div data-i18n="admin.q_delete.confirm">Oled kindel, et kustutad k�simuse?</div>
+    <h3 data-i18n="admin.q_delete.heading">admin.q_delete.heading</h3>
+    <div data-i18n="admin.q_delete.confirm">admin.q_delete.confirm</div>
     <div class="dialog-actions">
       <div></div>
       <div class="dialog-right">
-        <button id="qDeleteNo" class="secondary" type="button" data-i18n="admin.q_delete.cancel_btn">Katkesta</button>
-        <button id="qDeleteYes" class="warn" type="button" data-i18n="admin.q_delete.delete_btn">Kustuta</button>
+        <button id="qDeleteNo" class="secondary" type="button" data-i18n="admin.q_delete.cancel_btn">admin.q_delete.cancel_btn</button>
+        <button id="qDeleteYes" class="warn" type="button" data-i18n="admin.q_delete.delete_btn">admin.q_delete.delete_btn</button>
       </div>
     </div>
   </dialog>
@@ -440,10 +440,10 @@
   };
   const humanizeError = (raw, details = null) => {
     const msg = (raw || "").toString().trim();
-    if (!msg) return tr("admin.msg.error_generic", "Toiming eba�nnestus.");
-    if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code", "Sisestatud kood ei ole kasutusel.");
-    if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer", "Oled juba selle v�istluse korraldaja.");
-    if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated", "Sessioon puudub. Logi sisse.");
+    if (!msg) return tr("admin.msg.error_generic");
+    if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code");
+    if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer");
+    if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated");
     const ordsBody = (details && typeof details.ords_body === "string") ? details.ords_body : "";
     const detailsText = `${ordsBody}`.toLowerCase();
     const lmsg = msg.toLowerCase();
@@ -455,22 +455,23 @@
       detailsText.includes("ora-20101") ||
       detailsText.includes("ora-20103")
     ) {
-      return tr("admin.msg.cp_title_exists", "Sellise nimega KP on juba olemas.");
+      return tr("admin.msg.cp_title_exists");
     }
     if (msg === "api.error.ords_request_failed" && detailsText) {
       const bodyRaw = String(details?.ords_body || "");
       const oraMatch = bodyRaw.match(/ORA-\d{5}:[^<\r\n]*/i);
       const shortOra = oraMatch ? oraMatch[0].trim() : "";
       if (shortOra) {
-        return `${tr("admin.msg.error_generic", "Toiming eba�nnestus.")} ${shortOra}`;
+        return `${tr("admin.msg.error_generic")} ${shortOra}`;
       }
-      return `${tr("admin.msg.error_generic", "Toiming eba�nnestus.")} ${msg}`;
+      return `${tr("admin.msg.error_generic")} ${msg}`;
     }
     return msg;
   };
   const qTextId = (lang) => `qText_${lang}`;
   const langLabel = (code) => (code || "").toLowerCase() === "en" ? "EN" : "ET";
   const uiLangCookieName = "funo_admin_ui_lang";
+  const isPromo100Mode = new URLSearchParams(window.location.search).get("mode") === "promo100";
   const lastCompCookieName = () => currentUserId ? `funo_last_competition_u${currentUserId}` : null;
   const setCookie = (name, value, days = 365) => {
     const d = new Date();
@@ -491,7 +492,7 @@
     const r = await fetch(url);
     const d = await r.json();
     if (!r.ok) {
-      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short", "Viga"));
+      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
       err.details = d?.detail?.details || null;
       err.code = d?.detail?.code || null;
       throw err;
@@ -502,7 +503,7 @@
     const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) {
-      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short", "Viga"));
+      const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
       err.details = d?.detail?.details || null;
       err.code = d?.detail?.code || null;
       throw err;
@@ -583,7 +584,7 @@
 
   function initTermsEditor() {
     if (termsQuill) return;
-    if (!window.Quill) throw new Error(tr("admin.msg.editor_not_loaded", "Editor ei laadinud."));
+    if (!window.Quill) throw new Error(tr("admin.msg.editor_not_loaded"));
     termsQuill = new Quill("#termsHtmlEditor", {
       theme: "snow",
       modules: {
@@ -602,7 +603,7 @@
 
   async function loadCompetitionTermsForLang(lang) {
     const competitionId = compId();
-    if (!competitionId) throw new Error(tr("admin.msg.select_competition_first", "Vali enne v�istlus."));
+    if (!competitionId) throw new Error(tr("admin.msg.select_competition_first"));
     const payload = await get(`/api/admin/competitions/terms?competition_id=${encodeURIComponent(competitionId)}&lang_code=${encodeURIComponent(lang || defaultLang || "et")}`);
     termsCurrentLang = String(payload?.lang_code || lang || defaultLang || "et").toLowerCase();
     byId("termsLangSelect").value = termsCurrentLang;
@@ -612,7 +613,7 @@
   async function openTermsDialog() {
     const competitionId = compId();
     if (!competitionId) {
-      showMsg("topMsg", false, tr("admin.msg.select_competition_first", "Vali enne v�istlus."));
+      showMsg("topMsg", false, tr("admin.msg.select_competition_first"));
       return;
     }
     showMsg("termsMsg", true, "");
@@ -635,7 +636,7 @@
   async function saveTermsDialog() {
     const competitionId = compId();
     if (!competitionId) {
-      showMsg("termsMsg", false, tr("admin.msg.select_competition_first", "Vali enne v�istlus."));
+      showMsg("termsMsg", false, tr("admin.msg.select_competition_first"));
       return;
     }
     const lang = (byId("termsLangSelect").value || termsCurrentLang || defaultLang || "et").toLowerCase();
@@ -647,7 +648,7 @@
         terms_text: termsText
       });
       termsCurrentLang = lang;
-      showMsg("termsMsg", true, tr("admin.msg.saved", "Salvestatud."));
+      showMsg("termsMsg", true, tr("admin.msg.saved"));
     } catch (e) {
       showMsg("termsMsg", false, humanizeError(e.message));
     }
@@ -698,17 +699,17 @@
     const t = (v || "").trim();
     if (!t) return null;
     const m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/);
-    if (!m) return { error: tr("admin.msg.date_format_error", "Kuup�eva formaat peab olema dd.mm.yyyy hh:mm") };
+    if (!m) return { error: tr("admin.msg.date_format_error") };
     const [, dd, mm, yyyy, hh, mi] = m;
     const month = Number(mm);
     const day = Number(dd);
     const hour = Number(hh);
     const minute = Number(mi);
     if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
-      return { error: tr("admin.msg.date_value_error", "Kuup�eva v��rtus ei ole korrektne") };
+      return { error: tr("admin.msg.date_value_error") };
     }
     const localDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), 0);
-    if (Number.isNaN(localDate.getTime())) return { error: tr("admin.msg.date_value_error", "Kuup�eva v��rtus ei ole korrektne") };
+    if (Number.isNaN(localDate.getTime())) return { error: tr("admin.msg.date_value_error") };
     return localDate.toISOString().slice(0, 19) + "Z";
   };
   const generate6DigitCode = () => String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
@@ -1126,8 +1127,8 @@
     const dlg = byId("cpOverviewMapDialog");
     dlg.classList.toggle("fullscreen", cpOverviewFullscreen);
     byId("cpOverviewMapToggleSizeBtn").textContent = cpOverviewFullscreen
-      ? tr("admin.common.restore_btn", "Taasta")
-      : tr("admin.cp_overview.expand_btn", "Suurenda");
+      ? tr("admin.common.restore_btn")
+      : tr("admin.cp_overview.expand_btn");
     setTimeout(() => {
       if (cpOverviewMap) cpOverviewMap.invalidateSize();
     }, 30);
@@ -1138,8 +1139,8 @@
     const dlg = byId("cpDialog");
     dlg.classList.toggle("fullscreen", cpDialogFullscreen);
     byId("cpMapToggleSizeBtn").textContent = cpDialogFullscreen
-      ? tr("admin.common.restore_btn", "Taasta")
-      : tr("admin.cp_dialog.expand_btn", "Suurenda");
+      ? tr("admin.common.restore_btn")
+      : tr("admin.cp_dialog.expand_btn");
     setTimeout(() => {
       if (cpMap) cpMap.invalidateSize();
     }, 30);
@@ -1333,15 +1334,15 @@
     const btn = byId("cpOpenQuestion");
     if (!btn) return;
     if (!cpDialogCheckpointId) {
-      btn.textContent = tr("admin.cp_dialog.open_question_new", "Uus k�simus");
+      btn.textContent = tr("admin.cp_dialog.open_question_new");
       btn.disabled = true;
       return;
     }
     const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
     const hasQuestion = !!row?.question_id;
     btn.textContent = hasQuestion
-      ? tr("admin.cp_dialog.open_question_edit", "Muuda k�simust")
-      : tr("admin.cp_dialog.open_question_new", "Uus k�simus");
+      ? tr("admin.cp_dialog.open_question_edit")
+      : tr("admin.cp_dialog.open_question_new");
     const dirty = cpDialogStateSnapshot() !== cpDialogInitialState;
     btn.disabled = dirty;
   }
@@ -1386,7 +1387,7 @@
   function renderOrganizers(org) {
     const target = byId("organizers");
     if (!Array.isArray(org) || org.length === 0) {
-      target.textContent = tr("admin.msg.missing_value", "Puudub");
+      target.textContent = tr("admin.msg.missing_value");
       return;
     }
 
@@ -1403,7 +1404,7 @@
       const email = (o?.email || "").toString();
       const tooltip = email || name;
       const logout = isCurrent
-        ? `<button class="logout-btn logout-btn-inline" title="${esc(tr("admin.common.logout_btn", "Logi v�lja"))}" aria-label="${esc(tr("admin.common.logout_btn", "Logi v�lja"))}">${logoutIconSvg()}</button>`
+        ? `<button class="logout-btn logout-btn-inline" title="${esc(tr("admin.common.logout_btn"))}" aria-label="${esc(tr("admin.common.logout_btn"))}">${logoutIconSvg()}</button>`
         : "";
       return `<div class="organizer-row ${isCurrent ? "current" : ""}" title="${esc(tooltip)}">${isCurrent ? userIconSvg() : ""}<span>${esc(name)}</span>${logout}</div>`;
     }).join("");
@@ -1414,6 +1415,13 @@
     byId("loginCard").classList.add("hidden");
     byId("appArea").classList.remove("hidden");
     await refreshSuperadminNavButton();
+    if (isPromo100Mode) {
+      try {
+        await post("/api/admin/promo100/bootstrap", {});
+      } catch (e) {
+        console.warn("promo100 bootstrap failed", e);
+      }
+    }
     const hasCompetitions = await loadCompetitions();
     if (hasCompetitions) await loadView();
   }
@@ -1434,7 +1442,7 @@
     currentUserId = d.user_id || null;
     currentUserName = d.full_name || "";
     currentUserEmail = d.email || "";
-    showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix", "Sisselogimine OK, user_id=")}${d.user_id}`);
+    showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix")}${d.user_id}`);
     await finishAdminLogin();
   }
 
@@ -1442,11 +1450,11 @@
     try {
       const cfg = await get("/api/auth/google/config");
       if (!cfg || !cfg.enabled || !cfg.client_id) {
-        showMsg("loginMsg", false, tr("admin.msg.google_not_configured", "Google login ei ole serveris seadistatud."));
+        showMsg("loginMsg", false, tr("admin.msg.google_not_configured"));
         return;
       }
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        showMsg("loginMsg", false, tr("admin.msg.google_script_failed", "Google login skripti laadimine eba�nnestus."));
+        showMsg("loginMsg", false, tr("admin.msg.google_script_failed"));
         return;
       }
       window.google.accounts.id.initialize({
@@ -1456,7 +1464,7 @@
             if (!resp || !resp.credential) throw new Error("Google credential puudub.");
             await googleLoginWithCredential(resp.credential);
           } catch (e) {
-            showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed", "Google sisselogimine eba�nnestus.")));
+            showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));
           }
         }
       });
@@ -1469,7 +1477,7 @@
         shape: "rectangular"
       });
     } catch (e) {
-      showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed", "Google sisselogimine eba�nnestus.")));
+      showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));
     }
   }
 
@@ -1656,7 +1664,7 @@
         }</td>
         <td class="actions-col">
           <div class="tools">
-            <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn", currentUiLang === "et" ? "Muuda k�simust" : "Edit question"))}</button>
+            <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn", currentUiLang === "et" ? "Muuda küsimust" : "Edit question"))}</button>
             <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn", currentUiLang === "et" ? "Muuda KP-d" : "Edit checkpoint"))}</button>
           </div>
         </td>
@@ -1708,7 +1716,7 @@
     const container = byId("questionLangRows");
     container.innerHTML = availableLangs.map((lang) => {
       const required = lang === defaultLang ? " *" : "";
-      return `<div class="row"><label>${esc(tr("admin.q_dialog.question_text_prefix","K�simuse tekst"))} (${lang})${required}</label><textarea id="${qTextId(lang)}"></textarea></div>`;
+      return `<div class="row"><label>${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label><textarea id="${qTextId(lang)}"></textarea></div>`;
     }).join("");
   }
 
@@ -1737,7 +1745,7 @@
       <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" /></td>
       <td class="opt-text-cell">${langsHtml}</td>
       <td class="opt-correct-cell"><input class="opt-correct" type="checkbox" ${v.is_correct === "Y" ? "checked" : ""} /></td>
-      <td class="opt-del-cell"><button type="button" class="warn del-opt">${esc(tr("admin.q_dialog.delete_option_row_btn","Kustuta"))}</button></td>
+      <td class="opt-del-cell"><button type="button" class="warn del-opt">${esc(tr("admin.q_dialog.delete_option_row_btn"))}</button></td>
     `;
     rowEl.querySelector(".del-opt").onclick = () => rowEl.remove();
     byId("optionRows").appendChild(rowEl);
@@ -1755,7 +1763,7 @@
           <option value="EXACT" ${v.normalize_mode === "EXACT" ? "selected" : ""}>EXACT</option>
         </select>
       </td>
-      <td><button type="button" class="warn del-ans">${esc(tr("admin.q_dialog.delete_answer_row_btn","Kustuta"))}</button></td>
+      <td><button type="button" class="warn del-ans">${esc(tr("admin.q_dialog.delete_answer_row_btn"))}</button></td>
     `;
     rowEl.querySelector(".del-ans").onclick = () => rowEl.remove();
     byId("answerRows").appendChild(rowEl);
@@ -1821,7 +1829,7 @@
     });
     if (!cpId) {
       if (!currentCompetitionActive) return;
-      byId("cpTitle").textContent = tr("admin.cp_dialog.new_title", "Uus kontrollpunkt");
+      byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
       byId("cpId").value = "";
       byId("cpName").value = "";
       byId("cpLocation").value = "";
@@ -1853,7 +1861,7 @@
       }
     } else {
       const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
-      byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title", "Muuda kontrollpunkti");
+      byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
       byId("cpId").value = cpId;
       byId("cpName").value = row?.checkpoint_title || "";
       byId("cpLocation").value = row?.location_hint || "";
@@ -1888,7 +1896,7 @@
   async function saveCheckpoint() {
     if (!currentCompetitionActive) return;
     const title = byId("cpName").value.trim();
-    if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required", "KP title on kohustuslik"));
+    if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required"));
     const cpId = byId("cpId").value;
     const orderRaw = byId("cpOrder").value.trim();
     const location = byId("cpLocation").value.trim();
@@ -1898,7 +1906,7 @@
     const locRequired = getCpLocationRequiredValue();
     const editingId = cpId ? Number(cpId) : null;
     if (hasDuplicateCheckpointTitle(title, editingId)) {
-      return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists", "Sellise nimega KP on juba olemas."));
+      return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists"));
     }
     if (!cpId) {
       const payload = { competition_id: compId(), title };
@@ -1953,7 +1961,7 @@
       el.classList.toggle("hidden", isBlocked);
       el.style.display = isBlocked ? "none" : "";
     });
-    byId("qCancel").disabled = false; // Sulge peab alati t��tama
+    byId("qCancel").disabled = false; // Sulge peab alati töötama
     byId("qDelete").disabled = isBlocked;
     byId("qSave").disabled = isBlocked;
 
@@ -1970,7 +1978,7 @@
     const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
     byId("qCheckpoint").value = String(cpId);
     if (!editMode) {
-      byId("qTitle").textContent = tr("admin.q_dialog.new_title", "Uus k�simus");
+      byId("qTitle").textContent = tr("admin.q_dialog.new_title");
       byId("qId").value = "";
       availableLangs.forEach((lang) => { byId(qTextId(lang)).value = ""; });
       byId("qType").value = "SINGLE_CHOICE";
@@ -1984,7 +1992,7 @@
       addOptionRow();
       byId("qDelete").disabled = true;
     } else {
-      byId("qTitle").textContent = tr("admin.q_dialog.edit_title", "Muuda k�simust");
+      byId("qTitle").textContent = tr("admin.q_dialog.edit_title");
       byId("qId").value = row?.question_id || "";
       availableLangs.forEach((lang) => {
         const key = `text_${lang}`;
@@ -2015,7 +2023,7 @@
   }
 
   function openQuestionBlockedDialog(message) {
-    byId("qTitle").textContent = tr("admin.q_dialog.new_title", "Uus k�simus");
+    byId("qTitle").textContent = tr("admin.q_dialog.new_title");
     byId("qId").value = "";
     setQuestionDialogMode("blocked", message);
     byId("qDialog").showModal();
@@ -2030,7 +2038,7 @@
     const textsByLang = {};
     availableLangs.forEach((lang) => { textsByLang[lang] = byId(qTextId(lang)).value.trim(); });
     const defaultText = textsByLang[defaultLang] || "";
-    if (!defaultText) return showMsg("qMsg", false, `${tr("admin.msg.question_text_required_prefix","K�simuse tekst")} (${defaultLang}) ${tr("admin.msg.required_suffix","on kohustuslik")}`);
+    if (!defaultText) return showMsg("qMsg", false, `${tr("admin.msg.question_text_required_prefix")} (${defaultLang}) ${tr("admin.msg.required_suffix")}`);
     const qType = byId("qType").value;
 
     const qId = byId("qId").value;
@@ -2050,8 +2058,8 @@
     let answersJson = null;
     if (qType === "SINGLE_CHOICE") {
       const { opts, hasCorrect } = collectSingleChoiceOptions();
-      if (opts.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_option", "Lisa v�hemalt 1 valikvastus."));
-      if (!hasCorrect) return showMsg("qMsg", false, tr("admin.msg.min_one_correct_option", "M�rgi v�hemalt 1 �ige valikvastus."));
+      if (opts.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_option"));
+      if (!hasCorrect) return showMsg("qMsg", false, tr("admin.msg.min_one_correct_option"));
       optionsJson = JSON.stringify(opts.map((o) => {
         const base = {
           option_code: o.option_code,
@@ -2071,7 +2079,7 @@
       })));
     } else {
       const answers = collectTextAnswers();
-      if (answers.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_text_answer", "Lisa v�hemalt 1 �ige vastus."));
+      if (answers.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_text_answer"));
       answersJson = JSON.stringify(answers);
       optionsJson = null;
     }
@@ -2079,7 +2087,7 @@
     if (!qId) {
       const created = await post("/api/admin/questions", payload);
       const cpState = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(payload.checkpoint_id));
-      if (cpState && cpState.question_id) return showMsg("qMsg", false, tr("admin.msg.cp_already_has_question", "Valitud kontrollpunktil on juba aktiivne k�simus."));
+      if (cpState && cpState.question_id) return showMsg("qMsg", false, tr("admin.msg.cp_already_has_question"));
       const newId = created.question_id;
       await post("/api/admin/questions/update", {
         question_id: newId,
@@ -2145,7 +2153,7 @@
     const btn = byId("metaMapLayersBtn");
     if (!btn) return;
     const n = Array.isArray(competitionParticipantLayerCodes) ? competitionParticipantLayerCodes.length : 0;
-    btn.textContent = `${tr("admin.meta.map_layers_btn", "Kaardi valik")} (${n})`;
+    btn.textContent = `${tr("admin.meta.map_layers_btn")} (${n})`;
   }
 
   function renderParticipantMapLayersDialog() {
@@ -2182,7 +2190,7 @@
   async function saveParticipantMapLayersDialog() {
     const selected = selectedParticipantLayersFromDialog();
     if (!selected.length) {
-      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali v�hemalt �ks kaart."));
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
       return;
     }
     const prevSorted = [...competitionParticipantLayerCodes].sort();
@@ -2197,7 +2205,7 @@
     competitionParticipantLayerCodes = selected;
     participantLayerSelection = [...selected];
     updateMetaMapLayersButtonLabel();
-    showMsg("participantMapLayersMsg", true, tr("admin.msg.map_layers_saved", "Kaartide valik salvestatud."));
+    showMsg("participantMapLayersMsg", true, tr("admin.msg.map_layers_saved"));
     setTimeout(() => byId("participantMapLayersDialog").close(), 350);
   }
 
@@ -2231,7 +2239,7 @@
         radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
       };
       if (!payload.name) {
-        showMsg("metaMsg", false, tr("admin.msg.comp_name_required", "V�istluse nimi on kohustuslik"));
+        showMsg("metaMsg", false, tr("admin.msg.comp_name_required"));
         return;
       }
       const startParsed = parseEtInput(byId("metaStartsEt").value);
@@ -2247,7 +2255,7 @@
       byId("metaDialog").close();
       await loadCompetitions();
       await loadView();
-      showMsg("topMsg", true, tr("admin.msg.comp_updated", "V�istluse andmed uuendatud."));
+      showMsg("topMsg", true, tr("admin.msg.comp_updated"));
     } catch (e) {
       showMsg("metaMsg", false, humanizeError(e.message));
     }
@@ -2283,10 +2291,10 @@
       currentUserEmail = "";
       byId("appArea").classList.add("hidden");
       byId("loginCard").classList.remove("hidden");
-      showMsg("loginMsg", true, tr("admin.msg.logout_ok", "V�ljalogimine �nnestus."));
+      showMsg("loginMsg", true, tr("admin.msg.logout_ok"));
       await initGoogleLogin();
     } catch (err) {
-      showMsg("topMsg", false, humanizeError(err.message || tr("admin.msg.logout_failed", "V�ljalogimine eba�nnestus.")));
+      showMsg("topMsg", false, humanizeError(err.message || tr("admin.msg.logout_failed")));
     }
   });
   byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
@@ -2311,7 +2319,7 @@
     try {
       const code = byId("competitionPickerJoinCode").value.trim();
       if (!code) {
-        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.enter_organizer_code_join_dialog", "Sisesta korraldaja kood."));
+        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.enter_organizer_code_join_dialog"));
         return;
       }
       const joinRes = await post("/api/organizers/register", { access_code: code });
@@ -2323,11 +2331,11 @@
           byId("competitionSelect").value = String(joinedCompetitionId);
         }
         await loadView();
-        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog", "Korraldaja kood aktsepteeritud."));
+        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog"));
         showMsg("competitionPickerJoinMsg", false, "");
         byId("competitionPickerDialog").close();
       } else {
-        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog", "Korraldaja v�istlusi endiselt ei leitud."));
+        showMsg("competitionPickerJoinMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog"));
       }
     } catch (e) {
       showMsg("competitionPickerJoinMsg", false, humanizeError(e.message));
@@ -2352,13 +2360,13 @@
   byId("regenCompetitor").onclick = () => {
     pendingCodeType = "COMPETITOR";
     pendingOldCode = (byId("codeCompetitor").textContent || "").trim();
-    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix","Soovid muuta registreerimise koodi"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
     byId("codeConfirmDialog").showModal();
   };
   byId("regenOrganizer").onclick = () => {
     pendingCodeType = "ORGANIZER";
     pendingOldCode = (byId("codeOrganizer").textContent || "").trim();
-    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix_dup","Soovid muuta registreerimise koodi"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+    byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix_dup"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
     byId("codeConfirmDialog").showModal();
   };
   byId("newCheckpointBtn").onclick = () => openCheckpointDialog();
@@ -2393,7 +2401,7 @@
   byId("newQuestionBtn").onclick = () => {
     const first = checkpointsData.find((x) => !x.question_id);
     if (!first) {
-      openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first", "Lisa enne k�simuseta kontrollpunkt."));
+      openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first"));
       return;
     }
     resetQuestionDialogVisibility();
@@ -2424,7 +2432,7 @@
   byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
     if (!selectedParticipantLayersFromDialog().length) {
       e.preventDefault();
-      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali v�hemalt �ks kaart."));
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
     }
   });
   byId("cpOpenQuestion").onclick = () => {
@@ -2450,7 +2458,7 @@
   byId("metaMapLayersBtn").onclick = () => openParticipantMapLayersDialog().catch(e => showMsg("metaMsg", false, humanizeError(e.message, e.details)));
   byId("participantMapLayersCancel").onclick = () => {
     if (!selectedParticipantLayersFromDialog().length) {
-      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map", "Vali v�hemalt �ks kaart."));
+      showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
       return;
     }
     byId("participantMapLayersDialog").close();
@@ -2526,7 +2534,7 @@
       });
       await loadView();
       byId("codeConfirmDialog").close();
-      byId("codeResultText").innerHTML = `${esc(tr("admin.code_result.prefix","Kood muudetud, uus kood on"))} <strong style="font-size:22px;">${esc(newCode)}</strong>.<br>${esc(tr("admin.code_result.suffix","Liitumine v�imalik vaid selle koodiga."))}`;
+      byId("codeResultText").innerHTML = `${esc(tr("admin.code_result.prefix"))} <strong style="font-size:22px;">${esc(newCode)}</strong>.<br>${esc(tr("admin.code_result.suffix"))}`;
       byId("codeResultDialog").showModal();
       pendingCodeType = null;
       pendingOldCode = null;
@@ -2545,7 +2553,7 @@
     try {
       const code = byId("organizerJoinCodeNoComp").value.trim();
       if (!code) {
-        showMsg("noOrgMsg", false, tr("admin.msg.enter_organizer_code_no_comp", "Sisesta korraldaja kood."));
+        showMsg("noOrgMsg", false, tr("admin.msg.enter_organizer_code_no_comp"));
         return;
       }
       await post("/api/organizers/register", { access_code: code });
@@ -2553,7 +2561,7 @@
       const hasCompetitions = await loadCompetitions();
       if (hasCompetitions) {
         await loadView();
-        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_top", "Korraldaja kood aktsepteeritud."));
+        showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_top"));
       }
     } catch (e) {
       showMsg("noOrgMsg", false, humanizeError(e.message));
