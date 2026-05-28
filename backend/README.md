@@ -18,8 +18,11 @@ Expected ORDS JSON responses:
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "..." }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
 - `results/score` -> `{ "score": 42 }`
-- `organizer/leaderboard` -> standard ORDS query JSON (`items` array), for example:
-  `{ "items": [{ "user_id": 1, "score": 100 }] }`
+- `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
+- `organizer/checkpoint-results` -> `{ "access_granted":"Y|N", "items":[...] }`
+- `organizer/checkpoint-responders` -> `{ "access_granted":"Y|N", "items":[...] }`
+- `organizer/participant-submissions` -> `{ "access_granted":"Y|N", "items":[...], "total_elapsed_seconds":1234, "total_distance_m":2460, "distance_available":"Y|N" }`
+- `organizer/submission-detail` -> `{ "access_granted":"Y|N", ... }`
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 
 Session cookie flow:
@@ -36,6 +39,9 @@ Required backend env:
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
 - You can reload i18n cache without restarting backend: `POST /api/i18n/reload`
+- Results visibility rule: requester must be active organizer of the competition at request time.
+  - If authorized and no data exists, API returns empty `items` and `access_granted = Y`.
+  - If unauthorized (or inaccessible competition), API returns neutral empty payload with `access_granted = N`.
 
 Map layer config (admin "NĆ¤ita kaardil"):
 - File: `backend/app/map_layers.json`

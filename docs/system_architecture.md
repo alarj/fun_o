@@ -83,6 +83,7 @@ Mida teeb:
 - Kuvab kasutajaliidest, mida nginx serveerib kataloogist `frontend_dist`.
 - Tarbib backendi `/api/*` endpointe.
 - Kasutab backendi antud andmeid võistluste, KP-de, küsimuste, tulemuste ja i18n kuvamiseks.
+- `results.html` võistleja modal kasutab `participant-submissions` andmeid, sh iga rea `delta_from_prev_seconds` ning kokkuvõtte väljasid `total_elapsed_seconds` / `total_distance_m`.
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
 
 Miks nii on tehtud:

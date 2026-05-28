@@ -10,7 +10,7 @@
   <div class="wrap">
     <div class="card">
       <div class="head-row">
-        <h1 id="pageTitle" data-i18n="results.page_title_competitor">Tulemused - v�istleja vaade</h1>
+        <h1 id="pageTitle" data-i18n="results.page_title_competitor">results.page_title_competitor</h1>
         <div class="tools">
           <select id="langSelect" style="width:72px; min-width:72px;">
             <option value="et">ET</option>
@@ -40,12 +40,14 @@
       <table class="table">
         <thead>
           <tr>
-            <th data-i18n="results.table.rank">Koht</th>
-            <th><span data-i18n="results.table.competitor">V�istleja</span> <button class="sort-btn" id="sortName">&#9776;</button></th>
-            <th><span data-i18n="results.table.answered_cp">L�bitud KP arv</span> <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
-            <th><span data-i18n="results.table.score">Punktid</span> <button class="sort-btn" id="sortScore">&#9660;</button></th>
-            <th><span data-i18n="results.table.last_cp">Viimane KP</span> <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
-            <th><span data-i18n="results.table.last_answer">Viimane vastus</span> <button class="sort-btn" id="sortLast">&#9776;</button></th>
+            <th data-i18n="results.table.rank">results.table.rank</th>
+            <th><span data-i18n="results.table.competitor">results.table.competitor</span> <button class="sort-btn" id="sortName">&#9776;</button></th>
+            <th><span data-i18n="results.table.answered_cp">results.table.answered_cp</span> <button class="sort-btn" id="sortAnswered">&#9776;</button></th>
+            <th><span data-i18n="results.table.score">results.table.score</span> <button class="sort-btn" id="sortScore">&#9660;</button></th>
+            <th><span data-i18n="results.table.last_cp">results.table.last_cp</span> <button class="sort-btn" id="sortLastCheckpoint">&#9776;</button></th>
+            <th><span data-i18n="results.table.last_answer">results.table.last_answer</span> <button class="sort-btn" id="sortLast">&#9776;</button></th>
+            <th id="distanceColHead"><span data-i18n="results.table.distance">results.table.distance</span> <button class="sort-btn" id="sortDistance">&#9776;</button></th>
+            <th><span data-i18n="results.table.elapsed_time">results.table.elapsed_time</span> <button class="sort-btn" id="sortElapsed">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -56,10 +58,10 @@
       <table class="table">
         <thead>
           <tr>
-            <th><span data-i18n="results.cp_table.cp">KP</span> <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
-            <th><span data-i18n="results.cp_table.last_time">KP viimase l�bimise aeg</span> <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
-            <th><span data-i18n="results.cp_table.last_competitor">KP viimati l�binud v�istleja</span> <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
-            <th><span data-i18n="results.cp_table.points">KP punktid</span> <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.cp">results.cp_table.cp</span> <button class="sort-btn" id="cSortTitle">&#9650;</button></th>
+            <th><span data-i18n="results.cp_table.last_time">results.cp_table.last_time</span> <button class="sort-btn" id="cSortLastTime">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.last_competitor">results.cp_table.last_competitor</span> <button class="sort-btn" id="cSortLastTeam">&#9776;</button></th>
+            <th><span data-i18n="results.cp_table.points">results.cp_table.points</span> <button class="sort-btn" id="cSortPoints">&#9776;</button></th>
             <th><span class="correct">&#10003;</span> <button class="sort-btn" id="cSortCorrect">&#9776;</button></th>
             <th><span class="wrong">&#10007;</span> <button class="sort-btn" id="cSortWrong">&#9776;</button></th>
           </tr>
@@ -73,20 +75,22 @@
     <div class="modal-card">
       <div class="modal-head">
         <div class="modal-title-wrap">
-          <h2 id="participantModalTitle" class="modal-title">V�istleja KP-d</h2>
+          <h2 id="participantModalTitle" class="modal-title" data-i18n="results.participant.title">results.participant.title</h2>
           <div id="participantModalStats" class="modal-subtitle"></div>
+          <div id="participantSummaryRows" class="modal-subtitle" style="white-space:nowrap;"></div>
         </div>
-        <button id="participantModalClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
+        <button id="participantModalClose" class="close-btn" type="button" data-i18n="results.common.close_btn">results.common.close_btn</button>
       </div>
       <div id="participantModalMsg"></div>
       <table class="table">
         <thead>
           <tr>
-            <th><span data-i18n="results.participant_table.cp_title">KP title</span> <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
-            <th><span data-i18n="results.participant_table.time">KP l�bimise aeg</span> <button class="sort-btn" id="pSortTime">&#9776;</button></th>
-            <th><span data-i18n="results.participant_table.points">KP punktid</span> <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
-            <th><span data-i18n="results.participant_table.answer">Vastus</span> <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
-            <th><span data-i18n="results.participant_table.correct_wrong">�ige / vale</span> <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.cp_title">results.participant_table.cp_title</span> <button class="sort-btn" id="pSortTitle">&#9650;</button></th>
+            <th><span data-i18n="results.participant_table.time">results.participant_table.time</span> <button class="sort-btn" id="pSortTime">&#9776;</button></th>
+            <th>&#916;</th>
+            <th><span data-i18n="results.participant_table.points">results.participant_table.points</span> <button class="sort-btn" id="pSortPoints">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.answer">results.participant_table.answer</span> <button class="sort-btn" id="pSortAnswer">&#9776;</button></th>
+            <th><span data-i18n="results.participant_table.correct_wrong">results.participant_table.correct_wrong</span> <button class="sort-btn" id="pSortCorrect">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="participantRows"></tbody>
@@ -97,8 +101,8 @@
   <div id="answerDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="answerDetailTitle">
     <div class="modal-card">
       <div class="modal-head">
-        <h2 id="answerDetailTitle" class="modal-title" data-i18n="results.answer.title">Vastuse detail</h2>
-        <button id="answerDetailClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
+        <h2 id="answerDetailTitle" class="modal-title" data-i18n="results.answer.title">results.answer.title</h2>
+        <button id="answerDetailClose" class="close-btn" type="button" data-i18n="results.common.close_btn">results.common.close_btn</button>
       </div>
       <div id="answerDetailMsg"></div>
       <div id="answerQuestion" style="font-size:18px; font-weight:700;"></div>
@@ -111,15 +115,15 @@
   <div id="checkpointRespondersModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="checkpointRespondersTitle">
     <div class="modal-card">
       <div class="modal-head">
-        <h2 id="checkpointRespondersTitle" class="modal-title">KP vastajad</h2>
-        <button id="checkpointRespondersClose" class="close-btn" type="button" data-i18n="results.common.close_btn">Sulge</button>
+        <h2 id="checkpointRespondersTitle" class="modal-title" data-i18n="results.responders.title">results.responders.title</h2>
+        <button id="checkpointRespondersClose" class="close-btn" type="button" data-i18n="results.common.close_btn">results.common.close_btn</button>
       </div>
       <div id="checkpointRespondersMsg"></div>
       <table class="table">
         <thead>
           <tr>
-            <th><span data-i18n="results.responders_table.competitor">V�istleja</span> <button class="sort-btn" id="crSortName">&#9650;</button></th>
-            <th><span data-i18n="results.responders_table.result">Tulemus</span> <button class="sort-btn" id="crSortResult">&#9776;</button></th>
+            <th><span data-i18n="results.responders_table.competitor">results.responders_table.competitor</span> <button class="sort-btn" id="crSortName">&#9650;</button></th>
+            <th><span data-i18n="results.responders_table.result">results.responders_table.result</span> <button class="sort-btn" id="crSortResult">&#9776;</button></th>
           </tr>
         </thead>
         <tbody id="checkpointRespondersRows"></tbody>
@@ -147,9 +151,13 @@
     let checkpointSortKey = "checkpoint_title";
     let checkpointSortDir = "asc";
     let currentView = "competitor";
+    let competitionUsesLocation = false;
     let currentParticipantUserId = null;
     let participantItems = [];
-    let participantSortKey = "checkpoint_title";
+    let participantTotalElapsedSeconds = null;
+    let participantTotalDistanceM = null;
+    let participantDistanceAvailable = false;
+    let participantSortKey = "submitted_at";
     let participantSortDir = "asc";
     let refreshTimer = null;
     let autoRefreshEnabled = false;
@@ -172,6 +180,17 @@
       if (Object.prototype.hasOwnProperty.call(i18nCurrent, key)) return i18nCurrent[key];
       if (Object.prototype.hasOwnProperty.call(i18nDefault, key)) return i18nDefault[key];
       return fallback || key;
+    }
+    function hasAccessGranted(v) {
+      if (v === true) return true;
+      if (v === false) return false;
+      if (typeof v === "string") {
+        const x = v.trim().toUpperCase();
+        if (x === "Y" || x === "1" || x === "TRUE") return true;
+        if (x === "N" || x === "0" || x === "FALSE") return false;
+      }
+      if (typeof v === "number") return v === 1;
+      return true;
     }
     function pickText(preferred, fallback) {
       const p = (preferred ?? "").toString().trim();
@@ -236,13 +255,13 @@
     function renderCheckpointRespondersRows() {
       const rows = sortCheckpointResponders();
       if (!rows.length) {
-        byId("checkpointRespondersRows").innerHTML = `<tr><td colspan="2">${esc(tr("results.responders.none", "Sellel KP-l vastuseid ei ole."))}</td></tr>`;
+        byId("checkpointRespondersRows").innerHTML = `<tr><td colspan="2">${esc(tr("results.responders.none","results.responders.none"))}</td></tr>`;
         refreshCheckpointResponderSortIcons();
         return;
       }
       byId("checkpointRespondersRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
-        const nm = r.competitor_name || `${tr("results.user_fallback_prefix", "Kasutaja")} #${Number(r.user_id || 0)}`;
+        const nm = r.competitor_name || `${tr("results.user_fallback_prefix","results.user_fallback_prefix")} #${Number(r.user_id || 0)}`;
         return `<tr>
           <td>${esc(nm)}</td>
           <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
@@ -319,13 +338,13 @@
       document.querySelectorAll("[data-i18n]").forEach((el) => {
         const key = el.getAttribute("data-i18n");
         if (!key) return;
-        el.textContent = tr(key, el.textContent || key);
+        el.textContent = tr(key, key);
       });
       byId("autoRefreshLabel").textContent = autoRefreshEnabled
-        ? tr("results.auto_refresh_on", "Automaatne v�rskendus: 60 s")
-        : tr("results.auto_refresh_off", "Automaatne v�rskendus: v�ljas");
-      byId("refreshNowBtn").title = tr("results.refresh_now_btn", "V�rskenda kohe");
-      byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn", "V�rskenda kohe"));
+        ? tr("results.auto_refresh_on","results.auto_refresh_on")
+        : tr("results.auto_refresh_off","results.auto_refresh_off");
+      byId("refreshNowBtn").title = tr("results.refresh_now_btn","results.refresh_now_btn");
+      byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn","results.refresh_now_btn"));
       applyView();
     }
 
@@ -340,6 +359,8 @@
       byId("sortScore").textContent = sortIconFor("score");
       byId("sortLastCheckpoint").textContent = sortIconFor("last_checkpoint");
       byId("sortLast").textContent = sortIconFor("last_submission_at");
+      byId("sortDistance").textContent = sortIconFor("total_distance_m");
+      byId("sortElapsed").textContent = sortIconFor("total_elapsed_seconds");
     }
 
     function participantSortIconFor(key) {
@@ -387,6 +408,9 @@
           const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
           return ((av - bv) * dir) || (Number(b.score || 0) - Number(a.score || 0));
         }
+        if (sortKey === "total_distance_m" || sortKey === "total_elapsed_seconds") {
+          return ((Number(a[sortKey] || -1) - Number(b[sortKey] || -1)) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+        }
         return 0;
       });
       return arr;
@@ -417,8 +441,14 @@
       const sorted = sortItems();
       const rankByUserId = computeRanksByScore(items);
       byId("rows").innerHTML = sorted.map((r) => {
-        const name = r.competitor_name || `${tr("results.user_fallback_prefix", "Kasutaja")} #${r.user_id}`;
+        const name = r.competitor_name || `${tr("results.user_fallback_prefix","results.user_fallback_prefix")} #${r.user_id}`;
         const rank = rankByUserId.get(Number(r.user_id || 0)) || "-";
+        const distanceKm = Number.isFinite(Number(r.total_distance_m)) && Number(r.total_distance_m) >= 0
+          ? `${(Number(r.total_distance_m) / 1000).toFixed(2)} km`
+          : "-";
+        const elapsed = Number.isFinite(Number(r.total_elapsed_seconds)) && Number(r.total_elapsed_seconds) >= 0
+          ? fmtHhMmSs(Number(r.total_elapsed_seconds))
+          : "-";
         return `<tr>
           <td>${rank}</td>
           <td><button class="name-link" data-act="open-participant" data-user-id="${Number(r.user_id)}" data-name="${esc(name)}">${esc(name)}</button></td>
@@ -426,8 +456,11 @@
           <td>${Number(r.score || 0)}</td>
           <td>${esc(r.last_checkpoint || "-")}</td>
           <td>${esc(fmtEtLocal(r.last_submission_at))}</td>
+          ${competitionUsesLocation ? `<td>${esc(distanceKm)}</td>` : ""}
+          <td>${esc(elapsed)}</td>
         </tr>`;
       }).join("");
+      byId("distanceColHead").style.display = competitionUsesLocation ? "" : "none";
       refreshSortIcons();
     }
 
@@ -518,8 +551,8 @@
 
     function renderParticipantRows() {
       if (participantItems.length === 0) {
-        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","L�bitud KP")}: <strong>0</strong>`;
-        byId("participantRows").innerHTML = `<tr><td colspan="5">${esc(tr("results.participant.none","Sellel v�istlejal ei ole veel vastuseid."))}</td></tr>`;
+        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","results.stats.total_points")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","results.stats.answered_cp")}: <strong>0</strong>`;
+        byId("participantRows").innerHTML = `<tr><td colspan="5">${esc(tr("results.participant.none","results.participant.none"))}</td></tr>`;
         refreshParticipantSortIcons();
         return;
       }
@@ -529,7 +562,7 @@
           .map((r) => String(r.checkpoint_title || "").trim())
           .filter((v) => v.length > 0)
       ).size;
-      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","Punktid kokku")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","L�bitud KP")}: <strong>${answeredCount}</strong>`;
+      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","results.stats.total_points")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","results.stats.answered_cp")}: <strong>${answeredCount}</strong>`;
       const rows = sortParticipantItems();
       byId("participantRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
@@ -578,6 +611,7 @@
       const v = d?.data || {};
       const name = v.name || "-";
       byId("subtitle").textContent = `${name} (id=${competitionId})`;
+      competitionUsesLocation = String(v.use_location || "N").toUpperCase() === "Y";
       autoRefreshEnabled = isWithinActiveWindow(v);
       applyStaticTexts();
     }
@@ -586,6 +620,13 @@
       try {
         if (currentView === "competitor") {
           const d = await get(`/api/admin/leaderboard?competition_id=${competitionId}&lang_code=${encodeURIComponent(currentUiLang)}`);
+          if (!hasAccessGranted(d?.access_granted)) {
+            items = [];
+            renderRows();
+            showMsg(false, tr("results.no_results","results.no_results"));
+            byId("lastRefresh").textContent = `${tr("results.last_refresh","results.last_refresh")}: ${fmtNow()}`;
+            return;
+          }
           items = Array.isArray(d.items) ? d.items : [];
           competitorUserIdByName = new Map();
           for (const item of items) {
@@ -599,13 +640,20 @@
             get(`/api/admin/checkpoint-results?competition_id=${competitionId}&lang_code=${encodeURIComponent(currentUiLang)}`),
             refreshCompetitorLookup(),
           ]);
+          if (!hasAccessGranted(d?.access_granted)) {
+            checkpointItems = [];
+            renderCheckpointRows();
+            showMsg(false, tr("results.no_results","results.no_results"));
+            byId("lastRefresh").textContent = `${tr("results.last_refresh","results.last_refresh")}: ${fmtNow()}`;
+            return;
+          }
           checkpointItems = Array.isArray(d.items) ? d.items : [];
           renderCheckpointRows();
         }
-        byId("lastRefresh").textContent = `${tr("results.last_refresh", "Uuendatud")}: ${fmtNow()}`;
+        byId("lastRefresh").textContent = `${tr("results.last_refresh","results.last_refresh")}: ${fmtNow()}`;
         if (!silent) showMsg(true, "");
       } catch (e) {
-        showMsg(false, e.message || tr("results.load_failed", "Tulemuste laadimine eba�nnestus."));
+        showMsg(false, e.message || tr("results.load_failed","results.load_failed"));
       }
     }
 
@@ -620,11 +668,11 @@
       byId("competitorTableWrap").classList.toggle("hidden", !competitorActive);
       byId("checkpointTableWrap").classList.toggle("hidden", competitorActive);
       byId("viewToggleBtn").textContent = competitorActive
-        ? tr("results.toggle_checkpoint_view", "KP vaade")
-        : tr("results.toggle_competitor_view", "V�istleja vaade");
+        ? tr("results.toggle_checkpoint_view","results.toggle_checkpoint_view")
+        : tr("results.toggle_competitor_view","results.toggle_competitor_view");
       byId("pageTitle").textContent = competitorActive
-        ? tr("results.page_title_competitor", "Tulemused - v�istleja vaade")
-        : tr("results.page_title_checkpoint", "Tulemused - KP vaade");
+        ? tr("results.page_title_competitor","results.page_title_competitor")
+        : tr("results.page_title_checkpoint","results.page_title_checkpoint");
     }
 
     async function toggleView() {
@@ -634,9 +682,9 @@
     }
 
     async function openParticipantModal(userId, name) {
-      byId("participantModalTitle").textContent = `${tr("results.participant.title","V�istleja KP-d")}: ${name}`;
+      byId("participantModalTitle").textContent = `${tr("results.participant.title","results.participant.title")}: ${name}`;
       participantItems = [];
-      participantSortKey = "checkpoint_title";
+      participantSortKey = "submitted_at";
       participantSortDir = "asc";
       byId("participantModalStats").textContent = "";
       byId("participantRows").innerHTML = "";
@@ -649,7 +697,7 @@
         participantItems = Array.isArray(d.items) ? d.items : [];
         renderParticipantRows();
       } catch (e) {
-        showModalMsg(false, e.message || tr("results.answers.load_failed","Vastuste laadimine eba�nnestus."));
+        showModalMsg(false, e.message || tr("results.answers.load_failed","results.answers.load_failed"));
       }
     }
 
@@ -676,7 +724,7 @@
     }
 
     async function openCheckpointRespondersModal(checkpointId, checkpointTitle) {
-      byId("checkpointRespondersTitle").textContent = `${tr("results.responders.title","KP vastajad")}: ${checkpointTitle || "-"}`;
+      byId("checkpointRespondersTitle").textContent = `${tr("results.responders.title","results.responders.title")}: ${checkpointTitle || "-"}`;
       byId("checkpointRespondersRows").innerHTML = "";
       checkpointResponderSortKey = "competitor_name";
       checkpointResponderSortDir = "asc";
@@ -686,10 +734,16 @@
       byId("checkpointRespondersModal").classList.remove("hidden");
       try {
         const d = await get(`/api/admin/checkpoint-responders?competition_id=${competitionId}&checkpoint_id=${Number(checkpointId)}`);
+        if (!hasAccessGranted(d?.access_granted)) {
+          checkpointResponderItems = [];
+          renderCheckpointRespondersRows();
+          showCheckpointRespondersMsg(false, tr("results.no_results","results.no_results"));
+          return;
+        }
         checkpointResponderItems = Array.isArray(d.items) ? d.items : [];
         renderCheckpointRespondersRows();
       } catch (e) {
-        showCheckpointRespondersMsg(false, e.message || tr("results.responders.load_failed","KP vastajate laadimine eba�nnestus."));
+        showCheckpointRespondersMsg(false, e.message || tr("results.responders.load_failed","results.responders.load_failed"));
       }
     }
 
@@ -703,6 +757,10 @@
 
       try {
         const d = await get(`/api/admin/submission-detail?competition_id=${competitionId}&user_id=${Number(userId)}&submission_id=${Number(submissionId)}&lang_code=${encodeURIComponent(currentUiLang)}`);
+        if (!hasAccessGranted(d?.access_granted)) {
+          showAnswerDetailMsg(false, tr("results.no_results","results.no_results"));
+          return;
+        }
         const qText = pickText(d.question_text, d.question_text_fallback);
         const pts = Number(d.points || 0);
         const wPts = Number(d.wrong_points || 0);
@@ -710,8 +768,8 @@
         const variants = Array.isArray(d.options) ? d.options : [];
 
         byId("answerQuestion").textContent = `${qText} (${pts} / ${wPts})`;
-        byId("answerSubmittedAt").textContent = `${tr("results.answer.submitted_at","Vastamise aeg")}: ${fmtEtLocal(d.submitted_at)}`;
-        byId("answerAwardedPoints").textContent = `${tr("results.answer.awarded_points","Teenitud punktid")}: ${Number(d.awarded_points || 0)}`;
+        byId("answerSubmittedAt").textContent = `${tr("results.answer.submitted_at","results.answer.submitted_at")}: ${fmtEtLocal(d.submitted_at)}`;
+        byId("answerAwardedPoints").textContent = `${tr("results.answer.awarded_points","results.answer.awarded_points")}: ${Number(d.awarded_points || 0)}`;
 
         if (variants.length === 0) {
           byId("answerVariants").innerHTML = `<li><strong>${esc(competitorAnswer || "---")}</strong></li>`;
@@ -732,17 +790,17 @@
           return `<li><span class="${iconCls}">${icon}</span><span class="${isSelected ? "answer-picked" : ""}">${txt}</span></li>`;
         });
         if (normalizedAnswer && !matchedByText) {
-          rendered.push(`<li><span class="badge-no">&#10007;</span><span class="answer-picked">${esc(competitorAnswer)}</span> <span style="color:#666;">(${esc(tr("results.answer.your_answer","Sinu vastus"))})</span></li>`);
+          rendered.push(`<li><span class="badge-no">&#10007;</span><span class="answer-picked">${esc(competitorAnswer)}</span> <span style="color:#666;">(${esc(tr("results.answer.your_answer","results.answer.your_answer"))})</span></li>`);
         }
         byId("answerVariants").innerHTML = rendered.join("");
       } catch (e) {
-        showAnswerDetailMsg(false, e.message || tr("results.answer.detail_load_failed","Detaili laadimine eba�nnestus."));
+        showAnswerDetailMsg(false, e.message || tr("results.answer.detail_load_failed","results.answer.detail_load_failed"));
       }
     }
 
     async function init() {
       if (!competitionId) {
-        showMsg(false, tr("results.missing_competition_id", "Puudub competition_id."));
+        showMsg(false, tr("results.missing_competition_id","results.missing_competition_id"));
         return;
       }
       await loadI18nMeta();
@@ -755,6 +813,8 @@
       byId("sortScore").onclick = () => setSort("score");
       byId("sortLastCheckpoint").onclick = () => setSort("last_checkpoint");
       byId("sortLast").onclick = () => setSort("last_submission_at");
+      byId("sortDistance").onclick = () => setSort("total_distance_m");
+      byId("sortElapsed").onclick = () => setSort("total_elapsed_seconds");
 
       byId("refreshNowBtn").onclick = () => refreshData();
       byId("langSelect").addEventListener("change", async (e) => {
@@ -765,11 +825,11 @@
           await refreshData(true);
           if (!byId("participantModal").classList.contains("hidden") && currentParticipantUserId) {
             const t = byId("participantModalTitle").textContent || "";
-            const n = t.includes(":") ? t.split(":").slice(1).join(":").trim() : (tr("results.user_fallback_prefix", "Kasutaja") + ` #${currentParticipantUserId}`);
+            const n = t.includes(":") ? t.split(":").slice(1).join(":").trim() : (tr("results.user_fallback_prefix","results.user_fallback_prefix") + ` #${currentParticipantUserId}`);
             await openParticipantModal(currentParticipantUserId, n);
           }
         } catch (err) {
-          showMsg(false, err?.message || tr("results.lang_switch_failed", "Keelevahetus eba�nnestus."));
+          showMsg(false, err?.message || tr("results.lang_switch_failed","results.lang_switch_failed"));
         }
       });
       byId("participantModalClose").onclick = closeParticipantModal;
@@ -805,7 +865,7 @@
         const btn = e.target.closest('[data-act="open-participant"]');
         if (!btn) return;
         const userId = Number(btn.getAttribute("data-user-id"));
-        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix", "Kasutaja")} #${userId}`;
+        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix","results.user_fallback_prefix")} #${userId}`;
         currentParticipantUserId = userId;
         openParticipantModal(userId, name).catch(() => {});
       });
@@ -820,7 +880,7 @@
         const btn = e.target.closest('[data-act="open-participant"]');
         if (!btn) return;
         const userId = Number(btn.getAttribute("data-user-id"));
-        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix", "Kasutaja")} #${userId}`;
+        const name = btn.getAttribute("data-name") || `${tr("results.user_fallback_prefix","results.user_fallback_prefix")} #${userId}`;
         currentParticipantUserId = userId;
         openParticipantModal(userId, name).catch(() => {});
       });
@@ -845,11 +905,89 @@
       }
     }
 
+    function fmtHhMmSs(totalSeconds) {
+      if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "-";
+      const v = Math.floor(totalSeconds);
+      const hh = Math.floor(v / 3600);
+      const mm = Math.floor((v % 3600) / 60);
+      const ss = v % 60;
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+    }
+
+    function fmtDistanceKmFromMeters(distanceM) {
+      if (!Number.isFinite(distanceM) || distanceM < 0) return "-";
+      return (distanceM / 1000).toFixed(2);
+    }
+
+    renderParticipantRows = function renderParticipantRowsOverride() {
+      if (participantItems.length === 0) {
+        byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","results.stats.total_points")}: <strong>0</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","results.stats.answered_cp")}: <strong>0</strong>`;
+        byId("participantRows").innerHTML = `<tr><td colspan="6">${esc(tr("results.participant.none","results.participant.none"))}</td></tr>`;
+        byId("participantSummaryRows").innerHTML = `${esc(tr("results.participant.summary_distance","results.participant.summary_distance")).replace("{distance_km}", "<strong>-</strong>")} &nbsp;&nbsp; ${esc(tr("results.participant.summary_time","results.participant.summary_time"))}: <strong>-</strong>`;
+        refreshParticipantSortIcons();
+        return;
+      }
+      const totalPoints = participantItems.reduce((sum, r) => sum + Number(r.awarded_points || 0), 0);
+      const answeredCount = new Set(participantItems.map((r) => String(r.checkpoint_title || "").trim()).filter((v) => v.length > 0)).size;
+      byId("participantModalStats").innerHTML = `${tr("results.stats.total_points","results.stats.total_points")}: <strong>${totalPoints}</strong> &nbsp;&nbsp; ${tr("results.stats.answered_cp","results.stats.answered_cp")}: <strong>${answeredCount}</strong>`;
+      const rows = sortParticipantItems();
+      byId("participantRows").innerHTML = rows.map((r) => {
+        const ok = String(r.is_correct || "N").toUpperCase() === "Y";
+        return `<tr>
+          <td>${esc(r.checkpoint_title || "-")}</td>
+          <td>${esc(fmtEtLocal(r.submitted_at))}</td>
+          <td>${esc(fmtHhMmSs(Number(r.delta_from_prev_seconds)))}</td>
+          <td>${Number(r.awarded_points || 0)}</td>
+          <td><button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(r.answer_text || "-")}</button></td>
+          <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
+        </tr>`;
+      }).join("");
+      const timeText = fmtHhMmSs(Number(participantTotalElapsedSeconds));
+      const distanceText = participantDistanceAvailable ? fmtDistanceKmFromMeters(Number(participantTotalDistanceM)) : "-";
+      byId("participantSummaryRows").innerHTML = `${esc(tr("results.participant.summary_distance","results.participant.summary_distance")).replace("{distance_km}", `<strong>${esc(distanceText)}</strong>`)} &nbsp;&nbsp; ${esc(tr("results.participant.summary_time","results.participant.summary_time"))}: <strong>${esc(timeText)}</strong>`;
+      refreshParticipantSortIcons();
+    }
+
+    openParticipantModal = async function openParticipantModalOverride(userId, name) {
+      byId("participantModalTitle").textContent = `${tr("results.participant.title","results.participant.title")}: ${name}`;
+      participantItems = [];
+      participantTotalElapsedSeconds = null;
+      participantTotalDistanceM = null;
+      participantDistanceAvailable = false;
+      participantSortKey = "submitted_at";
+      participantSortDir = "asc";
+      byId("participantModalStats").textContent = "";
+      byId("participantSummaryRows").textContent = "";
+      byId("participantRows").innerHTML = "";
+      refreshParticipantSortIcons();
+      showModalMsg(true, "");
+      byId("participantModal").classList.remove("hidden");
+
+      try {
+        const d = await get(`/api/admin/participant-submissions?competition_id=${competitionId}&user_id=${Number(userId)}&lang_code=${encodeURIComponent(currentUiLang)}`);
+        if (!hasAccessGranted(d?.access_granted)) {
+          participantItems = [];
+          participantTotalElapsedSeconds = null;
+          participantTotalDistanceM = null;
+          participantDistanceAvailable = false;
+          renderParticipantRows();
+          showModalMsg(false, tr("results.no_results","results.no_results"));
+          return;
+        }
+        participantItems = Array.isArray(d.items) ? d.items : [];
+        participantTotalElapsedSeconds = Number.isFinite(Number(d.total_elapsed_seconds)) ? Number(d.total_elapsed_seconds) : null;
+        participantTotalDistanceM = Number.isFinite(Number(d.total_distance_m)) ? Number(d.total_distance_m) : null;
+        participantDistanceAvailable = (d.distance_available === true) || (String(d.distance_available || "N").toUpperCase() === "Y");
+        renderParticipantRows();
+      } catch (e) {
+        showModalMsg(false, e.message || tr("results.answers.load_failed","results.answers.load_failed"));
+      }
+    }
     window.addEventListener("beforeunload", () => {
       if (refreshTimer) clearInterval(refreshTimer);
     });
 
-    init().catch((e) => showMsg(false, e.message || tr("results.open_failed", "Lehe avamine eba�nnestus.")));
+    init().catch((e) => showMsg(false, e.message || tr("results.open_failed","results.open_failed")));
   </script>
 </body>
 </html>

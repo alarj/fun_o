@@ -306,10 +306,13 @@ class LeaderboardEntry(BaseModel):
     score: int
     last_checkpoint: str | None = None
     last_submission_at: str | None = None
+    total_elapsed_seconds: int | None = None
+    total_distance_m: int | None = None
 
 
 class LeaderboardResponse(BaseModel):
     competition_id: int
+    access_granted: bool = True
     items: list[LeaderboardEntry]
 
 class CheckpointResultEntry(BaseModel):
@@ -324,6 +327,7 @@ class CheckpointResultEntry(BaseModel):
 
 class CheckpointResultsResponse(BaseModel):
     competition_id: int
+    access_granted: bool = True
     items: list[CheckpointResultEntry]
 
 
@@ -336,12 +340,14 @@ class CheckpointResponderEntry(BaseModel):
 class CheckpointRespondersResponse(BaseModel):
     competition_id: int
     checkpoint_id: int
+    access_granted: bool = True
     items: list[CheckpointResponderEntry]
 
 class ParticipantSubmissionEntry(BaseModel):
     submission_id: int | None = None
     checkpoint_title: str | None = None
     submitted_at: str | None = None
+    delta_from_prev_seconds: int | None = None
     awarded_points: int = 0
     answer_text: str | None = None
     is_correct: str = "N"
@@ -350,6 +356,10 @@ class ParticipantSubmissionEntry(BaseModel):
 class ParticipantSubmissionsResponse(BaseModel):
     competition_id: int
     user_id: int
+    access_granted: bool = True
+    total_elapsed_seconds: int | None = None
+    total_distance_m: int | None = None
+    distance_available: bool = False
     items: list[ParticipantSubmissionEntry]
 
 class SubmissionDetailOption(BaseModel):
@@ -359,6 +369,7 @@ class SubmissionDetailOption(BaseModel):
 
 
 class SubmissionDetailResponse(BaseModel):
+    access_granted: bool = True
     submission_id: int | None = None
     checkpoint_title: str | None = None
     question_text: str | None = None
@@ -2043,6 +2054,7 @@ async def competitor_my_submission_detail(  # NOSONAR
             "user_id": resolved_user_id,
             "submission_id": submission_id,
             "lang_code": effective_lang,
+            "default_lang_code": settings.lang_default,
         },
     )
     if not isinstance(ords_response, dict):
@@ -2086,12 +2098,13 @@ async def admin_leaderboard(  # NOSONAR
     lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> LeaderboardResponse:
-    _ = _require_google_session_user(request, x_user_id)
+    requester_user_id = _require_google_session_user(request, x_user_id)
     effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/leaderboard",
         {
             "competition_id": competition_id,
+            "requester_user_id": requester_user_id,
             "lang_code": effective_lang,
         },
     )
@@ -2111,10 +2124,13 @@ async def admin_leaderboard(  # NOSONAR
                     score=item["score"],
                     last_checkpoint=item.get("last_checkpoint") if isinstance(item.get("last_checkpoint"), str) else None,
                     last_submission_at=item.get("last_submission_at") if isinstance(item.get("last_submission_at"), str) else None,
+                    total_elapsed_seconds=item.get("total_elapsed_seconds") if isinstance(item.get("total_elapsed_seconds"), int) else None,
+                    total_distance_m=item.get("total_distance_m") if isinstance(item.get("total_distance_m"), int) else None,
                 )
             )
 
-    return LeaderboardResponse(competition_id=competition_id, items=items)
+    access_granted = str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y"
+    return LeaderboardResponse(competition_id=competition_id, access_granted=access_granted, items=items)
 
 
 @app.get("/api/admin/checkpoint-results", response_model=CheckpointResultsResponse)
@@ -2124,12 +2140,13 @@ async def admin_checkpoint_results(  # NOSONAR
     lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> CheckpointResultsResponse:
-    _ = _require_google_session_user(request, x_user_id)
+    requester_user_id = _require_google_session_user(request, x_user_id)
     effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/checkpoint-results",
         {
             "competition_id": competition_id,
+            "requester_user_id": requester_user_id,
             "lang_code": effective_lang,
         },
     )
@@ -2152,7 +2169,8 @@ async def admin_checkpoint_results(  # NOSONAR
                 )
             )
 
-    return CheckpointResultsResponse(competition_id=competition_id, items=items)
+    access_granted = str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y"
+    return CheckpointResultsResponse(competition_id=competition_id, access_granted=access_granted, items=items)
 
 @app.get("/api/admin/checkpoint-responders", response_model=CheckpointRespondersResponse)
 async def admin_checkpoint_responders(
@@ -2161,12 +2179,13 @@ async def admin_checkpoint_responders(
     request: Request,
     x_user_id: int | None = Header(default=None),
 ) -> CheckpointRespondersResponse:
-    _ = _require_google_session_user(request, x_user_id)
+    requester_user_id = _require_google_session_user(request, x_user_id)
     ords_response = await _get_from_ords(
         "organizer/checkpoint-responders",
         {
             "competition_id": competition_id,
             "checkpoint_id": checkpoint_id,
+            "requester_user_id": requester_user_id,
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
@@ -2187,6 +2206,7 @@ async def admin_checkpoint_responders(
     return CheckpointRespondersResponse(
         competition_id=competition_id,
         checkpoint_id=checkpoint_id,
+        access_granted=str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y",
         items=items,
     )
 
@@ -2198,13 +2218,14 @@ async def admin_participant_submissions(  # NOSONAR
     lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> ParticipantSubmissionsResponse:
-    _ = _require_google_session_user(request, x_user_id)
+    requester_user_id = _require_google_session_user(request, x_user_id)
     effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/participant-submissions",
         {
             "competition_id": competition_id,
             "user_id": user_id,
+            "requester_user_id": requester_user_id,
             "lang_code": effective_lang,
             "default_lang_code": settings.lang_default,
         },
@@ -2220,18 +2241,33 @@ async def admin_participant_submissions(  # NOSONAR
             cp_title = item.get("checkpoint_title")
             points = item.get("awarded_points")
             is_correct = item.get("is_correct")
+            delta_from_prev = item.get("delta_from_prev_seconds")
             items.append(
                 ParticipantSubmissionEntry(
                     submission_id=item.get("submission_id") if isinstance(item.get("submission_id"), int) else None,
                     checkpoint_title=cp_title if isinstance(cp_title, str) else None,
                     submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
+                    delta_from_prev_seconds=delta_from_prev if isinstance(delta_from_prev, int) else None,
                     awarded_points=points if isinstance(points, int) else 0,
                     answer_text=item.get("answer_text") if isinstance(item.get("answer_text"), str) else None,
                     is_correct=is_correct if isinstance(is_correct, str) else "N",
                 )
             )
 
-    return ParticipantSubmissionsResponse(competition_id=competition_id, user_id=user_id, items=items)
+    total_elapsed_seconds = ords_response.get("total_elapsed_seconds") if isinstance(ords_response, dict) else None
+    total_distance_m = ords_response.get("total_distance_m") if isinstance(ords_response, dict) else None
+    distance_available_raw = ords_response.get("distance_available") if isinstance(ords_response, dict) else None
+    distance_available = str(distance_available_raw or "N").upper() == "Y"
+
+    return ParticipantSubmissionsResponse(
+        competition_id=competition_id,
+        user_id=user_id,
+        access_granted=str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y",
+        total_elapsed_seconds=total_elapsed_seconds if isinstance(total_elapsed_seconds, int) else None,
+        total_distance_m=total_distance_m if isinstance(total_distance_m, int) else None,
+        distance_available=distance_available,
+        items=items,
+    )
 
 
 @app.get("/api/admin/submission-detail", response_model=SubmissionDetailResponse)
@@ -2243,7 +2279,7 @@ async def admin_submission_detail(  # NOSONAR
     lang_code: str | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> SubmissionDetailResponse:
-    _ = _require_google_session_user(request, x_user_id)
+    requester_user_id = _require_google_session_user(request, x_user_id)
     effective_lang = _resolve_ui_lang(lang_code)
     ords_response = await _get_from_ords(
         "organizer/submission-detail",
@@ -2251,6 +2287,7 @@ async def admin_submission_detail(  # NOSONAR
             "competition_id": competition_id,
             "user_id": user_id,
             "submission_id": submission_id,
+            "requester_user_id": requester_user_id,
             "lang_code": effective_lang,
             "default_lang_code": settings.lang_default,
         },
@@ -2272,6 +2309,7 @@ async def admin_submission_detail(  # NOSONAR
                 )
 
     return SubmissionDetailResponse(
+        access_granted=str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y",
         submission_id=ords_response.get("submission_id") if isinstance(ords_response.get("submission_id"), int) else None,
         checkpoint_title=ords_response.get("checkpoint_title") if isinstance(ords_response.get("checkpoint_title"), str) else None,
         question_text=ords_response.get("question_text") if isinstance(ords_response.get("question_text"), str) else None,

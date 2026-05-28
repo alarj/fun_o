@@ -1111,6 +1111,7 @@ begin
           p_competition_id => to_number(:competition_id),
           p_submission_id => to_number(:submission_id),
           p_lang_code => :lang_code,
+          p_default_lang_code => nvl(:default_lang_code, 'et'),
           o_item_json => l_json
         );
         owa_util.mime_header('application/json', false);
@@ -1155,6 +1156,16 @@ begin
     p_method             => 'GET',
     p_name               => 'lang_code',
     p_bind_variable_name => 'lang_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'competitor/my-submission-detail',
+    p_method             => 'GET',
+    p_name               => 'default_lang_code',
+    p_bind_variable_name => 'default_lang_code',
     p_source_type        => 'URI',
     p_param_type         => 'STRING',
     p_access_method      => 'IN'
@@ -1224,15 +1235,18 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_access_granted varchar2(1) := 'N';
       begin
         FUNO_APP.pkg_results.get_competition_leaderboard(
           p_competition_id => to_number(:competition_id),
+          p_requester_user_id => to_number(:requester_user_id),
+          o_access_granted => l_access_granted,
           o_items_json     => l_items_json
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"items":' || nvl(l_items_json, '[]') || '}');
+        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
       end;
     ~'
   );
@@ -1243,6 +1257,16 @@ begin
     p_method             => 'GET',
     p_name               => 'competition_id',
     p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/leaderboard',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
@@ -1262,15 +1286,18 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_access_granted varchar2(1) := 'N';
       begin
         FUNO_APP.pkg_results.get_checkpoint_results(
           p_competition_id => to_number(:competition_id),
+          p_requester_user_id => to_number(:requester_user_id),
+          o_access_granted => l_access_granted,
           o_items_json     => l_items_json
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"items":' || nvl(l_items_json, '[]') || '}');
+        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
       end;
     ~'
   );
@@ -1281,6 +1308,16 @@ begin
     p_method             => 'GET',
     p_name               => 'competition_id',
     p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/checkpoint-results',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
@@ -1300,16 +1337,19 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_access_granted varchar2(1) := 'N';
       begin
         FUNO_APP.pkg_results.get_checkpoint_responders(
           p_competition_id => to_number(:competition_id),
           p_checkpoint_id  => to_number(:checkpoint_id),
+          p_requester_user_id => to_number(:requester_user_id),
+          o_access_granted => l_access_granted,
           o_items_json     => l_items_json
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"items":' || nvl(l_items_json, '[]') || '}');
+        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
       end;
     ~'
   );
@@ -1320,6 +1360,16 @@ begin
     p_method             => 'GET',
     p_name               => 'competition_id',
     p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/checkpoint-responders',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
@@ -1350,18 +1400,32 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_total_elapsed_seconds number;
+        l_total_distance_m number;
+        l_distance_available varchar2(1);
+        l_access_granted varchar2(1) := 'N';
       begin
         FUNO_APP.pkg_results.get_participant_submissions(
           p_competition_id => to_number(:competition_id),
           p_user_id        => to_number(:user_id),
+          p_requester_user_id => to_number(:requester_user_id),
           p_lang_code      => nvl(:lang_code, 'et'),
           p_default_lang_code => nvl(:default_lang_code, 'et'),
-          o_items_json     => l_items_json
+          o_access_granted => l_access_granted,
+          o_items_json     => l_items_json,
+          o_total_elapsed_seconds => l_total_elapsed_seconds,
+          o_total_distance_m => l_total_distance_m,
+          o_distance_available => l_distance_available
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"items":' || nvl(l_items_json, '[]') || '}');
+        htp.p(
+          '{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]')
+          || ',"total_elapsed_seconds":' || case when l_total_elapsed_seconds is null then 'null' else to_char(l_total_elapsed_seconds) end
+          || ',"total_distance_m":' || case when l_total_distance_m is null then 'null' else to_char(l_total_distance_m) end
+          || ',"distance_available":"' || case when nvl(l_distance_available, 'N') = 'Y' then 'Y' else 'N' end || '"}'
+        );
       end;
     ~'
   );
@@ -1372,6 +1436,16 @@ begin
     p_method             => 'GET',
     p_name               => 'competition_id',
     p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/participant-submissions',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
@@ -1424,19 +1498,26 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_item_json clob;
+        l_access_granted varchar2(1) := 'N';
       begin
         FUNO_APP.pkg_results.get_submission_detail(
           p_competition_id => to_number(:competition_id),
           p_user_id        => to_number(:user_id),
           p_submission_id  => to_number(:submission_id),
+          p_requester_user_id => to_number(:requester_user_id),
           p_lang_code      => nvl(:lang_code, 'et'),
           p_default_lang_code => nvl(:default_lang_code, 'et'),
+          o_access_granted => l_access_granted,
           o_item_json      => l_item_json
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(nvl(l_item_json, '{}'));
+        if nvl(l_access_granted, 'N') = 'Y' then
+          htp.p('{"access_granted":"Y",' || ltrim(nvl(l_item_json, '{}'), '{'));
+        else
+          htp.p('{"access_granted":"N"}');
+        end if;
       end;
     ~'
   );
@@ -1447,6 +1528,16 @@ begin
     p_method             => 'GET',
     p_name               => 'competition_id',
     p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => 'funo.api',
+    p_pattern            => 'organizer/submission-detail',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'

@@ -201,6 +201,65 @@
         flex-direction: column;
       }
       #compMapCanvas { flex: 1; min-height: 260px; }
+      .mapHeadingFab {
+        position: absolute;
+        right: 14px;
+        bottom: 116px;
+        width: 46px;
+        height: 46px;
+        border: 1px solid #cfd8dc;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        z-index: 1250;
+      }
+      .mapHeadingFab svg {
+        width: 24px;
+        height: 24px;
+        stroke: #607d8b;
+        fill: none;
+        stroke-width: 1.8;
+      }
+      .mapHeadingFab svg path {
+        fill: #90a4ae;
+        stroke: none;
+      }
+      .mapHeadingFab.is-off { opacity: 0.82; }
+      .mapHeadingFab.is-on {
+        opacity: 1;
+        background: #197c87;
+        border-color: #197c87;
+        box-shadow: 0 2px 12px rgba(25, 124, 135, 0.45);
+      }
+      .mapHeadingFab.is-on svg {
+        stroke: #ffffff;
+      }
+      .mapHeadingFab.is-on svg path {
+        fill: #ffffff;
+      }
+      .mapHeadingFab.is-waiting {
+        border-color: #b0bec5;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+      .mapHeadingDebug {
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        z-index: 1250;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.65);
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.25;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        display: none;
+        white-space: pre-line;
+      }
       .mapActions {
         display: flex;
         gap: 8px;
@@ -469,6 +528,13 @@
     <div id="compMapBackdrop" class="mapBackdrop">
       <div class="mapPanel">
         <div id="compMapCanvas"></div>
+        <div id="compMapHeadingDebug" class="mapHeadingDebug"></div>
+        <button id="compMapHeadingBtn" class="mapHeadingFab is-off" type="button" title="Heading-up">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5"></circle>
+            <path d="M12 6.2 L15.8 15.8 L12 14.2 L8.2 15.8 Z"></path>
+          </svg>
+        </button>
         <div class="mapActions">
           <button id="compMapShowKpBtn"></button>
           <button id="compMapFollowBtn" class="secondary"></button>
@@ -522,6 +588,7 @@
       integrity="sha256-/bf+R9zVlOfIMNDuNpTviLQDJTcmjcLztY9JodcWHBI="
       crossorigin=""
     ></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
     <script>
       const state = {
         userId: null,
@@ -555,6 +622,19 @@
       let compMapCurrentCrs = "EPSG:3857";
       let compMapOpenedOnce = false;
       let mapViewPersistenceEnabled = false;
+      let mapHeadingMode = false;
+      let mapHeadingPermissionAsked = false;
+      let mapHeadingListenerAttached = false;
+      let mapHeadingSmoothed = null;
+      let mapHeadingLastApplied = null;
+      let mapHeadingLastAppliedAt = 0;
+      let mapHeadingCurrent = null;
+      let mapHeadingHasSignal = false;
+      let mapHeadingCompassSeenAt = 0;
+      let mapDebugRawAlpha = null;
+      let mapDebugRawCompass = null;
+      let mapDebugGpsHeading = null;
+      let mapDebugGpsSpeed = null;
       const mapLayersByCode = {};
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
       const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
@@ -1273,6 +1353,10 @@
         const cid = Number(state.selectedCompetitionId || 0);
         return cid > 0 ? `funo_comp_map_layer_c${cid}` : "funo_comp_map_layer";
       }
+      function getMapHeadingCookieKey() {
+        const cid = Number(state.selectedCompetitionId || 0);
+        return cid > 0 ? `funo_comp_map_heading_c${cid}` : "funo_comp_map_heading";
+      }
 
       function saveCompMapView() {
         if (!compMap || !mapViewPersistenceEnabled) return;
@@ -1348,7 +1432,13 @@
           mapRings = [];
           userPosMarker = null;
         }
-        const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
+        const options = {
+          zoomControl: true,
+          dragging: true,
+          scrollWheelZoom: true,
+          rotate: true,
+          bearing: 0,
+        };
         if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
           options.crs = new L.Proj.CRS(
             "EPSG:3301",
@@ -1364,6 +1454,9 @@
           );
         }
         compMap = L.map("compMapCanvas", options);
+        if (compMap?.rotateControl && typeof compMap.rotateControl.remove === "function") {
+          compMap.rotateControl.remove();
+        }
         compMapLayer = L.layerGroup().addTo(compMap);
         compMap.on("moveend zoomend", () => saveCompMapView());
         compMap.on("movestart", () => {
@@ -1439,6 +1532,220 @@
         }
         btn.style.display = "inline-block";
         btn.textContent = mapFollowUser ? tr("competitor.map.follow_on_btn") : tr("competitor.map.follow_off_btn");
+      }
+
+      function canUseHeadingMode() {
+        return selectedCompetitionShowsUserLocation();
+      }
+
+      function formatHeadingDebugNum(value) {
+        return Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "-";
+      }
+
+      function updateHeadingDebugBox() {
+        const box = el("compMapHeadingDebug");
+        if (!box) return;
+        const show = mapHeadingMode;
+        box.style.display = show ? "block" : "none";
+        if (!show) return;
+        box.textContent =
+          `mode=${mapHeadingMode ? "on" : "off"} signal=${mapHeadingHasSignal ? "yes" : "no"}\n` +
+          `setBearing=${(compMap && typeof compMap.setBearing === "function") ? "yes" : "no"}\n` +
+          `alpha=${formatHeadingDebugNum(mapDebugRawAlpha)} webkit=${formatHeadingDebugNum(mapDebugRawCompass)}\n` +
+          `gpsHeading=${formatHeadingDebugNum(mapDebugGpsHeading)} gpsSpeed=${formatHeadingDebugNum(mapDebugGpsSpeed)}\n` +
+          `used=${formatHeadingDebugNum(mapHeadingCurrent)} smooth=${formatHeadingDebugNum(mapHeadingSmoothed)}`;
+      }
+
+      function resetMapHeadingRotation() {
+        if (!compMap) return;
+        if (typeof compMap.setBearing === "function") {
+          compMap.setBearing(0);
+          return;
+        }
+        const pane = compMap.getPane && compMap.getPane("mapPane");
+        if (!pane) return;
+        pane.style.transformOrigin = "";
+        pane.style.transform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+      }
+
+      function applyMapHeading(headingDeg) {
+        if (!compMap) return;
+        const bearing = ((-headingDeg % 360) + 360) % 360;
+        if (typeof compMap.setBearing === "function") {
+          compMap.setBearing(bearing);
+          return;
+        }
+        const pane = compMap.getPane && compMap.getPane("mapPane");
+        if (!pane) return;
+        const baseTransform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+        pane.style.transformOrigin = "50% 50%";
+        pane.style.transform = `${baseTransform} rotate(${bearing}deg)`.trim();
+      }
+
+      function normalizeDegrees(deg) {
+        const n = Number(deg);
+        if (!Number.isFinite(n)) return null;
+        return ((n % 360) + 360) % 360;
+      }
+
+      function shortestAngleDiff(fromDeg, toDeg) {
+        const from = normalizeDegrees(fromDeg);
+        const to = normalizeDegrees(toDeg);
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+        let diff = to - from;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        return diff;
+      }
+
+      function normalizeHeadingEvent(evt) {
+        if (evt && Number.isFinite(Number(evt.webkitCompassHeading))) {
+          return (Number(evt.webkitCompassHeading) + 360) % 360;
+        }
+        if (evt && Number.isFinite(Number(evt.alpha))) {
+          return ((360 - Number(evt.alpha)) + 360) % 360;
+        }
+        return null;
+      }
+
+      function onDeviceOrientation(evt) {
+        if (!mapHeadingMode) return;
+        mapDebugRawAlpha = Number.isFinite(Number(evt?.alpha)) ? Number(evt.alpha) : null;
+        mapDebugRawCompass = Number.isFinite(Number(evt?.webkitCompassHeading)) ? Number(evt.webkitCompassHeading) : null;
+        const heading = normalizeHeadingEvent(evt);
+        if (!Number.isFinite(heading)) {
+          updateHeadingDebugBox();
+          return;
+        }
+        mapHeadingHasSignal = true;
+        mapHeadingCompassSeenAt = Date.now();
+        mapHeadingCurrent = normalizeDegrees(heading);
+        if (mapHeadingSmoothed == null) {
+          mapHeadingSmoothed = mapHeadingCurrent;
+        } else {
+          const diff = shortestAngleDiff(mapHeadingSmoothed, mapHeadingCurrent);
+          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.045));
+        }
+        const now = Date.now();
+        if (mapHeadingLastApplied != null) {
+          const delta = Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
+          if (delta < 13 && now - mapHeadingLastAppliedAt < 420) return;
+        } else if (now - mapHeadingLastAppliedAt < 420) {
+          return;
+        }
+        mapHeadingLastApplied = mapHeadingSmoothed;
+        mapHeadingLastAppliedAt = now;
+        applyMapHeading(mapHeadingSmoothed);
+        updateHeadingDebugBox();
+      }
+
+      function attachHeadingListener() {
+        if (mapHeadingListenerAttached) return;
+        if (typeof window.DeviceOrientationEvent === "undefined") return;
+        window.addEventListener("deviceorientation", onDeviceOrientation, true);
+        window.addEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+        mapHeadingListenerAttached = true;
+      }
+
+      function detachHeadingListener() {
+        if (!mapHeadingListenerAttached) return;
+        window.removeEventListener("deviceorientation", onDeviceOrientation, true);
+        window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+        mapHeadingListenerAttached = false;
+      }
+
+      function updateHeadingButton() {
+        const btn = el("compMapHeadingBtn");
+        if (!btn) return;
+        const visible = canUseHeadingMode();
+        btn.style.display = visible ? "inline-flex" : "none";
+        btn.classList.toggle("is-on", mapHeadingMode && visible);
+        btn.classList.toggle("is-off", !(mapHeadingMode && visible));
+        btn.classList.toggle("is-waiting", mapHeadingMode && visible && !mapHeadingHasSignal);
+        updateHeadingDebugBox();
+      }
+
+      function setHeadingMode(enabled) {
+        if (!canUseHeadingMode()) {
+          mapHeadingMode = false;
+          setCookie(getMapHeadingCookieKey(), "off", 30);
+          detachHeadingListener();
+          mapHeadingSmoothed = null;
+          mapHeadingLastApplied = null;
+          mapHeadingCurrent = null;
+          mapHeadingHasSignal = false;
+          resetMapHeadingRotation();
+          updateHeadingButton();
+          return;
+        }
+        mapHeadingMode = !!enabled;
+        setCookie(getMapHeadingCookieKey(), mapHeadingMode ? "on" : "off", 30);
+        if (mapHeadingMode) {
+          mapHeadingSmoothed = null;
+          mapHeadingLastApplied = null;
+          mapHeadingLastAppliedAt = 0;
+          mapHeadingHasSignal = false;
+          if (Number.isFinite(mapHeadingCurrent)) {
+            applyMapHeading(mapHeadingCurrent);
+          }
+          attachHeadingListener();
+        } else {
+          detachHeadingListener();
+          resetMapHeadingRotation();
+        }
+        updateHeadingButton();
+        updateHeadingDebugBox();
+      }
+
+      function applyHeadingFromGps(headingValue) {
+        if (!mapHeadingMode) return;
+        // If compass events are available, prefer them and keep GPS heading as fallback only.
+        if (Date.now() - mapHeadingCompassSeenAt < 4000) {
+          updateHeadingDebugBox();
+          return;
+        }
+        const heading = Number(headingValue);
+        mapDebugGpsHeading = Number.isFinite(heading) ? heading : null;
+        const speed = Number(mapDebugGpsSpeed);
+        if (!Number.isFinite(speed) || speed < 1.8) {
+          updateHeadingDebugBox();
+          return;
+        }
+        if (!Number.isFinite(heading) || heading < 0) return;
+        mapHeadingHasSignal = true;
+        mapHeadingCurrent = ((heading % 360) + 360) % 360;
+        if (mapHeadingSmoothed == null) {
+          mapHeadingSmoothed = mapHeadingCurrent;
+        } else {
+          const diff = shortestAngleDiff(mapHeadingSmoothed, mapHeadingCurrent);
+          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.035));
+        }
+        const now = Date.now();
+        const delta = mapHeadingLastApplied == null
+          ? 999
+          : Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
+        if (delta >= 18 || now - mapHeadingLastAppliedAt >= 520) {
+          mapHeadingLastApplied = mapHeadingSmoothed;
+          mapHeadingLastAppliedAt = now;
+          applyMapHeading(mapHeadingSmoothed);
+        }
+        updateHeadingButton();
+        updateHeadingDebugBox();
+      }
+
+      async function ensureHeadingPermission() {
+        if (!canUseHeadingMode()) return false;
+        if (!window.DeviceOrientationEvent || typeof window.DeviceOrientationEvent.requestPermission !== "function") {
+          return true;
+        }
+        if (mapHeadingPermissionAsked) return true;
+        mapHeadingPermissionAsked = true;
+        try {
+          const permission = await window.DeviceOrientationEvent.requestPermission();
+          return permission === "granted";
+        } catch {
+          return false;
+        }
       }
 
       function anyMapPopupOpen() {
@@ -1622,16 +1929,21 @@
         setTimeout(() => {
           if (!compMap) return;
           compMap.invalidateSize();
+          if (mapHeadingMode && Number.isFinite(mapHeadingCurrent)) {
+            applyMapHeading(mapHeadingCurrent);
+          }
           setTimeout(() => { mapProgrammaticMove = false; }, 250);
         }, 80);
       }
 
-      function updateUserPositionMarker(lat, lon, accuracy) {
+      function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
         state.geo.enabled = true;
         state.geo.latitude = Number(lat);
         state.geo.longitude = Number(lon);
         state.geo.radius_m = Number(accuracy);
         state.geo.error = null;
+        mapDebugGpsSpeed = Number.isFinite(Number(gpsSpeed)) ? Number(gpsSpeed) : null;
+        applyHeadingFromGps(gpsHeading);
         if (!selectedCompetitionShowsUserLocation()) return;
         if (!compMap) return;
         if (!userPosMarker) {
@@ -1657,7 +1969,7 @@
         if (!navigator.geolocation) return;
         stopMapGeolocationWatch();
         geoWatchId = navigator.geolocation.watchPosition(
-          (pos) => updateUserPositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          (pos) => updateUserPositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.heading, pos.coords.speed),
           () => {},
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
         );
@@ -1673,7 +1985,9 @@
       async function openCompMapModal() {
         mapViewPersistenceEnabled = false;
         mapFollowUser = true;
+        mapHeadingPermissionAsked = false;
         updateFollowButton();
+        updateHeadingButton();
         await requestFreshGeolocationForMapOpen();
         allowedMapLayers = await loadAllowedMapLayers();
         Object.keys(mapLayersByCode).forEach((k) => delete mapLayersByCode[k]);
@@ -1708,11 +2022,20 @@
         compMapOpenedOnce = true;
         mapViewPersistenceEnabled = true;
         saveCompMapView();
+        updateHeadingButton();
+        if (canUseHeadingMode()) {
+          const rememberedHeadingMode = String(getCookie(getMapHeadingCookieKey()) || "off").toLowerCase();
+          setHeadingMode(rememberedHeadingMode === "on");
+        } else {
+          setHeadingMode(false);
+        }
         startMapGeolocationWatch();
       }
 
       function closeCompMapModal() {
         saveCompMapView();
+        setHeadingMode(false);
+        mapHeadingPermissionAsked = false;
         stopMapGeolocationWatch();
         el("compMapLayerBackdrop").style.display = "none";
         el("compMapBackdrop").style.display = "none";
@@ -2179,6 +2502,16 @@
             compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: true });
             setTimeout(() => { mapProgrammaticMove = false; }, 250);
           }
+        });
+        el("compMapHeadingBtn").addEventListener("click", async () => {
+          if (!canUseHeadingMode()) return;
+          if (!mapHeadingMode) {
+            const ok = await ensureHeadingPermission();
+            if (!ok) return;
+            setHeadingMode(true);
+            return;
+          }
+          setHeadingMode(false);
         });
         el("compMapShowKpBtn").addEventListener("click", async () => {
           closeCompMapModal();

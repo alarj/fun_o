@@ -1737,12 +1737,13 @@
   function addOptionRow(v = {}) {
     const rowEl = document.createElement("tr");
     rowEl.className = "option-row";
+    const existingCodeReadonly = v.option_code ? "readonly" : "";
     const langsHtml = availableLangs.map((lang) => {
       const key = `text_${lang}`;
       return `<input class="opt-lang" data-lang="${lang}" placeholder="Tekst (${lang})${lang === defaultLang ? " *" : ""}" value="${esc(v[key] || "")}" style="margin-bottom:4px;" />`;
     }).join("");
     rowEl.innerHTML = `
-      <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" /></td>
+      <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" ${existingCodeReadonly} /></td>
       <td class="opt-text-cell">${langsHtml}</td>
       <td class="opt-correct-cell"><input class="opt-correct" type="checkbox" ${v.is_correct === "Y" ? "checked" : ""} /></td>
       <td class="opt-del-cell"><button type="button" class="warn del-opt">${esc(tr("admin.q_dialog.delete_option_row_btn"))}</button></td>
