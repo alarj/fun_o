@@ -636,6 +636,7 @@
       let mapDebugGpsHeading = null;
       let mapDebugGpsSpeed = null;
       const mapLayersByCode = {};
+      const MAP_HEADING_OFFSET_DEG = 180;
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
       const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
       let openCheckpointsClientCache = { key: "", ts: 0, items: [] };
@@ -1570,7 +1571,8 @@
 
       function applyMapHeading(headingDeg) {
         if (!compMap) return;
-        const bearing = ((-headingDeg % 360) + 360) % 360;
+        const adjustedHeading = normalizeDegrees(Number(headingDeg) + MAP_HEADING_OFFSET_DEG);
+        const bearing = ((-adjustedHeading % 360) + 360) % 360;
         if (typeof compMap.setBearing === "function") {
           compMap.setBearing(bearing);
           return;
@@ -1629,8 +1631,8 @@
         const now = Date.now();
         if (mapHeadingLastApplied != null) {
           const delta = Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
-          if (delta < 13 && now - mapHeadingLastAppliedAt < 420) return;
-        } else if (now - mapHeadingLastAppliedAt < 420) {
+          if (delta < 10 && now - mapHeadingLastAppliedAt < 620) return;
+        } else if (now - mapHeadingLastAppliedAt < 620) {
           return;
         }
         mapHeadingLastApplied = mapHeadingSmoothed;
@@ -1724,7 +1726,7 @@
         const delta = mapHeadingLastApplied == null
           ? 999
           : Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
-        if (delta >= 18 || now - mapHeadingLastAppliedAt >= 520) {
+        if (delta >= 14 || now - mapHeadingLastAppliedAt >= 760) {
           mapHeadingLastApplied = mapHeadingSmoothed;
           mapHeadingLastAppliedAt = now;
           applyMapHeading(mapHeadingSmoothed);

@@ -76,6 +76,7 @@ Tehnilised detailid on kirjeldatud olemasolevates dokumentides:
 - asukohaloogika reeglid: [docs/location_rules.md](docs/location_rules.md)
 - liitumise ja osaluse reeglid: [docs/competitor_join_rules.md](docs/competitor_join_rules.md)
 - backendi API/integreerimisdetailid: [backend/README.md](backend/README.md)
+  - sisaldab ka eraldi jaotist geograafilise kauguse arvutusest (KP avatavus + `total_distance_m`)
 - juurutus (HTTPS): [docs/deploy/https-letsencrypt.md](docs/deploy/https-letsencrypt.md)
 - koormustestid: [testing/load/README.md](testing/load/README.md)
 
@@ -94,3 +95,41 @@ Algne visioon oli teha mobiilirakendus orienteerumisvõistlustele. Teostus on ku
 Süsteem võimaldab kiirelt ja lihtsalt sisustada seminarida ja suvepäevade puhkepause, viies osalejad laua tagant õue liikuma.
 
 Loodud süsteem võib olla kasulik ka koolide õppetöös -- ülesandeid saab õpilane lahendada "harjumuspärases keskkonnas" (mobiilis) kuid ülesanded saab luua viisil, et lahendamiseks ei piisa vaid ekraani kerimisest. Ülesande nägemiseks tuleb minna kindlasse kohta, st. esmalt peab liikuma ja alles seejärel saab anda vastuseid.
+
+## Arenguvõimalus (PWA vs wrapper vs native, frontend raamistikud)
+
+Praegune arhitektuur (vanilla JS frontend + FastAPI + ORDS) on üles ehitatud nii, et äriloogika on backendis ja frontend on peamiselt esitluskiht. See tähendab, et sama API-d saab kasutada ka tulevikus mobiilirakenduse jaoks ilma suurt backendi ümbertegemist nõudmata.
+
+Mobiilisuuna valik:
+- **PWA (olemasoleva webi jätk)**: kõige väiksem risk ja kulu, kiireim areng.
+- **Lightweight wrapper app (WebView/Capacitor)**: sobib, kui on vaja äpipoodides kohalolu, säilitades suure osa olemasolevast frontendist.
+- **Native app**: suurim investeering; mõistlik siis, kui on selge vajadus native-võimekuste järele (nt tugev offline, background geolocation, push-teavitused, väga sujuv kaardikogemus).
+
+Frontend-tehnoloogia valik:
+- Vanilla JS -> Angular/React/Vue migratsioon on sisuliselt **frontendi rewrite**.
+- **React** on kõige praktilisem, kui eesmärk on hiljem liikuda ka Android/iOS äpiks (React Native/Expo tee).
+- **Angular** sobib hästi enterprise webi jaoks, kuid mobile tee on üldiselt vähem loomulik kui React Native suund.
+- Leaflet jääb **webis** hästi kasutatavaks; native-äpis kasutatakse tavaliselt natiivseid kaardikomponente.
+
+Soovituslik järjekord:
+1. Tugevdada olemasolevat PWA/webi.
+2. Vajadusel lisada lightweight wrapper äpp.
+3. Native äppi minna alles siis, kui äriline vajadus on tõendatud.
+
+## Võimalik jõudluse parandamise suund: ORDS vahekihi vähendamine või eemaldamine
+
+Tänases keskkonnas (Oracle Always Free) on ORDS kasutusel jagatud ja piiratud ressursiga teenusena, mis võib kujuneda pudelikaelaks. Projekti koormustestide tulemused viitavad, et koormuse all tekib piirang eeskätt ORDS kihis, samal ajal kui andmebaasi protsessori- ja IO-koormus ei olnud märkimisväärne ([testing/load/README.md](testing/load/README.md)).
+
+Seetõttu on üheks võimalikuks jõudluse tõstmise variandiks FastAPI ühendamine Oracle andmebaasiga otse (ilma ORDS vahenduseta), säilitades võimalusel äriloogika jätkuvalt DB pakettides/protseduurides. See võib vähendada ORDS-ist tulenevat latentsust ja läbilaskevõime piiranguid.
+
+Oluline on arvestada, et tegemist on keskmise kuni suure arhitektuurimuudatusega:
+- FastAPI ORDS-kutsete (`httpx`) asendamine otse DB-draiveri (`python-oracledb`) kasutusega.
+- ORDS JSON-lepingu (`items`, `access_granted` jms) asendamine uue andmekaardistusega API vastustesse.
+- Vea-, timeouti-, retry- ja connection pooli halduse suurem vastutus FastAPI kihis.
+
+Praktiliselt sobib see etapiviisiliseks teostuseks: esmalt POC/benchmark kõige koormatumatel endpointidel, seejärel otsus, kas migratsiooni laiendada.
+
+Praktiline vahevariant on teha esmalt "targeted bypass" ainult kõige kuumemale päringule (näiteks KP läheduse kontroll), kus FastAPI kutsub otse ühte konkreetset PL/SQL package/procedure API-t. Sellisel juhul saab säilitada turvapõhimõtte:
+- FastAPI DB-kasutajale ei anta otseseid õigusi andmetabelitele.
+- Antakse ainult vajalik `EXECUTE` õigus konkreetsele package/procedure'ile.
+- Ärireeglid ja andmepäringud jäävad jätkuvalt DB kihis hallatavaks.
