@@ -165,3 +165,28 @@ Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sa
   - KP raadius mõjutab kaardil kuvatavat ringi;
   - kui KP-l raadius puudub, kasutatakse võistluse vaikeraadiust.
 - Uue KP loomisel tsentreeritakse kaart viimati sisestatud KP asukohale (sama võistluse piires), et vältida iga kord nullist suumimist.
+
+### 12a. Admin kaardireeglid S-tüübi korral
+
+Rakendub kahele kaardile:
+- “Näita kaardil” modal.
+- “Uus KP / Muuda KP” modali “Olemasolevad KP-d” kaardikiht.
+
+Reeglid:
+- Kui `competition.type='S'`:
+  - KP järjekorranumber kuvatakse kaardil iga KP tähise juures.
+  - KP-d ühendatakse `order_no ASC` järgi.
+  - Ühendusjoone värv võetakse segmendi siht-KP tähise värvist (punane/lilla).
+  - Joone paksus võrdub KP tähise joone paksusega.
+  - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
+- Kui `competition.type!='S'`:
+  - järjekorranumbreid ega ühendusjooni ei kuvata.
+
+Lõikumise reegel:
+- Kui kaks ühendussegmenti lõikuvad, siis väiksema `order_no` segmendile tehakse lõikekohas katkestus.
+- Suurema `order_no` segment jääb terveks.
+- Katkestuse suurus on ligikaudu 20 px (10 px kummalegi poole lõikepunkti).
+
+Esmarenderduse reegel (“Näita kaardil”):
+- Numbrilabelite dünaamiline paigutus arvutatakse pärast kaardi vaate paigaseadmist (`setView`/`fitBounds`) ja `invalidateSize()` etappi.
+- See väldib olukorda, kus labeli asukoht on modali avamisel vale, kuid zoomimisel läheb õigeks.
