@@ -238,6 +238,7 @@ class CompetitorCompetition(BaseModel):
     competition_id: int
     name: str
     description: str | None = None
+    type: str | None = None
     starts_at: str | None = None
     ends_at: str | None = None
     use_location: str | None = None
@@ -634,6 +635,7 @@ class AdminUpdateCompetitionMetaRequest(BaseModel):
     competition_id: int
     name: str
     description: str | None = None
+    type: str = "R"
     status: str = "ACTIVE"
     use_location: str | None = None
     show_competitor_location: str | None = None
@@ -1801,6 +1803,7 @@ async def competitor_competitions(  # NOSONAR
                         competition_id=cid,
                         name=name,
                         description=item.get("description") if isinstance(item.get("description"), str) else None,
+                        type=item.get("type") if isinstance(item.get("type"), str) else None,
                         starts_at=item.get("starts_at") if isinstance(item.get("starts_at"), str) else None,
                         ends_at=item.get("ends_at") if isinstance(item.get("ends_at"), str) else None,
                         use_location=item.get("use_location") if isinstance(item.get("use_location"), str) else None,
@@ -2848,12 +2851,14 @@ async def admin_update_competition_dates(req: AdminUpdateCompetitionDatesRequest
 @app.post("/api/admin/competitions/meta")
 async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
     user_id = _require_google_session_user(request, x_user_id)
+    competition_type = str(req.type or "R").strip().upper() or "R"
     await _post_to_ords(
         "admin/competitions/meta",
         {
             "competition_id": req.competition_id,
             "name": req.name,
             "description": req.description,
+            "type": competition_type,
             "status": req.status,
             "use_location": req.use_location,
             "show_competitor_location": req.show_competitor_location,

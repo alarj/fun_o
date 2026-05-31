@@ -52,6 +52,7 @@ erDiagram
         number competition_id PK
         varchar2 name
         varchar2 description
+        varchar2 type
         varchar2 status
         varchar2 use_location
         varchar2 show_competitor_location

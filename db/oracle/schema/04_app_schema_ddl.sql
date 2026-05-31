@@ -65,6 +65,7 @@ create table competitions (
   competition_id number primary key,
   name varchar2(200) not null,
   description varchar2(2000),
+  type varchar2(1) default 'R' not null,
   status varchar2(30) not null,
   use_location varchar2(1) default 'N' not null,
   show_competitor_location varchar2(1) default 'Y' not null,
@@ -80,6 +81,7 @@ create table competitions (
   constraint fk_comp_created_by foreign key (created_by) references users(user_id),
   constraint fk_comp_updated_by foreign key (updated_by) references users(user_id),
   constraint chk_comp_dates check (end_date is null or end_date >= start_date),
+  constraint chk_comp_type check (type in ('R','S')),
   constraint chk_comp_use_location check (use_location in ('Y','N')),
   constraint chk_comp_show_comp_loc check (show_competitor_location in ('Y','N')),
   constraint chk_comp_radius check (radius_m is null or radius_m > 0)

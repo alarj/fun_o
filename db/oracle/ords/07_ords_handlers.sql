@@ -1949,6 +1949,7 @@ begin
           p_competition_id => l_body.get_number('competition_id'),
           p_name           => l_body.get_string('name'),
           p_description    => case when l_body.has('description') then l_body.get_string('description') else null end,
+          p_type           => case when l_body.has('type') then l_body.get_string('type') else 'R' end,
           p_status         => case when l_body.has('status') then l_body.get_string('status') else 'ACTIVE' end,
           p_use_location   => case when l_body.has('use_location') then l_body.get_string('use_location') else null end,
           p_show_competitor_location => case when l_body.has('show_competitor_location') then l_body.get_string('show_competitor_location') else null end,
