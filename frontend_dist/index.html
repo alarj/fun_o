@@ -631,12 +631,22 @@
       let mapHeadingCurrent = null;
       let mapHeadingHasSignal = false;
       let mapHeadingCompassSeenAt = 0;
+      let mapHeadingState = "COMPASS_ONLY";
+      let mapHeadingGpsStableCount = 0;
+      let mapHeadingCompassRaw = null;
+      let mapHeadingGpsRaw = null;
+      let mapHeadingBiasDeg = 0;
       let mapDebugRawAlpha = null;
       let mapDebugRawCompass = null;
       let mapDebugGpsHeading = null;
       let mapDebugGpsSpeed = null;
       const mapLayersByCode = {};
-      const MAP_HEADING_OFFSET_DEG = 180;
+      const MAP_HEADING_OFFSET_DEG = 0;
+      const HEADING_SPEED_LOW_MPS = 1.0;
+      const HEADING_SPEED_HIGH_MPS = 1.5;
+      const HEADING_GPS_ACC_MAX_M = 25;
+      const HEADING_BIAS_ALPHA = 0.03;
+      const HEADING_BIAS_MAX_DEG = 45;
       const OPEN_CHECKPOINTS_CLIENT_THROTTLE_MS = 2000;
       const COMP_PROGRESS_TTL_MS = 3 * 60 * 60 * 1000;
       let openCheckpointsClientCache = { key: "", ts: 0, items: [] };
@@ -1551,6 +1561,7 @@
         if (!show) return;
         box.textContent =
           `mode=${mapHeadingMode ? "on" : "off"} signal=${mapHeadingHasSignal ? "yes" : "no"}\n` +
+          `state=${mapHeadingState} bias=${formatHeadingDebugNum(mapHeadingBiasDeg)}\n` +
           `setBearing=${(compMap && typeof compMap.setBearing === "function") ? "yes" : "no"}\n` +
           `alpha=${formatHeadingDebugNum(mapDebugRawAlpha)} webkit=${formatHeadingDebugNum(mapDebugRawCompass)}\n` +
           `gpsHeading=${formatHeadingDebugNum(mapDebugGpsHeading)} gpsSpeed=${formatHeadingDebugNum(mapDebugGpsSpeed)}\n` +
@@ -1610,35 +1621,129 @@
         return null;
       }
 
-      function onDeviceOrientation(evt) {
-        if (!mapHeadingMode) return;
-        mapDebugRawAlpha = Number.isFinite(Number(evt?.alpha)) ? Number(evt.alpha) : null;
-        mapDebugRawCompass = Number.isFinite(Number(evt?.webkitCompassHeading)) ? Number(evt.webkitCompassHeading) : null;
-        const heading = normalizeHeadingEvent(evt);
-        if (!Number.isFinite(heading)) {
-          updateHeadingDebugBox();
+      function canUseGpsHeading() {
+        const speed = Number(mapDebugGpsSpeed);
+        const acc = Number(state.geo.radius_m);
+        return Number.isFinite(Number(mapHeadingGpsRaw))
+          && Number.isFinite(speed)
+          && speed >= HEADING_SPEED_LOW_MPS
+          && Number.isFinite(acc)
+          && acc > 0
+          && acc <= HEADING_GPS_ACC_MAX_M;
+      }
+
+      function headingBlendWeight() {
+        const speed = Number(mapDebugGpsSpeed);
+        if (!Number.isFinite(speed)) return 0;
+        if (speed <= HEADING_SPEED_LOW_MPS) return 0;
+        if (speed >= HEADING_SPEED_HIGH_MPS) return 1;
+        return (speed - HEADING_SPEED_LOW_MPS) / (HEADING_SPEED_HIGH_MPS - HEADING_SPEED_LOW_MPS);
+      }
+
+      function setHeadingState(nextState) {
+        mapHeadingState = nextState;
+      }
+
+      function updateHeadingState() {
+        const speed = Number(mapDebugGpsSpeed);
+        const gpsTrusted = canUseGpsHeading();
+        if (!gpsTrusted) {
+          mapHeadingGpsStableCount = 0;
+          setHeadingState("COMPASS_ONLY");
           return;
         }
+        mapHeadingGpsStableCount = Math.min(10, mapHeadingGpsStableCount + 1);
+        if (!Number.isFinite(speed)) {
+          setHeadingState("COMPASS_ONLY");
+          return;
+        }
+        if (speed >= HEADING_SPEED_HIGH_MPS && mapHeadingGpsStableCount >= 2) {
+          setHeadingState("GPS_PRIMARY");
+          return;
+        }
+        if (speed >= HEADING_SPEED_LOW_MPS) {
+          setHeadingState("BLEND");
+          return;
+        }
+        setHeadingState("COMPASS_ONLY");
+      }
+
+      function blendAngles(fromDeg, toDeg, weight) {
+        const w = Math.min(1, Math.max(0, Number(weight) || 0));
+        const diff = shortestAngleDiff(fromDeg, toDeg);
+        return normalizeDegrees(Number(fromDeg) + (diff * w));
+      }
+
+      function getCalibratedCompass() {
+        if (!Number.isFinite(Number(mapHeadingCompassRaw))) return null;
+        return normalizeDegrees(Number(mapHeadingCompassRaw) + Number(mapHeadingBiasDeg || 0));
+      }
+
+      function updateHeadingBias() {
+        if (mapHeadingState === "COMPASS_ONLY") return;
+        const comp = getCalibratedCompass();
+        const gps = normalizeDegrees(mapHeadingGpsRaw);
+        if (!Number.isFinite(comp) || !Number.isFinite(gps) || !canUseGpsHeading()) return;
+        const diff = shortestAngleDiff(comp, gps);
+        const nextBias = Number(mapHeadingBiasDeg || 0) + (diff * HEADING_BIAS_ALPHA);
+        mapHeadingBiasDeg = Math.max(-HEADING_BIAS_MAX_DEG, Math.min(HEADING_BIAS_MAX_DEG, nextBias));
+      }
+
+      function selectTargetHeading() {
+        const comp = getCalibratedCompass();
+        const gps = canUseGpsHeading() ? normalizeDegrees(mapHeadingGpsRaw) : null;
+        if (mapHeadingState === "GPS_PRIMARY" && Number.isFinite(gps)) return gps;
+        if (mapHeadingState === "BLEND" && Number.isFinite(comp) && Number.isFinite(gps)) {
+          return blendAngles(comp, gps, headingBlendWeight());
+        }
+        if (Number.isFinite(comp)) return comp;
+        if (Number.isFinite(gps)) return gps;
+        return null;
+      }
+
+      function pushHeadingToMap(nextHeading, now) {
+        if (!Number.isFinite(nextHeading)) return;
         mapHeadingHasSignal = true;
-        mapHeadingCompassSeenAt = Date.now();
-        mapHeadingCurrent = normalizeDegrees(heading);
+        mapHeadingCurrent = normalizeDegrees(nextHeading);
         if (mapHeadingSmoothed == null) {
           mapHeadingSmoothed = mapHeadingCurrent;
         } else {
           const diff = shortestAngleDiff(mapHeadingSmoothed, mapHeadingCurrent);
-          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.045));
+          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.04));
         }
-        const now = Date.now();
         if (mapHeadingLastApplied != null) {
           const delta = Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
-          if (delta < 10 && now - mapHeadingLastAppliedAt < 620) return;
-        } else if (now - mapHeadingLastAppliedAt < 620) {
+          if (delta < 8 && now - mapHeadingLastAppliedAt < 760) return;
+        } else if (now - mapHeadingLastAppliedAt < 760) {
           return;
         }
         mapHeadingLastApplied = mapHeadingSmoothed;
         mapHeadingLastAppliedAt = now;
         applyMapHeading(mapHeadingSmoothed);
+      }
+
+      function refreshHeadingOutput(sourceTag) {
+        if (!mapHeadingMode) return;
+        updateHeadingState();
+        updateHeadingBias();
+        const target = selectTargetHeading();
+        if (Number.isFinite(target)) {
+          pushHeadingToMap(target, Date.now());
+        } else {
+          mapHeadingHasSignal = false;
+        }
+        if (sourceTag === "compass") mapHeadingCompassSeenAt = Date.now();
+        updateHeadingButton();
         updateHeadingDebugBox();
+      }
+
+      function onDeviceOrientation(evt) {
+        if (!mapHeadingMode) return;
+        mapDebugRawAlpha = Number.isFinite(Number(evt?.alpha)) ? Number(evt.alpha) : null;
+        mapDebugRawCompass = Number.isFinite(Number(evt?.webkitCompassHeading)) ? Number(evt.webkitCompassHeading) : null;
+        const heading = normalizeHeadingEvent(evt);
+        mapHeadingCompassRaw = Number.isFinite(heading) ? normalizeDegrees(heading) : null;
+        refreshHeadingOutput("compass");
       }
 
       function attachHeadingListener() {
@@ -1676,6 +1781,11 @@
           mapHeadingLastApplied = null;
           mapHeadingCurrent = null;
           mapHeadingHasSignal = false;
+          mapHeadingCompassRaw = null;
+          mapHeadingGpsRaw = null;
+          mapHeadingGpsStableCount = 0;
+          mapHeadingState = "COMPASS_ONLY";
+          mapHeadingBiasDeg = 0;
           resetMapHeadingRotation();
           updateHeadingButton();
           return;
@@ -1687,6 +1797,10 @@
           mapHeadingLastApplied = null;
           mapHeadingLastAppliedAt = 0;
           mapHeadingHasSignal = false;
+          mapHeadingCompassRaw = null;
+          mapHeadingGpsRaw = null;
+          mapHeadingGpsStableCount = 0;
+          mapHeadingState = "COMPASS_ONLY";
           if (Number.isFinite(mapHeadingCurrent)) {
             applyMapHeading(mapHeadingCurrent);
           }
@@ -1701,38 +1815,10 @@
 
       function applyHeadingFromGps(headingValue) {
         if (!mapHeadingMode) return;
-        // If compass events are available, prefer them and keep GPS heading as fallback only.
-        if (Date.now() - mapHeadingCompassSeenAt < 4000) {
-          updateHeadingDebugBox();
-          return;
-        }
         const heading = Number(headingValue);
         mapDebugGpsHeading = Number.isFinite(heading) ? heading : null;
-        const speed = Number(mapDebugGpsSpeed);
-        if (!Number.isFinite(speed) || speed < 1.8) {
-          updateHeadingDebugBox();
-          return;
-        }
-        if (!Number.isFinite(heading) || heading < 0) return;
-        mapHeadingHasSignal = true;
-        mapHeadingCurrent = ((heading % 360) + 360) % 360;
-        if (mapHeadingSmoothed == null) {
-          mapHeadingSmoothed = mapHeadingCurrent;
-        } else {
-          const diff = shortestAngleDiff(mapHeadingSmoothed, mapHeadingCurrent);
-          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.035));
-        }
-        const now = Date.now();
-        const delta = mapHeadingLastApplied == null
-          ? 999
-          : Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
-        if (delta >= 14 || now - mapHeadingLastAppliedAt >= 760) {
-          mapHeadingLastApplied = mapHeadingSmoothed;
-          mapHeadingLastAppliedAt = now;
-          applyMapHeading(mapHeadingSmoothed);
-        }
-        updateHeadingButton();
-        updateHeadingDebugBox();
+        mapHeadingGpsRaw = Number.isFinite(heading) && heading >= 0 ? normalizeDegrees(heading) : null;
+        refreshHeadingOutput("gps");
       }
 
       async function ensureHeadingPermission() {

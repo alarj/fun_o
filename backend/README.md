@@ -1,22 +1,75 @@
 # FastAPI <-> ORDS integration notes
 
 FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
-- POST `/auth/google/upsert`
-- POST `/auth/dev/resolve-user` (dev-only login helper)
-- POST `/competitions/register`
-- POST `/submissions`
-- GET `/competitor/competitions?user_id=...`
-- GET `/competitor/open-checkpoints?competition_id=...&user_id=...`
-- GET `/results/score?competition_id=...&user_id=...`
-- GET `/organizer/leaderboard?competition_id=...`
-- GET `/i18n/translations?lang=...&default_lang=...`
+- POST `/auth/google/upsert` - loob/uuendab Google kasutaja kirje ja tagastab `user_id`.
+- POST `/auth/dev/resolve-user` (dev-only login helper) - leiab või loob dev-kasutaja (`user_id`/`email`) testlogini jaoks.
+- GET `/auth/has-role?user_id=...&role_code=...` - kontrollib, kas kasutajal on nõutud roll (nt superadmin).
+- GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`) sessiooni rikastamiseks.
+- POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
+- POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
+- POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse.
+- POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
+- POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
+- GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
+- GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab küsimuste avamiseks lubatud KP-d (lõplik serveripoolne otsus).
+- GET `/competitor/map-checkpoints?competition_id=...&user_id=...` - tagastab kaardivaate KP andmed (asukohad, staatused, answered lipud).
+- GET `/competitor/progress?competition_id=...&user_id=...` - tagastab osaleja progressi kokkuvõtte (KP-de arv, vastatud, skoor).
+- GET `/competitor/my-submissions?competition_id=...&user_id=...` - toob osaleja enda vastuste loendi.
+- GET `/competitor/my-submission-detail?competition_id=...&submission_id=...&lang_code=...&user_id=...` - toob osaleja ühe vastuse detailvaate.
+- GET `/competitor/session-by-participant?user_id=...&competition_participant_id=...` - valideerib osalus-sessiooni ja tagastab aktiivse osaluse andmed.
+- GET `/competitor/terms?competition_id=...&user_id=...&lang_code=...` - tagastab võistluse osalustingimused valitud keeles.
+- GET `/results/score?competition_id=...&user_id=...` - tagastab kasutaja skoori võistluses.
+- GET `/organizer/leaderboard?competition_id=...` - tagastab korraldaja leaderboardi (punktid, tempo, distants jms).
+- GET `/organizer/checkpoint-results?competition_id=...` - tagastab KP-põhise koondstatistika korraldajale.
+- GET `/organizer/checkpoint-responders?competition_id=...&checkpoint_id=...` - tagastab konkreetsele KP-le vastanud osalejad.
+- GET `/organizer/participant-submissions?competition_id=...&user_id=...` - tagastab valitud osaleja vastuste ajajoone + koondnäitajad.
+- GET `/organizer/submission-detail?competition_id=...&user_id=...&submission_id=...` - tagastab korraldajale ühe vastuse detaili.
+- GET `/i18n/translations?lang=...&default_lang=...` - tagastab UI tõlked valitud keele jaoks.
+- GET `/admin/competitions?user_id=...` - tagastab admini hallatavate võistluste loendi.
+- GET `/admin/competition-overview?competition_id=...` - tagastab valitud võistluse admin ülevaateandmed.
+- GET `/admin/questions-overview?competition_id=...` - tagastab küsimuste/KP-de ülevaate admin halduses.
+- GET `/admin/checkpoints?competition_id=...` - tagastab valitud võistluse KP-de loendi.
+- GET `/admin/competitions/map-layers?competition_id=...` - tagastab võistlusele lubatud kaardikihtide sidumise.
+- GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
+- POST `/admin/checkpoints` - loob uue kontrollpunkti.
+- POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
+- POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete.
+- POST `/admin/questions` - loob uue küsimuse kontrollpunkti alla.
+- POST `/admin/questions/update` - uuendab küsimust ja seotud valikuid/vastuseid.
+- POST `/admin/questions/delete` - teeb küsimuse soft-delete.
+- POST `/admin/question-options` - lisab valikvastuse küsimusele.
+- POST `/admin/question-answers` - lisab tekstvastuse/õige vastuse reegli küsimusele.
+- POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
+- POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
+- POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
+- POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, staatus, location lipud jne).
+- POST `/admin/competitions/terms` - salvestab võistluse tingimuste teksti.
+- GET `/superadmin/competitions` - tagastab kõik võistlused superadmin vaates.
+- GET `/superadmin/translations` - tagastab tõlgete halduse andmed (filtrid + kirjed).
+- POST `/superadmin/competitions` - loob uue võistluse superadmini kaudu.
+- POST `/superadmin/competitions/copy` - kopeerib olemasoleva võistluse seadistused/sisu.
+- POST `/superadmin/organizers/remove` - eemaldab kasutaja korraldaja rollist valitud võistlusel.
+- POST `/superadmin/translations/upsert` - lisab/uuendab tõlkekirje.
+- POST `/superadmin/translations/delete` - teeb tõlkekirje soft-delete.
 
 Expected ORDS JSON responses:
 - `auth/google/upsert` -> `{ "user_id": 123 }`
+- `auth/dev/resolve-user` -> `{ "user_id": 123 }`
+- `auth/has-role` -> `{ "has_role":"Y|N" }`
+- `auth/user-profile` -> `{ "email":"...", "full_name":"..." }`
 - `competitions/register` -> `{ "competition_id": 456 }`
+- `organizers/register` -> `{ "competition_id": 456 }`
 - `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42 }`
+- `competitor/join-preview` -> `{ "competition_id": 1, "competition_name":"...", "already_active_for_user":"Y|N", "terms": {...} }`
+- `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "..." }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
+- `competitor/map-checkpoints` -> `{ "items": [...] }`
+- `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
+- `competitor/my-submissions` -> `{ "items": [...] }`
+- `competitor/my-submission-detail` -> `{ ... }`
+- `competitor/session-by-participant` -> `{ "participant": {...} }`
+- `competitor/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `results/score` -> `{ "score": 42 }`
 - `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
 - `organizer/checkpoint-results` -> `{ "access_granted":"Y|N", "items":[...] }`
@@ -24,17 +77,38 @@ Expected ORDS JSON responses:
 - `organizer/participant-submissions` -> `{ "access_granted":"Y|N", "items":[...], "total_elapsed_seconds":1234, "total_distance_m":2460, "distance_available":"Y|N" }`
 - `organizer/submission-detail` -> `{ "access_granted":"Y|N", ... }`
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
+- `admin/competitions` -> `{ "items": [...] }`
+- `admin/competition-overview` -> `{ ... }`
+- `admin/questions-overview` -> `{ "items": [...] }`
+- `admin/checkpoints` -> `{ "items": [...] }`
+- `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
+- `admin/competitions/terms` -> `{ "competition_id":1, "terms": {...} }`
+- `admin/checkpoints` -> `{ "checkpoint_id": 123 }`
+- `admin/questions` -> `{ "question_id": 456 }`
+- `admin/question-options` -> `{ "option_id": 789 }`
+- `admin/question-answers` -> `{ "answer_id": 321 }`
+- `admin/access-codes` -> `{ "access_code_id": 654 }`
+- `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
+- `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
+- `superadmin/translations` -> `{ "items": [...] }`
+- `superadmin/organizers/remove` -> `{ "ok": true }` or empty 200 JSON
+- `superadmin/translations/upsert|delete` -> `{ "ok": true }` or empty 200 JSON
 
 Session cookie flow:
 - `POST /api/auth/google` now sets an HttpOnly session cookie (`SESSION_COOKIE_NAME`, default `funo_session`).
-- `POST /api/dev/login` can set the same cookie in dev mode (`APP_ENV=dev`) without Google token.
-- Protected endpoints resolve user from session cookie first.
+- `POST /api/dev/login` sets competitor session cookie (`COMPETITOR_SESSION_COOKIE_NAME`, default `funo_competitor_session`) in dev mode (`APP_ENV=dev`).
+- `POST /api/competitor/join-complete` sets both competitor cookies:
+  - `COMPETITOR_SESSION_COOKIE_NAME` (signed session payload incl. user/participant)
+  - `COMPETITOR_PARTICIPATION_COOKIE_NAME` (active participant id token)
+- `GET /api/competitor/session` validates competitor cookies against ORDS (`competitor/session-by-participant`) and refreshes cookie TTL.
+- `POST /api/auth/logout` currently clears only `SESSION_COOKIE_NAME` (Google/admin session).
+- Protected admin/superadmin endpoints resolve user from `SESSION_COOKIE_NAME`; competitor endpoints resolve user from competitor cookies.
 - `user_id` in payload and `x-user-id` header are optional guards; if sent, they must match session user.
 
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
+- Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
@@ -327,6 +401,18 @@ Scope:
   - `superadmin.html`
   - `results.html`
 
+### Admin SINGLE_CHOICE option update rules
+
+When updating question options (`replace_question_options_et`), use diff-based updates by `option_code`:
+- Existing option (same `option_code`): update `is_correct` and option texts only; do **not** renumber `order_no`.
+- New option (new `option_code`): insert with `order_no = max(active order_no) + 1`.
+- Missing option (not present in incoming payload): soft-delete option texts and option row.
+
+Important:
+- Keep all changes in one transaction (single commit).
+- Do not compact `order_no` gaps after delete (for example `1,2,4,5` is valid).
+- This avoids transient unique-index conflicts on active `(question_id, order_no)` during delete/update flows.
+
 ### 2) `map_layers_cache`
 - Purpose: parsed `backend/app/map_layers.json` (+ API key substitution).
 - Key: single global cache object (`items`, `loaded_at`).
@@ -409,3 +495,73 @@ Strict UI i18n implementation rule (all views):
   2) `.env LANG_DEFAULT`
   3) translation key string
 - Do not replace or alter icon glyphs/entities while making i18n-only text changes.
+
+## Geolocation Distance Logic (checkpoint access + results distance)
+
+This section documents how geographic distance is used in two separate backend flows:
+- checkpoint availability ("is competitor close enough to open question?")
+- results distance ("how many meters did competitor travel?")
+
+### 1) Checkpoint proximity and question availability
+
+Main API entrypoints:
+- `POST /api/competitor/checkpoint-access`
+- `GET /api/competitor/open-checkpoints`
+
+FastAPI precheck (`/api/competitor/checkpoint-access`):
+- reads checkpoint metadata from `map_checkpoints_cache` (or refreshes from ORDS if cache miss/expired);
+- checks per checkpoint:
+  - not found -> `can_open=false, reason=not_found`
+  - already answered -> `can_open=false, reason=answered`
+  - `location_required='N'` -> `can_open=true, reason=no_location_required`
+  - missing user location for location-required checkpoint -> `can_open=false, reason=missing_location`
+- for location-required checkpoints with coordinates/radius available:
+  - computes distance with backend `_haversine_meters(lat1, lon1, lat2, lon2)`;
+  - compares against effective radius (`checkpoint.radius_m`, fallback to request `radius_m`);
+  - if outside radius -> reject immediately (`reason=too_far`) without ORDS roundtrip;
+  - if inside radius -> mark as candidate (`needs_ords=true`).
+- for uncertain cases (missing checkpoint geo or effective radius), also mark candidate (`needs_ords=true`).
+
+Final authority:
+- candidate checkpoint IDs are validated by ORDS `competitor/open-checkpoints`;
+- FastAPI maps ORDS result to `can_open=true/false` (`reason=open|not_open`);
+- this keeps database-side rule as final source of truth.
+
+ORDS/PLSQL side:
+- `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
+- location-required checkpoints are returned only when computed distance is within effective radius.
+
+### 2) Results distance (`total_distance_m`)
+
+Where shown:
+- organizer leaderboard (`/api/admin/leaderboard`)
+- organizer participant submissions detail (`/api/admin/participant-submissions`)
+
+Authority and calculation location:
+- `total_distance_m` is computed in Oracle package/SQL (not in FastAPI);
+- FastAPI only forwards returned value.
+
+How distance is computed in DB:
+- submission path is ordered by `submitted_at`, then `submission_id`;
+- each submission point uses:
+  - competitor submitted location (`submissions.latitude/longitude`) when available;
+  - fallback to checkpoint location (`checkpoints.latitude/longitude`) when submission location is missing;
+- segment distances between consecutive points are summed;
+- formula is the same spherical/Haversine-style expression (`6371000 * 2 * asin(sqrt(...))`);
+- result is rounded to meters (`round(sum(...))`).
+
+Availability flag:
+- `distance_available='Y'` only when at least two geo points exist in ordered path;
+- otherwise distance is `null` and availability is `N`.
+
+### 3) Performance and ORDS-load behavior
+
+To reduce ORDS pressure (important in limited shared environments):
+- `map_checkpoints_cache` (15 min TTL) avoids repeated checkpoint-metadata fetches;
+- `open_checkpoints_last_response` (2 sec throttle by geo signature) coalesces bursts;
+- FastAPI precheck drops obviously far checkpoints before ORDS call;
+- ORDS retry/backoff (`ORDS_RETRY_ATTEMPTS`, `ORDS_RETRY_BACKOFF_SECONDS`) mitigates transient pool saturation.
+
+### 4) Why two-stage decision exists
+
+FastAPI precheck is an optimization and UX helper. ORDS/DB remains authoritative for final open/not-open decision to keep rule consistency across clients and avoid trusting only edge-device input.

@@ -84,6 +84,48 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - FastAPI filtreerib kandidaadid;
   - ORDS-i pöördutakse ainult kandidaatide kinnitamiseks.
 
+## 7a. Kaardi suuna (`Heading-up`) reeglid
+
+- `Heading-up` nupp kuvatakse ainult siis, kui `show_competitor_location='Y'`.
+- Kui `Heading-up` on välja lülitatud, kaart jääb `north-up` režiimi (põhi üleval).
+- Kui `Heading-up` on sisse lülitatud, kaardi pööramine kasutab hübriidset allikaloogikat:
+  - `COMPASS_ONLY`: kasutatakse kompassi suunda (koos jooksva bias-korrektsiooniga).
+  - `BLEND`: kompassi ja GPS suuna kaalutud segu.
+  - `GPS_PRIMARY`: kasutatakse GPS liikumissuunda.
+
+State machine (kiirusepõhine):
+
+1. `COMPASS_ONLY`
+  - GPS suund pole usaldusväärne või kiirus on madal.
+2. `BLEND`
+  - GPS suund on usaldusväärne ja kiirus on vähemalt `1.0 m/s`.
+3. `GPS_PRIMARY`
+  - GPS suund on usaldusväärne ja kiirus on vähemalt `1.5 m/s` (stabiilselt järjest).
+
+GPS suuna usaldusväärsuse tingimused:
+
+- GPS heading (`coords.heading`) olemas;
+- kiirus vähemalt `1.0 m/s`;
+- asukoha täpsus (`accuracy_m`) piisav (kuni `25 m`).
+
+Kompassi bias-korrektsioon:
+
+- Kui süsteem on `BLEND` või `GPS_PRIMARY` režiimis, korrigeeritakse kompassi bias't aeglaselt GPS suuna suhtes.
+- Bias korrigeerimine on piiratud (clamp), et vältida liiga agressiivset triivi.
+- Eesmärk on vähendada seadmetevahelist püsivat suunanihket ning hoida madala kiiruse korral kompassisuund stabiilsem.
+
+Värina vähendamise reegel:
+
+- Kaardi bearingut ei uuendata iga sensorisammu peal.
+- Rakendatakse:
+  - nurga silumine (`low-pass`),
+  - minimaalne muutuse lävi (`deadzone`),
+  - minimaalne ajaintervall bearingu uuenduste vahel.
+
+Täpsustus:
+
+- Kompassirežiimis kasutatakse rakenduse sisest suuna offsetit (`MAP_HEADING_OFFSET_DEG`), et heading vastaks praktilisele kasutuskogemusele erinevates seadmetes.
+
 ## 8. Vastuse salvestamine
 
 - Võistleja asukoht vastamise hetkel salvestatakse `submissions` kirjele:
