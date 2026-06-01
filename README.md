@@ -1,6 +1,6 @@
 # fun_o
 
-`fun_o` on mobiilisõbralik veebisüsteem orienteerumisvõistluste korraldamiseks ja läbiviimiseks, kus kontrollpunktides (KP) vastatakse küsimustele ning punktiarvestus tekib automaatselt. 
+`fun_o` on mobiilisõbralik veebisüsteem orienteerumisvõistluste korraldamiseks ja läbiviimiseks, kus kontrollpunktides (KP) vastatakse küsimustele ning punktiarvestus on automaatne. 
 - Võistlusi saab luua nii mobiilis kuvatava kaardiga kui ka kaardita. Kaardirežiimis on võimalik kuvada võistleja asukohta ning lubada küsimustele vastata ainult kindlas piirkonnas viibides. 
 - Võistluste korraldamisel saab kasutada erinevaid avalikest allikatest pärit kaarte, nii Eesti-keskseid kaarte (nt Maa-ameti kaardid) kui laiema katvusega kaarte (nt OpenStreetMap, Mapy.cz jms.). 
 - Sama rakendust saab kasutada ka klassikaliste viktoriinide ja muude teadmismängude läbiviimiseks.
