@@ -20,5 +20,5 @@ jobs:
         with:
           gemini-key: ${{ secrets.GEMINI_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          model: "gemini-1.5-flash-latest"  # Kiire ja tasuta paketi mudel
+          model: "gemini/gemini-3.5-flash"  # Kiire ja tasuta paketi mudel
           prompt: "Palun tee sellele koodimuudatusele põhjalik ülevaatus. Kirjuta kogu tagasiside, märkused ja soovitused rangelt eesti keeles!"
