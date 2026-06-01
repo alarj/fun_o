@@ -2,23 +2,23 @@ name: Automaatne Tasuta AI Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize] # Käivitub alati, kui PR avatakse või sinna koodi juurde pushitakse
+    types: [opened, synchronize]
 
 jobs:
-  gemini_review:
+  review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write # Vajalik, et AI saaks kommentaare kirjutada
+      pull-requests: write
 
     steps:
       - name: Checkout kood
         uses: actions/checkout@v4
 
-      - name: Google Gemini Code Review
-        uses: google-gemini/gemini-review-action@v1 # <-- See on õige ametlik repositoorium
+      - name: Gemini AI ülevaatus
+        uses: sshnaidm/gemini-code-review-action@v2
         with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          model: "gemini-1.5-flash" # Kasutame kiiret ja tasuta mudelit
-          language: "et" # Palume AI-l kirjutada kommentaarid eesti keeles!
+          gemini-key: ${{ secrets.GEMINI_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          model: "gemini-1.5-flash"  # Kiire ja tasuta paketi mudel
+          prompt: "Palun tee sellele koodimuudatusele põhjalik ülevaatus. Kirjuta kogu tagasiside, märkused ja soovitused rangelt eesti keeles!"
