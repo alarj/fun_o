@@ -75,7 +75,10 @@
             <strong data-i18n="admin.comp.ends_label">admin.comp.ends_label</strong>
             <div id="cEnds2" style="margin-top:4px;">-</div>
           </div>
-          <div></div>
+          <div>
+            <strong data-i18n="admin.meta.type_label">admin.meta.type_label</strong>
+            <div id="cType" style="margin-top:4px;">-</div>
+          </div>
         </div>
         <div class="cols" style="margin-top:14px;">
           <div><strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div></div>
@@ -1813,6 +1816,7 @@
       byId("cName").textContent = "-";
       byId("cDesc").textContent = "";
       byId("cStatus").textContent = "";
+      byId("cType").textContent = "-";
       byId("cCreated").textContent = "";
       byId("cUpdated").textContent = "";
       byId("cStarts").textContent = "-";
@@ -1870,6 +1874,13 @@
     }
   }
 
+  function refreshCompetitionTypeDisplay() {
+    const compType = String(window.__lastCompetitionType || "R").toUpperCase();
+    const target = byId("cType");
+    if (!target) return;
+    target.textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
+  }
+
   async function loadView() {
     if (!byId("competitionSelect").value) return;
     const rememberedName = lastCompCookieName();
@@ -1896,9 +1907,11 @@
     }
     byId("cDesc").textContent = v.description || "";
     byId("cStatus").textContent = v.status || "";
+    const compType = String(v.type || "R").toUpperCase();
+    byId("cType").textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
     window.__lastCompetitionName = v.name || "";
     window.__lastCompetitionDescription = v.description || "";
-    window.__lastCompetitionType = (v.type || "R");
+    window.__lastCompetitionType = compType;
     window.__lastCompetitionStatus = v.status || "ACTIVE";
     window.__lastCompetitionUseLocation = v.use_location || "N";
     window.__lastCompetitionShowCompetitorLocation = v.show_competitor_location || "Y";
@@ -2602,12 +2615,14 @@
     currentUiLang = byId("uiLang").value || defaultLang;
     setCookie(uiLangCookieName, currentUiLang);
     await loadTranslations(currentUiLang);
+    refreshCompetitionTypeDisplay();
     renderRows();
   };
   byId("uiLangApp").onchange = async () => {
     currentUiLang = byId("uiLangApp").value || defaultLang;
     setCookie(uiLangCookieName, currentUiLang);
     await loadTranslations(currentUiLang);
+    refreshCompetitionTypeDisplay();
     renderRows();
   };
   byId("organizers").addEventListener("click", async (e) => {

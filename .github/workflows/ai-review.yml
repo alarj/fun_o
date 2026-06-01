@@ -1,0 +1,46 @@
+name: Automaatne AI Pull Request ja Review
+
+on:
+  push:
+    branches-ignore:
+      - main  # Ei käivitu otse maini pushides, vaid arendusharudes
+
+jobs:
+  create-pr-and-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      # 1. Võtame koodi GitHubi virtuaalmasinasse
+      - name: Checkout kood
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Luuakse automaatselt Pull Request suunaga 'main' harusse
+      - name: Loo Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Vibe coding muudatused serverist"
+          title: "Arendus: Uuendused harust ${{ github.ref_name }}"
+          body: |
+            ## 🤖 AI ülevaatuse töölaud
+            See Pull Request loodi automaatselt pärast serverist pushimist.
+            AI analüüsib koodi hetke pärast ja lisab ülevaatuse kommentaaridesse.
+          branch: "review-setup/${{ github.ref_name }}"
+          base: main
+
+      # 3. AI Code Review (PR-Agent käivitamine)
+      - name: PR-Agent AI ülevaatus
+        if: steps:cpr.outputs.pull-request-number != ''
+        uses: Codium-ai/pr-agent@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PR-Agent kasutab vaikimisi tasuta tasemel GitHubi enda mudeleid või Codiumi liidest
+          PR_REVIEWER.REQUIRE_TESTS_REVIEW: "false"
+          PR_REVIEWER.ENABLE_ANALYTICS: "false"
