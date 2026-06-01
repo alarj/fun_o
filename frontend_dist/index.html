@@ -636,6 +636,7 @@
       let mapHeadingCompassRaw = null;
       let mapHeadingGpsRaw = null;
       let mapHeadingBiasDeg = 0;
+      let mapHeadingBiasConfidence = 0;
       let mapDebugRawAlpha = null;
       let mapDebugRawCompass = null;
       let mapDebugGpsHeading = null;
@@ -644,6 +645,7 @@
       const MAP_HEADING_OFFSET_DEG = 0;
       const HEADING_SPEED_LOW_MPS = 1.0;
       const HEADING_SPEED_HIGH_MPS = 1.5;
+      const HEADING_SPEED_BLEND_EARLY_MPS = 0.7;
       const HEADING_GPS_ACC_MAX_M = 25;
       const HEADING_BIAS_ALPHA = 0.03;
       const HEADING_BIAS_MAX_DEG = 45;
@@ -1368,6 +1370,37 @@
         const cid = Number(state.selectedCompetitionId || 0);
         return cid > 0 ? `funo_comp_map_heading_c${cid}` : "funo_comp_map_heading";
       }
+      function getMapHeadingBiasStorageKey() {
+        const cid = Number(state.selectedCompetitionId || 0);
+        return cid > 0 ? `funo_comp_map_heading_bias_c${cid}` : "funo_comp_map_heading_bias";
+      }
+
+      function loadHeadingBiasFromStorage() {
+        try {
+          const raw = localStorage.getItem(getMapHeadingBiasStorageKey());
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const bias = Number(parsed?.bias_deg);
+          const confidence = Number(parsed?.confidence);
+          if (Number.isFinite(bias)) {
+            mapHeadingBiasDeg = Math.max(-HEADING_BIAS_MAX_DEG, Math.min(HEADING_BIAS_MAX_DEG, bias));
+          }
+          if (Number.isFinite(confidence)) {
+            mapHeadingBiasConfidence = Math.max(0, Math.min(1, confidence));
+          }
+        } catch {}
+      }
+
+      function saveHeadingBiasToStorage() {
+        try {
+          const payload = {
+            bias_deg: Number(mapHeadingBiasDeg || 0),
+            confidence: Number(mapHeadingBiasConfidence || 0),
+            updated_at: Date.now(),
+          };
+          localStorage.setItem(getMapHeadingBiasStorageKey(), JSON.stringify(payload));
+        } catch {}
+      }
 
       function saveCompMapView() {
         if (!compMap || !mapViewPersistenceEnabled) return;
@@ -1561,7 +1594,7 @@
         if (!show) return;
         box.textContent =
           `mode=${mapHeadingMode ? "on" : "off"} signal=${mapHeadingHasSignal ? "yes" : "no"}\n` +
-          `state=${mapHeadingState} bias=${formatHeadingDebugNum(mapHeadingBiasDeg)}\n` +
+          `state=${mapHeadingState} bias=${formatHeadingDebugNum(mapHeadingBiasDeg)} conf=${formatHeadingDebugNum(mapHeadingBiasConfidence)}\n` +
           `setBearing=${(compMap && typeof compMap.setBearing === "function") ? "yes" : "no"}\n` +
           `alpha=${formatHeadingDebugNum(mapDebugRawAlpha)} webkit=${formatHeadingDebugNum(mapDebugRawCompass)}\n` +
           `gpsHeading=${formatHeadingDebugNum(mapDebugGpsHeading)} gpsSpeed=${formatHeadingDebugNum(mapDebugGpsSpeed)}\n` +
@@ -1632,12 +1665,23 @@
           && acc <= HEADING_GPS_ACC_MAX_M;
       }
 
+      function canUseGpsHeadingEarly() {
+        const speed = Number(mapDebugGpsSpeed);
+        const acc = Number(state.geo.radius_m);
+        return Number.isFinite(Number(mapHeadingGpsRaw))
+          && Number.isFinite(speed)
+          && speed >= HEADING_SPEED_BLEND_EARLY_MPS
+          && Number.isFinite(acc)
+          && acc > 0
+          && acc <= HEADING_GPS_ACC_MAX_M;
+      }
+
       function headingBlendWeight() {
         const speed = Number(mapDebugGpsSpeed);
         if (!Number.isFinite(speed)) return 0;
-        if (speed <= HEADING_SPEED_LOW_MPS) return 0;
+        if (speed <= HEADING_SPEED_BLEND_EARLY_MPS) return 0;
         if (speed >= HEADING_SPEED_HIGH_MPS) return 1;
-        return (speed - HEADING_SPEED_LOW_MPS) / (HEADING_SPEED_HIGH_MPS - HEADING_SPEED_LOW_MPS);
+        return (speed - HEADING_SPEED_BLEND_EARLY_MPS) / (HEADING_SPEED_HIGH_MPS - HEADING_SPEED_BLEND_EARLY_MPS);
       }
 
       function setHeadingState(nextState) {
@@ -1647,8 +1691,13 @@
       function updateHeadingState() {
         const speed = Number(mapDebugGpsSpeed);
         const gpsTrusted = canUseGpsHeading();
+        const gpsEarly = canUseGpsHeadingEarly();
         if (!gpsTrusted) {
           mapHeadingGpsStableCount = 0;
+          if (gpsEarly) {
+            setHeadingState("BLEND");
+            return;
+          }
           setHeadingState("COMPASS_ONLY");
           return;
         }
@@ -1687,11 +1736,13 @@
         const diff = shortestAngleDiff(comp, gps);
         const nextBias = Number(mapHeadingBiasDeg || 0) + (diff * HEADING_BIAS_ALPHA);
         mapHeadingBiasDeg = Math.max(-HEADING_BIAS_MAX_DEG, Math.min(HEADING_BIAS_MAX_DEG, nextBias));
+        mapHeadingBiasConfidence = Math.min(1, Number(mapHeadingBiasConfidence || 0) + 0.05);
+        saveHeadingBiasToStorage();
       }
 
       function selectTargetHeading() {
         const comp = getCalibratedCompass();
-        const gps = canUseGpsHeading() ? normalizeDegrees(mapHeadingGpsRaw) : null;
+        const gps = (canUseGpsHeading() || canUseGpsHeadingEarly()) ? normalizeDegrees(mapHeadingGpsRaw) : null;
         if (mapHeadingState === "GPS_PRIMARY" && Number.isFinite(gps)) return gps;
         if (mapHeadingState === "BLEND" && Number.isFinite(comp) && Number.isFinite(gps)) {
           return blendAngles(comp, gps, headingBlendWeight());
@@ -1705,16 +1756,20 @@
         if (!Number.isFinite(nextHeading)) return;
         mapHeadingHasSignal = true;
         mapHeadingCurrent = normalizeDegrees(nextHeading);
+        const compassOnlyUncalibrated = mapHeadingState === "COMPASS_ONLY" && Number(mapHeadingBiasConfidence || 0) < 0.5;
+        const smoothingAlpha = compassOnlyUncalibrated ? 0.025 : 0.04;
+        const deadzoneDeg = compassOnlyUncalibrated ? 11 : 8;
+        const minIntervalMs = compassOnlyUncalibrated ? 900 : 760;
         if (mapHeadingSmoothed == null) {
           mapHeadingSmoothed = mapHeadingCurrent;
         } else {
           const diff = shortestAngleDiff(mapHeadingSmoothed, mapHeadingCurrent);
-          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * 0.04));
+          mapHeadingSmoothed = normalizeDegrees(mapHeadingSmoothed + (diff * smoothingAlpha));
         }
         if (mapHeadingLastApplied != null) {
           const delta = Math.abs(shortestAngleDiff(mapHeadingLastApplied, mapHeadingSmoothed));
-          if (delta < 8 && now - mapHeadingLastAppliedAt < 760) return;
-        } else if (now - mapHeadingLastAppliedAt < 760) {
+          if (delta < deadzoneDeg && now - mapHeadingLastAppliedAt < minIntervalMs) return;
+        } else if (now - mapHeadingLastAppliedAt < minIntervalMs) {
           return;
         }
         mapHeadingLastApplied = mapHeadingSmoothed;
@@ -2112,6 +2167,7 @@
         saveCompMapView();
         updateHeadingButton();
         if (canUseHeadingMode()) {
+          loadHeadingBiasFromStorage();
           const rememberedHeadingMode = String(getCookie(getMapHeadingCookieKey()) || "off").toLowerCase();
           setHeadingMode(rememberedHeadingMode === "on");
         } else {

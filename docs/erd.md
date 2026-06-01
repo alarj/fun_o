@@ -1,8 +1,5 @@
 # Andmemudeli ERD (v4)
 
-ERD skeem:
-
-![ERD](./erd.svg)
 
 ## Aktiivse kirje reegel
 
@@ -10,7 +7,7 @@ Aktiivne kirje on kirje, kus:
 - `end_date IS NULL` voi
 - `end_date > SYSDATE`
 
-Märkus: `submissions` tabelis soft-delete veerge (`start_date`, `end_date`) enam ei ole.
+Märkus: `submissions` tabelis soft-delete veerge (`start_date`, `end_date`) ei ole.
 
 ## ERD (Mermaid allikas)
 
@@ -52,6 +49,7 @@ erDiagram
         number competition_id PK
         varchar2 name
         varchar2 description
+        varchar2 type
         varchar2 status
         varchar2 use_location
         varchar2 show_competitor_location

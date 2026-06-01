@@ -2267,6 +2267,7 @@ create or replace package body pkg_competitor as
                'competition_id' value x.competition_id,
                'name' value x.name,
                'description' value x.description, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+               'type' value x.type,
                'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'use_location' value nvl(x.use_location, 'N'),
@@ -2278,6 +2279,7 @@ create or replace package body pkg_competitor as
         select c.competition_id,
                c.name,
                c.description,
+               nvl(c.type, 'R') as type,
                c.starts_at,
                c.ends_at,
                c.use_location,
@@ -2310,10 +2312,11 @@ create or replace package body pkg_competitor as
   ) is
     l_use_location varchar2(1) := 'N';
     l_comp_radius number;
+    l_comp_type varchar2(1) := 'R';
   begin
     begin
-      select nvl(c.use_location, 'N'), c.radius_m
-        into l_use_location, l_comp_radius
+      select nvl(c.use_location, 'N'), c.radius_m, nvl(c.type, 'R')
+        into l_use_location, l_comp_radius, l_comp_type
         from competitions c
        where c.competition_id = p_competition_id
          and (c.end_date is null or c.end_date > sysdate)
@@ -2328,6 +2331,8 @@ create or replace package body pkg_competitor as
              json_object(
                'checkpoint_id' value z.checkpoint_id,
                'checkpoint_title' value z.checkpoint_title,
+               'checkpoint_order_no' value z.checkpoint_order_no,
+               'competition_type' value z.competition_type,
                'question_id' value z.question_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'question_type' value z.question_type,
                'points' value z.points,
@@ -2348,6 +2353,8 @@ create or replace package body pkg_competitor as
       from (
         select cp.checkpoint_id,
                cp.title as checkpoint_title,
+               cp.order_no as checkpoint_order_no,
+               l_comp_type as competition_type,
                q.question_id,
                q.question_type,
                q.points,
@@ -2480,6 +2487,8 @@ create or replace package body pkg_competitor as
              json_object(
                'checkpoint_id' value x.checkpoint_id,
                'checkpoint_title' value x.checkpoint_title,
+               'checkpoint_order_no' value x.checkpoint_order_no,
+               'competition_type' value x.competition_type,
                'question_id' value x.question_id,
                'points' value x.points,
                'latitude' value x.latitude,
@@ -2495,6 +2504,8 @@ create or replace package body pkg_competitor as
       from (
         select cp.checkpoint_id,
                cp.title as checkpoint_title,
+               cp.order_no as checkpoint_order_no,
+               nvl(c.type, 'R') as competition_type,
                q.question_id,
                q.points,
                cp.latitude,
@@ -2513,6 +2524,8 @@ create or replace package body pkg_competitor as
                  else 'N'
                end as is_answered
           from checkpoints cp
+          join competitions c
+            on c.competition_id = cp.competition_id
           join questions q
             on q.checkpoint_id = cp.checkpoint_id
          where cp.competition_id = p_competition_id
@@ -2837,6 +2850,7 @@ create or replace package pkg_admin_content as
     p_competition_id in number,
     p_name in varchar2,
     p_description in varchar2,
+    p_type in varchar2,
     p_status in varchar2,
     p_use_location in varchar2,
     p_show_competitor_location in varchar2,
@@ -3013,6 +3027,7 @@ create or replace package body pkg_admin_content as
       json_object(
         'competition_id' value c.competition_id,
         'name' value c.name,
+        'type' value nvl(c.type, 'R'),
         'status' value c.status, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
         'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
         'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
@@ -3039,6 +3054,7 @@ create or replace package body pkg_admin_content as
         'competition_id' value c.competition_id,
         'name' value c.name,
         'description' value c.description,
+        'type' value nvl(c.type, 'R'),
         'status' value c.status,
         'use_location' value nvl(c.use_location, 'N'),
         'show_competitor_location' value nvl(c.show_competitor_location, 'N'),
@@ -3159,6 +3175,7 @@ create or replace package body pkg_admin_content as
     l_copy_organizers varchar2(1) := upper(trim(nvl(p_copy_organizers, 'N')));
     l_name competitions.name%type;
     l_description competitions.description%type;
+    l_type competitions.type%type;
     l_use_location competitions.use_location%type;
     l_show_competitor_location competitions.show_competitor_location%type;
     l_radius_m competitions.radius_m%type;
@@ -3176,11 +3193,13 @@ create or replace package body pkg_admin_content as
     begin
       select c.name,
              c.description,
+             nvl(c.type, 'R'),
              nvl(c.use_location, 'N'),
              nvl(c.show_competitor_location, 'N'),
              c.radius_m
         into l_name,
              l_description,
+             l_type,
              l_use_location,
              l_show_competitor_location,
              l_radius_m
@@ -3195,11 +3214,12 @@ create or replace package body pkg_admin_content as
 
     o_competition_id := seq_competitions.nextval;
     insert into competitions (
-      competition_id, name, description, status, use_location, show_competitor_location, radius_m, start_date, created_by, created_at
+      competition_id, name, description, type, status, use_location, show_competitor_location, radius_m, start_date, created_by, created_at
     ) values (
       o_competition_id,
       substr(l_name || ' (koopia)', 1, 255),
       l_description,
+      l_type,
       'DRAFT',
       l_use_location,
       case when l_use_location = 'Y' then l_show_competitor_location else 'N' end,
@@ -3450,6 +3470,7 @@ create or replace package body pkg_admin_content as
     p_competition_id in number,
     p_name in varchar2,
     p_description in varchar2,
+    p_type in varchar2,
     p_status in varchar2,
     p_use_location in varchar2,
     p_show_competitor_location in varchar2,
@@ -3457,12 +3478,16 @@ create or replace package body pkg_admin_content as
     p_updated_by in number
   ) is
     l_name varchar2(255) := trim(p_name);
+    l_type varchar2(1) := upper(trim(nvl(p_type, 'R')));
     l_status varchar2(30) := upper(trim(p_status));
     l_use_location varchar2(1) := upper(trim(nvl(p_use_location, 'N')));
     l_show_competitor_location varchar2(1) := upper(trim(nvl(p_show_competitor_location, 'Y')));
   begin
     if l_name is null then
       raise_application_error(-20120, 'competition name is required');
+    end if;
+    if l_type not in ('R', 'S') then
+      raise_application_error(-20125, 'invalid competition type');
     end if;
     if l_status not in ('ACTIVE', 'INACTIVE', 'DRAFT') then
       raise_application_error(-20121, 'invalid competition status');
@@ -3483,6 +3508,7 @@ create or replace package body pkg_admin_content as
     update competitions
        set name = l_name,
            description = p_description,
+           type = l_type,
            status = l_status,
            use_location = l_use_location,
            show_competitor_location = l_show_competitor_location,
@@ -3496,6 +3522,7 @@ create or replace package body pkg_admin_content as
       to_clob(json_object(
         'name' value l_name,
         'description' value p_description,
+        'type' value l_type,
         'status' value l_status,
         'use_location' value l_use_location,
         'show_competitor_location' value l_show_competitor_location,
@@ -3877,6 +3904,7 @@ create or replace package body pkg_admin_content as
       'competition_id' value c.competition_id,
       'name' value c.name,
       'description' value c.description,
+      'type' value nvl(c.type, 'R'),
       'status' value c.status,
       'use_location' value c.use_location,
       'show_competitor_location' value c.show_competitor_location,
@@ -4036,6 +4064,7 @@ create or replace package body pkg_admin_content as
   procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is
     l_dummy number;
     l_use_location varchar2(1);
+    l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
   begin
     if p_competition_id is null or trim(p_title) is null then
@@ -4049,11 +4078,14 @@ create or replace package body pkg_admin_content as
       raise_application_error(-20101, 'checkpoint title already exists in this competition');
     exception when no_data_found then null; end;
 
-    select use_location
-      into l_use_location
+    select use_location, nvl(type, 'R')
+      into l_use_location, l_comp_type
       from competitions
      where competition_id = p_competition_id
        and (end_date is null or end_date > sysdate);
+    if l_comp_type = 'S' and p_order_no is null then
+      raise_application_error(-20126, 'order_no is required for competition type S');
+    end if;
     if l_use_location <> 'Y' then
       l_location_required := 'N';
     end if;
@@ -4074,12 +4106,20 @@ create or replace package body pkg_admin_content as
     l_competition_id number;
     l_dummy number;
     l_use_location varchar2(1);
+    l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
   begin
     if p_checkpoint_id is null or trim(p_title) is null then raise_application_error(-20102, 'checkpoint_id and title are required'); end if;
 
     select competition_id into l_competition_id from checkpoints where checkpoint_id = p_checkpoint_id and (end_date is null or end_date > sysdate);
-    select use_location into l_use_location from competitions where competition_id = l_competition_id and (end_date is null or end_date > sysdate);
+    select use_location, nvl(type, 'R')
+      into l_use_location, l_comp_type
+      from competitions
+     where competition_id = l_competition_id
+       and (end_date is null or end_date > sysdate);
+    if l_comp_type = 'S' and p_order_no is null then
+      raise_application_error(-20127, 'order_no is required for competition type S');
+    end if;
     if l_use_location <> 'Y' then
       l_location_required := 'N';
     end if;

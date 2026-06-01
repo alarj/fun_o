@@ -42,7 +42,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
 - POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
 - POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
-- POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, staatus, location lipud jne).
+- POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, tüüp, staatus, location lipud jne).
 - POST `/admin/competitions/terms` - salvestab võistluse tingimuste teksti.
 - GET `/superadmin/competitions` - tagastab kõik võistlused superadmin vaates.
 - GET `/superadmin/translations` - tagastab tõlgete halduse andmed (filtrid + kirjed).
@@ -62,7 +62,7 @@ Expected ORDS JSON responses:
 - `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42 }`
 - `competitor/join-preview` -> `{ "competition_id": 1, "competition_name":"...", "already_active_for_user":"Y|N", "terms": {...} }`
 - `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
-- `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "..." }] }`
+- `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
 - `competitor/map-checkpoints` -> `{ "items": [...] }`
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
@@ -78,7 +78,7 @@ Expected ORDS JSON responses:
 - `organizer/submission-detail` -> `{ "access_granted":"Y|N", ... }`
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 - `admin/competitions` -> `{ "items": [...] }`
-- `admin/competition-overview` -> `{ ... }`
+- `admin/competition-overview` -> `{ ..., "type": "R|S" }`
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
@@ -222,7 +222,7 @@ Architecture rule for all ORDS endpoints:
 ### Competitions and access
 - `competitions`
   - `competition_id` PK
-  - `name`, `description`, `status`
+  - `name`, `description`, `type` (`R|S`), `status`
   - location flags: `use_location`, `show_competitor_location`, `radius_m`
   - schedule: `starts_at`, `ends_at`
   - soft-delete/audit columns
@@ -437,6 +437,9 @@ Important:
 - Key: `competition_id:user_id`.
 - TTL: `MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900` (15 min).
 - Filled: first request per key.
+- Additive payload fields (backward-compatible):
+  - `checkpoint_order_no`
+  - `competition_type` (`R|S`)
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.
@@ -451,6 +454,9 @@ Important:
 - Reuse condition: cached response is reused only when request geo signature matches
   (`latitude|longitude|radius_m` normalized to a stable signature).
 - Filled: each successful response.
+- Additive payload fields may include:
+  - `checkpoint_order_no`
+  - `competition_type` (`R|S`)
 - Invalidated/reset:
   - naturally overwritten by next response.
   - cleared together with map checkpoint cache on admin content mutations.

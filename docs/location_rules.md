@@ -98,7 +98,8 @@ State machine (kiirusepõhine):
 1. `COMPASS_ONLY`
   - GPS suund pole usaldusväärne või kiirus on madal.
 2. `BLEND`
-  - GPS suund on usaldusväärne ja kiirus on vähemalt `1.0 m/s`.
+  - GPS suund hakkab osalema juba alates kiirusest `0.7 m/s` (varajane blend), kui GPS headingu kvaliteet on piisav.
+  - Täiskaaluga GPS usaldamine algab alates `1.0 m/s`.
 3. `GPS_PRIMARY`
   - GPS suund on usaldusväärne ja kiirus on vähemalt `1.5 m/s` (stabiilselt järjest).
 
@@ -113,6 +114,7 @@ Kompassi bias-korrektsioon:
 - Kui süsteem on `BLEND` või `GPS_PRIMARY` režiimis, korrigeeritakse kompassi bias't aeglaselt GPS suuna suhtes.
 - Bias korrigeerimine on piiratud (clamp), et vältida liiga agressiivset triivi.
 - Eesmärk on vähendada seadmetevahelist püsivat suunanihket ning hoida madala kiiruse korral kompassisuund stabiilsem.
+- Bias salvestatakse lokaalselt seadmesse/võistlusesse, et järgmine kaardi avamine ei alustaks alati null-kalibreeringust.
 
 Värina vähendamise reegel:
 
@@ -124,7 +126,7 @@ Värina vähendamise reegel:
 
 Täpsustus:
 
-- Kompassirežiimis kasutatakse rakenduse sisest suuna offsetit (`MAP_HEADING_OFFSET_DEG`), et heading vastaks praktilisele kasutuskogemusele erinevates seadmetes.
+- Kompassirežiimis kasutatakse rakenduse sisest suuna offsetit (`MAP_HEADING_OFFSET_DEG`), mille vaikeväärtus on `0` (st lisanihet ei rakendata).
 
 ## 8. Vastuse salvestamine
 
@@ -165,3 +167,28 @@ Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sa
   - KP raadius mõjutab kaardil kuvatavat ringi;
   - kui KP-l raadius puudub, kasutatakse võistluse vaikeraadiust.
 - Uue KP loomisel tsentreeritakse kaart viimati sisestatud KP asukohale (sama võistluse piires), et vältida iga kord nullist suumimist.
+
+### 12a. Admin kaardireeglid S-tüübi korral
+
+Rakendub kahele kaardile:
+- “Näita kaardil” modal.
+- “Uus KP / Muuda KP” modali “Olemasolevad KP-d” kaardikiht.
+
+Reeglid:
+- Kui `competition.type='S'`:
+  - KP järjekorranumber kuvatakse kaardil iga KP tähise juures.
+  - KP-d ühendatakse `order_no ASC` järgi.
+  - Ühendusjoone värv võetakse segmendi siht-KP tähise värvist (punane/lilla).
+  - Joone paksus võrdub KP tähise joone paksusega.
+  - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
+- Kui `competition.type!='S'`:
+  - järjekorranumbreid ega ühendusjooni ei kuvata.
+
+Lõikumise reegel:
+- Kui kaks ühendussegmenti lõikuvad, siis väiksema `order_no` segmendile tehakse lõikekohas katkestus.
+- Suurema `order_no` segment jääb terveks.
+- Katkestuse suurus on ligikaudu 20 px (10 px kummalegi poole lõikepunkti).
+
+Esmarenderduse reegel (“Näita kaardil”):
+- Numbrilabelite dünaamiline paigutus arvutatakse pärast kaardi vaate paigaseadmist (`setView`/`fitBounds`) ja `invalidateSize()` etappi.
+- See väldib olukorda, kus labeli asukoht on modali avamisel vale, kuid zoomimisel läheb õigeks.
