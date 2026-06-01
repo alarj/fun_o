@@ -1,4 +1,4 @@
-name: Automaatne Tasuta AI Code Review
+name: Automaatne tasuta AI (gemini) code review
 
 on:
   pull_request:
@@ -20,5 +20,5 @@ jobs:
         with:
           gemini-key: ${{ secrets.GEMINI_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          model: "gemini-2.0-flash"  # Kiire ja tasuta paketi mudel
+          model: "gemini-1.5-pro"  # Kiire ja tasuta paketi mudel
           prompt: "Palun tee sellele koodimuudatusele põhjalik ülevaatus. Kirjuta kogu tagasiside, märkused ja soovitused rangelt eesti keeles!"
