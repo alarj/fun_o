@@ -975,15 +975,25 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
+        l_declination number;
+        l_declination_last_updated varchar2(30);
       begin
         FUNO_APP.pkg_competitor.list_map_checkpoints_json(
           p_user_id => to_number(:user_id),
           p_competition_id => to_number(:competition_id),
-          o_items_json => l_json
+          o_items_json => l_json,
+          o_declination => l_declination,
+          o_declination_last_updated => l_declination_last_updated
         );
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+        htp.p(
+          '{'
+          || '"declination":' || to_char(nvl(l_declination, 0))
+          || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
+          || ',"items":' || nvl(l_json, '[]')
+          || '}'
+        );
       end;
     ~'
   );
@@ -1260,6 +1270,30 @@ begin
     p_source_type        => 'URI',
     p_param_type         => 'INT',
     p_access_method      => 'IN'
+  );
+
+  -- POST /funo/admin/competitions/declination
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/declination'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'funo.api',
+    p_pattern     => 'admin/competitions/declination',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.upsert_competition_declination(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_declination => l_body.get_number('declination')
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
   );
   ORDS.DEFINE_PARAMETER(
     p_module_name        => 'funo.api',
@@ -1640,7 +1674,6 @@ begin
   );
 
   -- POST /funo/admin/checkpoints
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints');
   ORDS.DEFINE_HANDLER(
     p_module_name => 'funo.api',
     p_pattern     => 'admin/checkpoints',

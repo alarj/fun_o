@@ -167,6 +167,35 @@ html, body { max-width: 100%; overflow-x: hidden; }
     .card { border-radius: 12px; padding: 16px; margin-bottom: 14px; }
     h1, h2, h3 { margin: 0 0 10px; font-size: 24px; font-weight: 700; line-height: 1.2; }
     .row { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+    .meta-readonly-row {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 24px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .meta-readonly-item {
+      min-width: 0;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+    .meta-readonly-label {
+      font-weight: 400;
+    }
+    .meta-readonly-label::after {
+      content: ":";
+    }
+    .meta-readonly-value {
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      line-height: 1.4;
+      word-break: break-word;
+    }
     .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     .ended-option { font-style: italic; }
     .q-options-table col.code-col { width: 110px; }
@@ -529,6 +558,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
       .card { padding: 12px; }
       .cols { grid-template-columns: 1fr; gap: 10px; }
       .row { grid-template-columns: 1fr; gap: 6px; }
+      .meta-readonly-row { flex-wrap: wrap; gap: 6px 16px; }
       #loginCard .row .tools { grid-template-columns: 1fr 90px !important; }
       .tools { gap: 6px; }
       .superTopBar {

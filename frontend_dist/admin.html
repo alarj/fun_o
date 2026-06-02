@@ -282,6 +282,16 @@
       </div>
     </div>
     <div class="row"><label data-i18n="admin.meta.default_radius_label">admin.meta.default_radius_label</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
+    <div class="meta-readonly-row">
+      <div class="meta-readonly-item">
+        <span class="meta-readonly-label" data-i18n="admin.meta.magnetic_declination_label">admin.meta.magnetic_declination_label</span>
+        <span id="metaDeclinationValue" class="meta-readonly-value muted">-</span>
+      </div>
+      <div class="meta-readonly-item">
+        <span class="meta-readonly-label" data-i18n="admin.meta.magnetic_declination_updated_label">admin.meta.magnetic_declination_updated_label</span>
+        <span id="metaDeclinationUpdatedValue" class="meta-readonly-value muted">-</span>
+      </div>
+    </div>
     <div class="row"><label data-i18n="admin.dates.start_label">admin.dates.start_label</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><label data-i18n="admin.dates.end_label">admin.dates.end_label</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
     <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button></div></div>
@@ -698,6 +708,11 @@
     if (!d) return "";
     const p2 = (n) => String(n).padStart(2, "0");
     return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  };
+  const fmtMagDeclination = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "0.000°";
+    return `${n.toFixed(3)}°`;
   };
   const parseEtInput = (v) => {
     const t = (v || "").trim();
@@ -1916,6 +1931,8 @@
     window.__lastCompetitionUseLocation = v.use_location || "N";
     window.__lastCompetitionShowCompetitorLocation = v.show_competitor_location || "Y";
     window.__lastCompetitionRadiusM = v.radius_m ?? null;
+    window.__lastCompetitionDeclination = v.declination ?? 0;
+    window.__lastCompetitionDeclinationUpdatedAt = v.declination_last_updated || null;
     currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
     currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
     if (currentCompetitionUseLocation === "Y") {
@@ -2263,7 +2280,7 @@
         writeLastCpCoord(Number(latRaw), Number(lonRaw));
       }
     } else {
-      const payload = { checkpoint_id: Number(cpId), title };
+      const payload = { competition_id: compId(), checkpoint_id: Number(cpId), title };
       if (orderRaw !== "") payload.order_no = Number(orderRaw);
       if (location) payload.location_hint = location;
       if (currentCompetitionUseLocation === "Y") {
@@ -2561,6 +2578,10 @@
     setMetaShowCompetitorLocationValue(window.__lastCompetitionShowCompetitorLocation || "Y");
     syncMetaLocationSwitches();
     byId("metaRadiusMInput").value = (window.__lastCompetitionRadiusM ?? "");
+    byId("metaDeclinationValue").textContent = fmtMagDeclination(window.__lastCompetitionDeclination);
+    byId("metaDeclinationUpdatedValue").textContent = window.__lastCompetitionDeclinationUpdatedAt
+      ? fmtDateEt(window.__lastCompetitionDeclinationUpdatedAt)
+      : "-";
     byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
     byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
     syncMetaLocationSwitches();
@@ -2818,7 +2839,7 @@
   byId("cpDeleteYes").onclick = async () => {
     try {
       if (!pendingDeleteCheckpointId) return;
-      await post("/api/admin/checkpoints/delete", { checkpoint_id: pendingDeleteCheckpointId });
+      await post("/api/admin/checkpoints/delete", { competition_id: compId(), checkpoint_id: pendingDeleteCheckpointId });
       pendingDeleteCheckpointId = null;
       byId("cpDeleteDialog").close();
       byId("cpDialog").close();

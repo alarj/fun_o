@@ -109,6 +109,7 @@ Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
+- Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
@@ -132,6 +133,15 @@ Map layer config (admin "NĆ¤ita kaardil"):
 - Current optional providers:
   - `mapycz_outdoor` (Mapy.cz Outdoor)
   - `maptiler_outdoor` (MapTiler Outdoor)
+
+Magnetic declination flow:
+- `competition_declinations` stores one current declination row per competition.
+- The backend schedules an asynchronous refresh after competition meta/date changes and checkpoint create/update/delete events when the competition is active and uses location.
+- The refresh center is the arithmetic mean of all checkpoint coordinates with latitude/longitude.
+- If stored declination is missing or the stored timestamp is older than `DECLINATION_REFRESH_DAYS`, FastAPI queries the configured BGS WMM JSON service using `DECLINATION_SERVICE_URL_TEMPLATE`.
+- The service response is expected to expose `geomagnetic-field-model-result.field-value.declination.value` in degrees east-positive.
+- On success, the new declination and timestamp are written back to ORDS, and both `/api/admin/competition-overview` and `/api/competitor/map-checkpoints` expose `declination` plus `declination_last_updated`.
+- Frontend compass logic uses `true_heading = magnetic_heading + declination`.
 
 Ubuntu smoke test without Google (dev mode):
 1. Set `APP_ENV=dev` and restart backend.
@@ -237,6 +247,10 @@ Architecture rule for all ORDS endpoints:
   - `competition_organizer_id` PK
   - FK: `competition_id -> competitions`, `user_id -> users`, `assigned_by -> users`
   - soft-delete columns
+- `competition_declinations`
+  - `competition_id` PK, FK: `competition_id -> competitions`
+  - `declination` signed degrees east-positive
+  - `last_updated` timestamp of the latest successful refresh
 
 ### Competition terms (competition-specific, multilingual)
 - `competition_terms`
@@ -348,7 +362,8 @@ Default terms source:
 
 Fallback behavior:
 - On admin terms load, if requested language terms are missing, backend loads default file for that language and creates terms via ORDS POST.
-- This is language-specific fallback (for example `et` and `en` handled independently).
+- If the file does not exist or is empty, backend does not synthesize any HTML fallback and returns empty terms content.
+- This is language-specific file-based fallback (for example `et` and `en` handled independently).
 - Admin terms modal preloads all `LANG_AVAILABLE` languages in background, so language switch is immediately editable without changing admin UI language.
 
 Caching:

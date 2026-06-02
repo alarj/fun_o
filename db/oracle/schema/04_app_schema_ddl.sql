@@ -6,6 +6,7 @@ create sequence seq_users start with 1 increment by 1;
 create sequence seq_roles start with 1 increment by 1;
 create sequence seq_user_roles start with 1 increment by 1;
 create sequence seq_competitions start with 1 increment by 1;
+create sequence seq_competition_declinations start with 1 increment by 1;
 create sequence seq_competition_access_codes start with 1 increment by 1;
 create sequence seq_competition_organizers start with 1 increment by 1;
 create sequence seq_competition_participants start with 1 increment by 1;
@@ -85,6 +86,13 @@ create table competitions (
   constraint chk_comp_use_location check (use_location in ('Y','N')),
   constraint chk_comp_show_comp_loc check (show_competitor_location in ('Y','N')),
   constraint chk_comp_radius check (radius_m is null or radius_m > 0)
+);
+
+create table competition_declinations (
+  competition_id number primary key,
+  declination number(10,4),
+  last_updated timestamp default systimestamp not null,
+  constraint fk_comp_declinations_comp foreign key (competition_id) references competitions(competition_id)
 );
 
 create table competition_access_codes (
