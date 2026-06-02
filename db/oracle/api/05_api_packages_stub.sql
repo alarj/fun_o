@@ -1029,7 +1029,7 @@ create or replace package body pkg_results as
                'total_elapsed_seconds' value x.total_elapsed_seconds,
                'total_distance_m' value x.total_distance_m,
                'last_submission_at' value case
-                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS') -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+                  when x.last_submission_at is not null then to_char(x.last_submission_at, pkg_common.c_iso_ts_format)
                  else null
                end
              ) returning clob
@@ -1177,7 +1177,7 @@ create or replace package body pkg_results as
                'checkpoint_title' value x.checkpoint_title, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'submission_id' value x.submission_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'submitted_at' value case -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'delta_from_prev_seconds' value x.delta_from_prev_seconds,
@@ -1395,7 +1395,7 @@ create or replace package body pkg_results as
              'points' value nvl(q.points, 0), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
              'wrong_points' value nvl(q.wrong_points, 0), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
              'submitted_at' value case
-               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                when s.submitted_at is not null then to_char(s.submitted_at, pkg_common.c_iso_ts_format)
                else null
              end,
              'awarded_points' value nvl(s.awarded_points, 0),
@@ -1534,7 +1534,7 @@ create or replace package body pkg_results as
                'checkpoint_id' value x.checkpoint_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'checkpoint_title' value x.checkpoint_title,
                'last_submission_at' value case
-                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.last_submission_at is not null then to_char(x.last_submission_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'last_team' value x.last_team,
@@ -2275,8 +2275,8 @@ create or replace package body pkg_competitor as
                'name' value x.name,
                'description' value x.description, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'type' value x.type,
-               'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-               'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+                'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, pkg_common.c_iso_ts_format) else null end,
+                'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, pkg_common.c_iso_ts_format) else null end,
                'use_location' value nvl(x.use_location, 'N'),
                'show_competitor_location' value nvl(x.show_competitor_location, 'Y')
              ) returning clob
@@ -2615,7 +2615,7 @@ create or replace package body pkg_competitor as
                'checkpoint_title' value x.checkpoint_title,
                'submission_id' value x.submission_id,
                'submitted_at' value case
-                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'awarded_points' value x.awarded_points
@@ -2687,7 +2687,7 @@ create or replace package body pkg_competitor as
              'points' value nvl(q.points, 0),
              'wrong_points' value nvl(q.wrong_points, 0),
              'submitted_at' value case
-               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                when s.submitted_at is not null then to_char(s.submitted_at, pkg_common.c_iso_ts_format)
                else null
              end,
              'awarded_points' value nvl(s.awarded_points, 0),
@@ -3048,8 +3048,8 @@ create or replace package body pkg_admin_content as
         'name' value c.name,
         'type' value nvl(c.type, 'R'),
         'status' value c.status, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-        'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
+        'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
         'use_location' value nvl(c.use_location, 'N'),
         'show_competitor_location' value nvl(c.show_competitor_location, 'Y'),
         'is_active' value case when c.ends_at is null or c.ends_at > systimestamp then 'Y' else 'N' end
@@ -3083,9 +3083,9 @@ create or replace package body pkg_admin_content as
            where cp.competition_id = c.competition_id
              and (cp.end_date is null or cp.end_date > sysdate)
         ),
-        'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
+        'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
+        'created_at' value to_char(c.created_at, pkg_common.c_iso_ts_format),
         c_json_updated_at value to_char(c.updated_at, pkg_common.c_iso_ts_format),
         'organizer_code' value ( -- NOSONAR: S1192 repeated literal accepted for script readability/stability
           select ac.code
@@ -3481,7 +3481,7 @@ create or replace package body pkg_admin_content as
        and (end_date is null or end_date > sysdate);
 
     add_audit('COMPETITION', p_competition_id, 'UPDATE_DATES', p_updated_by, null,
-      to_clob(json_object('starts_at' value to_char(p_starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'), 'ends_at' value to_char(p_ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'))));
+      to_clob(json_object('starts_at' value to_char(p_starts_at, pkg_common.c_iso_ts_format), 'ends_at' value to_char(p_ends_at, pkg_common.c_iso_ts_format))));
   end;
 
   -- update_competition_meta: Updates existing data for competition meta.
@@ -3955,8 +3955,8 @@ create or replace package body pkg_admin_content as
       'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
       'created_at' value to_char(c.created_at, pkg_common.c_iso_ts_format),
       c_json_updated_at value to_char(c.updated_at, pkg_common.c_iso_ts_format),
-      'competitor_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='COMPETITOR' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
-      'organizer_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='ORGANIZER' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
+      'competitor_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, pkg_common.c_iso_ts_format)) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='COMPETITOR' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
+      'organizer_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, pkg_common.c_iso_ts_format)) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='ORGANIZER' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
       'organizers' value (select json_arrayagg(json_object('user_id' value u.user_id, 'full_name' value u.full_name, 'email' value u.email) returning clob) from competition_organizers co join users u on u.user_id=co.user_id where co.competition_id=c.competition_id and (co.end_date is null or co.end_date > sysdate)),
       'question_count' value (select count(*) from questions q join checkpoints cp on cp.checkpoint_id=q.checkpoint_id where cp.competition_id=c.competition_id and (q.end_date is null or q.end_date > sysdate) and (cp.end_date is null or cp.end_date > sysdate))
       returning clob
