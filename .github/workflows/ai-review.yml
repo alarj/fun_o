@@ -1,4 +1,4 @@
-name: Automaatne ja  asuta AI code review (gemini abil)
+name: Automaatne ja  tasuta AI code review (gemini abil)
 
 on:
   workflow_dispatch:
@@ -37,7 +37,8 @@ jobs:
           # 2. Valmistame ette JSON faili päringu jaoks läbi Pythoni, et vältida ülipika stringi probleeme bashis
           python3 -c '
           import os, json
-          with open("diff.txt", "r", encoding="utf-8") as f:
+          # PARANDUS: Lisatud errors="ignore", et mitte-UTF8 märgid (nt vanad õ-tähed) ei jooksutaks skripti kokku
+          with open("diff.txt", "r", encoding="utf-8", errors="ignore") as f:
               diff_content = f.read()
           
           base_prompt = os.environ.get("AI_PROMPT", "Review this code:")
