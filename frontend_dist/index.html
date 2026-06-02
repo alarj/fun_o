@@ -607,6 +607,8 @@
           error: null,
         },
         mapItems: [],
+        mapDeclination: 0,
+        mapDeclinationUpdatedAt: null,
       };
       let compMap = null;
       let compMapLayer = null;
@@ -1354,6 +1356,9 @@
         const res = await apiGet(`/api/competitor/map-checkpoints?competition_id=${state.selectedCompetitionId}`);
         if (!res.ok) return [];
         const items = Array.isArray(res.data.items) ? res.data.items : [];
+        const declination = Number(res.data?.declination);
+        state.mapDeclination = Number.isFinite(declination) ? declination : 0;
+        state.mapDeclinationUpdatedAt = typeof res.data?.declination_last_updated === "string" ? res.data.declination_last_updated : null;
         return items.filter((x) => x && x.latitude != null && x.longitude != null);
       }
 
@@ -1595,6 +1600,7 @@
         box.textContent =
           `mode=${mapHeadingMode ? "on" : "off"} signal=${mapHeadingHasSignal ? "yes" : "no"}\n` +
           `state=${mapHeadingState} bias=${formatHeadingDebugNum(mapHeadingBiasDeg)} conf=${formatHeadingDebugNum(mapHeadingBiasConfidence)}\n` +
+          `decl=${formatHeadingDebugNum(state.mapDeclination)} updated=${state.mapDeclinationUpdatedAt || "-"}\n` +
           `setBearing=${(compMap && typeof compMap.setBearing === "function") ? "yes" : "no"}\n` +
           `alpha=${formatHeadingDebugNum(mapDebugRawAlpha)} webkit=${formatHeadingDebugNum(mapDebugRawCompass)}\n` +
           `gpsHeading=${formatHeadingDebugNum(mapDebugGpsHeading)} gpsSpeed=${formatHeadingDebugNum(mapDebugGpsSpeed)}\n` +
@@ -1725,7 +1731,7 @@
 
       function getCalibratedCompass() {
         if (!Number.isFinite(Number(mapHeadingCompassRaw))) return null;
-        return normalizeDegrees(Number(mapHeadingCompassRaw) + Number(mapHeadingBiasDeg || 0));
+        return normalizeDegrees(Number(mapHeadingCompassRaw) + Number(mapHeadingBiasDeg || 0) + Number(state.mapDeclination || 0));
       }
 
       function updateHeadingBias() {
@@ -2162,6 +2168,9 @@
         renderCompMapLayerList();
         compMap.invalidateSize();
         renderCompMap(state.mapItems, { forceInitialFit: false });
+        if (mapHeadingMode) {
+          refreshHeadingOutput("compass");
+        }
         compMapOpenedOnce = true;
         mapViewPersistenceEnabled = true;
         saveCompMapView();
@@ -2266,6 +2275,9 @@
         state.mapItems = await loadMapCheckpoints();
         if (compMap && el("compMapBackdrop")?.style?.display === "block") {
           renderCompMap(state.mapItems || [], { preserveViewport: true });
+          if (mapHeadingMode) {
+            refreshHeadingOutput("compass");
+          }
         }
         renderMyResults();
         setMyResultsOpen(true);

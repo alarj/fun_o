@@ -170,6 +170,11 @@ create or replace package body pkg_auth as
 end pkg_auth;
 /
 
+create or replace package pkg_common as
+  c_iso_ts_format constant varchar2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
+end pkg_common;
+/
+
 create or replace package pkg_competitions as
   -- create_competition: Creates a new competition record.
   procedure create_competition(
@@ -1024,7 +1029,7 @@ create or replace package body pkg_results as
                'total_elapsed_seconds' value x.total_elapsed_seconds,
                'total_distance_m' value x.total_distance_m,
                'last_submission_at' value case
-                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS') -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+                  when x.last_submission_at is not null then to_char(x.last_submission_at, pkg_common.c_iso_ts_format)
                  else null
                end
              ) returning clob
@@ -1172,7 +1177,7 @@ create or replace package body pkg_results as
                'checkpoint_title' value x.checkpoint_title, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'submission_id' value x.submission_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'submitted_at' value case -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'delta_from_prev_seconds' value x.delta_from_prev_seconds,
@@ -1390,7 +1395,7 @@ create or replace package body pkg_results as
              'points' value nvl(q.points, 0), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
              'wrong_points' value nvl(q.wrong_points, 0), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
              'submitted_at' value case
-               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                when s.submitted_at is not null then to_char(s.submitted_at, pkg_common.c_iso_ts_format)
                else null
              end,
              'awarded_points' value nvl(s.awarded_points, 0),
@@ -1529,7 +1534,7 @@ create or replace package body pkg_results as
                'checkpoint_id' value x.checkpoint_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'checkpoint_title' value x.checkpoint_title,
                'last_submission_at' value case
-                 when x.last_submission_at is not null then to_char(x.last_submission_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.last_submission_at is not null then to_char(x.last_submission_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'last_team' value x.last_team,
@@ -1742,7 +1747,9 @@ create or replace package pkg_competitor as
   procedure list_map_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
-    o_items_json out clob
+    o_items_json out clob,
+    o_declination out number,
+    o_declination_last_updated out varchar2
   );
   -- get_progress_json: Returns a JSON object for the requested progress.
   procedure get_progress_json(
@@ -2268,8 +2275,8 @@ create or replace package body pkg_competitor as
                'name' value x.name,
                'description' value x.description, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'type' value x.type,
-               'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-               'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS') else null end, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+                'starts_at' value case when x.starts_at is not null then to_char(x.starts_at, pkg_common.c_iso_ts_format) else null end,
+                'ends_at' value case when x.ends_at is not null then to_char(x.ends_at, pkg_common.c_iso_ts_format) else null end,
                'use_location' value nvl(x.use_location, 'N'),
                'show_competitor_location' value nvl(x.show_competitor_location, 'Y')
              ) returning clob
@@ -2480,60 +2487,68 @@ create or replace package body pkg_competitor as
   procedure list_map_checkpoints_json(
     p_user_id in number,
     p_competition_id in number,
-    o_items_json out clob
+    o_items_json out clob,
+    o_declination out number,
+    o_declination_last_updated out varchar2
   ) is
   begin
-    select json_arrayagg(
-             json_object(
-               'checkpoint_id' value x.checkpoint_id,
-               'checkpoint_title' value x.checkpoint_title,
-               'checkpoint_order_no' value x.checkpoint_order_no,
-               'competition_type' value x.competition_type,
-               'question_id' value x.question_id,
-               'points' value x.points,
-               'latitude' value x.latitude,
-               'longitude' value x.longitude,
-               'radius_m' value x.radius_m,
-               'location_required' value x.location_required,
-               'is_answered' value x.is_answered
-             )
-             order by lower(x.checkpoint_title), x.checkpoint_id
-             returning clob
-           )
-      into o_items_json
-      from (
-        select cp.checkpoint_id,
-               cp.title as checkpoint_title,
-               cp.order_no as checkpoint_order_no,
-               nvl(c.type, 'R') as competition_type,
-               q.question_id,
-               q.points,
-               cp.latitude,
-               cp.longitude,
-               cp.radius_m,
-               nvl(cp.location_required, 'N') as location_required,
-               case
-                 when exists (
-                   select 1
-                     from submissions s
-                   where s.competition_id = p_competition_id
-                     and s.user_id = p_user_id
-                     and s.checkpoint_id = cp.checkpoint_id
-                      and s.question_id = q.question_id
-                 ) then 'Y'
-                 else 'N'
-               end as is_answered
-          from checkpoints cp
-          join competitions c
-            on c.competition_id = cp.competition_id
-          join questions q
-            on q.checkpoint_id = cp.checkpoint_id
-         where cp.competition_id = p_competition_id
-           and (cp.end_date is null or cp.end_date > sysdate)
-           and (q.end_date is null or q.end_date > sysdate)
-           and cp.latitude is not null
-           and cp.longitude is not null
-      ) x;
+    select
+      (select json_arrayagg(
+                json_object(
+                  'checkpoint_id' value x.checkpoint_id,
+                  'checkpoint_title' value x.checkpoint_title,
+                  'checkpoint_order_no' value x.checkpoint_order_no,
+                  'competition_type' value x.competition_type,
+                  'question_id' value x.question_id,
+                  'points' value x.points,
+                  'latitude' value x.latitude,
+                  'longitude' value x.longitude,
+                  'radius_m' value x.radius_m,
+                  'location_required' value x.location_required,
+                  'is_answered' value x.is_answered
+                )
+                order by lower(x.checkpoint_title), x.checkpoint_id
+                returning clob
+              )
+         from (
+           select cp.checkpoint_id,
+                  cp.title as checkpoint_title,
+                  cp.order_no as checkpoint_order_no,
+                  nvl(c.type, 'R') as competition_type,
+                  q.question_id,
+                  q.points,
+                  cp.latitude,
+                  cp.longitude,
+                  cp.radius_m,
+                  nvl(cp.location_required, 'N') as location_required,
+                  case
+                    when exists (
+                      select 1
+                        from submissions s
+                       where s.competition_id = p_competition_id
+                         and s.user_id = p_user_id
+                         and s.checkpoint_id = cp.checkpoint_id
+                         and s.question_id = q.question_id
+                    ) then 'Y'
+                    else 'N'
+                  end as is_answered
+             from checkpoints cp
+             join competitions c
+               on c.competition_id = cp.competition_id
+             join questions q
+               on q.checkpoint_id = cp.checkpoint_id
+            where cp.competition_id = p_competition_id
+              and (cp.end_date is null or cp.end_date > sysdate)
+              and (q.end_date is null or q.end_date > sysdate)
+              and cp.latitude is not null
+              and cp.longitude is not null
+         ) x),
+      nvl((select cd.declination from competition_declinations cd where cd.competition_id = p_competition_id), 0),
+      (select to_char(cd.last_updated, pkg_common.c_iso_ts_format) from competition_declinations cd where cd.competition_id = p_competition_id)
+      into o_items_json,
+           o_declination,
+           o_declination_last_updated
+      from dual;
 
     if o_items_json is null then
       o_items_json := '[]';
@@ -2600,7 +2615,7 @@ create or replace package body pkg_competitor as
                'checkpoint_title' value x.checkpoint_title,
                'submission_id' value x.submission_id,
                'submitted_at' value case
-                 when x.submitted_at is not null then to_char(x.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                  when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
                end,
                'awarded_points' value x.awarded_points
@@ -2672,7 +2687,7 @@ create or replace package body pkg_competitor as
              'points' value nvl(q.points, 0),
              'wrong_points' value nvl(q.wrong_points, 0),
              'submitted_at' value case
-               when s.submitted_at is not null then to_char(s.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+                when s.submitted_at is not null then to_char(s.submitted_at, pkg_common.c_iso_ts_format)
                else null
              end,
              'awarded_points' value nvl(s.awarded_points, 0),
@@ -2857,6 +2872,11 @@ create or replace package pkg_admin_content as
     p_radius_m in number,
     p_updated_by in number
   );
+  -- upsert_competition_declination: Saves a competition magnetic declination snapshot.
+  procedure upsert_competition_declination(
+    p_competition_id in number,
+    p_declination in number
+  );
   -- get_competition_terms_json: Returns a JSON object for the requested competition terms.
   procedure get_competition_terms_json(
     p_competition_id in number,
@@ -2998,7 +3018,6 @@ end pkg_admin_content;
 create or replace package body pkg_admin_content as
   c_json_question_text constant varchar2(30) := 'question_text';
   c_json_updated_at constant varchar2(30) := 'updated_at';
-  c_iso_ts_format constant varchar2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
 
   -- add_audit: Performs this business operation according to package rules.
   procedure add_audit(p_entity_type varchar2, p_entity_id number, p_action varchar2, p_by number, p_old clob, p_new clob) is
@@ -3029,8 +3048,8 @@ create or replace package body pkg_admin_content as
         'name' value c.name,
         'type' value nvl(c.type, 'R'),
         'status' value c.status, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-        'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
+        'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
         'use_location' value nvl(c.use_location, 'N'),
         'show_competitor_location' value nvl(c.show_competitor_location, 'Y'),
         'is_active' value case when c.ends_at is null or c.ends_at > systimestamp then 'Y' else 'N' end
@@ -3064,10 +3083,10 @@ create or replace package body pkg_admin_content as
            where cp.competition_id = c.competition_id
              and (cp.end_date is null or cp.end_date > sysdate)
         ),
-        'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-        c_json_updated_at value to_char(c.updated_at, c_iso_ts_format),
+        'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
+        'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
+        'created_at' value to_char(c.created_at, pkg_common.c_iso_ts_format),
+        c_json_updated_at value to_char(c.updated_at, pkg_common.c_iso_ts_format),
         'organizer_code' value ( -- NOSONAR: S1192 repeated literal accepted for script readability/stability
           select ac.code
             from competition_access_codes ac
@@ -3462,7 +3481,7 @@ create or replace package body pkg_admin_content as
        and (end_date is null or end_date > sysdate);
 
     add_audit('COMPETITION', p_competition_id, 'UPDATE_DATES', p_updated_by, null,
-      to_clob(json_object('starts_at' value to_char(p_starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'), 'ends_at' value to_char(p_ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'))));
+      to_clob(json_object('starts_at' value to_char(p_starts_at, pkg_common.c_iso_ts_format), 'ends_at' value to_char(p_ends_at, pkg_common.c_iso_ts_format))));
   end;
 
   -- update_competition_meta: Updates existing data for competition meta.
@@ -3528,6 +3547,27 @@ create or replace package body pkg_admin_content as
         'show_competitor_location' value l_show_competitor_location,
         'radius_m' value p_radius_m
       )));
+  end;
+
+  -- upsert_competition_declination: Saves a competition magnetic declination snapshot.
+  procedure upsert_competition_declination(
+    p_competition_id in number,
+    p_declination in number
+  ) is
+  begin
+    merge into competition_declinations cd
+    using (
+      select p_competition_id as competition_id,
+             p_declination as declination
+        from dual
+    ) src
+      on (cd.competition_id = src.competition_id)
+    when matched then
+      update set cd.declination = src.declination,
+                 cd.last_updated = systimestamp
+    when not matched then
+      insert (competition_id, declination, last_updated)
+      values (src.competition_id, src.declination, systimestamp);
   end;
 
   -- get_competition_terms_json: Returns a JSON object for the requested competition terms.
@@ -3909,17 +3949,21 @@ create or replace package body pkg_admin_content as
       'use_location' value c.use_location,
       'show_competitor_location' value c.show_competitor_location,
       'radius_m' value c.radius_m,
-      'starts_at' value to_char(c.starts_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-      'ends_at' value to_char(c.ends_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-      'created_at' value to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-      c_json_updated_at value to_char(c.updated_at, c_iso_ts_format),
-      'competitor_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='COMPETITOR' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
-      'organizer_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, 'YYYY-MM-DD"T"HH24:MI:SS')) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='ORGANIZER' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
+      'declination' value nvl(cd.declination, 0),
+      'declination_last_updated' value to_char(cd.last_updated, pkg_common.c_iso_ts_format),
+      'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
+      'ends_at' value to_char(c.ends_at, pkg_common.c_iso_ts_format),
+      'created_at' value to_char(c.created_at, pkg_common.c_iso_ts_format),
+      c_json_updated_at value to_char(c.updated_at, pkg_common.c_iso_ts_format),
+      'competitor_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, pkg_common.c_iso_ts_format)) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='COMPETITOR' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
+      'organizer_code' value (select json_object('code' value x.code, 'status' value x.status, 'expires_at' value to_char(x.expires_at, pkg_common.c_iso_ts_format)) from competition_access_codes x where x.competition_id=c.competition_id and x.code_type='ORGANIZER' and (x.end_date is null or x.end_date > sysdate) fetch first 1 row only),
       'organizers' value (select json_arrayagg(json_object('user_id' value u.user_id, 'full_name' value u.full_name, 'email' value u.email) returning clob) from competition_organizers co join users u on u.user_id=co.user_id where co.competition_id=c.competition_id and (co.end_date is null or co.end_date > sysdate)),
       'question_count' value (select count(*) from questions q join checkpoints cp on cp.checkpoint_id=q.checkpoint_id where cp.competition_id=c.competition_id and (q.end_date is null or q.end_date > sysdate) and (cp.end_date is null or cp.end_date > sysdate))
       returning clob
     ) into o_overview_json
       from competitions c
+      left join competition_declinations cd
+        on cd.competition_id = c.competition_id
      where c.competition_id = p_competition_id
        and (c.end_date is null or c.end_date > sysdate);
   end;
@@ -3988,7 +4032,7 @@ create or replace package body pkg_admin_content as
                'lang_code' value t.lang_code,
                'text_value' value t.text_value,
                'is_deleted' value case when t.end_date is null then 'N' else 'Y' end,
-               c_json_updated_at value case when t.updated_at is not null then to_char(t.updated_at, c_iso_ts_format) else null end
+               c_json_updated_at value case when t.updated_at is not null then to_char(t.updated_at, pkg_common.c_iso_ts_format) else null end
              returning clob
              ) returning clob
            )

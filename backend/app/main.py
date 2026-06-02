@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -7,6 +7,7 @@ import math
 import os
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -24,6 +25,8 @@ class Settings:
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     mapycz_api_key: str = os.getenv("MAPYCZ_API_KEY", "")
     maptiler_api_key: str = os.getenv("MAPTILER_API_KEY", "")
+    declination_service_url_template: str | None = os.getenv("DECLINATION_SERVICE_URL_TEMPLATE")
+    declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
     competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
@@ -43,6 +46,7 @@ open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
 map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
 competitor_terms_cache: dict[str, dict[str, Any]] = {}
+background_tasks: set[asyncio.Task[None]] = set()
 
 MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
@@ -75,9 +79,11 @@ UTC_TS_KEYS = {
     "expires_at",
     "terms_accepted_at",
     "last_submission_at",
+    "declination_last_updated",
 }
 UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 ADMIN_COMPETITIONS_TERMS_PATH = "admin/competitions/terms"
+ADMIN_CHECKPOINTS_PATH = "admin/checkpoints"
 API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
 ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-01722",), ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")),
@@ -250,6 +256,8 @@ class CompetitorCompetitionsResponse(BaseModel):
 
 
 class CompetitorOpenCheckpointsResponse(BaseModel):
+    declination: float = 0.0
+    declination_last_updated: str | None = None
     items: list[dict[str, Any]]
 
 class CompetitorCheckpointAccessRequest(BaseModel):
@@ -587,6 +595,7 @@ class AdminCheckpointsResponse(BaseModel):
 
 
 class AdminUpdateCheckpointRequest(BaseModel):
+    competition_id: int
     checkpoint_id: int
     title: str
     order_no: int | None = None
@@ -599,6 +608,7 @@ class AdminUpdateCheckpointRequest(BaseModel):
 
 
 class AdminDeleteCheckpointRequest(BaseModel):
+    competition_id: int
     checkpoint_id: int
     deleted_by: int | None = None
 
@@ -752,15 +762,7 @@ def _read_default_terms_html(lang_code: str) -> str:
                 return content
         except Exception:
             continue
-    if lang == "en":
-        return (
-            "<h3>Competition Terms</h3>"
-            "<p>By participating, you agree to follow fair play and organizer instructions.</p>"
-        )
-    return (
-        "<h3>Võistluse tingimused</h3>"
-        "<p>Osaledes nõustud ausa mängu põhimõtete ja korraldaja juhistega.</p>"
-    )
+    return ""
 
 
 def _read_content_html_with_fallback(prefix: str, lang_code: str | None) -> tuple[str | None, str]:
@@ -1223,7 +1225,136 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     return 2.0 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
 
 
-async def _get_map_checkpoints_items(competition_id: int, user_id: int) -> list[dict[str, Any]]:
+def _parse_utc_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _format_declination_service_url(latitude: float, longitude: float, date_value: datetime) -> str:
+    template = (settings.declination_service_url_template or "").strip()
+    return template.format(
+        latitude=f"{latitude:.6f}",
+        longitude=f"{longitude:.6f}",
+        altitude="0",
+        date=date_value.date().isoformat(),
+    )
+
+
+def _declination_refresh_needed(overview: dict[str, Any]) -> bool:
+    if str(overview.get("status", "")).upper() != "ACTIVE":
+        return False
+    if str(overview.get("use_location", "N")).upper() != "Y":
+        return False
+
+    current_declination = overview.get("declination")
+    current_last_updated = _parse_utc_datetime(overview.get("declination_last_updated"))
+    refresh_days = max(1, int(settings.declination_refresh_days))
+    needs_refresh = not isinstance(current_declination, (int, float)) or current_last_updated is None
+    if not needs_refresh and current_last_updated is not None:
+        age_days = (datetime.now(timezone.utc) - current_last_updated).days
+        needs_refresh = age_days >= refresh_days
+    return needs_refresh
+
+
+def _extract_checkpoint_coords(checkpoints_data: dict[str, Any]) -> list[tuple[float, float]]:
+    raw_checkpoints = checkpoints_data.get("items") if isinstance(checkpoints_data, dict) else []
+    if not isinstance(raw_checkpoints, list):
+        return []
+
+    coords: list[tuple[float, float]] = []
+    for item in raw_checkpoints:
+        if not isinstance(item, dict):
+            continue
+        lat = item.get("latitude")
+        lon = item.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            coords.append((float(lat), float(lon)))
+    return coords
+
+
+def _average_checkpoint_coord(coords: list[tuple[float, float]]) -> tuple[float, float] | None:
+    if not coords:
+        return None
+    avg_lat = sum(lat for lat, _ in coords) / len(coords)
+    avg_lon = sum(lon for _, lon in coords) / len(coords)
+    return avg_lat, avg_lon
+
+
+async def _fetch_declination_from_service(latitude: float, longitude: float) -> float | None:
+    if not (settings.declination_service_url_template or "").strip():
+        return None
+    url = _format_declination_service_url(latitude, longitude, datetime.now(timezone.utc))
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError):
+        return None
+
+    model = data.get("geomagnetic-field-model-result") if isinstance(data, dict) else None
+    field_value = model.get("field-value") if isinstance(model, dict) else None
+    declination = field_value.get("declination") if isinstance(field_value, dict) else None
+    value = declination.get("value") if isinstance(declination, dict) else None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _upsert_declination_for_competition(competition_id: int, declination: float) -> None:
+    await _post_to_ords(
+        "admin/competitions/declination",
+        {
+            "competition_id": competition_id,
+            "declination": declination,
+        },
+    )
+    _invalidate_competition_cache(competition_id)
+
+
+async def _refresh_competition_declination(competition_id: int) -> None:
+    try:
+        overview = await _get_from_ords("admin/competition-overview", {"competition_id": competition_id})
+        if not isinstance(overview, dict):
+            return
+        if not _declination_refresh_needed(overview):
+            return
+
+        checkpoints_data = await _get_from_ords(ADMIN_CHECKPOINTS_PATH, {"competition_id": competition_id})
+        coords = _extract_checkpoint_coords(checkpoints_data)
+        avg_coord = _average_checkpoint_coord(coords)
+        if avg_coord is None:
+            return
+
+        avg_lat, avg_lon = avg_coord
+        declination = await _fetch_declination_from_service(avg_lat, avg_lon)
+        if declination is None:
+            return
+        await _upsert_declination_for_competition(competition_id, declination)
+    except Exception:
+        return
+
+
+def _schedule_declination_refresh(competition_id: int | None) -> None:
+    if not isinstance(competition_id, int):
+        return
+    try:
+        task = asyncio.create_task(_refresh_competition_declination(competition_id))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
+    except RuntimeError:
+        pass
+
+
+async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dict[str, Any]:
     now = time.monotonic()
     _purge_expired_map_cache(now)
     key = _map_cache_key(competition_id=competition_id, user_id=user_id)
@@ -1231,7 +1362,11 @@ async def _get_map_checkpoints_items(competition_id: int, user_id: int) -> list[
     if isinstance(cached, dict):
         cached_items = cached.get("items")
         if isinstance(cached_items, list):
-            return cached_items
+            return {
+                "items": cached_items,
+                "declination": cached.get("declination", 0.0),
+                "declination_last_updated": cached.get("declination_last_updated"),
+            }
 
     ords_response = await _get_from_ords(
         "competitor/map-checkpoints",
@@ -1242,8 +1377,16 @@ async def _get_map_checkpoints_items(competition_id: int, user_id: int) -> list[
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
     items = raw_items if isinstance(raw_items, list) else []
-    map_checkpoints_cache[key] = {"cached_at": now, "items": items}
-    return items
+    declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
+    declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
+    declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
+    payload = {
+        "items": items,
+        "declination": declination,
+        "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
+    }
+    map_checkpoints_cache[key] = {"cached_at": now, **payload}
+    return payload
 
 
 @app.on_event("startup")
@@ -1864,8 +2007,12 @@ async def competitor_map_checkpoints(
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorOpenCheckpointsResponse:
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
-    items = await _get_map_checkpoints_items(competition_id=competition_id, user_id=resolved_user_id)
-    return CompetitorOpenCheckpointsResponse(items=items)
+    payload = await _get_map_checkpoints_payload(competition_id=competition_id, user_id=resolved_user_id)
+    return CompetitorOpenCheckpointsResponse(
+        items=payload.get("items") if isinstance(payload.get("items"), list) else [],
+        declination=float(payload.get("declination", 0.0)) if isinstance(payload.get("declination"), (int, float)) else 0.0,
+        declination_last_updated=payload.get("declination_last_updated") if isinstance(payload.get("declination_last_updated"), str) else None,
+    )
 
 
 @app.post("/api/competitor/checkpoint-access", response_model=CompetitorCheckpointAccessResponse)
@@ -1875,7 +2022,8 @@ async def competitor_checkpoint_access(
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorCheckpointAccessResponse:
     resolved_user_id = _resolve_user_id(request, req.user_id, x_user_id)
-    map_items = await _get_map_checkpoints_items(competition_id=req.competition_id, user_id=resolved_user_id)
+    map_payload = await _get_map_checkpoints_payload(competition_id=req.competition_id, user_id=resolved_user_id)
+    map_items = map_payload.get("items") if isinstance(map_payload.get("items"), list) else []
     by_id: dict[int, dict[str, Any]] = {}
     for row in map_items:
         if not isinstance(row, dict):
@@ -2348,13 +2496,14 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
         payload["location_required"] = req.location_required
 
     ords_response = await _post_to_ords(
-        "admin/checkpoints",
+        ADMIN_CHECKPOINTS_PATH,
         payload,
     )
     checkpoint_id = ords_response.get("checkpoint_id")
     if not isinstance(checkpoint_id, int):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
     _invalidate_competition_cache(req.competition_id)
+    _schedule_declination_refresh(req.competition_id)
     return AdminCreateCheckpointResponse(checkpoint_id=checkpoint_id)
 
 
@@ -2734,7 +2883,7 @@ async def superadmin_translations_delete(
 @app.get("/api/admin/checkpoints", response_model=AdminCheckpointsResponse)
 async def admin_checkpoints(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCheckpointsResponse:
     _ = _require_google_session_user(request, x_user_id)
-    data = await _get_from_ords("admin/checkpoints", {"competition_id": competition_id})
+    data = await _get_from_ords(ADMIN_CHECKPOINTS_PATH, {"competition_id": competition_id})
     items = data.get("items") if isinstance(data, dict) else []
     return AdminCheckpointsResponse(items=items if isinstance(items, list) else [])
 
@@ -2766,6 +2915,7 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
     )
     map_checkpoints_cache.clear()
     open_checkpoints_last_response.clear()
+    _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
 
@@ -2781,6 +2931,7 @@ async def admin_delete_checkpoint(req: AdminDeleteCheckpointRequest, request: Re
     )
     map_checkpoints_cache.clear()
     open_checkpoints_last_response.clear()
+    _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
 
@@ -2845,6 +2996,7 @@ async def admin_update_competition_dates(req: AdminUpdateCompetitionDatesRequest
         },
     )
     _invalidate_competition_cache(req.competition_id)
+    _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
 
@@ -2867,6 +3019,7 @@ async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, 
         },
     )
     _invalidate_competition_cache(req.competition_id)
+    _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
 

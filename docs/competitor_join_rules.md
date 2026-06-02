@@ -1,10 +1,10 @@
-# Võistleja liitumise reeglid
+﻿# Võistleja liitumise reeglid
 
 ## Eesmärk
 
 See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - äriline vaade (kasutajajuhendi alus)
-- tehniline vaade (andmemudel, cookie’d, backendi kontrollid)
+- tehniline vaade (andmemudel, cookie'd, backendi kontrollid)
 
 ## A. Äriline tase
 
@@ -65,14 +65,14 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 ### 6) Sessioon ja taastamine
 
 - Eesmärk: kasutaja jätkab samast seisust ka pärast brauseri sulgemist või telefoni taaskäivitamist.
-- Kasutatakse cookie’sid.
+- Kasutatakse cookie'sid.
 - Kui vajalik cookie puudub, aegub või ei valideeru, suunatakse kasutaja liitumisvoogu.
 - `reload`/tagasi tulles ei küsita alias/e-post/tingimused uuesti, kui osalus on endiselt kehtiv.
 - Kui sisestatud kood viitab samale võistlusele, kus kasutaja juba aktiivselt osaleb, ei tehta muudatusi (`no-op`).
 - Kui sisestatud kood viitab uuele võistlusele:
   - luuakse uus osalus
   - alles seejärel suletakse eelmine osalus (`end_date`)
-  - mõlemad sammud tehakse samas transaktsioonis.
+  - mõlemad sammud tehakse samas transaktsioonis
 
 ## B. Tehniline tase
 
@@ -123,7 +123,7 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - Osaluse cookie (nt `funo_participation`):
   - signeeritud payload, sisaldab `competition_participant_id`
   - TTL: 360h (15 päeva), sliding refresh viimasel kasutusel
-- Cookie atribuudi nõuded:
+- Cookie atribuutide nõuded:
   - `HttpOnly`
   - `Secure`
   - `SameSite=Lax`
@@ -131,10 +131,10 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 
 ### 4) Backendi valideerimine
 
-- Kui cookie’d on olemas:
+- Kui cookie'd on olemas:
   - valideeri cookie signatuur
-  - loe `user_id` sessiooni cookie’st
-  - loe `competition_participant_id` osaluse cookie’st
+  - loe `user_id` sessiooni cookie'st
+  - loe `competition_participant_id` osaluse cookie'st
   - vali DB-st osaluse rida ja kontrolli, et `competition_participants.user_id == session user_id`
   - kontrolli, et osaluse rida on aktiivne (`end_date is null`)
   - kontrolli võistluse staatuse/aja reegleid
@@ -155,48 +155,48 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 
 ### 1) Uus voog
 
-- VĆµistleja liitumine toimub kahes etapis:
+- Võistleja liitumine toimub kahes etapis:
   - Etapp 1 (`join-preview`): kasutaja sisestab koodi, aliase ja soovi korral e-posti.
-  - Etapp 2 (`join-complete`): kasutajale kuvatakse konkreetse vĆµistluse kasutustingimused ja alles nĆµustumisel tehakse salvestus.
+  - Etapp 2 (`join-complete`): kasutajale kuvatakse konkreetse võistluse kasutustingimused ja alles nõustumisel tehakse salvestus.
 
-- Etapil 1 kasutatakse nuppu `JĆ¤tka vĆµistlusega liitumist`.
+- Etapil 1 kasutatakse nuppu `Jätka võistlusega liitumist`.
   - Nupp on aktiivne ainult siis, kui kood ja alias on sisestatud.
   - Koodi/aliase valideerimine toimub enne tingimuste modali avamist.
 
 ### 2) Veateated etapil 1
 
-- Kui kood ei sobi vĆµi vĆµistlus pole liitumiseks sobiv:
-  - kuvame: `Liitumine ei ole vĆµimalik`
-- Kui alias on samas vĆµistluses juba kasutusel:
+- Kui kood ei sobi või võistlus pole liitumiseks sobiv:
+  - kuvame: `Liitumine ei ole võimalik`
+- Kui alias on samas võistluses juba kasutusel:
   - kuvame: `Valitud alias ei sobi`
 
 ### 3) Tingimuste modal (etapp 2)
 
-- Tingimused kuvatakse selle vĆµistluse alusel, millega kasutaja liituda proovib.
+- Tingimused kuvatakse selle võistluse alusel, millega kasutaja liituda proovib.
 - Tingimuste kuvamine ei salvesta veel midagi.
 - Kasutajal on kaks valikut:
-  - `Jah, olen nĆµus ja liitun vĆµistlusega` -> kutsub `join-complete` (siin tekivad DB kirjed).
-  - `Tagasi` -> salvestust ei tehta.
+  - `Jah, olen nõus ja liitun võistlusega` -> kutsub `join-complete` (siin tekivad DB kirjed)
+  - `Tagasi` -> salvestust ei tehta
 
-### 4) Tagasi nupu kĆ¤itumine
+### 4) Tagasi nupu käitumine
 
-- Kui kasutajal oli enne aktiivne vĆµistlus:
-  - sulgeme liitumismodali(d) ja kasutaja jĆ¤Ć¤b olemasoleva vĆµistluse vaatesse.
-- Kui kasutajal aktiivset vĆµistlust ei olnud:
-  - kasutaja viiakse tagasi koodi/aliase sisestamise modali juurde.
+- Kui kasutajal oli enne aktiivne võistlus:
+  - sulgeme liitumismodali(d) ja kasutaja jääb olemasoleva võistluse vaatesse
+- Kui kasutajal aktiivset võistlust ei olnud:
+  - kasutaja viiakse tagasi koodi/aliase sisestamise modali juurde
 
 ### 5) Andmete loomine andmebaasis
 
-- `users` kirje ei tohi tekkida lihtsalt modali avamise, vale koodi vĆµi katkestamisega.
+- `users` kirje ei tohi tekkida lihtsalt modali avamise, vale koodi või katkestamisega.
 - `users` kirje tekib ainult eduka `join-complete` korral.
 - `users` ja `competition_participants` kirjed tekivad samas DB transaktsioonis.
 
-## D. Sama v�istlusega uuesti liitumine
+## D. Sama võistlusega uuesti liitumine
 
-- Kui kasutaja on juba aktiivne osaleja samas v�istluses, siis sama v�istluse koodiga uuesti liitumine on keelatud.
-- Sellisel juhul tagastatakse viga ja UI kuvab teate: `Oled juba v�istluse osaleja`.
-- See keeld rakendub s�ltumata sellest, kas sisestatud alias on sama v�i erinev.
-- Eesm�rk: v�ltida aliase vahetust samas v�istluses uuesti liitumise kaudu.
+- Kui kasutaja on juba aktiivne osaleja samas võistluses, siis sama võistluse koodiga uuesti liitumine on keelatud.
+- Sellisel juhul tagastatakse viga ja UI kuvab teate: `Oled juba võistluse osaleja`.
+- See keeld rakendub sõltumata sellest, kas sisestatud alias on sama või erinev.
+- Eesmärk: vältida aliase vahetust samas võistluses uuesti liitumise kaudu.
 
 ## E. Kasutustingimuste haldus ja fallback
 
@@ -213,8 +213,9 @@ Muidu tagastatakse viga (mitte edukas sisestus).
   - `frontend_dist/content/default_et.html`
   - `frontend_dist/content/default_en.html`
   - jne (`default_<lang>.html`)
-- Kui võistlusel või valitud keeles tingimused puuduvad, lisatakse need fallbackina vastavast failist.
-- Fallback peab töötama ka vanade võistluste puhul (tagasiühilduvus).
+- Kui võistlusel või valitud keeles tingimused puuduvad, lisatakse need vastavast failist.
+- Kui faili ei ole või see on tühi, siis backend ei sünteesi mingit HTML-fallbacki ja tagastab/talletab tühja sisu.
+- Vaikimisi sisu loomine on seega failipõhine, mitte koodipõhine.
 
 ### 3) Konteineri nõue
 
@@ -234,7 +235,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Tingimuste HTML võib olla > 4000 märki.
 - ORDS/PLSQL JSON vastustes peab kasutama `JSON_OBJECT ... RETURNING CLOB`.
 - Vastasel juhul tekib viga:
-  - `ORA-40478: output value too large (maximum: 4000)`.
+  - `ORA-40478: output value too large (maximum: 4000)`
 
 ## F. Serveripoolne cache (kooskõlas backend/README-ga)
 
@@ -274,11 +275,11 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 
 ## G. Index vaate i18n reeglid
 
-- Koik `index.html` UI tekstid (sh modalid ja kasutajale kuvatavad API veateated) peavad tulema `translations` tabelist.
-- Votmete muster: `competitor.*` (nt `competitor.join.code_label`).
-- Votmeid UI-s ei taaskasutata eri kohtades; igal nupul/labelil oma key.
+- Kõik `index.html` UI tekstid (sh modalid ja kasutajale kuvatavad API veateated) peavad tulema `translations` tabelist.
+- Võtmete muster: `competitor.*` (nt `competitor.join.code_label`).
+- Võtmeid UI-s ei taaskasutata eri kohtades; igal nupul/labelil oma key.
 - Muutujatega tekstides kasutatakse named-placeholder formaati:
-  - naide: `competitor.results.progress_line = "KP: {answered} / {total} Punktid: {score}"`.
+  - näide: `competitor.results.progress_line = "KP: {answered} / {total} Punktid: {score}"`
 - Fallback:
   1. valitud keel
   2. `.env` `LANG_DEFAULT`
@@ -286,20 +287,20 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Esmalaadimisel kasutatakse `.env` `LANG_DEFAULT` keelt.
 - Kasutaja valik salvestatakse cookie-s (`funo_ui_lang`).
 - Keelevaliku valikud tulevad `.env` muutujast `LANG_AVAILABLE`.
-- Sama keelevalik rakendub ka tingimustele, kirjeldusele ja kusimustele; kui valitud keeles puudub sisu, kasutatakse fallback default keelt.
+- Sama keelevalik rakendub ka tingimustele, kirjeldusele ja küsimustele; kui valitud keeles puudub sisu, kasutatakse fallback default keelt.
 
-## H. Multikeelsuse uldpohimote (koik vaated)
+## H. Multikeelsuse üldpõhimõte (kõik vaated)
 
-- Sama fallback-reegel kehtib koigis mitmekeelsetes vaadetes:
-  - `index.html` (voistleja)
+- Sama fallback-reegel kehtib kõigis mitmekeelsetes vaadetes:
+  - `index.html` (võistleja)
   - `admin.html`
   - `superadmin.html`
   - `results.html`
 - UI tekstide fallback:
   1. valitud keel
   2. `.env` `LANG_DEFAULT`
-  3. voti nimi (translation key)
-- Andmepohiste tekstide fallback (kusimus, vastusevariant jms):
+  3. võtme nimi (translation key)
+- Andmepõhiste tekstide fallback (küsimus, vastusevariant jms):
   1. valitud keel
   2. `.env` `LANG_DEFAULT`
   3. `---` (viga ei tohi tekkida)

@@ -128,6 +128,18 @@ Täpsustus:
 
 - Kompassirežiimis kasutatakse rakenduse sisest suuna offsetit (`MAP_HEADING_OFFSET_DEG`), mille vaikeväärtus on `0` (st lisanihet ei rakendata).
 
+## 7b. Magnetiline deklinatsioon
+
+- Magnetiline deklinatsioon salvestatakse võistlusepõhise abiväärtusena eraldi tabelis `competition_declinations`.
+- Väärtus tuletatakse võistluse KP-de geokoordinaatide keskmisest, mis toimib võistluse ala keskpunkti ligikaudse referentsina.
+- Kui deklinatsioon puudub, käsitletakse seda rakenduses väärtusena `0`.
+- Deklinatsioon on allkirjastatud kraadides, kus positiivne väärtus tähendab idapoolset korrektsiooni (`east`) ja negatiivne väärtus läänepoolset korrektsiooni (`west`).
+- Frontendis rakendatakse see kompassi korrektsioonina otse kujul `true_heading = magnetic_heading + declination`.
+- Kui võistlus on `ACTIVE` ja kasutab kaarti, siis backend käivitab deklinatsiooni värskendamise asünkroonselt pärast võistluse meta- või KP-andmete muutmist.
+- Värskendust ei tehta tihedamalt kui `.env` failis määratud päevade intervall.
+- Kui olemasolev väärtus puudub või on aegunud, proovitakse värskendust alati, kui kaart on kasutusel.
+- Kui värskendus ebaõnnestub või aegub, ei tohi see võistluse salvestamist ega KP muutmist takistada.
+
 ## 8. Vastuse salvestamine
 
 - Võistleja asukoht vastamise hetkel salvestatakse `submissions` kirjele:

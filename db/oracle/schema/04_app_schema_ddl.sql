@@ -87,6 +87,13 @@ create table competitions (
   constraint chk_comp_radius check (radius_m is null or radius_m > 0)
 );
 
+create table competition_declinations (
+  competition_id number primary key,
+  declination number(10,4),
+  last_updated timestamp default systimestamp not null,
+  constraint fk_comp_declinations_comp foreign key (competition_id) references competitions(competition_id)
+);
+
 create table competition_access_codes (
   access_code_id number primary key,
   competition_id number not null,

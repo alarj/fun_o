@@ -74,6 +74,12 @@ erDiagram
         timestamp assigned_at
     }
 
+    COMPETITION_DECLINATIONS {
+        number competition_id PK
+        number declination
+        timestamp last_updated
+    }
+
     COMPETITION_TERMS {
         number terms_id PK
         number competition_id FK
