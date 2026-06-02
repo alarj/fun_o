@@ -46,6 +46,7 @@ open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
 map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
 competitor_terms_cache: dict[str, dict[str, Any]] = {}
+background_tasks: set[asyncio.Task[None]] = set()
 
 MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
@@ -1327,7 +1328,9 @@ def _schedule_declination_refresh(competition_id: int | None) -> None:
     if not isinstance(competition_id, int):
         return
     try:
-        asyncio.create_task(_refresh_competition_declination(competition_id))
+        task = asyncio.create_task(_refresh_competition_declination(competition_id))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
     except RuntimeError:
         pass
 
