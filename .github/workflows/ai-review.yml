@@ -1,6 +1,7 @@
-name: Automaatne tasuta AI (gemini) code review
+name: Automaatne ja  asuta AI code review (gemini abil)
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize]
 
@@ -14,15 +15,69 @@ jobs:
     steps:
       - name: Checkout kood
         uses: actions/checkout@v4
-
-      - name: Gemini AI ülevaatus
-        uses: sshnaidm/gemini-code-review-action@v2
         with:
-          gemini-key: ${{ secrets.GEMINI_API_KEY }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          model: "gemini-flash-latest"  # Kiire ja tasuta paketi mudel
-         # 1. PARANDUS: Ei saada terveid faile kaasa, vaatab ainult muudetud ridu
-          add-files: false
-          # 2. PARANDUS: Vähendame lisaridade (konteksti) mahtu muudetud ridade ümber
-          context-lines: 1
-          prompt: "Palun tee sellele koodimuudatusele põhjalik ülevaatus. Kirjuta kogu tagasiside, märkused ja soovitused rangelt eesti keeles!"
+          fetch-depth: 0 # Vajalik, et git diff näeks eelnevaid commiteid
+
+      - name: Too koodimuudatused ja küsi Geminilt ülevaatust
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Sinu juhis AI-le on nüüd siin eraldi muutujana mugavalt muudetav:
+          AI_PROMPT: "Palun tee sellele koodimuudatusele põhjalik ülevaatus (koodis on nii FastAPI, JS kui ka oluline PL/SQL äriloogika). Kirjuta kogu tagasiside, märkused ja soovitused rangelt eesti keeles!"
+        run: |
+          # 1. Genereerime puhta giti diffi (muudatused võrreldes peaharruga)
+          git diff origin/main...HEAD > diff.txt
+          
+          # Kontrollime, et diff poleks tühi
+          if [ ! -s diff.txt ]; then
+            echo "Muudatusi ei leitud."
+            exit 0
+          fi
+
+          # 2. Valmistame ette JSON faili päringu jaoks läbi Pythoni, et vältida ülipika stringi probleeme bashis
+          python3 -c '
+          import os, json
+          with open("diff.txt", "r", encoding="utf-8") as f:
+              diff_content = f.read()
+          
+          base_prompt = os.environ.get("AI_PROMPT", "Review this code:")
+          full_prompt = base_prompt + "\n\nKoodimuudatused:\n" + diff_content
+          
+          payload = {
+              "contents": [{
+                  "parts": [{"text": full_prompt}]
+              }]
+          }
+          with open("payload.json", "w", encoding="utf-8") as out:
+              json.dump(payload, out)
+          '
+
+          # 3. Saadame päringu sinu tasuta ja kindlalt töötavasse mudelisse
+          echo "Küsin Geminilt tagasisidet..."
+          curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @payload.json > response.json
+
+          # 4. Parsime vastuse markdown tekstiks
+          python3 -c '
+          import json, sys
+          try:
+              with open("response.json", "r") as f:
+                  data = json.load(f)
+              text = data["candidates"][0]["content"]["parts"][0]["text"]
+              with open("review.md", "w") as out:
+                  out.write("### 🤖 Code Review by Gemini\n\n" + text)
+          except Exception as e:
+              print("Viga vastuse parsimisel. API vastus oli:")
+              with open("response.json", "r") as f:
+                  print(f.read())
+              sys.exit(1)
+          '
+
+          # 5. Postitame kommentaari otse Pull Requesti alla GitHubi CLI abil
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gh pr comment ${{ github.event.number }} --body-file=review.md
+          else
+            echo "Tegu polnud PR-iga, kuvan ülevaatuse logisse:"
+            cat review.md
+          fi
