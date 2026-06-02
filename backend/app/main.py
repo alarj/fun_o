@@ -83,6 +83,7 @@ UTC_TS_KEYS = {
 }
 UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 ADMIN_COMPETITIONS_TERMS_PATH = "admin/competitions/terms"
+ADMIN_CHECKPOINTS_PATH = "admin/checkpoints"
 API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
 ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-01722",), ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")),
@@ -1246,6 +1247,46 @@ def _format_declination_service_url(latitude: float, longitude: float, date_valu
     )
 
 
+def _declination_refresh_needed(overview: dict[str, Any]) -> bool:
+    if str(overview.get("status", "")).upper() != "ACTIVE":
+        return False
+    if str(overview.get("use_location", "N")).upper() != "Y":
+        return False
+
+    current_declination = overview.get("declination")
+    current_last_updated = _parse_utc_datetime(overview.get("declination_last_updated"))
+    refresh_days = max(1, int(settings.declination_refresh_days))
+    needs_refresh = not isinstance(current_declination, (int, float)) or current_last_updated is None
+    if not needs_refresh and current_last_updated is not None:
+        age_days = (datetime.now(timezone.utc) - current_last_updated).days
+        needs_refresh = age_days >= refresh_days
+    return needs_refresh
+
+
+def _extract_checkpoint_coords(checkpoints_data: dict[str, Any]) -> list[tuple[float, float]]:
+    raw_checkpoints = checkpoints_data.get("items") if isinstance(checkpoints_data, dict) else []
+    if not isinstance(raw_checkpoints, list):
+        return []
+
+    coords: list[tuple[float, float]] = []
+    for item in raw_checkpoints:
+        if not isinstance(item, dict):
+            continue
+        lat = item.get("latitude")
+        lon = item.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            coords.append((float(lat), float(lon)))
+    return coords
+
+
+def _average_checkpoint_coord(coords: list[tuple[float, float]]) -> tuple[float, float] | None:
+    if not coords:
+        return None
+    avg_lat = sum(lat for lat, _ in coords) / len(coords)
+    avg_lon = sum(lon for _, lon in coords) / len(coords)
+    return avg_lat, avg_lon
+
+
 async def _fetch_declination_from_service(latitude: float, longitude: float) -> float | None:
     if not (settings.declination_service_url_template or "").strip():
         return None
@@ -1255,7 +1296,7 @@ async def _fetch_declination_from_service(latitude: float, longitude: float) -> 
             response = await client.get(url)
             response.raise_for_status()
             data = response.json()
-    except (httpx.RequestError, httpx.HTTPStatusError, ValueError, json.JSONDecodeError):
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError):
         return None
 
     model = data.get("geomagnetic-field-model-result") if isinstance(data, dict) else None
@@ -1284,38 +1325,16 @@ async def _refresh_competition_declination(competition_id: int) -> None:
         overview = await _get_from_ords("admin/competition-overview", {"competition_id": competition_id})
         if not isinstance(overview, dict):
             return
-        if str(overview.get("status", "")).upper() != "ACTIVE":
-            return
-        if str(overview.get("use_location", "N")).upper() != "Y":
+        if not _declination_refresh_needed(overview):
             return
 
-        current_declination = overview.get("declination")
-        current_last_updated = _parse_utc_datetime(overview.get("declination_last_updated"))
-        refresh_days = max(1, int(settings.declination_refresh_days))
-        needs_refresh = not isinstance(current_declination, (int, float)) or current_last_updated is None
-        if not needs_refresh and current_last_updated is not None:
-            age_days = (datetime.now(timezone.utc) - current_last_updated).days
-            needs_refresh = age_days >= refresh_days
-        if not needs_refresh:
+        checkpoints_data = await _get_from_ords(ADMIN_CHECKPOINTS_PATH, {"competition_id": competition_id})
+        coords = _extract_checkpoint_coords(checkpoints_data)
+        avg_coord = _average_checkpoint_coord(coords)
+        if avg_coord is None:
             return
 
-        checkpoints_data = await _get_from_ords("admin/checkpoints", {"competition_id": competition_id})
-        raw_checkpoints = checkpoints_data.get("items") if isinstance(checkpoints_data, dict) else []
-        if not isinstance(raw_checkpoints, list):
-            return
-        coords: list[tuple[float, float]] = []
-        for item in raw_checkpoints:
-            if not isinstance(item, dict):
-                continue
-            lat = item.get("latitude")
-            lon = item.get("longitude")
-            if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-                coords.append((float(lat), float(lon)))
-        if not coords:
-            return
-
-        avg_lat = sum(lat for lat, _ in coords) / len(coords)
-        avg_lon = sum(lon for _, lon in coords) / len(coords)
+        avg_lat, avg_lon = avg_coord
         declination = await _fetch_declination_from_service(avg_lat, avg_lon)
         if declination is None:
             return
@@ -2477,7 +2496,7 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
         payload["location_required"] = req.location_required
 
     ords_response = await _post_to_ords(
-        "admin/checkpoints",
+        ADMIN_CHECKPOINTS_PATH,
         payload,
     )
     checkpoint_id = ords_response.get("checkpoint_id")
@@ -2864,7 +2883,7 @@ async def superadmin_translations_delete(
 @app.get("/api/admin/checkpoints", response_model=AdminCheckpointsResponse)
 async def admin_checkpoints(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCheckpointsResponse:
     _ = _require_google_session_user(request, x_user_id)
-    data = await _get_from_ords("admin/checkpoints", {"competition_id": competition_id})
+    data = await _get_from_ords(ADMIN_CHECKPOINTS_PATH, {"competition_id": competition_id})
     items = data.get("items") if isinstance(data, dict) else []
     return AdminCheckpointsResponse(items=items if isinstance(items, list) else [])
 

@@ -1280,20 +1280,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'[ -- NOSONAR
-      declare
-        l_body json_object_t;
-      begin
-        l_body := json_object_t.parse(:body_text);
-        FUNO_APP.pkg_admin_content.upsert_competition_declination(
-          p_competition_id => l_body.get_number('competition_id'),
-          p_declination => l_body.get_number('declination')
-        );
-        owa_util.mime_header('application/json', false);
-        owa_util.http_header_close;
-        htp.p('{"ok":true}');
-      end;
-    ]'
+    p_source      => q'~ declare l_body json_object_t; begin l_body := json_object_t.parse(:body_text); FUNO_APP.pkg_admin_content.upsert_competition_declination(p_competition_id => l_body.get_number('competition_id'), p_declination => l_body.get_number('declination')); owa_util.mime_header('application/json', false); owa_util.http_header_close; htp.p('{"ok":true}'); end; ~'
   );
   ORDS.DEFINE_PARAMETER(
     p_module_name        => 'funo.api',
