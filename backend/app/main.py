@@ -25,10 +25,7 @@ class Settings:
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     mapycz_api_key: str = os.getenv("MAPYCZ_API_KEY", "")
     maptiler_api_key: str = os.getenv("MAPTILER_API_KEY", "")
-    declination_service_url_template: str = os.getenv(
-        "DECLINATION_SERVICE_URL_TEMPLATE",
-        "http://www.geomag.bgs.ac.uk/web_service/GMModels/wmm/2025/?latitude={latitude}&longitude={longitude}&altitude={altitude}&date={date}&format=json",
-    )
+    declination_service_url_template: str | None = os.getenv("DECLINATION_SERVICE_URL_TEMPLATE")
     declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
@@ -1239,7 +1236,7 @@ def _parse_utc_datetime(value: Any) -> datetime | None:
 
 
 def _format_declination_service_url(latitude: float, longitude: float, date_value: datetime) -> str:
-    template = settings.declination_service_url_template.strip()
+    template = (settings.declination_service_url_template or "").strip()
     return template.format(
         latitude=f"{latitude:.6f}",
         longitude=f"{longitude:.6f}",
@@ -1249,7 +1246,7 @@ def _format_declination_service_url(latitude: float, longitude: float, date_valu
 
 
 async def _fetch_declination_from_service(latitude: float, longitude: float) -> float | None:
-    if not settings.declination_service_url_template.strip():
+    if not (settings.declination_service_url_template or "").strip():
         return None
     url = _format_declination_service_url(latitude, longitude, datetime.now(timezone.utc))
     try:
