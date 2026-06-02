@@ -6,7 +6,6 @@ create sequence seq_users start with 1 increment by 1;
 create sequence seq_roles start with 1 increment by 1;
 create sequence seq_user_roles start with 1 increment by 1;
 create sequence seq_competitions start with 1 increment by 1;
-create sequence seq_competition_declinations start with 1 increment by 1;
 create sequence seq_competition_access_codes start with 1 increment by 1;
 create sequence seq_competition_organizers start with 1 increment by 1;
 create sequence seq_competition_participants start with 1 increment by 1;
