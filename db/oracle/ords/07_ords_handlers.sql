@@ -1,12 +1,13 @@
--- 07_ords_handlers.sql
+﻿-- 07_ords_handlers.sql
 -- Run as FUNO_API (schema already enabled in ORDS)
 -- Assumes grants from FUNO_APP to FUNO_API are in place.
 
 declare
+  c_module_name constant varchar2(30) := 'funo.api';
   c_pattern_superadmin_translations constant varchar2(64) := 'superadmin/translations';
 begin
   ORDS.DEFINE_MODULE(
-    p_module_name    => 'funo.api', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+    p_module_name    => c_module_name, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
     p_base_path      => '/',
     p_items_per_page => 0,
     p_status         => 'PUBLISHED'
@@ -14,12 +15,12 @@ begin
 
   -- POST /funo/auth/google/upsert
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/google/upsert'
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/google/upsert',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -47,12 +48,12 @@ begin
 
   -- GET /funo/auth/has-role?user_id=..&role_code=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/has-role' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/has-role',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -74,7 +75,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'auth/has-role',
     p_method             => 'GET',
     p_name               => 'user_id', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -85,7 +86,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'auth/has-role',
     p_method             => 'GET',
     p_name               => 'role_code',
@@ -97,12 +98,12 @@ begin
 
   -- GET /funo/auth/user-profile?user_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/user-profile' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/user-profile',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -125,7 +126,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'auth/user-profile',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -136,9 +137,9 @@ begin
   );
 
   -- GET /funo/admin/competition-overview?competition_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competition-overview'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competition-overview'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competition-overview',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -157,7 +158,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/competition-overview',
     p_method             => 'GET',
     p_name               => 'competition_id', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -168,9 +169,9 @@ begin
   );
 
   -- GET /funo/superadmin/competitions
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'superadmin/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -190,7 +191,7 @@ begin
 
   -- POST /funo/superadmin/competitions
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/competitions',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -217,9 +218,9 @@ begin
   );
 
   -- POST /funo/superadmin/competitions/copy
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/competitions/copy');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'superadmin/competitions/copy');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/competitions/copy',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -247,9 +248,9 @@ begin
   );
 
   -- POST /funo/superadmin/organizers/remove
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/organizers/remove');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'superadmin/organizers/remove');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/organizers/remove',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -272,9 +273,9 @@ begin
   );
 
   -- GET /funo/superadmin/translations?lang=et&prefix=competitor.&include_deleted=N
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => c_pattern_superadmin_translations);
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => c_pattern_superadmin_translations);
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => c_pattern_superadmin_translations,
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -308,7 +309,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'lang',
@@ -318,7 +319,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'prefix',
@@ -328,7 +329,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => c_pattern_superadmin_translations,
     p_method             => 'GET',
     p_name               => 'include_deleted',
@@ -339,9 +340,9 @@ begin
   );
 
   -- POST /funo/superadmin/translations/upsert
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations/upsert');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'superadmin/translations/upsert');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/translations/upsert',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -366,9 +367,9 @@ begin
   );
 
   -- POST /funo/superadmin/translations/delete (soft delete)
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'superadmin/translations/delete');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'superadmin/translations/delete');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'superadmin/translations/delete',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -392,9 +393,9 @@ begin
   );
 
   -- GET /funo/admin/questions-overview?competition_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions-overview'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/questions-overview'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/questions-overview',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -426,7 +427,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/questions-overview',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -437,9 +438,9 @@ begin
   );
 
   -- POST /funo/admin/access-codes
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/access-codes');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/access-codes');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/access-codes',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -468,9 +469,9 @@ begin
   );
 
   -- GET /funo/admin/competitions
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -489,7 +490,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/competitions',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -500,9 +501,9 @@ begin
   );
 
   -- GET /funo/admin/checkpoints?competition_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -521,7 +522,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/checkpoints',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -534,12 +535,12 @@ begin
   -- POST /funo/auth/dev/resolve-user
   -- Dev helper for local testing without Google token.
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/dev/resolve-user'
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'auth/dev/resolve-user',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -566,18 +567,18 @@ begin
 
   -- POST /funo/competitions/register
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitions/register'
   );
 
   -- POST /funo/organizers/register
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizers/register'
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizers/register',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -603,7 +604,7 @@ begin
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitions/register',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -630,12 +631,12 @@ begin
 
   -- POST /funo/submissions
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'submissions'
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'submissions',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -681,9 +682,9 @@ begin
   );
 
   -- GET /funo/competitor/competitions?user_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/competitions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/competitions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -702,7 +703,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/competitions',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -713,9 +714,9 @@ begin
   );
 
   -- GET /funo/competitor/session-by-participant?user_id=..&competition_participant_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/session-by-participant'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/session-by-participant'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/session-by-participant',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -739,7 +740,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/session-by-participant',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -749,7 +750,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/session-by-participant',
     p_method             => 'GET',
     p_name               => 'competition_participant_id',
@@ -760,9 +761,9 @@ begin
   );
 
   -- GET /funo/competitor/terms?user_id=..&competition_id=..&lang_code=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/terms'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/terms'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/terms',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -783,7 +784,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/terms',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -793,7 +794,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/terms',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -803,7 +804,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/terms',
     p_method             => 'GET',
     p_name               => 'lang_code', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -814,9 +815,9 @@ begin
   );
 
   -- POST /funo/competitor/join-preview
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/join-preview');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-preview');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/join-preview',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -842,9 +843,9 @@ begin
   );
 
   -- POST /funo/competitor/join-complete
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/join-complete');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-complete');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/join-complete',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -890,9 +891,9 @@ begin
   );
 
   -- GET /funo/competitor/open-checkpoints?competition_id=..&user_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/open-checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/open-checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/open-checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -915,7 +916,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/open-checkpoints',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -925,7 +926,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/open-checkpoints',
     p_method             => 'GET',
     p_name               => 'latitude',
@@ -935,7 +936,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/open-checkpoints',
     p_method             => 'GET',
     p_name               => 'longitude',
@@ -945,7 +946,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/open-checkpoints',
     p_method             => 'GET',
     p_name               => 'radius_m',
@@ -955,7 +956,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/open-checkpoints',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -966,9 +967,9 @@ begin
   );
 
   -- GET /funo/competitor/map-checkpoints?competition_id=..&user_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/map-checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/map-checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/map-checkpoints',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -998,7 +999,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/map-checkpoints',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1008,7 +1009,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/map-checkpoints',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1019,9 +1020,9 @@ begin
   );
 
   -- GET /funo/competitor/progress?competition_id=..&user_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/progress'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/progress'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/progress',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1042,7 +1043,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/progress',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1052,7 +1053,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/progress',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1063,9 +1064,9 @@ begin
   );
 
   -- GET /funo/competitor/my-submissions?competition_id=..&user_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/my-submissions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/my-submissions'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/my-submissions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1085,7 +1086,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submissions',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1095,7 +1096,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submissions',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1106,9 +1107,9 @@ begin
   );
 
   -- GET /funo/competitor/my-submission-detail?competition_id=..&user_id=..&submission_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'competitor/my-submission-detail'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/my-submission-detail'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'competitor/my-submission-detail',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1131,7 +1132,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submission-detail',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1141,7 +1142,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submission-detail',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1151,7 +1152,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submission-detail',
     p_method             => 'GET',
     p_name               => 'submission_id', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -1161,7 +1162,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submission-detail',
     p_method             => 'GET',
     p_name               => 'lang_code',
@@ -1171,7 +1172,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'competitor/my-submission-detail',
     p_method             => 'GET',
     p_name               => 'default_lang_code',
@@ -1183,12 +1184,12 @@ begin
 
   -- GET /funo/results/score?competition_id=..&user_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'results/score' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'results/score',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1210,7 +1211,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'results/score',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1221,7 +1222,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'results/score',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1233,12 +1234,12 @@ begin
 
   -- GET /funo/organizer/leaderboard?competition_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/leaderboard' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/leaderboard',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1262,7 +1263,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/leaderboard',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1273,9 +1274,9 @@ begin
   );
 
   -- POST /funo/admin/competitions/declination
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/declination'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/declination'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/declination',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1283,7 +1284,7 @@ begin
     p_source      => q'~ declare l_body json_object_t; begin l_body := json_object_t.parse(:body_text); FUNO_APP.pkg_admin_content.upsert_competition_declination(p_competition_id => l_body.get_number('competition_id'), p_declination => l_body.get_number('declination')); owa_util.mime_header('application/json', false); owa_util.http_header_close; htp.p('{"ok":true}'); end; ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/leaderboard',
     p_method             => 'GET',
     p_name               => 'requester_user_id',
@@ -1295,12 +1296,12 @@ begin
 
   -- GET /funo/organizer/checkpoint-results?competition_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/checkpoint-results' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/checkpoint-results',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1324,7 +1325,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/checkpoint-results',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1334,7 +1335,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/checkpoint-results',
     p_method             => 'GET',
     p_name               => 'requester_user_id',
@@ -1346,12 +1347,12 @@ begin
 
   -- GET /funo/organizer/checkpoint-responders?competition_id=..&checkpoint_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/checkpoint-responders' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/checkpoint-responders',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1376,7 +1377,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/checkpoint-responders',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1386,7 +1387,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/checkpoint-responders',
     p_method             => 'GET',
     p_name               => 'requester_user_id',
@@ -1397,7 +1398,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/checkpoint-responders',
     p_method             => 'GET',
     p_name               => 'checkpoint_id',
@@ -1409,12 +1410,12 @@ begin
 
   -- GET /funo/organizer/participant-submissions?competition_id=..&user_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/participant-submissions' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/participant-submissions',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1452,7 +1453,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/participant-submissions',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1462,7 +1463,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/participant-submissions',
     p_method             => 'GET',
     p_name               => 'requester_user_id',
@@ -1473,7 +1474,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/participant-submissions',
     p_method             => 'GET',
     p_name               => 'lang_code',
@@ -1484,7 +1485,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/participant-submissions',
     p_method             => 'GET',
     p_name               => 'default_lang_code', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -1495,7 +1496,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/participant-submissions',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1507,12 +1508,12 @@ begin
 
   -- GET /funo/organizer/submission-detail?competition_id=..&user_id=..&submission_id=..
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/submission-detail' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'organizer/submission-detail',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1544,7 +1545,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -1554,7 +1555,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'requester_user_id',
@@ -1565,7 +1566,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'lang_code',
@@ -1576,7 +1577,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'default_lang_code',
@@ -1587,7 +1588,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'user_id',
@@ -1598,7 +1599,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'organizer/submission-detail',
     p_method             => 'GET',
     p_name               => 'submission_id',
@@ -1610,12 +1611,12 @@ begin
 
   -- GET /funo/i18n/translations?lang=et&default_lang=et
   ORDS.DEFINE_TEMPLATE(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'i18n/translations' -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   );
 
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'i18n/translations',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -1639,7 +1640,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'i18n/translations',
     p_method             => 'GET',
     p_name               => 'lang',
@@ -1650,7 +1651,7 @@ begin
   );
 
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'i18n/translations',
     p_method             => 'GET',
     p_name               => 'default_lang',
@@ -1662,7 +1663,7 @@ begin
 
   -- POST /funo/admin/checkpoints
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/checkpoints',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1694,9 +1695,9 @@ begin
   );
 
   -- POST /funo/admin/questions
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/questions');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/questions',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1728,9 +1729,9 @@ begin
   );
 
   -- POST /funo/admin/question-options
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/question-options');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/question-options');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/question-options',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1759,9 +1760,9 @@ begin
   );
 
   -- POST /funo/admin/question-answers
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/question-answers');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/question-answers');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/question-answers',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1788,9 +1789,9 @@ begin
   );
 
   -- POST /funo/admin/checkpoints/update
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints/update');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/checkpoints/update');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/checkpoints/update',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1819,9 +1820,9 @@ begin
   );
 
   -- POST /funo/admin/checkpoints/delete
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/checkpoints/delete');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/checkpoints/delete');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/checkpoints/delete',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1843,9 +1844,9 @@ begin
   );
 
   -- POST /funo/admin/questions/update
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions/update');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/questions/update');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/questions/update',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1892,9 +1893,9 @@ begin
   );
 
   -- POST /funo/admin/questions/delete
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/questions/delete');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/questions/delete');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/questions/delete',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1916,9 +1917,9 @@ begin
   );
 
   -- POST /funo/admin/competitions/dates
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/dates');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/dates');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/dates',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1956,9 +1957,9 @@ begin
   );
 
   -- POST /funo/admin/competitions/meta
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/meta');
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/meta');
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/meta',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -1984,9 +1985,9 @@ begin
   );
 
   -- GET /funo/admin/competitions/terms?competition_id=..&lang_code=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/terms'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/terms'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/terms',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -2007,7 +2008,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/competitions/terms',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -2017,7 +2018,7 @@ begin
     p_access_method      => 'IN'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/competitions/terms',
     p_method             => 'GET',
     p_name               => 'lang_code',
@@ -2028,7 +2029,7 @@ begin
   );
   -- POST /funo/admin/competitions/terms
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/terms',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -2052,9 +2053,9 @@ begin
   );
 
   -- GET /funo/admin/competitions/map-layers?competition_id=..
-  ORDS.DEFINE_TEMPLATE(p_module_name => 'funo.api', p_pattern => 'admin/competitions/map-layers'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/map-layers'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/map-layers',
     p_method      => 'GET',
     p_source_type => ORDS.source_type_plsql,
@@ -2073,7 +2074,7 @@ begin
     ~'
   );
   ORDS.DEFINE_PARAMETER(
-    p_module_name        => 'funo.api',
+    p_module_name        => c_module_name,
     p_pattern            => 'admin/competitions/map-layers',
     p_method             => 'GET',
     p_name               => 'competition_id',
@@ -2085,7 +2086,7 @@ begin
 
   -- POST /funo/admin/competitions/map-layers
   ORDS.DEFINE_HANDLER(
-    p_module_name => 'funo.api',
+    p_module_name => c_module_name,
     p_pattern     => 'admin/competitions/map-layers',
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
@@ -2168,3 +2169,4 @@ begin
   commit;
 end;
 /
+
