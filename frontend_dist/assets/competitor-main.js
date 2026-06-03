@@ -122,6 +122,7 @@ function setActiveCompetitionFromSession(sessionData) {
     competition_id: state.selectedCompetitionId,
     name: p.competition_name || "-",
     description: p.competition_description || "",
+    type: p.competition_type || "R",
     alias_display: p.alias_display || null,
     competitor_name: p.competitor_name || null,
     use_location: p.use_location || "N",

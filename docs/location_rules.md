@@ -61,6 +61,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - võistleja saab KP käsitsi valida (fallback).
 - Kui GPS täpsus on halb:
   - KP käsitsi valik peab jääma võimalikuks.
+- Võistluse tüübid:
+  - `R` tähendab vaba läbimise järjekorda, välja arvatud see, et kui aktiivne `START` eksisteerib, tuleb see läbida enne kõiki teisi KP-sid.
+  - `S` tähendab etteantud läbimise järjekorda: pärast `START`i saab vastata ainult järgmisele vastamata `NORMAL` KP-le `order_no` järgi.
+  - `S` tüübil ei sõltu järgmise KP avanemine sellest, kas eelmine vastus oli õige või vale; oluline on, et eelmine KP oleks vastatud.
 
 ## 5. Kaardivaade ja avamise reeglid
 
@@ -101,7 +105,13 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
 - Kui aktiivne `START` on olemas ja seda pole veel läbitud, siis enne `START` läbimist ei avata ühtegi muud KP-d.
 - Sellises seisus võib `open-checkpoints` tagastada ainult `START` kontrollpunkti.
+- Kui `competition.type='S'` ja `START` on juba läbitud, siis:
+  - kaardil kuvatakse kogu rada kohe algusest peale (`START`, kõik `NORMAL` KP-d, `FINISH`);
+  - vastamiseks avatakse korraga ainult üks järgmine `NORMAL` KP vastavalt `order_no` järjestusele;
+  - kui kõik `NORMAL` KP-d on läbitud, võib avatuks jääda ainult `FINISH`.
+- Kui `competition.type='R'`, siis pärast võimaliku `START` läbimist võivad kõik vastamata KP-d olla avatavad tavapäraste asukoha- ja staatusereeglite järgi.
 - Kui aktiivne `FINISH` on läbitud, siis pärast seda ei tagastata enam ühtegi vastatavat KP-d sõltumata asukohast või muust varasemast avatavusest.
+- See tähendab ka äärmusjuhtu: `R` tüüpi võistlusel võib võistleja läbida `START` ja seejärel kohe `FINISH`, mille järel rohkem KP-sid enam vastata ei saa.
 
 ## 7. `Info` nupu käitumine kaardis
 
@@ -218,6 +228,15 @@ Reeglid:
   - KP-d ühendatakse `order_no ASC` järgi.
   - Ühendusjoone värv võetakse segmendi siht-KP tähise värvist (punane/lilla).
   - Joone paksus võrdub KP tähise joone paksusega.
+
+### 12b. Võistleja kaardireeglid S-tüübi korral
+
+- Võistleja kaardil kehtib `S` tüüpi võistlusel sama visuaalne rajaloogika nagu admin kaardil:
+  - `START` kuvatakse kolmnurgana;
+  - `FINISH` kuvatakse topeltringina;
+  - `NORMAL` KP-de kõrval kuvatakse järjekorranumbrid sama värviloogikaga nagu markeritel;
+  - KP-d ühendatakse `order_no ASC` järgi;
+  - joone ristumiste katkestused, markerite lähedusest tulenev joone kärpimine ja numbrilabelite paigutus peavad järgima sama reeglit nagu admin kaardivaadetes.
   - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
 - Kui `competition.type!='S'`:
   - järjekorranumbreid ega ühendusjooni ei kuvata.

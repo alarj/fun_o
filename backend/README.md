@@ -69,6 +69,7 @@ Expected ORDS JSON responses:
 - `competitor/my-submissions` -> `{ "items": [...] }`
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
+  - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.
 - `competitor/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `results/score` -> `{ "score": 42 }`
 - `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
@@ -156,6 +157,7 @@ Error mapping:
 - ORA-20033 -> ALREADY_REGISTERED
 - ORA-20060 -> INVALID_SUBMISSION
 - ORA-20061 -> NOT_PARTICIPANT
+- ORA-20067 -> INVALID_CHECKPOINT_ORDER
 - ORA-20010 -> INVALID_GOOGLE_PROFILE
 
 I18n cache reload:
@@ -488,6 +490,9 @@ Important:
   - uses `map_checkpoints_cache` (same `competition_id:user_id` cache as map view) for checkpoint metadata and `is_answered` hint.
   - if needed, performs final ORDS confirmation via `competitor/open-checkpoints`.
 - Rules:
+  - if `FINISH` is already answered -> `can_open=false, reason=finished`
+  - if active `START` exists and is not answered yet -> only `START` may open, other map clicks return `reason=start_required`
+  - if `competition_type='S'` -> only the next unanswered `NORMAL` checkpoint may open; after all normal checkpoints only `FINISH` may open (`reason=wrong_order` for others)
   - `location_required='N'` can be opened without geo gate.
   - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
   - final "open/not open" decision for candidates comes from ORDS response.
@@ -555,9 +560,12 @@ ORDS/PLSQL side:
 - `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
 - location-required checkpoints are returned only when computed distance is within effective radius.
 - if an active `START` exists and the participant has not yet answered it, only `START` is returned as open;
-- after `START` has been answered, the normal unanswered + location rules continue to apply;
+- if `competition.type='S'`, after `START` has been answered only the next unanswered `NORMAL` checkpoint in `order_no` order is returned as open;
+- if `competition.type='S'` and all normal checkpoints are already answered, only `FINISH` may remain open;
+- if `competition.type='R'`, after `START` has been answered the remaining unanswered checkpoints follow normal location rules in free order;
 - if active `FINISH` has already been answered, no more checkpoints are returned as open;
-- `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint.
+- `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint;
+- `submissions` enforces the same server-authoritative order rule and raises `ORA-20067` on invalid `S`-type checkpoint order.
 
 ### 2) Results distance (`total_distance_m`)
 

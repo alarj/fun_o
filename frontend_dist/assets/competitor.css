@@ -188,6 +188,36 @@ button:disabled { opacity: 0.5; }
   flex-direction: column;
 }
 #compMapCanvas { flex: 1; min-height: 260px; }
+.cp-special-div-icon {
+  background: transparent;
+  border: 0;
+}
+.cp-special-div-icon svg {
+  display: block;
+  overflow: visible;
+}
+.leaflet-tooltip.cp-order-tooltip {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 3px;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+.leaflet-tooltip.cp-order-tooltip.cp-order-red {
+  color: #c0392b;
+}
+.leaflet-tooltip.cp-order-tooltip.cp-order-purple {
+  color: #7d3c98;
+}
+.leaflet-tooltip-right.cp-order-tooltip:before,
+.leaflet-tooltip-left.cp-order-tooltip:before,
+.leaflet-tooltip-top.cp-order-tooltip:before,
+.leaflet-tooltip-bottom.cp-order-tooltip:before {
+  display: none;
+}
 .mapHeadingFab {
   position: absolute;
   right: 14px;

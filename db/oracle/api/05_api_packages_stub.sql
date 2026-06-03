@@ -177,11 +177,24 @@ create or replace package pkg_common as
   c_checkpoint_type_finish constant varchar2(10) := 'FINISH';
   c_checkpoint_start_order constant number := 0;
   c_checkpoint_finish_order constant number := 9999;
+  c_competition_type_random constant varchar2(1) := 'R';
+  c_competition_type_sequential constant varchar2(1) := 'S';
 
   -- normalize_checkpoint_type: normalizes null/blank values to NORMAL and uppercases supported special types.
   function normalize_checkpoint_type(
     p_checkpoint_type in varchar2
   ) return varchar2 deterministic;
+
+  -- normalize_competition_type: normalizes null/blank values to R and uppercases supported competition types.
+  function normalize_competition_type(
+    p_competition_type in varchar2
+  ) return varchar2 deterministic;
+
+  -- get_next_ordered_checkpoint_id: Returns the next unanswered NORMAL checkpoint for an S-type competition.
+  function get_next_ordered_checkpoint_id(
+    p_user_id in number,
+    p_competition_id in number
+  ) return number;
 end pkg_common;
 /
 
@@ -195,6 +208,50 @@ create or replace package body pkg_common as
       return l_type;
     end if;
     return c_checkpoint_type_normal;
+  end;
+
+  function normalize_competition_type(
+    p_competition_type in varchar2
+  ) return varchar2 deterministic is
+    l_type varchar2(1) := upper(trim(p_competition_type));
+  begin
+    if l_type = c_competition_type_sequential then
+      return c_competition_type_sequential;
+    end if;
+    return c_competition_type_random;
+  end;
+
+  function get_next_ordered_checkpoint_id(
+    p_user_id in number,
+    p_competition_id in number
+  ) return number is
+    l_checkpoint_id checkpoints.checkpoint_id%type;
+  begin
+    begin
+      select cp.checkpoint_id
+        into l_checkpoint_id
+        from checkpoints cp
+        join questions q
+          on q.checkpoint_id = cp.checkpoint_id
+       where cp.competition_id = p_competition_id
+         and normalize_checkpoint_type(cp.checkpoint_type) = c_checkpoint_type_normal
+         and (cp.end_date is null or cp.end_date > sysdate)
+         and (q.end_date is null or q.end_date > sysdate)
+         and not exists (
+           select 1
+             from submissions s
+            where s.competition_id = p_competition_id
+              and s.user_id = p_user_id
+              and s.checkpoint_id = cp.checkpoint_id
+              and s.question_id = q.question_id
+         )
+       order by nvl(cp.order_no, c_checkpoint_finish_order), cp.checkpoint_id
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_checkpoint_id := null;
+    end;
+    return l_checkpoint_id;
   end;
 end pkg_common;
 /
@@ -777,9 +834,11 @@ create or replace package body pkg_submissions as
     l_is_correct varchar2(1) := 'N';
     l_normalized_answer varchar2(4000);
     l_correct_count number := 0;
+    l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
     l_start_exists number := 0;
     l_start_answered number := 0;
     l_finish_answered number := 0;
+    l_next_ordered_checkpoint_id checkpoints.checkpoint_id%type;
   begin
     if p_user_id is null or p_competition_id is null or p_checkpoint_id is null or p_question_id is null then
       raise_application_error(-20060, 'user_id, competition_id, checkpoint_id and question_id are required');
@@ -823,6 +882,18 @@ create or replace package body pkg_submissions as
         raise_application_error(-20062, 'question not found or inactive');
     end;
 
+    begin
+      select pkg_common.normalize_competition_type(c.type)
+        into l_comp_type
+        from competitions c
+       where c.competition_id = p_competition_id
+         and (c.end_date is null or c.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_comp_type := pkg_common.c_competition_type_random;
+    end;
+
     select count(*)
       into l_start_exists
       from checkpoints cp
@@ -858,6 +929,23 @@ create or replace package body pkg_submissions as
 
     if l_finish_answered > 0 then
       raise_application_error(-20066, 'finish checkpoint has already been answered');
+    end if;
+
+    if l_comp_type = pkg_common.c_competition_type_sequential
+       and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
+      l_next_ordered_checkpoint_id := pkg_common.get_next_ordered_checkpoint_id(
+        p_user_id => p_user_id,
+        p_competition_id => p_competition_id
+      );
+
+      if l_next_ordered_checkpoint_id is not null then
+        if l_checkpoint_type <> pkg_common.c_checkpoint_type_normal
+           or p_checkpoint_id <> l_next_ordered_checkpoint_id then
+          raise_application_error(-20067, 'checkpoint must be answered in the configured order');
+        end if;
+      elsif l_checkpoint_type <> pkg_common.c_checkpoint_type_finish then
+        raise_application_error(-20067, 'checkpoint must be answered in the configured order');
+      end if;
     end if;
 
     if l_question_type = 'SINGLE_CHOICE' then -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -1875,6 +1963,7 @@ create or replace package body pkg_competitor as
                'competition_id' value c.competition_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'competition_name' value c.name,
                'competition_description' value c.description,
+               'competition_type' value pkg_common.normalize_competition_type(c.type),
                'alias_display' value cp.alias_display,
                'competitor_name' value nvl(nullif(trim(cp.alias_display), ''), nvl(nullif(trim(u.full_name), ''), '---')),
                'use_location' value nvl(c.use_location, 'N'), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -2396,13 +2485,14 @@ create or replace package body pkg_competitor as
   ) is
     l_use_location varchar2(1) := 'N';
     l_comp_radius number;
-    l_comp_type varchar2(1) := 'R';
+    l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
     l_start_exists number := 0;
     l_start_answered number := 0;
     l_finish_answered number := 0;
+    l_next_ordered_checkpoint_id checkpoints.checkpoint_id%type;
   begin
     begin
-      select nvl(c.use_location, 'N'), c.radius_m, nvl(c.type, 'R')
+      select nvl(c.use_location, 'N'), c.radius_m, pkg_common.normalize_competition_type(c.type)
         into l_use_location, l_comp_radius, l_comp_type
         from competitions c
        where c.competition_id = p_competition_id
@@ -2446,6 +2536,13 @@ create or replace package body pkg_competitor as
          and s.user_id = p_user_id
          and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
          and (cp.end_date is null or cp.end_date > sysdate);
+    end if;
+
+    if l_comp_type = pkg_common.c_competition_type_sequential then
+      l_next_ordered_checkpoint_id := pkg_common.get_next_ordered_checkpoint_id(
+        p_user_id => p_user_id,
+        p_competition_id => p_competition_id
+      );
     end if;
 
     select json_arrayagg(
@@ -2566,6 +2663,23 @@ create or replace package body pkg_competitor as
              l_start_exists = 0
              or l_start_answered > 0
              or pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+           )
+           and (
+             l_comp_type <> pkg_common.c_competition_type_sequential
+             or (
+               l_start_exists > 0
+               and l_start_answered = 0
+               and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+             )
+             or (
+               l_next_ordered_checkpoint_id is not null
+               and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_normal
+               and cp.checkpoint_id = l_next_ordered_checkpoint_id
+             )
+             or (
+               l_next_ordered_checkpoint_id is null
+               and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_finish
+             )
            )
            and (
              l_use_location <> 'Y'
