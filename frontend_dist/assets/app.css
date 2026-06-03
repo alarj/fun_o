@@ -26,6 +26,16 @@ body {
 
 .hidden { display: none !important; }
 
+.cp-special-div-icon {
+  background: transparent;
+  border: 0;
+}
+
+.cp-special-div-icon svg {
+  display: block;
+  overflow: visible;
+}
+
 .terms-editor-toolbar {
   margin-bottom: 8px;
 }

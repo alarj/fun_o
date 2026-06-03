@@ -141,6 +141,7 @@ erDiagram
         number checkpoint_id PK
         number competition_id FK
         varchar2 title
+        varchar2 checkpoint_type
         number order_no
         varchar2 location_hint
         number latitude
@@ -314,3 +315,9 @@ erDiagram
     COMPETITIONS ||--o{ MATERIALS : has
     CHECKPOINTS ||--o{ MATERIALS : has_optional
 ```
+
+## CHECKPOINTS märkused
+
+- `checkpoint_type` lubatud äriväärtused on `NORMAL`, `START`, `FINISH`.
+- Kui `checkpoint_type` on `NULL`, käsitletakse seda rakenduse äriloogikas kui `NORMAL`.
+- Ühel aktiivsel võistlusel võib olla maksimaalselt üks aktiivne `START` ja üks aktiivne `FINISH`.

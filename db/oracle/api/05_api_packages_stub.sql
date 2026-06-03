@@ -172,6 +172,30 @@ end pkg_auth;
 
 create or replace package pkg_common as
   c_iso_ts_format constant varchar2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
+  c_checkpoint_type_normal constant varchar2(10) := 'NORMAL';
+  c_checkpoint_type_start constant varchar2(10) := 'START';
+  c_checkpoint_type_finish constant varchar2(10) := 'FINISH';
+  c_checkpoint_start_order constant number := 0;
+  c_checkpoint_finish_order constant number := 9999;
+
+  -- normalize_checkpoint_type: normalizes null/blank values to NORMAL and uppercases supported special types.
+  function normalize_checkpoint_type(
+    p_checkpoint_type in varchar2
+  ) return varchar2 deterministic;
+end pkg_common;
+/
+
+create or replace package body pkg_common as
+  function normalize_checkpoint_type(
+    p_checkpoint_type in varchar2
+  ) return varchar2 deterministic is
+    l_type varchar2(10) := upper(trim(p_checkpoint_type));
+  begin
+    if l_type in (c_checkpoint_type_start, c_checkpoint_type_finish, c_checkpoint_type_normal) then
+      return l_type;
+    end if;
+    return c_checkpoint_type_normal;
+  end;
 end pkg_common;
 /
 
@@ -747,11 +771,15 @@ create or replace package body pkg_submissions as
     l_dummy number;
     l_question_type questions.question_type%type;
     l_input_type questions.input_type%type;
+    l_checkpoint_type checkpoints.checkpoint_type%type;
     l_awarded_points questions.points%type := 0;
     l_wrong_points questions.wrong_points%type := 0;
     l_is_correct varchar2(1) := 'N';
     l_normalized_answer varchar2(4000);
     l_correct_count number := 0;
+    l_start_exists number := 0;
+    l_start_answered number := 0;
+    l_finish_answered number := 0;
   begin
     if p_user_id is null or p_competition_id is null or p_checkpoint_id is null or p_question_id is null then
       raise_application_error(-20060, 'user_id, competition_id, checkpoint_id and question_id are required');
@@ -771,17 +799,66 @@ create or replace package body pkg_submissions as
     end;
 
     begin
-      select q.question_type, q.input_type, q.points, q.wrong_points
-        into l_question_type, l_input_type, l_awarded_points, l_wrong_points
+      select q.question_type,
+             q.input_type,
+             q.points,
+             q.wrong_points,
+             pkg_common.normalize_checkpoint_type(cp.checkpoint_type)
+        into l_question_type,
+             l_input_type,
+             l_awarded_points,
+             l_wrong_points,
+             l_checkpoint_type
         from questions q
+        join checkpoints cp
+          on cp.checkpoint_id = q.checkpoint_id
        where q.question_id = p_question_id
          and q.checkpoint_id = p_checkpoint_id
+         and cp.competition_id = p_competition_id
+         and (cp.end_date is null or cp.end_date > sysdate)
          and (q.end_date is null or q.end_date > sysdate)
        fetch first 1 row only;
     exception
       when no_data_found then
         raise_application_error(-20062, 'question not found or inactive');
     end;
+
+    select count(*)
+      into l_start_exists
+      from checkpoints cp
+     where cp.competition_id = p_competition_id
+       and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+       and (cp.end_date is null or cp.end_date > sysdate);
+
+    if l_start_exists > 0 then
+      select count(*)
+        into l_start_answered
+        from submissions s
+        join checkpoints cp
+          on cp.checkpoint_id = s.checkpoint_id
+       where s.competition_id = p_competition_id
+         and s.user_id = p_user_id
+         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+         and (cp.end_date is null or cp.end_date > sysdate);
+
+      if l_start_answered = 0 and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
+        raise_application_error(-20065, 'start checkpoint must be answered first');
+      end if;
+    end if;
+
+    select count(*)
+      into l_finish_answered
+      from submissions s
+      join checkpoints cp
+        on cp.checkpoint_id = s.checkpoint_id
+     where s.competition_id = p_competition_id
+       and s.user_id = p_user_id
+       and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_finish
+       and (cp.end_date is null or cp.end_date > sysdate);
+
+    if l_finish_answered > 0 then
+      raise_application_error(-20066, 'finish checkpoint has already been answered');
+    end if;
 
     if l_question_type = 'SINGLE_CHOICE' then -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       if p_selected_option_id is null then
@@ -2320,6 +2397,9 @@ create or replace package body pkg_competitor as
     l_use_location varchar2(1) := 'N';
     l_comp_radius number;
     l_comp_type varchar2(1) := 'R';
+    l_start_exists number := 0;
+    l_start_answered number := 0;
+    l_finish_answered number := 0;
   begin
     begin
       select nvl(c.use_location, 'N'), c.radius_m, nvl(c.type, 'R')
@@ -2334,11 +2414,46 @@ create or replace package body pkg_competitor as
         l_comp_radius := null;
     end;
 
+    select count(*)
+      into l_finish_answered
+      from submissions s
+      join checkpoints cp
+        on cp.checkpoint_id = s.checkpoint_id
+     where s.competition_id = p_competition_id
+       and s.user_id = p_user_id
+       and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_finish
+       and (cp.end_date is null or cp.end_date > sysdate);
+
+    if l_finish_answered > 0 then
+      o_items_json := '[]';
+      return;
+    end if;
+
+    select count(*)
+      into l_start_exists
+      from checkpoints cp
+     where cp.competition_id = p_competition_id
+       and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+       and (cp.end_date is null or cp.end_date > sysdate);
+
+    if l_start_exists > 0 then
+      select count(*)
+        into l_start_answered
+        from submissions s
+        join checkpoints cp
+          on cp.checkpoint_id = s.checkpoint_id
+       where s.competition_id = p_competition_id
+         and s.user_id = p_user_id
+         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+         and (cp.end_date is null or cp.end_date > sysdate);
+    end if;
+
     select json_arrayagg(
              json_object(
                'checkpoint_id' value z.checkpoint_id,
                'checkpoint_title' value z.checkpoint_title,
                'checkpoint_order_no' value z.checkpoint_order_no,
+               'checkpoint_type' value z.checkpoint_type, -- NOSONAR: repeated JSON key is intentional for payload readability
                'competition_type' value z.competition_type,
                'question_id' value z.question_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'question_type' value z.question_type,
@@ -2361,6 +2476,7 @@ create or replace package body pkg_competitor as
         select cp.checkpoint_id,
                cp.title as checkpoint_title,
                cp.order_no as checkpoint_order_no,
+               pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
                l_comp_type as competition_type,
                q.question_id,
                q.question_type,
@@ -2447,6 +2563,11 @@ create or replace package body pkg_competitor as
            and (cp.end_date is null or cp.end_date > sysdate)
            and (q.end_date is null or q.end_date > sysdate)
            and (
+             l_start_exists = 0
+             or l_start_answered > 0
+             or pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+           )
+           and (
              l_use_location <> 'Y'
              or nvl(cp.location_required, 'N') = 'N'
              or (
@@ -2474,7 +2595,7 @@ create or replace package body pkg_competitor as
                and s.checkpoint_id = cp.checkpoint_id
                and s.question_id = q.question_id
            )
-         group by cp.checkpoint_id, cp.title, cp.order_no, q.question_id, q.question_type, q.points, q.input_type, q.input_max_length,
+         group by cp.checkpoint_id, cp.title, cp.checkpoint_type, cp.order_no, q.question_id, q.question_type, q.points, q.input_type, q.input_max_length,
                   cp.latitude, cp.longitude, cp.radius_m, cp.location_required
       ) z;
 
@@ -2498,6 +2619,7 @@ create or replace package body pkg_competitor as
                   'checkpoint_id' value x.checkpoint_id,
                   'checkpoint_title' value x.checkpoint_title,
                   'checkpoint_order_no' value x.checkpoint_order_no,
+                  'checkpoint_type' value x.checkpoint_type,
                   'competition_type' value x.competition_type,
                   'question_id' value x.question_id,
                   'points' value x.points,
@@ -2514,6 +2636,7 @@ create or replace package body pkg_competitor as
            select cp.checkpoint_id,
                   cp.title as checkpoint_title,
                   cp.order_no as checkpoint_order_no,
+                  pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
                   nvl(c.type, 'R') as competition_type,
                   q.question_id,
                   q.points,
@@ -2944,6 +3067,7 @@ create or replace package pkg_admin_content as
   procedure create_checkpoint(
     p_competition_id in number,
     p_title in varchar2,
+    p_checkpoint_type in varchar2,
     p_order_no in number,
     p_location_hint in varchar2,
     p_latitude in number,
@@ -3285,6 +3409,7 @@ create or replace package body pkg_admin_content as
       for cp in (
         select cp.checkpoint_id,
                cp.title,
+               cp.checkpoint_type,
                cp.order_no,
                cp.location_hint,
                cp.latitude,
@@ -3301,9 +3426,9 @@ create or replace package body pkg_admin_content as
         begin
           l_new_checkpoint_id := seq_checkpoints.nextval;
           insert into checkpoints (
-            checkpoint_id, competition_id, title, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at
+            checkpoint_id, competition_id, title, checkpoint_type, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at
           ) values (
-            l_new_checkpoint_id, o_competition_id, cp.title, cp.order_no, cp.location_hint, cp.latitude, cp.longitude, cp.radius_m, cp.location_required,
+            l_new_checkpoint_id, o_competition_id, cp.title, cp.checkpoint_type, cp.order_no, cp.location_hint, cp.latitude, cp.longitude, cp.radius_m, cp.location_required,
             trunc(sysdate), p_created_by, systimestamp
           );
 
@@ -3858,6 +3983,7 @@ create or replace package body pkg_admin_content as
     select json_arrayagg(json_object(
       'checkpoint_id' value cp.checkpoint_id,
       'title' value cp.title, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+      'checkpoint_type' value pkg_common.normalize_checkpoint_type(cp.checkpoint_type),
       'order_no' value cp.order_no, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       'location_hint' value cp.location_hint, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       'latitude' value cp.latitude,
@@ -3976,6 +4102,7 @@ create or replace package body pkg_admin_content as
         'checkpoint_id' value cp.checkpoint_id,
         'checkpoint_title' value cp.title,
         'checkpoint_order_no' value cp.order_no,
+        'checkpoint_type' value pkg_common.normalize_checkpoint_type(cp.checkpoint_type),
         'location_hint' value cp.location_hint,
         'latitude' value cp.latitude,
         'longitude' value cp.longitude,
@@ -4105,19 +4232,43 @@ create or replace package body pkg_admin_content as
   end;
 
   -- create_checkpoint: Creates a new checkpoint record.
-  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is
+  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_checkpoint_type in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is -- NOSONAR: API boundary procedure mirrors checkpoint payload shape
     l_dummy number;
     l_use_location varchar2(1);
     l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
+    l_checkpoint_type varchar2(10) := pkg_common.normalize_checkpoint_type(p_checkpoint_type);
+    l_title checkpoints.title%type := trim(p_title);
+    l_order_no checkpoints.order_no%type := p_order_no;
+    l_special_exists number := 0;
   begin
-    if p_competition_id is null or trim(p_title) is null then
+    if p_competition_id is null then
       raise_application_error(-20100, 'competition_id and title are required');
+    end if;
+
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_start then
+      l_title := pkg_common.c_checkpoint_type_start;
+      l_order_no := pkg_common.c_checkpoint_start_order;
+    elsif l_checkpoint_type = pkg_common.c_checkpoint_type_finish then
+      l_title := pkg_common.c_checkpoint_type_finish;
+      l_order_no := pkg_common.c_checkpoint_finish_order;
+    elsif l_title is null then
+      raise_application_error(-20100, 'competition_id and title are required');
+    end if;
+
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_normal
+       and upper(trim(l_title)) in (pkg_common.c_checkpoint_type_start, pkg_common.c_checkpoint_type_finish) then
+      raise_application_error(-20196, 'checkpoint title is reserved for special checkpoint types');
+    end if;
+
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_normal
+       and l_order_no in (pkg_common.c_checkpoint_start_order, pkg_common.c_checkpoint_finish_order) then
+      raise_application_error(-20197, 'order_no is reserved for start and finish checkpoints');
     end if;
 
     begin
       select 1 into l_dummy from checkpoints cp
-       where cp.competition_id=p_competition_id and upper(trim(cp.title))=upper(trim(p_title)) and (cp.end_date is null or cp.end_date > sysdate)
+       where cp.competition_id=p_competition_id and upper(trim(cp.title))=upper(trim(l_title)) and (cp.end_date is null or cp.end_date > sysdate)
        fetch first 1 row only;
       raise_application_error(-20101, 'checkpoint title already exists in this competition');
     exception when no_data_found then null; end;
@@ -4127,7 +4278,7 @@ create or replace package body pkg_admin_content as
       from competitions
      where competition_id = p_competition_id
        and (end_date is null or end_date > sysdate);
-    if l_comp_type = 'S' and p_order_no is null then
+    if l_comp_type = 'S' and l_order_no is null then
       raise_application_error(-20126, 'order_no is required for competition type S');
     end if;
     if l_use_location <> 'Y' then
@@ -4137,12 +4288,24 @@ create or replace package body pkg_admin_content as
       raise_application_error(-20105, 'invalid location_required');
     end if;
 
+    if l_checkpoint_type in (pkg_common.c_checkpoint_type_start, pkg_common.c_checkpoint_type_finish) then
+      select count(*)
+        into l_special_exists
+        from checkpoints cp
+       where cp.competition_id = p_competition_id
+         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = l_checkpoint_type
+         and (cp.end_date is null or cp.end_date > sysdate);
+      if l_special_exists > 0 then
+        raise_application_error(-20198, 'special checkpoint type already exists in this competition');
+      end if;
+    end if;
+
     o_checkpoint_id := seq_checkpoints.nextval;
-    insert into checkpoints(checkpoint_id, competition_id, title, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at)
-    values(o_checkpoint_id, p_competition_id, trim(p_title), p_order_no, p_location_hint, p_latitude, p_longitude, p_radius_m, l_location_required, trunc(sysdate), p_created_by, systimestamp);
+    insert into checkpoints(checkpoint_id, competition_id, title, checkpoint_type, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at)
+    values(o_checkpoint_id, p_competition_id, l_title, l_checkpoint_type, l_order_no, p_location_hint, p_latitude, p_longitude, p_radius_m, l_location_required, trunc(sysdate), p_created_by, systimestamp);
 
     add_audit('CHECKPOINT', o_checkpoint_id, 'CREATE', p_created_by, null, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-      to_clob(json_object('competition_id' value p_competition_id,'title' value trim(p_title))));
+      to_clob(json_object('competition_id' value p_competition_id,'title' value l_title,'checkpoint_type' value l_checkpoint_type,'order_no' value l_order_no)));
   end;
 
   -- update_checkpoint: Updates existing data for checkpoint.
@@ -4152,16 +4315,36 @@ create or replace package body pkg_admin_content as
     l_use_location varchar2(1);
     l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
+    l_checkpoint_type varchar2(10) := pkg_common.c_checkpoint_type_normal;
+    l_title checkpoints.title%type := trim(p_title);
+    l_order_no checkpoints.order_no%type := p_order_no;
   begin
     if p_checkpoint_id is null or trim(p_title) is null then raise_application_error(-20102, 'checkpoint_id and title are required'); end if;
 
-    select competition_id into l_competition_id from checkpoints where checkpoint_id = p_checkpoint_id and (end_date is null or end_date > sysdate);
+    select competition_id,
+           pkg_common.normalize_checkpoint_type(checkpoint_type)
+      into l_competition_id,
+           l_checkpoint_type
+      from checkpoints
+     where checkpoint_id = p_checkpoint_id
+       and (end_date is null or end_date > sysdate);
     select use_location, nvl(type, 'R')
       into l_use_location, l_comp_type
       from competitions
      where competition_id = l_competition_id
        and (end_date is null or end_date > sysdate);
-    if l_comp_type = 'S' and p_order_no is null then
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_start then
+      l_title := pkg_common.c_checkpoint_type_start;
+      l_order_no := pkg_common.c_checkpoint_start_order;
+    elsif l_checkpoint_type = pkg_common.c_checkpoint_type_finish then
+      l_title := pkg_common.c_checkpoint_type_finish;
+      l_order_no := pkg_common.c_checkpoint_finish_order;
+    elsif upper(trim(l_title)) in (pkg_common.c_checkpoint_type_start, pkg_common.c_checkpoint_type_finish) then
+      raise_application_error(-20196, 'checkpoint title is reserved for special checkpoint types');
+    elsif l_order_no in (pkg_common.c_checkpoint_start_order, pkg_common.c_checkpoint_finish_order) then
+      raise_application_error(-20197, 'order_no is reserved for start and finish checkpoints');
+    end if;
+    if l_comp_type = 'S' and l_order_no is null then
       raise_application_error(-20127, 'order_no is required for competition type S');
     end if;
     if l_use_location <> 'Y' then
@@ -4173,19 +4356,19 @@ create or replace package body pkg_admin_content as
 
     begin
       select 1 into l_dummy from checkpoints cp
-       where cp.competition_id=l_competition_id and cp.checkpoint_id<>p_checkpoint_id and upper(trim(cp.title))=upper(trim(p_title)) and (cp.end_date is null or cp.end_date > sysdate)
+       where cp.competition_id=l_competition_id and cp.checkpoint_id<>p_checkpoint_id and upper(trim(cp.title))=upper(trim(l_title)) and (cp.end_date is null or cp.end_date > sysdate)
        fetch first 1 row only;
       raise_application_error(-20103, 'checkpoint title already exists in this competition');
     exception when no_data_found then null; end;
 
     update checkpoints
-       set title=trim(p_title), order_no=p_order_no, location_hint=p_location_hint,
+       set title=l_title, order_no=l_order_no, location_hint=p_location_hint,
            latitude = p_latitude, longitude = p_longitude, radius_m = p_radius_m, location_required = l_location_required,
            updated_by=p_updated_by, updated_at=systimestamp
      where checkpoint_id = p_checkpoint_id;
 
     add_audit('CHECKPOINT', p_checkpoint_id, 'UPDATE', p_updated_by, null,
-      to_clob(json_object('title' value trim(p_title), 'order_no' value p_order_no, 'location_hint' value p_location_hint, 'latitude' value p_latitude, 'longitude' value p_longitude, 'radius_m' value p_radius_m, 'location_required' value l_location_required)));
+      to_clob(json_object('title' value l_title, 'checkpoint_type' value l_checkpoint_type, 'order_no' value l_order_no, 'location_hint' value p_location_hint, 'latitude' value p_latitude, 'longitude' value p_longitude, 'radius_m' value p_radius_m, 'location_required' value l_location_required)));
   end;
 
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
@@ -4308,34 +4491,31 @@ create or replace package body pkg_admin_content as
     l_payload_codes t_code_set;
     l_norm_code varchar2(100);
   begin
-    if p_options_json is null then
-      return;
-    end if;
-
-    l_arr := json_array_t.parse(p_options_json);
-    for i in 0 .. l_arr.get_size - 1 loop
-      l_obj := treat(l_arr.get(i) as json_object_t);
-      l_code := l_obj.get_string('option_code');
-      l_text := l_obj.get_string('text_et');
-      l_is_correct := case when l_obj.has('is_correct') and upper(l_obj.get_string('is_correct'))='Y' then 'Y' else 'N' end;
+    if p_options_json is not null then
+      l_arr := json_array_t.parse(p_options_json);
+      for i in 0 .. l_arr.get_size - 1 loop
+        l_obj := treat(l_arr.get(i) as json_object_t);
+        l_code := l_obj.get_string('option_code');
+        l_text := l_obj.get_string('text_et');
+        l_is_correct := case when l_obj.has('is_correct') and upper(l_obj.get_string('is_correct'))='Y' then 'Y' else 'N' end;
         l_norm_code := upper(trim(l_code));
-      if l_norm_code is null then
-        continue;
-      end if;
-      l_payload_codes(l_norm_code) := l_norm_code;
+        if l_norm_code is null then
+          continue;
+        end if;
+        l_payload_codes(l_norm_code) := l_norm_code;
 
-      begin
-        select qo.option_id
-          into l_existing_option_id
-          from question_options qo
-         where qo.question_id = p_question_id
-           and upper(trim(qo.option_code)) = l_norm_code
-           and (qo.end_date is null or qo.end_date > sysdate)
-         fetch first 1 row only;
-      exception
-        when no_data_found then
-          l_existing_option_id := null;
-      end;
+        begin
+          select qo.option_id
+            into l_existing_option_id
+            from question_options qo
+           where qo.question_id = p_question_id
+             and upper(trim(qo.option_code)) = l_norm_code
+             and (qo.end_date is null or qo.end_date > sysdate)
+           fetch first 1 row only;
+        exception
+          when no_data_found then
+            l_existing_option_id := null;
+        end;
 
         if l_existing_option_id is null then
           select nvl(max(qo.order_no), 0) + 1
@@ -4356,75 +4536,81 @@ create or replace package body pkg_admin_content as
              and (end_date is null or end_date > sysdate);
         end if;
 
-      if l_text is not null and trim(l_text) is not null then
-        update question_option_texts
-           set option_text = l_text,
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = l_option_id
-           and lower(lang_code) = 'et'
-           and (end_date is null or end_date > sysdate);
-        if sql%rowcount = 0 then
-          insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
-          values(seq_question_option_texts.nextval, l_option_id, 'et', l_text, trunc(sysdate), p_updated_by, systimestamp);
-        end if;
-      end if;
-
-      l_keys := l_obj.get_keys;
-      l_k := 1;
-      while l_k <= l_keys.count loop
-        l_key := l_keys(l_k);
-        if l_key like 'text\_%' escape '\' and lower(l_key) <> 'text_et' then
-          l_lang := lower(substr(l_key, 6));
-          l_text := l_obj.get_string(l_key);
-          if l_text is not null and trim(l_text) is not null then
-            update question_option_texts
-               set option_text = l_text,
-                   updated_by = p_updated_by,
-                   updated_at = systimestamp
-             where option_id = l_option_id
-               and lower(lang_code) = l_lang
-               and (end_date is null or end_date > sysdate);
-            if sql%rowcount = 0 then
-              insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
-              values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
-            end if;
+        if l_text is not null and trim(l_text) is not null then
+          update question_option_texts
+             set option_text = l_text,
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = l_option_id
+             and lower(lang_code) = 'et'
+             and (end_date is null or end_date > sysdate);
+          if sql%rowcount = 0 then
+            insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
+            values(seq_question_option_texts.nextval, l_option_id, 'et', l_text, trunc(sysdate), p_updated_by, systimestamp);
           end if;
         end if;
-        l_k := l_k + 1;
+
+        l_keys := l_obj.get_keys;
+        l_k := 1;
+        while l_k <= l_keys.count loop
+          l_key := l_keys(l_k);
+          if l_key not like 'text\_%' escape '\' or lower(l_key) = 'text_et' then
+            l_k := l_k + 1;
+            continue;
+          end if;
+
+          l_lang := lower(substr(l_key, 6));
+          l_text := l_obj.get_string(l_key);
+          if l_text is null or trim(l_text) is null then
+            l_k := l_k + 1;
+            continue;
+          end if;
+
+          update question_option_texts
+             set option_text = l_text,
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = l_option_id
+             and lower(lang_code) = l_lang
+             and (end_date is null or end_date > sysdate);
+          if sql%rowcount = 0 then
+            insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
+            values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
+          end if;
+          l_k := l_k + 1;
+        end loop;
       end loop;
-    end loop;
+      for old_opt in (
+        select qo.option_id,
+               upper(trim(qo.option_code)) as norm_code
+          from question_options qo
+         where qo.question_id = p_question_id
+           and (qo.end_date is null or qo.end_date > sysdate)
+      ) loop
+        if old_opt.norm_code is null then
+          l_found := 0;
+        elsif l_payload_codes.exists(old_opt.norm_code) then
+          l_found := 1;
+        else
+          l_found := 0;
+        end if;
+        if l_found = 0 then
+          update question_option_texts
+             set end_date = trunc(sysdate),
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = old_opt.option_id
+             and (end_date is null or end_date > sysdate);
 
-    for old_opt in (
-      select qo.option_id,
-             upper(trim(qo.option_code)) as norm_code
-        from question_options qo
-       where qo.question_id = p_question_id
-         and (qo.end_date is null or qo.end_date > sysdate)
-    ) loop
-      if old_opt.norm_code is null then
-        l_found := 0;
-      elsif l_payload_codes.exists(old_opt.norm_code) then
-        l_found := 1;
-      else
-        l_found := 0;
-      end if;
-      if l_found = 0 then
-        update question_option_texts
-           set end_date = trunc(sysdate),
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = old_opt.option_id
-           and (end_date is null or end_date > sysdate);
-
-        update question_options
-           set end_date = trunc(sysdate),
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = old_opt.option_id
-           and (end_date is null or end_date > sysdate);
-      end if;
-    end loop;
+          update question_options
+             set end_date = trunc(sysdate),
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = old_opt.option_id
+             and (end_date is null or end_date > sysdate);
+        end if;
+      end loop;
+    end if;
   end;
 
   -- replace_question_answers: Replaces existing records with the provided payload for question answers.

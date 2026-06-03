@@ -54,6 +54,7 @@
 - SQL koodis ei tohi samasisulisi konstante, protseduure ja funktsioone korrata -- kui on vaja, siis tuleb protseduur või funktsioon teha globaalselt kättesaadavaks.
 - koodis eelista korduvate väärtuste puhul võimalusel eeldefineeritud konstante
 - stylesheet on assets/app.css failis. Seda kasutavad results, admin ja superadmin lehed. Stiile tuleb jagada, mitte igale lehele sama sisuga uus stiil defineerida.
+- admin "Näita kaardil" vaates ja KP lisamise/muutmise kaardil ei tohi KP erisümbolite joonistamine sõltuda Leafleti projektsioonist enne vaate paigaseadmist. Väldi lahendusi, mis kasutavad `latLngToLayerPoint` või `layerPointToLatLng` enne `setView` või `fitBounds` lõppemist; START ja FINISH tüüpi tähised tuleb teha vaate-agnostilise `divIcon`/SVG lahendusega, vastasel juhul tekib viga "Set map center and zoom first."
 - index.html (kasutaja UI) ei kasuta assets/app.css stylesheeti!
 
 ## 6. Dokumentatsiooni ja tõeallikate register

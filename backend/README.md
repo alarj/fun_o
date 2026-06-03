@@ -278,7 +278,7 @@ Architecture rule for all ORDS endpoints:
 ### Competition content
 - `checkpoints`
   - `checkpoint_id` PK, FK: `competition_id -> competitions`
-  - `title`, optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
+  - `title`, `checkpoint_type` (`NORMAL|START|FINISH`; `NULL` handled as `NORMAL`), optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
   - `location_required` in `('Y','N')`
   - soft-delete/audit columns
 - `questions`
@@ -454,6 +454,7 @@ Important:
 - Filled: first request per key.
 - Additive payload fields (backward-compatible):
   - `checkpoint_order_no`
+  - `checkpoint_type`
   - `competition_type` (`R|S`)
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
@@ -471,6 +472,7 @@ Important:
 - Filled: each successful response.
 - Additive payload fields may include:
   - `checkpoint_order_no`
+  - `checkpoint_type`
   - `competition_type` (`R|S`)
 - Invalidated/reset:
   - naturally overwritten by next response.
@@ -551,6 +553,10 @@ Final authority:
 ORDS/PLSQL side:
 - `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
 - location-required checkpoints are returned only when computed distance is within effective radius.
+- if an active `START` exists and the participant has not yet answered it, only `START` is returned as open;
+- after `START` has been answered, the normal unanswered + location rules continue to apply;
+- if active `FINISH` has already been answered, no more checkpoints are returned as open;
+- `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint.
 
 ### 2) Results distance (`total_distance_m`)
 
