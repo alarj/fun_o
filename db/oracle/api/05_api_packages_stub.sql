@@ -4580,38 +4580,37 @@ create or replace package body pkg_admin_content as
           l_k := l_k + 1;
         end loop;
       end loop;
+      for old_opt in (
+        select qo.option_id,
+               upper(trim(qo.option_code)) as norm_code
+          from question_options qo
+         where qo.question_id = p_question_id
+           and (qo.end_date is null or qo.end_date > sysdate)
+      ) loop
+        if old_opt.norm_code is null then
+          l_found := 0;
+        elsif l_payload_codes.exists(old_opt.norm_code) then
+          l_found := 1;
+        else
+          l_found := 0;
+        end if;
+        if l_found = 0 then
+          update question_option_texts
+             set end_date = trunc(sysdate),
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = old_opt.option_id
+             and (end_date is null or end_date > sysdate);
+
+          update question_options
+             set end_date = trunc(sysdate),
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = old_opt.option_id
+             and (end_date is null or end_date > sysdate);
+        end if;
+      end loop;
     end if;
-
-    for old_opt in (
-      select qo.option_id,
-             upper(trim(qo.option_code)) as norm_code
-        from question_options qo
-       where qo.question_id = p_question_id
-         and (qo.end_date is null or qo.end_date > sysdate)
-    ) loop
-      if old_opt.norm_code is null then
-        l_found := 0;
-      elsif l_payload_codes.exists(old_opt.norm_code) then
-        l_found := 1;
-      else
-        l_found := 0;
-      end if;
-      if l_found = 0 then
-        update question_option_texts
-           set end_date = trunc(sysdate),
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = old_opt.option_id
-           and (end_date is null or end_date > sysdate);
-
-        update question_options
-           set end_date = trunc(sysdate),
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = old_opt.option_id
-           and (end_date is null or end_date > sysdate);
-      end if;
-    end loop;
   end;
 
   -- replace_question_answers: Replaces existing records with the provided payload for question answers.
