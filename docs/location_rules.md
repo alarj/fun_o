@@ -79,6 +79,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
     - puuduvad nii asukoht kui KP-d -> vaikimisi Eesti vaade (`58.8, 25.4`, zoom 8).
 - Kui GPS asukoht saabub viitega pärast kaardi avamist:
   - follow-režiimis tehakse `panTo(user)` (keskpunkt uuendatakse) ilma zoomi jõuga muutmata.
+- Kui kaardivaate taustal töötav GPS jälgimine katkeb või GPS signaal puudub:
+  - kaardivaates kuvatakse alati väike staatustekst `GPS signaal puudub` / `No GPS` samas visuaalses stiilis nagu heading debug kast;
+  - kui kasutaja asukoha markerit selle võistluse jaoks kuvatakse ja viimane teadaolev asukoht on olemas, jääb marker viimasesse teadaolevasse punkti, kuid muutub halliks;
+  - järgmise eduka GPS uuenduse järel staatustekst kaob ja marker taastub tavavärvi.
 
 ## 6. KP klikid kaardil ja ligipääsukontroll
 

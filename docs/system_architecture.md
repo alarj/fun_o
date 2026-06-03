@@ -92,13 +92,18 @@ Miks nii on tehtud:
 
 Tehnoloogia:
 - HTML
-- Vanilla JavaScript (inline `<script>` failis `frontend_dist/index.html`)
+- Vanilla JavaScript (võistleja UI loogika on jaotatud staatilisteks asset-failideks)
 - CSS
 - Leaflet (`leaflet`), `proj4`, `proj4leaflet` kaardifunktsioonide jaoks
+- DOMPurify võistluse tingimuste HTML turvaliseks sanitiseerimiseks enne renderdamist
 - HTTP API kaudu suhtlus FastAPI-ga
 
 Viited:
 - `frontend_dist/index.html`
+- `frontend_dist/assets/competitor.css`
+- `frontend_dist/assets/competitor-core.js`
+- `frontend_dist/assets/competitor-map.js`
+- `frontend_dist/assets/competitor-main.js`
 - `backend/README.md`
 
 ## 5) Välised ressursid

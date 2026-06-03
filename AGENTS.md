@@ -53,6 +53,7 @@
 - Arvesta, et kui tabelil on PK veerg, siis tuleb see INSERT lauses väärtustada õige sequence nextval väärtusega
 - SQL koodis ei tohi samasisulisi konstante, protseduure ja funktsioone korrata -- kui on vaja, siis tuleb protseduur või funktsioon teha globaalselt kättesaadavaks.
 - koodis eelista korduvate väärtuste puhul võimalusel eeldefineeritud konstante
+- aktiivse sisu ärireegel: `1 checkpoint = 1 active question`. Kontrollpunktile, millel on juba aktiivne küsimus, ei looda teist aktiivset küsimust juurde ning koodimuudatused ja review tähelepanekud peavad sellest eeldusest lähtuma, kui pole eraldi kokku lepitud teisiti.
 - stylesheet on assets/app.css failis. Seda kasutavad results, admin ja superadmin lehed. Stiile tuleb jagada, mitte igale lehele sama sisuga uus stiil defineerida.
 - admin "Näita kaardil" vaates ja KP lisamise/muutmise kaardil ei tohi KP erisümbolite joonistamine sõltuda Leafleti projektsioonist enne vaate paigaseadmist. Väldi lahendusi, mis kasutavad `latLngToLayerPoint` või `layerPointToLatLng` enne `setView` või `fitBounds` lõppemist; START ja FINISH tüüpi tähised tuleb teha vaate-agnostilise `divIcon`/SVG lahendusega, vastasel juhul tekib viga "Set map center and zoom first."
 - index.html (kasutaja UI) ei kasuta assets/app.css stylesheeti!
@@ -66,6 +67,7 @@
 - `docs/erd.md`
 - `docs/location_rules.md`
 - `docs/competitor_join_rules.md`
+- `docs/known_bugs_by_sonar_and_gemini.md`
 - `backend/README.md`
 - `docs/deploy/https-letsencrypt.md`
 - `testing/load/README.md`

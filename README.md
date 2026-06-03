@@ -65,6 +65,13 @@ Lahendus on veebipõhine mitmekihiline süsteem:
 - kaardikiht avalikest kaardiallikatest (nt Maa-ameti kaardid, OpenStreetMap, Mapy.cz), mida saab kasutada võistluse loogika osana või taustakaardina;
 - Docker Compose’iga käivitatav tervik (nginx + backend + testiprofiil).
 
+Võistleja UI (`frontend_dist/index.html`) kasutab eraldi staatilisi asset-faile:
+- stiilid: `frontend_dist/assets/competitor.css`
+- üldine UI/API/i18n loogika: `frontend_dist/assets/competitor-core.js`
+- kaardi, suuna ja kaardikihtide loogika: `frontend_dist/assets/competitor-map.js`
+- bootstrap, modalid ja sündmuste sidumine: `frontend_dist/assets/competitor-main.js`
+- võistluse tingimuste rich HTML sanitiseeritakse brauseris DOMPurify abil enne renderdamist
+
 See arhitektuur toetab eesmärki hoida ärireeglid stabiilsena, vähendada UI-poolset “nutikust” ning tagada, et sama reegel kehtib kõigile klientidele ühtemoodi.
 
 ## Tehniline arhitektuur (viited)
@@ -75,6 +82,7 @@ Tehnilised detailid on kirjeldatud olemasolevates dokumentides:
 - andmemudel (ERD): [docs/erd.md](docs/erd.md)
 - asukohaloogika reeglid: [docs/location_rules.md](docs/location_rules.md)
 - liitumise ja osaluse reeglid: [docs/competitor_join_rules.md](docs/competitor_join_rules.md)
+- teadlikult parandamata Sonar/Gemini leiud: [docs/known_bugs_by_sonar_and_gemini.md](docs/known_bugs_by_sonar_and_gemini.md)
 - backendi API/integreerimisdetailid: [backend/README.md](backend/README.md)
   - sisaldab ka eraldi jaotist geograafilise kauguse arvutusest (KP avatavus + `total_distance_m`)
 - juurutus (HTTPS): [docs/deploy/https-letsencrypt.md](docs/deploy/https-letsencrypt.md)
@@ -133,3 +141,4 @@ Praktiline vahevariant on teha esmalt "targeted bypass" ainult kõige kuumemale 
 - FastAPI DB-kasutajale ei anta otseseid õigusi andmetabelitele.
 - Antakse ainult vajalik `EXECUTE` õigus konkreetsele package/procedure'ile.
 - Ärireeglid ja andmepäringud jäävad jätkuvalt DB kihis hallatavaks.
+

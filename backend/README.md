@@ -118,7 +118,7 @@ Required backend env:
   - If authorized and no data exists, API returns empty `items` and `access_granted = Y`.
   - If unauthorized (or inaccessible competition), API returns neutral empty payload with `access_granted = N`.
 
-Map layer config (admin "NĆ¤ita kaardil"):
+Map layer config (admin "Näita kaardil"):
 - File: `backend/app/map_layers.json`
 - Endpoint: `GET /api/map-layers`
 - Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 31536000s / 1 year).
@@ -280,6 +280,7 @@ Architecture rule for all ORDS endpoints:
   - `checkpoint_id` PK, FK: `competition_id -> competitions`
   - `title`, `checkpoint_type` (`NORMAL|START|FINISH`; `NULL` handled as `NORMAL`), optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
   - `location_required` in `('Y','N')`
+  - invariant: `1 checkpoint = 1 active question`
   - soft-delete/audit columns
 - `questions`
   - `question_id` PK, FK: `checkpoint_id -> checkpoints`
@@ -489,7 +490,7 @@ Important:
 - Rules:
   - `location_required='N'` can be opened without geo gate.
   - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
-  - final “open/not open” decision for candidates comes from ORDS response.
+  - final "open/not open" decision for candidates comes from ORDS response.
 
 Frontend event-driven refresh notes:
 - After successful answer submit, UI updates the answered checkpoint status locally (`is_answered='Y'`) for visible map markers.
