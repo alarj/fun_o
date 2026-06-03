@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="et">
 <head>
   <meta charset="utf-8" />
@@ -10,7 +10,7 @@
 <body>
   <div class="wrap">
     <div class="card" id="loginCard">
-      <h2 data-i18n="superadmin.login.heading">Superadmin sisselogimine</h2>
+      <h2 data-i18n="superadmin.login.heading">superadmin.login.heading</h2>
       <div class="tools">
         <div id="googleLoginMount"></div>
       </div>
@@ -20,11 +20,11 @@
     <div class="hidden" id="appArea">
       <div class="card">
         <div class="tools superTopBar">
-          <h1 data-i18n="superadmin.page.heading">Superadmin</h1>
+          <h1 data-i18n="superadmin.page.heading">superadmin.page.heading</h1>
           <div class="superTopBarRight">
             <div class="tools superTopActionsRow">
-              <button id="openTranslationsBtn" class="secondary" type="button" data-i18n="superadmin.top.translations_btn">T�lked</button>
-              <button id="goAdminBtn" class="secondary" type="button" data-i18n="superadmin.top.admin_btn">V�istluse korraldamine</button>
+              <button id="openTranslationsBtn" class="secondary" type="button" data-i18n="superadmin.top.translations_btn">superadmin.top.translations_btn</button>
+              <button id="goAdminBtn" class="secondary" type="button" data-i18n="superadmin.top.admin_btn">superadmin.top.admin_btn</button>
             </div>
             <div class="superTopUserRow">
               <div id="currentUserBox" class="userRow" title="-"></div>
@@ -32,31 +32,31 @@
                 <option value="et">ET</option>
                 <option value="en">EN</option>
               </select>
-              <button id="logoutBtn" class="logoutBtnIcon" type="button" title="Logi v�lja" aria-label="Logi v�lja"></button>
+              <button id="logoutBtn" class="logoutBtnIcon" type="button" title="superadmin.top.logout_btn" aria-label="superadmin.top.logout_btn"></button>
             </div>
           </div>
         </div>
-        <div class="muted" data-i18n="superadmin.page.subtitle">V�istluste loomine ja �levaade</div>
+        <div class="muted" data-i18n="superadmin.page.subtitle">superadmin.page.subtitle</div>
       </div>
 
       <div class="card">
-        <h2 data-i18n="superadmin.create.heading">Lisa uus v�istlus</h2>
+        <h2 data-i18n="superadmin.create.heading">superadmin.create.heading</h2>
         <div class="row">
-          <label for="newCompName" data-i18n="superadmin.create.name_label">Nimi</label>
+          <label for="newCompName" data-i18n="superadmin.create.name_label">superadmin.create.name_label</label>
           <input id="newCompName" type="text" maxlength="200" />
         </div>
         <div class="row">
-          <label for="newCompDesc" data-i18n="superadmin.create.desc_label">Kirjeldus</label>
+          <label for="newCompDesc" data-i18n="superadmin.create.desc_label">superadmin.create.desc_label</label>
           <textarea id="newCompDesc" maxlength="2000"></textarea>
         </div>
         <div class="tools">
-          <button id="createCompBtn" type="button" data-i18n="superadmin.create.create_btn">Loo v�istlus</button>
+          <button id="createCompBtn" type="button" data-i18n="superadmin.create.create_btn">superadmin.create.create_btn</button>
         </div>
         <div id="createMsg"></div>
       </div>
 
       <div class="card">
-        <h2 data-i18n="superadmin.list.heading">V�istlused</h2>
+        <h2 data-i18n="superadmin.list.heading">superadmin.list.heading</h2>
         <table class="table">
           <colgroup>
             <col style="width:40px;">
@@ -73,14 +73,14 @@
           <thead>
             <tr>
               <th>ID <button class="sortBtn" id="sortId" type="button">?</button></th>
-              <th><span data-i18n="superadmin.list.name_col">Nimi</span> <button class="sortBtn" id="sortName" type="button">?</button></th>
-              <th><span data-i18n="superadmin.list.status_col">Staatus</span> <button class="sortBtn" id="sortStatus" type="button">?</button></th>
-              <th><span data-i18n="superadmin.list.kp_count_col">KP arv</span> <button class="sortBtn" id="sortCheckpointCount" type="button">?</button></th>
-              <th data-i18n="superadmin.list.location_col">Asukoht</th>
-              <th data-i18n="superadmin.list.org_code_col">Korraldaja kood</th>
-              <th data-i18n="superadmin.list.orgs_col">Korraldajad</th>
-              <th><span data-i18n="superadmin.list.starts_col">Algus</span> <button class="sortBtn" id="sortStart" type="button">?</button></th>
-              <th><span data-i18n="superadmin.list.ends_col">L�pp</span> <button class="sortBtn" id="sortEnd" type="button">?</button></th>
+              <th><span data-i18n="superadmin.list.name_col">superadmin.list.name_col</span> <button class="sortBtn" id="sortName" type="button">?</button></th>
+              <th><span data-i18n="superadmin.list.status_col">superadmin.list.status_col</span> <button class="sortBtn" id="sortStatus" type="button">?</button></th>
+              <th><span data-i18n="superadmin.list.kp_count_col">superadmin.list.kp_count_col</span> <button class="sortBtn" id="sortCheckpointCount" type="button">?</button></th>
+              <th data-i18n="superadmin.list.location_col">superadmin.list.location_col</th>
+              <th data-i18n="superadmin.list.org_code_col">superadmin.list.org_code_col</th>
+              <th data-i18n="superadmin.list.orgs_col">superadmin.list.orgs_col</th>
+              <th><span data-i18n="superadmin.list.starts_col">superadmin.list.starts_col</span> <button class="sortBtn" id="sortStart" type="button">?</button></th>
+              <th><span data-i18n="superadmin.list.ends_col">superadmin.list.ends_col</span> <button class="sortBtn" id="sortEnd" type="button">?</button></th>
               <th></th>
             </tr>
           </thead>
@@ -93,39 +93,39 @@
 
   <div id="createResultBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 style="margin-top:0;" data-i18n="superadmin.created.heading">V�istlus loodud</h2>
+      <h2 style="margin-top:0;" data-i18n="superadmin.created.heading">superadmin.created.heading</h2>
       <div id="createResultText" class="muted" style="margin-bottom:10px;"></div>
       <div style="font-size:15px; margin-bottom:10px;">
-        <span data-i18n="superadmin.created.org_code_label">Korraldaja kood:</span>
+        <span data-i18n="superadmin.created.org_code_label">superadmin.created.org_code_label</span>
         <span id="createResultCodeWrap" class="codeWrap">
           <span id="createResultCode" class="orgCode">-</span>
-          <button id="copyCreatedCodeBtn" class="iconBtn" type="button" title="Kopeeri kood" aria-label="Kopeeri kood"></button>
+          <button id="copyCreatedCodeBtn" class="iconBtn" type="button" title="superadmin.common.copy_code_btn" aria-label="superadmin.common.copy_code_btn"></button>
         </span>
       </div>
       <div class="tools" style="justify-content:flex-end;">
-        <button id="createResultCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+        <button id="createResultCloseBtn" type="button" data-i18n="superadmin.common.close_btn">superadmin.common.close_btn</button>
       </div>
     </div>
   </div>
 
   <div id="removeOrganizerBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 id="removeOrganizerTitle" style="margin-top:0;" data-i18n="superadmin.remove_org.heading">Korraldaja eemaldamine</h2>
+      <h2 id="removeOrganizerTitle" style="margin-top:0;" data-i18n="superadmin.remove_org.heading">superadmin.remove_org.heading</h2>
       <div id="removeOrganizerText" class="muted" style="margin-bottom:10px;"></div>
       <div id="removeOrganizerMsg"></div>
       <div class="tools" id="removeOrganizerActions" style="justify-content:flex-end;">
-        <button id="removeOrganizerNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">Ei</button>
-        <button id="removeOrganizerYesBtn" type="button" data-i18n="superadmin.common.yes_btn">Jah</button>
+        <button id="removeOrganizerNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">superadmin.common.no_btn</button>
+        <button id="removeOrganizerYesBtn" type="button" data-i18n="superadmin.common.yes_btn">superadmin.common.yes_btn</button>
       </div>
       <div class="tools hidden" id="removeOrganizerResultActions" style="justify-content:flex-end;">
-        <button id="removeOrganizerCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+        <button id="removeOrganizerCloseBtn" type="button" data-i18n="superadmin.common.close_btn">superadmin.common.close_btn</button>
       </div>
     </div>
   </div>
 
   <div id="copyCompetitionBackdrop" class="modalBackdrop">
     <div class="modalCard">
-      <h2 id="copyCompetitionTitle" style="margin-top:0;" data-i18n="superadmin.copy.heading">V�istluse kopeerimine</h2>
+      <h2 id="copyCompetitionTitle" style="margin-top:0;" data-i18n="superadmin.copy.heading">superadmin.copy.heading</h2>
       <div id="copyCompetitionText" class="muted" style="margin-bottom:10px;"></div>
       <div id="copyCompetitionFormArea">
         <div class="yn-inline">
@@ -133,47 +133,47 @@
             <input id="copyWithQuestions" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
-          <label for="copyWithQuestions" data-i18n="superadmin.copy.with_questions_label">Kas kopeerime ka k�simused ja vastusevariandid?</label>
+          <label for="copyWithQuestions" data-i18n="superadmin.copy.with_questions_label">superadmin.copy.with_questions_label</label>
         </div>
         <div class="yn-inline" style="margin-bottom:10px;">
           <label class="yn-switch" for="copyWithOrganizers">
             <input id="copyWithOrganizers" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
-          <label for="copyWithOrganizers" data-i18n="superadmin.copy.with_organizers_label">Kas kopeerime korraldajad?</label>
+          <label for="copyWithOrganizers" data-i18n="superadmin.copy.with_organizers_label">superadmin.copy.with_organizers_label</label>
         </div>
-        <div class="muted" style="margin-bottom:8px;" data-i18n="superadmin.copy.help_text">Uue loodava v�istlusega peavad osalejad eraldi liituma uue koodi abil. Vana v�istluse osalejaid kaasa ei v�eta. Korraldajate lisamise kood on uuel v�istlusel uus. V�istluse kuup�evad tuleb peale kopeerimist ise m��rata.</div>
+        <div class="muted" style="margin-bottom:8px;" data-i18n="superadmin.copy.help_text">superadmin.copy.help_text</div>
       </div>
       <div id="copyCompetitionMsg"></div>
       <div class="tools" id="copyCompetitionActions" style="justify-content:flex-end;">
-        <button id="copyCompetitionNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">Ei</button>
-        <button id="copyCompetitionYesBtn" type="button" data-i18n="superadmin.common.yes_btn">Jah</button>
+        <button id="copyCompetitionNoBtn" class="secondary" type="button" data-i18n="superadmin.common.no_btn">superadmin.common.no_btn</button>
+        <button id="copyCompetitionYesBtn" type="button" data-i18n="superadmin.common.yes_btn">superadmin.common.yes_btn</button>
       </div>
       <div class="tools hidden" id="copyCompetitionResultActions" style="justify-content:flex-end;">
-        <button id="copyCompetitionCloseBtn" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+        <button id="copyCompetitionCloseBtn" type="button" data-i18n="superadmin.common.close_btn">superadmin.common.close_btn</button>
       </div>
     </div>
   </div>
 
   <div id="translationsBackdrop" class="modalBackdrop">
     <div class="modalCard" style="width:min(1200px,96vw); max-height:92vh; display:flex; flex-direction:column;">
-      <h2 style="margin-top:0;" data-i18n="superadmin.translations.heading">T�lgete haldus</h2>
+      <h2 style="margin-top:0;" data-i18n="superadmin.translations.heading">superadmin.translations.heading</h2>
       <div class="row">
-        <label for="trSearchInput" data-i18n="superadmin.translations.search_label">Otsing (v�ti v�i tekst)</label>
-        <input id="trSearchInput" type="text" placeholder="nt competitor.join v�i Continue joining" data-i18n-placeholder="superadmin.translations.search_placeholder" />
+        <label for="trSearchInput" data-i18n="superadmin.translations.search_label">superadmin.translations.search_label</label>
+        <input id="trSearchInput" type="text" placeholder="superadmin.translations.search_placeholder" data-i18n-placeholder="superadmin.translations.search_placeholder" />
       </div>
       <div class="tools">
-        <button id="trLoadBtn" type="button" data-i18n="superadmin.translations.load_btn">Lae t�lked</button>
-        <button id="trCreateBtn" class="secondary" type="button" data-i18n="superadmin.translations.new_key_btn">Lisa uus v�ti</button>
-        <button id="trReloadCacheBtn" class="secondary" type="button" data-i18n="superadmin.translations.reload_btn">Uuenda i18n cache</button>
-        <button id="trCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
+        <button id="trLoadBtn" type="button" data-i18n="superadmin.translations.load_btn">superadmin.translations.load_btn</button>
+        <button id="trCreateBtn" class="secondary" type="button" data-i18n="superadmin.translations.new_key_btn">superadmin.translations.new_key_btn</button>
+        <button id="trReloadCacheBtn" class="secondary" type="button" data-i18n="superadmin.translations.reload_btn">superadmin.translations.reload_btn</button>
+        <button id="trCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">superadmin.common.close_btn</button>
       </div>
       <div id="trMsg"></div>
       <div style="overflow:auto; border:1px solid #d7ddd8; border-radius:10px; margin-top:8px;">
         <table class="table">
           <thead>
             <tr>
-              <th data-i18n="superadmin.translations.key_col">V�ti</th>
+              <th data-i18n="superadmin.translations.key_col">superadmin.translations.key_col</th>
               <th>ET</th>
               <th>EN</th>
               <th style="width:100px;"></th>
@@ -187,16 +187,16 @@
 
   <div id="trEditBackdrop" class="modalBackdrop">
     <div class="modalCard" style="width:min(960px,96vw); max-height:92vh; display:flex; flex-direction:column;">
-      <h2 id="trEditTitle" style="margin-top:0;" data-i18n="superadmin.translations.edit_heading">T�lke muutmine</h2>
+      <h2 id="trEditTitle" style="margin-top:0;" data-i18n="superadmin.translations.edit_heading">superadmin.translations.edit_heading</h2>
       <div class="row">
-        <label for="trKeyInput" data-i18n="superadmin.translations.key_label">V�ti</label>
-        <input id="trKeyInput" type="text" maxlength="300" placeholder="competitor.join.code_label" data-i18n-placeholder="superadmin.translations.key_placeholder" />
+        <label for="trKeyInput" data-i18n="superadmin.translations.key_label">superadmin.translations.key_label</label>
+        <input id="trKeyInput" type="text" maxlength="300" placeholder="superadmin.translations.key_placeholder" data-i18n-placeholder="superadmin.translations.key_placeholder" />
       </div>
       <div id="trLangEditorRows" style="overflow:auto; margin-top:6px;"></div>
       <div id="trEditMsg"></div>
       <div class="tools" style="justify-content:flex-end; margin-top:10px;">
-        <button id="trEditCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">Sulge</button>
-        <button id="trSaveBtn" type="button" data-i18n="superadmin.common.save_btn">Salvesta</button>
+        <button id="trEditCloseBtn" class="secondary" type="button" data-i18n="superadmin.common.close_btn">superadmin.common.close_btn</button>
+        <button id="trSaveBtn" type="button" data-i18n="superadmin.common.save_btn">superadmin.common.save_btn</button>
       </div>
     </div>
   </div>
@@ -231,23 +231,22 @@
       const found = parts.find((p) => p.startsWith(prefix));
       return found ? decodeURIComponent(found.substring(prefix.length)) : "";
     }
-    function tr(key, fallback = "") {
-      return Object.prototype.hasOwnProperty.call(i18nItems, key) ? i18nItems[key] : fallback;
+    function tr(key) {
+      return Object.prototype.hasOwnProperty.call(i18nItems, key) ? i18nItems[key] : key;
     }
     function applyI18n() {
       document.querySelectorAll("[data-i18n]").forEach((el) => {
         const key = el.getAttribute("data-i18n");
         if (!key) return;
-        el.textContent = tr(key, el.textContent || key);
+        el.textContent = tr(key);
       });
       document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
         const key = el.getAttribute("data-i18n-placeholder");
         if (!key) return;
-        const fallback = el.getAttribute("placeholder") || key;
-        el.setAttribute("placeholder", tr(key, fallback));
+        el.setAttribute("placeholder", tr(key));
       });
-      byId("logoutBtn").title = tr("superadmin.top.logout_btn", "Logi v�lja");
-      byId("logoutBtn").setAttribute("aria-label", tr("superadmin.top.logout_btn", "Logi v�lja"));
+      byId("logoutBtn").title = tr("superadmin.top.logout_btn");
+      byId("logoutBtn").setAttribute("aria-label", tr("superadmin.top.logout_btn"));
     }
     async function loadI18nMeta() {
       const d = await get("/api/i18n/meta");
@@ -371,7 +370,7 @@
     }
 
     function openCreateResultModal(competitionId, organizerCode) {
-      byId("createResultText").textContent = `${tr("superadmin.created.msg_prefix","V�istlus loodud")} (id=${competitionId}).`;
+      byId("createResultText").textContent = `${tr("superadmin.created.msg_prefix")} (id=${competitionId}).`;
       byId("createResultCode").textContent = organizerCode || "-";
       byId("createResultBackdrop").style.display = "flex";
     }
@@ -395,7 +394,7 @@
         const userId = Number(o?.user_id || 0);
         const name = esc(o?.full_name || o?.email || `user#${userId}`);
         const safeCompetitionName = esc(competitionName || `#${competitionId}`);
-        return `<div class="organizerItem"><span>${name}</span><button class="organizerRemoveBtn" type="button" data-act="remove-organizer" data-competition-id="${competitionId}" data-competition-name="${safeCompetitionName}" data-user-id="${userId}" data-user-name="${name}" title="${esc(tr("superadmin.org.remove_btn","Eemalda korraldaja"))}" aria-label="${esc(tr("superadmin.org.remove_btn","Eemalda korraldaja"))}">${removeIconSvg()}</button></div>`;
+        return `<div class="organizerItem"><span>${name}</span><button class="organizerRemoveBtn" type="button" data-act="remove-organizer" data-competition-id="${competitionId}" data-competition-name="${safeCompetitionName}" data-user-id="${userId}" data-user-name="${name}" title="${esc(tr("superadmin.org.remove_btn"))}" aria-label="${esc(tr("superadmin.org.remove_btn"))}">${removeIconSvg()}</button></div>`;
       }).join("");
     }
 
@@ -454,7 +453,7 @@
           <td class="organizersCol">${orgText}</td>
           <td class="startColCell">${esc(fmtEt(x.starts_at))}</td>
           <td class="endColCell">${esc(fmtEt(x.ends_at))}</td>
-          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="${esc(tr("superadmin.copy.copy_btn","Kopeeri v�istlus"))}" aria-label="${esc(tr("superadmin.copy.copy_btn","Kopeeri v�istlus"))}">${cloneIconSvg()}</button></td>
+          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="${esc(tr("superadmin.copy.copy_btn"))}" aria-label="${esc(tr("superadmin.copy.copy_btn"))}">${cloneIconSvg()}</button></td>
         </tr>`;
       }).join("");
       refreshSortIcons();
@@ -509,10 +508,10 @@
           <td>${esc(x.key)}</td>
           <td>${esc(et)}</td>
           <td>${esc(en)}</td>
-          <td><button class="secondary" type="button" data-act="tr-edit" data-key="${esc(x.key)}">${esc(tr("superadmin.common.edit_btn","Muuda"))}</button></td>
+          <td><button class="secondary" type="button" data-act="tr-edit" data-key="${esc(x.key)}">${esc(tr("superadmin.common.edit_btn"))}</button></td>
         </tr>`;
       }).join("");
-      setMsg("trMsg", true, `${tr("superadmin.translations.shown_prefix","Kuvatud")}: ${items.length} ${tr("superadmin.translations.keys_suffix","v�tit")}.`);
+      setMsg("trMsg", true, `${tr("superadmin.translations.shown_prefix")}: ${items.length} ${tr("superadmin.translations.keys_suffix")}.`);
     }
 
     async function loadTranslations() {
@@ -522,7 +521,7 @@
       translationItems = normalizeTranslationItems(d.items);
       trLoaded = true;
       renderTranslations();
-      setMsg("trMsg", true, `${tr("superadmin.translations.loaded_prefix","Laetud")}: ${translationItems.length} ${tr("superadmin.translations.rows_suffix","kirjet")}.`);
+      setMsg("trMsg", true, `${tr("superadmin.translations.loaded_prefix")}: ${translationItems.length} ${tr("superadmin.translations.rows_suffix")}.`);
     }
 
     async function loadI18nLangs() {
@@ -537,7 +536,7 @@
 
     function openTranslationsModal() {
       byId("translationsBackdrop").style.display = "flex";
-      setMsg("trMsg", true, trLoaded ? "" : tr("superadmin.translations.load_hint","Vajuta 'Lae t�lked'."));
+      setMsg("trMsg", true, trLoaded ? "" : tr("superadmin.translations.load_hint"));
       if (trLoaded) renderTranslations();
     }
 
@@ -554,7 +553,7 @@
             <label for="trText_${esc(lang)}">${esc(lang.toUpperCase())}</label>
             <div class="tools" style="align-items:flex-start; gap:8px;">
               <textarea id="trText_${esc(lang)}" data-lang="${esc(lang)}" class="trLangText" maxlength="4000" style="min-height:90px;">${esc(value)}</textarea>
-              <button type="button" class="organizerRemoveBtn" data-act="tr-mark-delete" data-lang="${esc(lang)}" title="${esc(tr("superadmin.translations.delete_lang_btn","Kustuta selle keele t�lge"))}" aria-label="${esc(tr("superadmin.translations.delete_lang_btn","Kustuta selle keele t�lge"))}">${removeIconSvg()}</button>
+              <button type="button" class="organizerRemoveBtn" data-act="tr-mark-delete" data-lang="${esc(lang)}" title="${esc(tr("superadmin.translations.delete_lang_btn"))}" aria-label="${esc(tr("superadmin.translations.delete_lang_btn"))}">${removeIconSvg()}</button>
             </div>
           </div>
           <div class="muted" id="trDeleteMark_${esc(lang)}"></div>
@@ -570,8 +569,8 @@
         if (row.translation_key === k) trEditorOriginal[row.lang_code] = row.text_value || "";
       });
       byId("trEditTitle").textContent = trEditorMode === "edit"
-        ? tr("superadmin.translations.edit_heading","T�lke muutmine")
-        : tr("superadmin.translations.new_heading","Uue t�lke lisamine");
+        ? tr("superadmin.translations.edit_heading")
+        : tr("superadmin.translations.new_heading");
       byId("trKeyInput").value = k;
       byId("trKeyInput").readOnly = trEditorMode === "edit";
       buildEditorRows(trEditorOriginal);
@@ -582,7 +581,7 @@
     async function saveTranslationDiff() {
       const key = byId("trKeyInput").value.trim();
       if (!key) {
-        setMsg("trEditMsg", false, tr("superadmin.translations.key_required","V�ti on kohustuslik."));
+        setMsg("trEditMsg", false, tr("superadmin.translations.key_required"));
         return;
       }
       const ops = [];
@@ -604,7 +603,7 @@
         }
       });
       if (!ops.length) {
-        setMsg("trEditMsg", true, tr("superadmin.translations.no_changes","Muudatusi pole."));
+        setMsg("trEditMsg", true, tr("superadmin.translations.no_changes"));
         return;
       }
       for (const op of ops) {
@@ -622,14 +621,14 @@
       setMsg(
         "trMsg",
         true,
-        `${tr("superadmin.translations.updated_msg","T�lge uuendatud.")} ${tr("superadmin.translations.reload_hint","Muudatuste rakendamiseks vajuta 'Uuenda i18n cache'.")}`
+        `${tr("superadmin.translations.updated_msg")} ${tr("superadmin.translations.reload_hint")}`
       );
       closeTranslationEditorModal();
     }
 
     async function reloadI18nCache() {
       await post("/api/i18n/reload", {});
-      setMsg("trMsg", true, tr("superadmin.translations.cache_reloaded","i18n cache uuendatud."));
+      setMsg("trMsg", true, tr("superadmin.translations.cache_reloaded"));
     }
 
     function closeRemoveOrganizerModal() {
@@ -642,8 +641,8 @@
 
     function openRemoveOrganizerModal(payload) {
       pendingOrganizerRemoval = payload;
-      byId("removeOrganizerTitle").textContent = tr("superadmin.remove_org.heading","Korraldaja eemaldamine");
-      byId("removeOrganizerText").textContent = `${tr("superadmin.remove_org.confirm_prefix","Soovid")} ${payload.userName} ${tr("superadmin.remove_org.confirm_suffix","eemaldada v�istluse korraldajate seast?")}`;
+      byId("removeOrganizerTitle").textContent = tr("superadmin.remove_org.heading");
+      byId("removeOrganizerText").textContent = `${tr("superadmin.remove_org.confirm_prefix")} ${payload.userName} ${tr("superadmin.remove_org.confirm_suffix")}`;
       setMsg("removeOrganizerMsg", true, "");
       byId("removeOrganizerActions").classList.remove("hidden");
       byId("removeOrganizerResultActions").classList.add("hidden");
@@ -663,8 +662,8 @@
 
     function openCopyCompetitionModal(payload) {
       pendingCompetitionCopy = payload;
-      byId("copyCompetitionTitle").textContent = tr("superadmin.copy.heading","V�istluse kopeerimine");
-      byId("copyCompetitionText").textContent = `${tr("superadmin.copy.confirm_prefix","Soovid kopeerida v�istluse")} ${payload.competitionName} ${tr("superadmin.copy.confirm_suffix","uueks v�istluseks.")}`;
+      byId("copyCompetitionTitle").textContent = tr("superadmin.copy.heading");
+      byId("copyCompetitionText").textContent = `${tr("superadmin.copy.confirm_prefix")} ${payload.competitionName} ${tr("superadmin.copy.confirm_suffix")}`;
       setMsg("copyCompetitionMsg", true, "");
       byId("copyCompetitionActions").classList.remove("hidden");
       byId("copyCompetitionResultActions").classList.add("hidden");
@@ -677,7 +676,7 @@
     function renderOrganizerCodeCell(code) {
       const safeCode = String(code || "").trim();
       if (!safeCode || safeCode === "-") return "-";
-      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="${esc(tr("superadmin.common.copy_code_btn","Kopeeri kood"))}" aria-label="${esc(tr("superadmin.common.copy_code_btn","Kopeeri kood"))}">${copyIconSvg()}</button></span>`;
+      return `<span class="codeWrap"><span class="orgCode">${esc(safeCode)}</span><button class="iconBtn" type="button" data-act="copy-code" data-code="${esc(safeCode)}" title="${esc(tr("superadmin.common.copy_code_btn"))}" aria-label="${esc(tr("superadmin.common.copy_code_btn"))}">${copyIconSvg()}</button></span>`;
     }
 
     async function createCompetition() {
@@ -685,7 +684,7 @@
       const name = byId("newCompName").value.trim();
       const description = byId("newCompDesc").value.trim();
       if (!name) {
-        setMsg("createMsg", false, tr("superadmin.create.name_required","Sisesta v�istluse nimi."));
+        setMsg("createMsg", false, tr("superadmin.create.name_required"));
         return;
       }
       const d = await post("/api/superadmin/competitions", { name, description: description || null });
@@ -721,21 +720,21 @@
     async function initGoogleLogin() {
       const cfg = await get("/api/auth/google/config");
       if (!cfg || !cfg.enabled || !cfg.client_id) {
-        setMsg("loginMsg", false, tr("superadmin.login.google_not_configured","Google login ei ole serveris seadistatud."));
+        setMsg("loginMsg", false, tr("superadmin.login.google_not_configured"));
         return;
       }
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        setMsg("loginMsg", false, tr("superadmin.login.google_script_failed","Google login skripti laadimine eba�nnestus."));
+        setMsg("loginMsg", false, tr("superadmin.login.google_script_failed"));
         return;
       }
       window.google.accounts.id.initialize({
         client_id: cfg.client_id,
         callback: async (resp) => {
           try {
-            if (!resp || !resp.credential) throw new Error(tr("superadmin.login.google_credential_missing","Google credential puudub."));
+            if (!resp || !resp.credential) throw new Error(tr("superadmin.login.google_credential_missing"));
             await googleLoginWithCredential(resp.credential);
           } catch (e) {
-            setMsg("loginMsg", false, e.message || tr("superadmin.login.google_failed","Google sisselogimine eba�nnestus."));
+            setMsg("loginMsg", false, e.message || tr("superadmin.login.google_failed"));
           }
         }
       });
@@ -756,7 +755,7 @@
       const savedLangPre = (getCookie(uiLangCookieName) || "").trim().toLowerCase();
       await setLanguage(savedLangPre && i18nMeta.available_langs.includes(savedLangPre) ? savedLangPre : i18nMeta.default_lang);
       await loadI18nLangs();
-      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || tr("superadmin.create.failed","Loomine eba�nnestus."))));
+      byId("createCompBtn").addEventListener("click", () => createCompetition().catch((e) => setMsg("createMsg", false, e.message || tr("superadmin.create.failed"))));
       byId("logoutBtn").addEventListener("click", async () => {
         await post("/api/auth/logout", {});
         redirectToAdmin();
@@ -818,12 +817,12 @@
             user_id: pendingOrganizerRemoval.userId,
           });
           byId("removeOrganizerText").textContent = "";
-          setMsg("removeOrganizerMsg", true, `${pendingOrganizerRemoval.userName} ${tr("superadmin.remove_org.removed_mid","eemaldatud v�istluse")} ${pendingOrganizerRemoval.competitionName} ${tr("superadmin.remove_org.removed_suffix","korraldajate seast.")}`);
+          setMsg("removeOrganizerMsg", true, `${pendingOrganizerRemoval.userName} ${tr("superadmin.remove_org.removed_mid")} ${pendingOrganizerRemoval.competitionName} ${tr("superadmin.remove_org.removed_suffix")}`);
           byId("removeOrganizerActions").classList.add("hidden");
           byId("removeOrganizerResultActions").classList.remove("hidden");
           await loadCompetitions();
         } catch (e) {
-          setMsg("removeOrganizerMsg", false, e.message || tr("superadmin.remove_org.failed","Korraldaja eemaldamine eba�nnestus."));
+          setMsg("removeOrganizerMsg", false, e.message || tr("superadmin.remove_org.failed"));
         }
       });
       byId("copyCompetitionNoBtn").addEventListener("click", closeCopyCompetitionModal);
@@ -843,7 +842,7 @@
           openCreateResultModal(res.competition_id, res.organizer_code);
           await loadCompetitions();
         } catch (e) {
-          setMsg("copyCompetitionMsg", false, e.message || tr("superadmin.copy.failed","V�istluse kopeerimine eba�nnestus."));
+          setMsg("copyCompetitionMsg", false, e.message || tr("superadmin.copy.failed"));
         }
       });
       byId("openTranslationsBtn").addEventListener("click", () => openTranslationsModal());
@@ -851,9 +850,9 @@
       byId("translationsBackdrop").addEventListener("click", (e) => {
         if (e.target === byId("translationsBackdrop")) closeTranslationsModal();
       });
-      byId("trLoadBtn").addEventListener("click", () => loadTranslations().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.load_failed","T�lgete laadimine eba�nnestus."))));
+      byId("trLoadBtn").addEventListener("click", () => loadTranslations().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.load_failed"))));
       byId("trCreateBtn").addEventListener("click", () => openTranslationEditorModal(""));
-      byId("trReloadCacheBtn").addEventListener("click", () => reloadI18nCache().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.cache_reload_failed","Cache uuendamine eba�nnestus."))));
+      byId("trReloadCacheBtn").addEventListener("click", () => reloadI18nCache().catch((e) => setMsg("trMsg", false, e.message || tr("superadmin.translations.cache_reload_failed"))));
       byId("trSearchInput").addEventListener("input", () => { if (trLoaded) renderTranslations(); });
       byId("trRows").addEventListener("click", (e) => {
         const btn = e.target.closest("[data-act='tr-edit']");
@@ -868,7 +867,7 @@
         const cur = marker?.dataset?.delete === "Y";
         if (marker) {
           marker.dataset.delete = cur ? "N" : "Y";
-          marker.textContent = cur ? "" : tr("superadmin.translations.delete_mark_msg","M�rge: selle keele t�lge kustutatakse salvestamisel.");
+          marker.textContent = cur ? "" : tr("superadmin.translations.delete_mark_msg");
         }
       });
       byId("trLangEditorRows").addEventListener("input", (e) => {
@@ -882,7 +881,7 @@
         }
       });
       byId("trEditCloseBtn").addEventListener("click", closeTranslationEditorModal);
-      byId("trSaveBtn").addEventListener("click", () => saveTranslationDiff().catch((e) => setMsg("trEditMsg", false, e.message || tr("superadmin.translations.save_failed","T�lke salvestamine eba�nnestus."))));
+      byId("trSaveBtn").addEventListener("click", () => saveTranslationDiff().catch((e) => setMsg("trEditMsg", false, e.message || tr("superadmin.translations.save_failed"))));
       byId("trEditBackdrop").addEventListener("click", (e) => {
         if (e.target === byId("trEditBackdrop")) closeTranslationEditorModal();
       });
@@ -912,3 +911,4 @@
   </script>
 </body>
 </html>
+

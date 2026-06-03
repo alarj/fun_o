@@ -321,3 +321,4 @@ erDiagram
 - `checkpoint_type` lubatud äriväärtused on `NORMAL`, `START`, `FINISH`.
 - Kui `checkpoint_type` on `NULL`, käsitletakse seda rakenduse äriloogikas kui `NORMAL`.
 - Ühel aktiivsel võistlusel võib olla maksimaalselt üks aktiivne `START` ja üks aktiivne `FINISH`.
+- Aktiivse sisu reegel on `1 checkpoint = 1 active question`.
