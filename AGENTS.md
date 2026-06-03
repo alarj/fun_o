@@ -67,6 +67,7 @@
 - `docs/erd.md`
 - `docs/location_rules.md`
 - `docs/competitor_join_rules.md`
+- `docs/known_bugs_by_sonar_and_gemini.md`
 - `backend/README.md`
 - `docs/deploy/https-letsencrypt.md`
 - `testing/load/README.md`
