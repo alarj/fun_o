@@ -230,7 +230,7 @@ create table checkpoints (
   constraint chk_cp_lon check (longitude is null or (longitude between -180 and 180)),
   constraint chk_cp_radius check (radius_m is null or radius_m > 0),
   constraint chk_cp_location_required check (location_required in ('Y','N')),
-  constraint chk_checkpoints_type check (checkpoint_type is null or upper(trim(checkpoint_type)) in ('NORMAL','START','FINISH'))
+  constraint chk_checkpoints_type check (checkpoint_type is null or upper(trim(checkpoint_type)) in ('NORMAL','START','FINISH')) -- NOSONAR: explicit DDL literals are preferred here over indirection
 );
 
 create table questions (

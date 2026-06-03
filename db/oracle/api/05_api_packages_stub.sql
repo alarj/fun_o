@@ -4554,22 +4554,28 @@ create or replace package body pkg_admin_content as
         l_k := 1;
         while l_k <= l_keys.count loop
           l_key := l_keys(l_k);
-          if l_key like 'text\_%' escape '\' and lower(l_key) <> 'text_et' then
-            l_lang := lower(substr(l_key, 6));
-            l_text := l_obj.get_string(l_key);
-            if l_text is not null and trim(l_text) is not null then
-              update question_option_texts
-                 set option_text = l_text,
-                     updated_by = p_updated_by,
-                     updated_at = systimestamp
-               where option_id = l_option_id
-                 and lower(lang_code) = l_lang
-                 and (end_date is null or end_date > sysdate);
-              if sql%rowcount = 0 then
-                insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
-                values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
-              end if;
-            end if;
+          if l_key not like 'text\_%' escape '\' or lower(l_key) = 'text_et' then
+            l_k := l_k + 1;
+            continue;
+          end if;
+
+          l_lang := lower(substr(l_key, 6));
+          l_text := l_obj.get_string(l_key);
+          if l_text is null or trim(l_text) is null then
+            l_k := l_k + 1;
+            continue;
+          end if;
+
+          update question_option_texts
+             set option_text = l_text,
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = l_option_id
+             and lower(lang_code) = l_lang
+             and (end_date is null or end_date > sysdate);
+          if sql%rowcount = 0 then
+            insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
+            values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
           end if;
           l_k := l_k + 1;
         end loop;

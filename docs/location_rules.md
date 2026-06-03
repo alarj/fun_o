@@ -15,11 +15,30 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 - `checkpoints.latitude`, `checkpoints.longitude`
   - KP geokoordinaadid (WGS84).
+- `checkpoints.checkpoint_type`
+  - KP liik: `NORMAL`, `START`, `FINISH`.
+  - Kui väärtus on `NULL`, käsitletakse seda äriloogikas kui `NORMAL`.
 - `checkpoints.radius_m` (number, meetrites, nullable)
   - KP-spetsiifiline raadius. Kui puudub, kasutatakse `competitions.radius_m`.
 - `checkpoints.location_required` (`Y`/`N`)
   - Kas selle KP vastuse juures on asukoht kohustuslik.
   - Admin UI-s muudetav ainult siis, kui võistlusel `use_location='Y'`.
+
+## 2a. START / FINISH erireeglid
+
+- Ühel aktiivsel võistlusel võib olla maksimaalselt üks aktiivne `START` ja üks aktiivne `FINISH`.
+- Soft-deleted `START`/`FINISH` kirjed arvesse ei lähe.
+- `START` ja `FINISH` on tavalised küsimusega KP-d:
+  - nende läbimine tekib `submissions` kaudu samamoodi nagu teistel KP-del;
+  - nad võivad anda punkte tavalisel moel.
+- `START` pealkiri on alati `START`.
+- `FINISH` pealkiri on alati `FINISH`.
+- `START` ja `FINISH` tüüpi olemasolevat KP-d ei saa adminis muuta teiseks liigiks.
+- Ka tavalist `NORMAL` KP-d ei muudeta edit-vaates `START` või `FINISH` tüübiks.
+- `START.order_no = 0`.
+- `FINISH.order_no = 9999`.
+- See `order_no` reegel kehtib nii `R` kui `S` tüüpi võistlustel.
+- Admin kasutaja ei sisesta ega muuda `START`/`FINISH` `order_no` väärtust käsitsi.
 
 ## 3. Asukohaloogika sisse/välja
 
@@ -76,6 +95,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - FastAPI teeb eelkontrolli (distants + cache-põhine filter);
   - FastAPI küsib ORDS-ist lõpliku avatavuse ainult kandidaatide jaoks.
 - Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
+- Kui aktiivne `START` on olemas ja seda pole veel läbitud, siis enne `START` läbimist ei avata ühtegi muud KP-d.
+- Sellises seisus võib `open-checkpoints` tagastada ainult `START` kontrollpunkti.
+- Kui aktiivne `FINISH` on läbitud, siis pärast seda ei tagastata enam ühtegi vastatavat KP-d sõltumata asukohast või muust varasemast avatavusest.
 
 ## 7. `Info` nupu käitumine kaardis
 
@@ -195,6 +217,13 @@ Reeglid:
   - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
 - Kui `competition.type!='S'`:
   - järjekorranumbreid ega ühendusjooni ei kuvata.
+
+START / FINISH täpsustus:
+- `START` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
+- `FINISH` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
+- `START` sümbol on võrdkülgne kolmnurk.
+- `FINISH` sümbol on topeltring.
+- `FINISH` topeltringi sisemine ring vastab tavalise KP tähise mõõdule ja välimine ring on sama keskpunktiga sellest suurem.
 
 Lõikumise reegel:
 - Kui kaks ühendussegmenti lõikuvad, siis väiksema `order_no` segmendile tehakse lõikekohas katkestus.
