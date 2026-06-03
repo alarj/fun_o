@@ -95,6 +95,7 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20062",), ("QUESTION_NOT_FOUND", "api.error.invalid_submission")),
     (("ORA-20063",), ("MISSING_SELECTED_OPTION", "api.error.invalid_submission")),
     (("ORA-20064",), ("MISSING_ANSWER_TEXT", "api.error.invalid_submission")),
+    (("ORA-20065", "ORA-20066"), ("INVALID_SUBMISSION_STATE", "api.error.invalid_submission")),
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
@@ -103,7 +104,7 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
     (("ORA-20130",), ("ALIAS_TAKEN", "api.error.alias_taken")),
     (("ORA-20131",), ("ALREADY_PARTICIPANT", "api.error.already_participant")),
-    (("ORA-20102", "ORA-20103", "ORA-20104"), ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")),
+    (("ORA-20102", "ORA-20103", "ORA-20104", "ORA-20196", "ORA-20197", "ORA-20198"), ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-02290",), ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")),
 )
 
@@ -458,6 +459,7 @@ class SessionInfoResponse(BaseModel):
 class AdminCreateCheckpointRequest(BaseModel):
     competition_id: int
     title: str
+    checkpoint_type: str | None = None
     order_no: int | None = None
     location_hint: str | None = None
     latitude: float | None = None
@@ -2482,6 +2484,8 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
         "title": req.title,
         "created_by": user_id,
     }
+    if req.checkpoint_type is not None:
+        payload["checkpoint_type"] = req.checkpoint_type
     if req.order_no is not None:
         payload["order_no"] = req.order_no
     if req.location_hint is not None:

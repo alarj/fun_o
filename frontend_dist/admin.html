@@ -125,9 +125,10 @@
     </div>
     <input id="cpId" type="hidden" />
     <div id="cpMap"></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
+    <div class="row" id="cpNameRow"><label data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
+    <div class="row" id="cpTypeRow"><label data-i18n="admin.cp_dialog.checkpoint_type.label">admin.cp_dialog.checkpoint_type.label</label><select id="cpType"></select></div>
     <div class="row"><label data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><input id="cpLocation" /></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
+    <div class="row" id="cpOrderRow"><label data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
     <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
     <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
     <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
@@ -471,6 +472,24 @@
     ) {
       return tr("admin.msg.cp_title_exists");
     }
+    if (
+      lmsg.includes("ora-20196") ||
+      detailsText.includes("ora-20196")
+    ) {
+      return tr("admin.msg.cp_reserved_title");
+    }
+    if (
+      lmsg.includes("ora-20197") ||
+      detailsText.includes("ora-20197")
+    ) {
+      return tr("admin.msg.cp_order_reserved");
+    }
+    if (
+      lmsg.includes("ora-20198") ||
+      detailsText.includes("ora-20198")
+    ) {
+      return tr("admin.msg.cp_special_type_exists");
+    }
     if (msg === "api.error.ords_request_failed" && detailsText) {
       const bodyRaw = String(details?.ords_body || "");
       const oraMatch = bodyRaw.match(/ORA-\d{5}:[^<\r\n]*/i);
@@ -533,6 +552,24 @@
       if (sameId) return false;
       const existing = String(r.checkpoint_title || "").trim().toLowerCase();
       return existing === wanted;
+    });
+  }
+
+  function normalizeCheckpointType(value) {
+    const normalized = String(value || "NORMAL").trim().toUpperCase();
+    return ["START", "FINISH", "NORMAL"].includes(normalized) ? normalized : "NORMAL";
+  }
+
+  function isSpecialCheckpointType(value) {
+    const normalized = normalizeCheckpointType(value);
+    return normalized === "START" || normalized === "FINISH";
+  }
+
+  function hasActiveCheckpointType(type, editingCheckpointId = null) {
+    const wanted = normalizeCheckpointType(type);
+    return checkpointsData.some((row) => {
+      if (editingCheckpointId != null && Number(row?.checkpoint_id) === Number(editingCheckpointId)) return false;
+      return normalizeCheckpointType(row?.checkpoint_type) === wanted;
     });
   }
 
@@ -1101,9 +1138,11 @@
       const locationRequired = String(r.location_required || "N").toUpperCase() === "Y";
       const rawOrder = r.checkpoint_order_no ?? r.order_no;
       const orderNo = Number.isFinite(Number(rawOrder)) ? Number(rawOrder) : null;
+      const checkpointType = normalizeCheckpointType(r.checkpoint_type);
       byCheckpoint.set(cpId, {
         checkpointId: cpId,
         title: String(r.checkpoint_title || ""),
+        checkpointType,
         lat,
         lon,
         orderNo,
@@ -1116,6 +1155,48 @@
       });
     });
     return Array.from(byCheckpoint.values());
+  }
+
+  function shouldShowCheckpointOrderLabel(point) {
+    if (String(currentCompetitionType || "R").toUpperCase() !== "S") return false;
+    if (!point || isSpecialCheckpointType(point.checkpointType)) return false;
+    return Number.isFinite(Number(point.orderNo));
+  }
+
+  function checkpointPopupText(point) {
+    const orderPrefix = shouldShowCheckpointOrderLabel(point) ? `${point.orderNo}. ` : "";
+    const radiusSuffix = Number.isFinite(point?.ringRadiusM) && point.ringRadiusM > 0 ? ` (${point.ringRadiusM} m)` : "";
+    return `${orderPrefix}${esc(point?.title || "")}${radiusSuffix}`;
+  }
+
+  function buildCheckpointShapeMarker(_mapRef, point, extraOptions = {}) {
+    const baseOptions = {
+      color: point.markerColor,
+      weight: point.markerWeight || 3,
+      fillOpacity: 0,
+      ...extraOptions
+    };
+    if (point.checkpointType === "START" || point.checkpointType === "FINISH") {
+      const stroke = esc(point.markerColor || "#7d3c98");
+      const weight = Math.max(2, Number(point.markerWeight || 3));
+      const svg = point.checkpointType === "START"
+        ? `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`
+        : `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
+      return L.marker([point.lat, point.lon], {
+        icon: L.divIcon({
+          className: "cp-special-div-icon",
+          html: svg,
+          iconSize: point.checkpointType === "FINISH" ? [42, 42] : [36, 36],
+          iconAnchor: point.checkpointType === "FINISH" ? [21, 21] : [18, 18],
+          popupAnchor: point.checkpointType === "FINISH" ? [0, -21] : [0, -18]
+        }),
+        ...extraOptions
+      });
+    }
+    return L.circleMarker([point.lat, point.lon], {
+      radius: point.markerRadiusPx || 15,
+      ...baseOptions
+    });
   }
 
   function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
@@ -1346,15 +1427,9 @@
     } else {
       const bounds = [];
       points.forEach((p) => {
-        const m = L.circleMarker([p.lat, p.lon], {
-          radius: 15,
-          color: p.markerColor,
-          weight: 3,
-          fillOpacity: 0,
-          checkpointId: p.checkpointId
-        }).addTo(cpOverviewLayer);
-        const popup = `${Number.isFinite(Number(p.orderNo)) && String(currentCompetitionType || "R").toUpperCase() === "S" ? `${p.orderNo}. ` : ""}${esc(p.title)}${Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0 ? ` (${p.ringRadiusM} m)` : ""}`;
-        m.bindPopup(popup, { autoClose: false, closeOnClick: false });
+        const m = buildCheckpointShapeMarker(cpOverviewMap, p).addTo(cpOverviewLayer);
+        m.__checkpointId = p.checkpointId;
+        m.bindPopup(checkpointPopupText(p), { autoClose: false, closeOnClick: false });
         cpOverviewMarkers.push(m);
         if (Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0) {
           L.circle([p.lat, p.lon], {
@@ -1379,11 +1454,11 @@
       }
       const labelPlacement = buildOrderLabelPlacement(cpOverviewMap, points);
       cpOverviewMarkers.forEach((m) => {
-        const cpIdRaw = m?.options?.checkpointId;
+        const cpIdRaw = m?.__checkpointId;
         if (!Number.isFinite(Number(cpIdRaw))) return;
         const cpId = Number(cpIdRaw);
         const p = points.find((x) => Number(x.checkpointId) === cpId);
-        if (!p || !Number.isFinite(Number(p.orderNo)) || String(currentCompetitionType || "R").toUpperCase() !== "S") return;
+        if (!shouldShowCheckpointOrderLabel(p)) return;
         const placement = labelPlacement.get(cpId) || { direction: "right", offset: [12, 0] };
         m.unbindTooltip();
         m.bindTooltip(String(p.orderNo), {
@@ -1399,11 +1474,11 @@
         drawOrderedRoutesForPoints(cpOverviewMap, cpOverviewRoutesLayer, points);
         const nextPlacement = buildOrderLabelPlacement(cpOverviewMap, points);
         cpOverviewMarkers.forEach((m) => {
-          const cpIdRaw = m?.options?.checkpointId;
+          const cpIdRaw = m?.__checkpointId;
           if (!Number.isFinite(Number(cpIdRaw))) return;
           const cpId = Number(cpIdRaw);
           const p = points.find((x) => Number(x.checkpointId) === cpId);
-          if (!p || !Number.isFinite(Number(p.orderNo)) || String(currentCompetitionType || "R").toUpperCase() !== "S") return;
+          if (!shouldShowCheckpointOrderLabel(p)) return;
           const placement = nextPlacement.get(cpId) || { direction: "right", offset: [12, 0] };
           m.unbindTooltip();
           m.bindTooltip(String(p.orderNo), {
@@ -1500,13 +1575,9 @@
     const points = buildCheckpointMapPoints(currentId);
     const labelPlacement = buildOrderLabelPlacement(cpMap, points);
     points.forEach((p) => {
-        const marker = L.circleMarker([p.lat, p.lon], {
-          radius: 15,
-          color: p.markerColor,
-          weight: 3,
-          fillOpacity: 0
-        }).addTo(cpExistingLayer);
-        if (String(currentCompetitionType || "R").toUpperCase() === "S" && Number.isFinite(Number(p.orderNo))) {
+        const marker = buildCheckpointShapeMarker(cpMap, p).addTo(cpExistingLayer);
+        marker.__checkpointId = p.checkpointId;
+        if (shouldShowCheckpointOrderLabel(p)) {
           const placement = labelPlacement.get(Number(p.checkpointId)) || { direction: "right", offset: [12, 0] };
           marker.bindTooltip(String(p.orderNo), {
             permanent: true,
@@ -1515,8 +1586,7 @@
             className: p.markerColor === "#c0392b" ? "cp-order-tooltip cp-order-red" : "cp-order-tooltip cp-order-purple"
           });
         }
-        const popup = `${Number.isFinite(Number(p.orderNo)) && String(currentCompetitionType || "R").toUpperCase() === "S" ? `${p.orderNo}. ` : ""}${esc(p.title)}${Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0 ? ` (${p.ringRadiusM} m)` : ""}`;
-        marker.bindPopup(popup);
+        marker.bindPopup(checkpointPopupText(p));
         if (Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0) {
           L.circle([p.lat, p.lon], {
             radius: p.ringRadiusM,
@@ -1535,10 +1605,10 @@
       drawOrderedRoutesForPoints(cpMap, cpExistingRoutesLayer, points);
       const nextPlacement = buildOrderLabelPlacement(cpMap, points);
       cpExistingLayer.eachLayer((layer) => {
-        if (!layer || typeof layer.getLatLng !== "function") return;
-        const latlng = layer.getLatLng();
-        const p = points.find((x) => Math.abs(x.lat - latlng.lat) < 0.0000001 && Math.abs(x.lon - latlng.lng) < 0.0000001);
-        if (!p || !Number.isFinite(Number(p.orderNo)) || String(currentCompetitionType || "R").toUpperCase() !== "S") return;
+        const cpIdRaw = layer?.__checkpointId;
+        if (!Number.isFinite(Number(cpIdRaw))) return;
+        const p = points.find((x) => Number(x.checkpointId) === Number(cpIdRaw));
+        if (!shouldShowCheckpointOrderLabel(p)) return;
         const placement = nextPlacement.get(Number(p.checkpointId)) || { direction: "right", offset: [12, 0] };
         layer.unbindTooltip();
         layer.bindTooltip(String(p.orderNo), {
@@ -1606,6 +1676,7 @@
 
   function cpDialogStateSnapshot() {
     return JSON.stringify({
+      checkpointType: byId("cpType").value,
       title: byId("cpName").value,
       location: byId("cpLocation").value,
       order: byId("cpOrder").value,
@@ -1623,6 +1694,43 @@
 
   function getCpLocationRequiredValue() {
     return byId("cpLocationRequired").checked ? "Y" : "N";
+  }
+
+  function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId = null) {
+    const normalizedSelected = normalizeCheckpointType(selectedType);
+    const sel = byId("cpType");
+    const options = [
+      { value: "NORMAL", label: tr("admin.cp_dialog.checkpoint_type.normal") }
+    ];
+    if (normalizedSelected === "START" || !hasActiveCheckpointType("START", editingCheckpointId)) {
+      options.push({ value: "START", label: tr("admin.cp_dialog.checkpoint_type.start") });
+    }
+    if (normalizedSelected === "FINISH" || !hasActiveCheckpointType("FINISH", editingCheckpointId)) {
+      options.push({ value: "FINISH", label: tr("admin.cp_dialog.checkpoint_type.finish") });
+    }
+    sel.innerHTML = options.map((opt) => `<option value="${esc(opt.value)}">${esc(opt.label)}</option>`).join("");
+    sel.value = options.some((opt) => opt.value === normalizedSelected) ? normalizedSelected : "NORMAL";
+  }
+
+  function syncCheckpointTypeUi() {
+    const checkpointType = normalizeCheckpointType(byId("cpType").value);
+    const isSpecial = isSpecialCheckpointType(checkpointType);
+    const cpName = byId("cpName");
+    const cpOrder = byId("cpOrder");
+    byId("cpNameRow").style.display = "";
+    byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+    byId("cpType").disabled = byId("cpId").value !== "";
+    if (checkpointType === "START") {
+      cpName.value = "START";
+    } else if (checkpointType === "FINISH") {
+      cpName.value = "FINISH";
+    }
+    cpName.readOnly = isSpecial;
+    cpOrder.readOnly = isSpecial;
+    if (isSpecial) {
+      cpOrder.value = checkpointType === "START" ? "0" : "9999";
+    }
+    syncCpQuestionButton();
   }
 
   function setMetaUseLocationValue(v) {
@@ -2172,6 +2280,7 @@
       if (!currentCompetitionActive) return;
       byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
       byId("cpId").value = "";
+      fillCheckpointTypeSelect("NORMAL", null);
       byId("cpName").value = "";
       byId("cpLocation").value = "";
       byId("cpOrder").value = "";
@@ -2186,6 +2295,7 @@
       } else {
         byId("cpRadiusM").placeholder = "";
       }
+      syncCheckpointTypeUi();
       if (cpMarker) {
         cpMap.removeLayer(cpMarker);
         cpMarker = null;
@@ -2204,6 +2314,7 @@
       const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
       byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
       byId("cpId").value = cpId;
+      fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
       byId("cpName").value = row?.checkpoint_title || "";
       byId("cpLocation").value = row?.location_hint || "";
       byId("cpOrder").value = row?.checkpoint_order_no ?? "";
@@ -2226,6 +2337,7 @@
           cpRadiusCircle = null;
         }
       }
+      syncCheckpointTypeUi();
     }
     cpDialogInitialState = cpDialogStateSnapshot();
     syncCpQuestionButton();
@@ -2236,6 +2348,8 @@
 
   async function saveCheckpoint() {
     if (!currentCompetitionActive) return;
+    const checkpointType = normalizeCheckpointType(byId("cpType").value);
+    const isSpecial = isSpecialCheckpointType(checkpointType);
     const title = byId("cpName").value.trim();
     if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required"));
     const cpId = byId("cpId").value;
@@ -2249,10 +2363,10 @@
     if (hasDuplicateCheckpointTitle(title, editingId)) {
       return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists"));
     }
-    if (currentCompetitionType === "S" && orderRaw === "") {
+    if (!isSpecial && currentCompetitionType === "S" && orderRaw === "") {
       return showMsg("cpMsg", false, tr("admin.msg.cp_order_required_for_s"));
     }
-    if (currentCompetitionType === "S" && orderRaw !== "") {
+    if (!isSpecial && currentCompetitionType === "S" && orderRaw !== "") {
       const nextOrder = Number(orderRaw);
       const hasDuplicateOrder = checkpointsData.some((r) => {
         const cpOrder = r?.checkpoint_order_no ?? r?.order_no;
@@ -2266,8 +2380,8 @@
       }
     }
     if (!cpId) {
-      const payload = { competition_id: compId(), title };
-      if (orderRaw !== "") payload.order_no = Number(orderRaw);
+      const payload = { competition_id: compId(), title, checkpoint_type: checkpointType };
+      if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
       if (location) payload.location_hint = location;
       if (currentCompetitionUseLocation === "Y") {
         if (latRaw !== "") payload.latitude = Number(latRaw);
@@ -2281,7 +2395,7 @@
       }
     } else {
       const payload = { competition_id: compId(), checkpoint_id: Number(cpId), title };
-      if (orderRaw !== "") payload.order_no = Number(orderRaw);
+      if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
       if (location) payload.location_hint = location;
       if (currentCompetitionUseLocation === "Y") {
         if (latRaw !== "") payload.latitude = Number(latRaw);
@@ -2807,6 +2921,7 @@
     byId("cpDialog").close();
     openQuestionDialog(Number(cpDialogCheckpointId), editMode);
   };
+  byId("cpType").addEventListener("change", syncCheckpointTypeUi);
   byId("cpLatitude").addEventListener("change", syncMapFromCoordInputs);
   byId("cpLongitude").addEventListener("change", syncMapFromCoordInputs);
   byId("cpRadiusM").addEventListener("input", syncRadiusCircle);

@@ -209,6 +209,7 @@ create table checkpoints (
   checkpoint_id number primary key,
   competition_id number not null,
   title varchar2(200) not null,
+  checkpoint_type varchar2(10),
   order_no number,
   location_hint varchar2(500),
   latitude number(9,6),
@@ -228,7 +229,8 @@ create table checkpoints (
   constraint chk_cp_lat check (latitude is null or (latitude between -90 and 90)),
   constraint chk_cp_lon check (longitude is null or (longitude between -180 and 180)),
   constraint chk_cp_radius check (radius_m is null or radius_m > 0),
-  constraint chk_cp_location_required check (location_required in ('Y','N'))
+  constraint chk_cp_location_required check (location_required in ('Y','N')),
+  constraint chk_checkpoints_type check (checkpoint_type is null or upper(trim(checkpoint_type)) in ('NORMAL','START','FINISH'))
 );
 
 create table questions (
@@ -433,6 +435,19 @@ create unique index ux_active_comp_organizer on competition_organizers (
 create unique index ux_active_cp_order on checkpoints (
   case when end_date is null and order_no is not null then competition_id end,
   case when end_date is null and order_no is not null then order_no end
+);
+
+create unique index ux_active_cp_special_type on checkpoints (
+  case
+    when end_date is null
+     and upper(nvl(trim(checkpoint_type), 'NORMAL')) in ('START', 'FINISH')
+    then competition_id
+  end,
+  case
+    when end_date is null
+     and upper(nvl(trim(checkpoint_type), 'NORMAL')) in ('START', 'FINISH')
+    then upper(nvl(trim(checkpoint_type), 'NORMAL'))
+  end
 );
 
 create unique index ux_active_qt_lang on question_texts (

@@ -1676,6 +1676,7 @@ begin
         FUNO_APP.pkg_admin_content.create_checkpoint(
           p_competition_id => l_body.get_number('competition_id'),
           p_title => l_body.get_string('title'),
+          p_checkpoint_type => case when l_body.has('checkpoint_type') then l_body.get_string('checkpoint_type') else null end,
           p_order_no => case when l_body.has('order_no') then l_body.get_number('order_no') else null end,
           p_location_hint => case when l_body.has('location_hint') then l_body.get_string('location_hint') else null end,
           p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
