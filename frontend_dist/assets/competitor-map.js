@@ -221,12 +221,59 @@ function updateFollowButton() {
   btn.textContent = mapFollowUser ? tr("competitor.map.follow_on_btn") : tr("competitor.map.follow_off_btn");
 }
 
+let mapGpsSignalLost = false;
+
+function updateMapGpsStatus() {
+  const box = el("compMapGpsStatus");
+  if (!box) return;
+  const mapOpen = el("compMapBackdrop")?.style?.display === "block";
+  const show = mapOpen && mapGpsSignalLost;
+  box.style.display = show ? "block" : "none";
+  box.textContent = show ? tr("competitor.map.gps_signal_lost") : "";
+}
+
+function applyUserMarkerVisualState() {
+  if (!userPosMarker) return;
+  userPosMarker.setStyle({
+    color: mapGpsSignalLost ? "#dfe6ea" : "#ffffff",
+    weight: 2,
+    fillColor: mapGpsSignalLost ? "#8a959c" : "#2f8cff",
+    fillOpacity: 1,
+  });
+}
+
+function syncMapGpsSignalState(hasSignal) {
+  mapGpsSignalLost = !hasSignal;
+  applyUserMarkerVisualState();
+  updateMapGpsStatus();
+}
+
+function applyGpsSignalLossState() {
+  state.geo.error = tr("competitor.map.gps_signal_lost");
+  mapDebugGpsHeading = null;
+  mapDebugGpsSpeed = null;
+  mapHeadingGpsRaw = null;
+  refreshHeadingOutput("gps");
+  const hasLastKnownGeo = state.geo.latitude != null && state.geo.longitude != null;
+  if (!hasLastKnownGeo) {
+    state.geo.enabled = false;
+    state.geo.radius_m = null;
+  }
+  syncMapGpsSignalState(false);
+}
+
 function canUseHeadingMode() {
   return selectedCompetitionShowsUserLocation();
 }
 
 function formatHeadingDebugNum(value) {
   return Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "-";
+}
+
+function formatHeadingDebugState() {
+  if (mapHeadingState === "GPS_PRIMARY") return "GPS";
+  if (mapHeadingState === "BLEND") return "BLEND";
+  return "COMP";
 }
 
 function updateHeadingDebugBox() {
@@ -236,13 +283,7 @@ function updateHeadingDebugBox() {
   box.style.display = show ? "block" : "none";
   if (!show) return;
   box.textContent =
-    `mode=${mapHeadingMode ? "on" : "off"} signal=${mapHeadingHasSignal ? "yes" : "no"}\n` +
-    `state=${mapHeadingState} bias=${formatHeadingDebugNum(mapHeadingBiasDeg)} conf=${formatHeadingDebugNum(mapHeadingBiasConfidence)}\n` +
-    `decl=${formatHeadingDebugNum(state.mapDeclination)} updated=${state.mapDeclinationUpdatedAt || "-"}\n` +
-    `setBearing=${(compMap && typeof compMap.setBearing === "function") ? "yes" : "no"}\n` +
-    `alpha=${formatHeadingDebugNum(mapDebugRawAlpha)} webkit=${formatHeadingDebugNum(mapDebugRawCompass)}\n` +
-    `gpsHeading=${formatHeadingDebugNum(mapDebugGpsHeading)} gpsSpeed=${formatHeadingDebugNum(mapDebugGpsSpeed)}\n` +
-    `used=${formatHeadingDebugNum(mapHeadingCurrent)} smooth=${formatHeadingDebugNum(mapHeadingSmoothed)}`;
+    `${formatHeadingDebugState()}  bias=${formatHeadingDebugNum(mapHeadingBiasDeg)}  decl=${formatHeadingDebugNum(state.mapDeclination)}`;
 }
 
 function resetMapHeadingRotation() {
@@ -445,18 +486,24 @@ function onDeviceOrientation(evt) {
   refreshHeadingOutput("compass");
 }
 
+let mapHeadingEventName = null;
+
 function attachHeadingListener() {
   if (mapHeadingListenerAttached) return;
   if (typeof window.DeviceOrientationEvent === "undefined") return;
-  window.addEventListener("deviceorientation", onDeviceOrientation, true);
-  window.addEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+  mapHeadingEventName = "ondeviceorientationabsolute" in window
+    ? "deviceorientationabsolute"
+    : "deviceorientation";
+  window.addEventListener(mapHeadingEventName, onDeviceOrientation, true);
   mapHeadingListenerAttached = true;
 }
 
 function detachHeadingListener() {
   if (!mapHeadingListenerAttached) return;
-  window.removeEventListener("deviceorientation", onDeviceOrientation, true);
-  window.removeEventListener("deviceorientationabsolute", onDeviceOrientation, true);
+  if (mapHeadingEventName) {
+    window.removeEventListener(mapHeadingEventName, onDeviceOrientation, true);
+  }
+  mapHeadingEventName = null;
   mapHeadingListenerAttached = false;
 }
 
@@ -685,7 +732,9 @@ function renderCompMap(items, opts = {}) {
       fillOpacity: 1,
     }).addTo(compMap);
     userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
+    applyUserMarkerVisualState();
   }
+  updateMapGpsStatus();
   mapProgrammaticMove = true;
   if (!preserveViewport) {
     const restored = forceInitialFit ? false : restoreCompMapView();
@@ -728,6 +777,7 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
   state.geo.radius_m = Number(accuracy);
   state.geo.error = null;
   mapDebugGpsSpeed = Number.isFinite(Number(gpsSpeed)) ? Number(gpsSpeed) : null;
+  syncMapGpsSignalState(true);
   applyHeadingFromGps(gpsHeading);
   if (!selectedCompetitionShowsUserLocation()) return;
   if (!compMap) return;
@@ -740,8 +790,10 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
       fillOpacity: 1,
     }).addTo(compMap);
     userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
+    applyUserMarkerVisualState();
   } else {
     userPosMarker.setLatLng([lat, lon]);
+    applyUserMarkerVisualState();
   }
   if (mapFollowUser && compMap) {
     mapProgrammaticMove = true;
@@ -751,11 +803,16 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
 }
 
 function startMapGeolocationWatch() {
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) {
+    applyGpsSignalLossState();
+    return;
+  }
   stopMapGeolocationWatch();
   geoWatchId = navigator.geolocation.watchPosition(
     (pos) => updateUserPositionMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.heading, pos.coords.speed),
-    () => {},
+    () => {
+      applyGpsSignalLossState();
+    },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
   );
 }
@@ -769,11 +826,13 @@ function stopMapGeolocationWatch() {
 
 async function openCompMapModal() {
   mapViewPersistenceEnabled = false;
+  mapGpsSignalLost = false;
   mapFollowUser = true;
   mapHeadingPermissionAsked = false;
   updateFollowButton();
   updateHeadingButton();
   await requestFreshGeolocationForMapOpen();
+  syncMapGpsSignalState(state.geo.error == null && state.geo.enabled);
   allowedMapLayers = await loadAllowedMapLayers();
   Object.keys(mapLayersByCode).forEach((k) => delete mapLayersByCode[k]);
   allowedMapLayers.forEach((x) => {
@@ -826,6 +885,7 @@ function closeCompMapModal() {
   setHeadingMode(false);
   mapHeadingPermissionAsked = false;
   stopMapGeolocationWatch();
+  syncMapGpsSignalState(true);
   el("compMapLayerBackdrop").style.display = "none";
   el("compMapBackdrop").style.display = "none";
 }
