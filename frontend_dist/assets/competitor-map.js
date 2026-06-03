@@ -161,7 +161,7 @@ function renderCompMapLayerList() {
   const list = el("compMapLayerList");
   if (!list) return;
   if (!allowedMapLayers.length) {
-    list.innerHTML = `<div class="msg err">Kasutatavaid kaarte ei ole</div>`;
+    list.innerHTML = `<div class="msg err">${tr("competitor.map.layer_list_empty_msg")}</div>`;
     return;
   }
   list.innerHTML = allowedMapLayers.map((layer) => {
@@ -684,7 +684,7 @@ function renderCompMap(items, opts = {}) {
       fillColor: "#2f8cff",
       fillOpacity: 1,
     }).addTo(compMap);
-    userPosMarker.bindPopup("Sinu asukoht");
+    userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
   }
   mapProgrammaticMove = true;
   if (!preserveViewport) {
@@ -739,7 +739,7 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
       fillColor: "#2f8cff",
       fillOpacity: 1,
     }).addTo(compMap);
-    userPosMarker.bindPopup("Sinu asukoht");
+    userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
   } else {
     userPosMarker.setLatLng([lat, lon]);
   }
@@ -781,7 +781,7 @@ async function openCompMapModal() {
     if (code) mapLayersByCode[code] = x;
   });
   if (!allowedMapLayers.length) {
-    setMsg("answerMsg", "Kasutatavaid kaarte ei ole", false);
+    setMsg("answerMsg", tr("competitor.map.layer_open_empty_msg"), false);
     return;
   }
   state.mapItems = await loadMapCheckpoints();

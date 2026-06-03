@@ -145,18 +145,13 @@ function bindTermsLink() {
 }
 
 function sanitizeTermsHtml(html) {
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = String(html || "");
-  wrapper.querySelectorAll("script, iframe, object, embed").forEach((n) => n.remove());
-  wrapper.querySelectorAll("*").forEach((node) => {
-    [...node.attributes].forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      const value = (attr.value || "").trim().toLowerCase();
-      if (name.startsWith("on")) node.removeAttribute(attr.name);
-      if ((name === "href" || name === "src") && value.startsWith("javascript:")) node.removeAttribute(attr.name);
-    });
+  const dirty = String(html || "");
+  if (!globalThis.DOMPurify?.sanitize) {
+    return esc(dirty);
+  }
+  return globalThis.DOMPurify.sanitize(dirty, {
+    USE_PROFILES: { html: true },
   });
-  return wrapper.innerHTML;
 }
 
 function esc(v) {
@@ -624,7 +619,7 @@ function renderQuestionForSelectedCheckpoint() {
   el("questionText").textContent = pickLocalized(item, "text_et", "text_en") || tr("competitor.msg.question_text_missing");
   const inputType = (item.input_type || "").toUpperCase();
   const maxLen = Number(item.input_max_length || 0);
-  let promptText = tr("competitor.answer.text_placeholder");
+  let promptText;
   if ((item.question_type || "").toUpperCase() === "SINGLE_CHOICE") {
     promptText = tr("competitor.msg.select_answer");
   } else if (inputType === "NUMERIC") {
@@ -660,7 +655,10 @@ function showFeedback(ok, points, total) {
   const modal = el("feedbackModal");
   modal.className = "modal " + (ok ? "feedback-ok" : "feedback-err");
   el("feedbackTitle").textContent = ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
-  el("feedbackBody").textContent = `${points} punkti (kokku ${total}).`;
+  el("feedbackBody").textContent = trf("competitor.feedback.points_total", {
+    points: Number(points || 0),
+    total: Number(total || 0),
+  });
   el("feedbackBackdrop").style.display = "flex";
 }
 

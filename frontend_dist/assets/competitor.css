@@ -170,7 +170,7 @@ button:disabled { opacity: 0.5; }
 .termsBody p:last-child { margin-bottom: 0; }
 .termsBody ul, .termsBody ol { margin: 0 0 10px 20px; }
 .termsBody img { max-width: 100%; height: auto; }
-.feedback-ok { background: #00b24f; color: #fff; }
+.feedback-ok { background: #0b7a35; color: #fff; }
 .feedback-err { background: #d92424; color: #fff; }
 .feedback-ok button, .feedback-err button { background: #fff; color: #000; }
 .mapBackdrop {
