@@ -178,6 +178,7 @@ create or replace package pkg_common as
   c_checkpoint_start_order constant number := 0;
   c_checkpoint_finish_order constant number := 9999;
 
+  -- normalize_checkpoint_type: normalizes null/blank values to NORMAL and uppercases supported special types.
   function normalize_checkpoint_type(
     p_checkpoint_type in varchar2
   ) return varchar2 deterministic;
@@ -2452,7 +2453,7 @@ create or replace package body pkg_competitor as
                'checkpoint_id' value z.checkpoint_id,
                'checkpoint_title' value z.checkpoint_title,
                'checkpoint_order_no' value z.checkpoint_order_no,
-               'checkpoint_type' value z.checkpoint_type,
+               'checkpoint_type' value z.checkpoint_type, -- NOSONAR: repeated JSON key is intentional for payload readability
                'competition_type' value z.competition_type,
                'question_id' value z.question_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'question_type' value z.question_type,
@@ -4231,7 +4232,7 @@ create or replace package body pkg_admin_content as
   end;
 
   -- create_checkpoint: Creates a new checkpoint record.
-  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_checkpoint_type in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is
+  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_checkpoint_type in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is -- NOSONAR: API boundary procedure mirrors checkpoint payload shape
     l_dummy number;
     l_use_location varchar2(1);
     l_comp_type varchar2(1) := 'R';
@@ -4490,34 +4491,31 @@ create or replace package body pkg_admin_content as
     l_payload_codes t_code_set;
     l_norm_code varchar2(100);
   begin
-    if p_options_json is null then
-      return;
-    end if;
-
-    l_arr := json_array_t.parse(p_options_json);
-    for i in 0 .. l_arr.get_size - 1 loop
-      l_obj := treat(l_arr.get(i) as json_object_t);
-      l_code := l_obj.get_string('option_code');
-      l_text := l_obj.get_string('text_et');
-      l_is_correct := case when l_obj.has('is_correct') and upper(l_obj.get_string('is_correct'))='Y' then 'Y' else 'N' end;
+    if p_options_json is not null then
+      l_arr := json_array_t.parse(p_options_json);
+      for i in 0 .. l_arr.get_size - 1 loop
+        l_obj := treat(l_arr.get(i) as json_object_t);
+        l_code := l_obj.get_string('option_code');
+        l_text := l_obj.get_string('text_et');
+        l_is_correct := case when l_obj.has('is_correct') and upper(l_obj.get_string('is_correct'))='Y' then 'Y' else 'N' end;
         l_norm_code := upper(trim(l_code));
-      if l_norm_code is null then
-        continue;
-      end if;
-      l_payload_codes(l_norm_code) := l_norm_code;
+        if l_norm_code is null then
+          continue;
+        end if;
+        l_payload_codes(l_norm_code) := l_norm_code;
 
-      begin
-        select qo.option_id
-          into l_existing_option_id
-          from question_options qo
-         where qo.question_id = p_question_id
-           and upper(trim(qo.option_code)) = l_norm_code
-           and (qo.end_date is null or qo.end_date > sysdate)
-         fetch first 1 row only;
-      exception
-        when no_data_found then
-          l_existing_option_id := null;
-      end;
+        begin
+          select qo.option_id
+            into l_existing_option_id
+            from question_options qo
+           where qo.question_id = p_question_id
+             and upper(trim(qo.option_code)) = l_norm_code
+             and (qo.end_date is null or qo.end_date > sysdate)
+           fetch first 1 row only;
+        exception
+          when no_data_found then
+            l_existing_option_id := null;
+        end;
 
         if l_existing_option_id is null then
           select nvl(max(qo.order_no), 0) + 1
@@ -4538,44 +4536,45 @@ create or replace package body pkg_admin_content as
              and (end_date is null or end_date > sysdate);
         end if;
 
-      if l_text is not null and trim(l_text) is not null then
-        update question_option_texts
-           set option_text = l_text,
-               updated_by = p_updated_by,
-               updated_at = systimestamp
-         where option_id = l_option_id
-           and lower(lang_code) = 'et'
-           and (end_date is null or end_date > sysdate);
-        if sql%rowcount = 0 then
-          insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
-          values(seq_question_option_texts.nextval, l_option_id, 'et', l_text, trunc(sysdate), p_updated_by, systimestamp);
-        end if;
-      end if;
-
-      l_keys := l_obj.get_keys;
-      l_k := 1;
-      while l_k <= l_keys.count loop
-        l_key := l_keys(l_k);
-        if l_key like 'text\_%' escape '\' and lower(l_key) <> 'text_et' then
-          l_lang := lower(substr(l_key, 6));
-          l_text := l_obj.get_string(l_key);
-          if l_text is not null and trim(l_text) is not null then
-            update question_option_texts
-               set option_text = l_text,
-                   updated_by = p_updated_by,
-                   updated_at = systimestamp
-             where option_id = l_option_id
-               and lower(lang_code) = l_lang
-               and (end_date is null or end_date > sysdate);
-            if sql%rowcount = 0 then
-              insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
-              values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
-            end if;
+        if l_text is not null and trim(l_text) is not null then
+          update question_option_texts
+             set option_text = l_text,
+                 updated_by = p_updated_by,
+                 updated_at = systimestamp
+           where option_id = l_option_id
+             and lower(lang_code) = 'et'
+             and (end_date is null or end_date > sysdate);
+          if sql%rowcount = 0 then
+            insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
+            values(seq_question_option_texts.nextval, l_option_id, 'et', l_text, trunc(sysdate), p_updated_by, systimestamp);
           end if;
         end if;
-        l_k := l_k + 1;
+
+        l_keys := l_obj.get_keys;
+        l_k := 1;
+        while l_k <= l_keys.count loop
+          l_key := l_keys(l_k);
+          if l_key like 'text\_%' escape '\' and lower(l_key) <> 'text_et' then
+            l_lang := lower(substr(l_key, 6));
+            l_text := l_obj.get_string(l_key);
+            if l_text is not null and trim(l_text) is not null then
+              update question_option_texts
+                 set option_text = l_text,
+                     updated_by = p_updated_by,
+                     updated_at = systimestamp
+               where option_id = l_option_id
+                 and lower(lang_code) = l_lang
+                 and (end_date is null or end_date > sysdate);
+              if sql%rowcount = 0 then
+                insert into question_option_texts(question_option_text_id, option_id, lang_code, option_text, start_date, created_by, created_at)
+                values(seq_question_option_texts.nextval, l_option_id, l_lang, l_text, trunc(sysdate), p_updated_by, systimestamp);
+              end if;
+            end if;
+          end if;
+          l_k := l_k + 1;
+        end loop;
       end loop;
-    end loop;
+    end if;
 
     for old_opt in (
       select qo.option_id,

@@ -125,13 +125,13 @@
     </div>
     <input id="cpId" type="hidden" />
     <div id="cpMap"></div>
-    <div class="row" id="cpNameRow"><label data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
-    <div class="row" id="cpTypeRow"><label data-i18n="admin.cp_dialog.checkpoint_type.label">admin.cp_dialog.checkpoint_type.label</label><select id="cpType"></select></div>
-    <div class="row"><label data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><input id="cpLocation" /></div>
-    <div class="row" id="cpOrderRow"><label data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
-    <div class="row cp-gps-row"><label data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
+    <div class="row" id="cpNameRow"><label for="cpName" data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
+    <div class="row" id="cpTypeRow"><label for="cpType" data-i18n="admin.cp_dialog.checkpoint_type.label">admin.cp_dialog.checkpoint_type.label</label><select id="cpType"></select></div>
+    <div class="row"><label for="cpLocation" data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><input id="cpLocation" /></div>
+    <div class="row" id="cpOrderRow"><label for="cpOrder" data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
+    <div class="row cp-gps-row"><label for="cpLatitude" data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
+    <div class="row cp-gps-row"><label for="cpLongitude" data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
+    <div class="row cp-gps-row"><label for="cpRadiusM" data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
     <div class="row cp-gps-row">
       <label data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label>
       <div class="yn-switch-wrap">
@@ -453,6 +453,24 @@
     el.className = ok ? "ok" : "err";
     el.textContent = text;
   };
+  const textIncludesAny = (text, patterns) => patterns.some((pattern) => text.includes(pattern));
+  const errorMatchesAny = (msg, detailsText, patterns) =>
+    textIncludesAny(msg, patterns) || textIncludesAny(detailsText, patterns);
+  const translateAdminError = (msg, detailsText) => {
+    if (errorMatchesAny(msg, detailsText, [
+      "checkpoint title already exists in this competition",
+      "-20101",
+      "-20103",
+      "ora-20101",
+      "ora-20103"
+    ])) {
+      return tr("admin.msg.cp_title_exists");
+    }
+    if (errorMatchesAny(msg, detailsText, ["ora-20196"])) return tr("admin.msg.cp_reserved_title");
+    if (errorMatchesAny(msg, detailsText, ["ora-20197"])) return tr("admin.msg.cp_order_reserved");
+    if (errorMatchesAny(msg, detailsText, ["ora-20198"])) return tr("admin.msg.cp_special_type_exists");
+    return "";
+  };
   const humanizeError = (raw, details = null) => {
     const msg = (raw || "").toString().trim();
     if (!msg) return tr("admin.msg.error_generic");
@@ -462,34 +480,8 @@
     const ordsBody = (details && typeof details.ords_body === "string") ? details.ords_body : "";
     const detailsText = `${ordsBody}`.toLowerCase();
     const lmsg = msg.toLowerCase();
-    if (
-      lmsg.includes("checkpoint title already exists in this competition") ||
-      lmsg.includes("-20101") ||
-      lmsg.includes("-20103") ||
-      detailsText.includes("checkpoint title already exists in this competition") ||
-      detailsText.includes("ora-20101") ||
-      detailsText.includes("ora-20103")
-    ) {
-      return tr("admin.msg.cp_title_exists");
-    }
-    if (
-      lmsg.includes("ora-20196") ||
-      detailsText.includes("ora-20196")
-    ) {
-      return tr("admin.msg.cp_reserved_title");
-    }
-    if (
-      lmsg.includes("ora-20197") ||
-      detailsText.includes("ora-20197")
-    ) {
-      return tr("admin.msg.cp_order_reserved");
-    }
-    if (
-      lmsg.includes("ora-20198") ||
-      detailsText.includes("ora-20198")
-    ) {
-      return tr("admin.msg.cp_special_type_exists");
-    }
+    const translated = translateAdminError(lmsg, detailsText);
+    if (translated) return translated;
     if (msg === "api.error.ords_request_failed" && detailsText) {
       const bodyRaw = String(details?.ords_body || "");
       const oraMatch = bodyRaw.match(/ORA-\d{5}:[^<\r\n]*/i);
