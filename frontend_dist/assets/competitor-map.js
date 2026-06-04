@@ -685,17 +685,6 @@ function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
     ringRadiusPx: Number.isFinite(Number(p.markerRadiusPx)) ? Number(p.markerRadiusPx) : 15,
   }));
 
-  for (let i = 0; i < withPixels.length; i += 1) {
-    for (let j = i + 1; j < withPixels.length; j += 1) {
-      const a = mapRef.latLngToLayerPoint([withPixels[i].lat, withPixels[i].lon]);
-      const b = mapRef.latLngToLayerPoint([withPixels[j].lat, withPixels[j].lon]);
-      const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      if (distance <= (withPixels[i].ringRadiusPx + withPixels[j].ringRadiusPx)) {
-        return;
-      }
-    }
-  }
-
   const markerGapPx = 10;
   const breakHalfPx = 10;
   const segments = [];
@@ -709,6 +698,7 @@ function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
     const dy = p2.y - p1.y;
     const length = Math.hypot(dx, dy);
     if (!Number.isFinite(length) || length <= 0) continue;
+    if (length <= (start.ringRadiusPx + end.ringRadiusPx)) continue;
     const trimStart = start.ringRadiusPx + markerGapPx;
     const trimEnd = end.ringRadiusPx + markerGapPx;
     if (length <= (trimStart + trimEnd)) continue;
@@ -815,8 +805,13 @@ function buildOrderLabelPlacement(mapRef, points) {
     placements.set(Number(p.checkpointId), { direction: "right", offset: [12, 0] });
   });
   if (!mapRef || selectedCompetitionType() !== "S") return placements;
+  if (typeof mapRef.getSize !== "function" || typeof mapRef.getZoom !== "function") {
+    return placements;
+  }
   try {
-    if (!mapRef._loaded) return placements;
+    const size = mapRef.getSize();
+    const zoom = Number(mapRef.getZoom());
+    if (!size || size.x <= 0 || size.y <= 0 || !Number.isFinite(zoom)) return placements;
   } catch {
     return placements;
   }

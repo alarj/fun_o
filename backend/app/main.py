@@ -25,6 +25,7 @@ class Settings:
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     mapycz_api_key: str = os.getenv("MAPYCZ_API_KEY", "")
     maptiler_api_key: str = os.getenv("MAPTILER_API_KEY", "")
+    mml_api_key: str = os.getenv("MML_API_KEY", "")
     declination_service_url_template: str | None = os.getenv("DECLINATION_SERVICE_URL_TEMPLATE")
     declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
@@ -422,11 +423,19 @@ class MapLayerEntry(BaseModel):
     max_zoom: int = 19
     min_zoom: int = 0
     tms: bool = False
+    tile_size: int | None = None
     layer_type: str = "xyz"
     wms_layers: str | None = None
     wms_format: str | None = None
     wms_transparent: bool | None = None
     wms_version: str | None = None
+    wmts_matrix_set: str | None = None
+    wmts_zoom_offset: int | None = None
+    fallback_url_template: str | None = None
+    fallback_tile_size: int | None = None
+    fallback_wmts_matrix_set: str | None = None
+    fallback_wmts_zoom_offset: int | None = None
+    fallback_zoom_threshold: int | None = None
     crs: str | None = None
     participant_default: bool = False
 
@@ -1138,9 +1147,12 @@ def _load_map_layers_config() -> list[dict[str, Any]]:  # NOSONAR
                     continue
                 url_template = url_template.replace("{MAPYCZ_API_KEY}", settings.mapycz_api_key.strip())
                 url_template = url_template.replace("{MAPTILER_API_KEY}", settings.maptiler_api_key.strip())
+                url_template = url_template.replace("{MML_API_KEY}", settings.mml_api_key.strip())
                 if "{MAPYCZ_API_KEY}" in str(item.get("url_template", "")) and not settings.mapycz_api_key.strip():
                     continue
                 if "{MAPTILER_API_KEY}" in str(item.get("url_template", "")) and not settings.maptiler_api_key.strip():
+                    continue
+                if "{MML_API_KEY}" in str(item.get("url_template", "")) and not settings.mml_api_key.strip():
                     continue
                 participant_default = item.get("participant_default", False)
                 if isinstance(participant_default, str):
@@ -1156,11 +1168,19 @@ def _load_map_layers_config() -> list[dict[str, Any]]:  # NOSONAR
                         "max_zoom": int(item.get("max_zoom", 19)),
                         "min_zoom": int(item.get("min_zoom", 0)),
                         "tms": bool(item.get("tms", False)),
+                        "tile_size": int(item.get("tile_size", 0)) or None,
                         "layer_type": str(item.get("layer_type", "xyz")).strip().lower() or "xyz",
                         "wms_layers": str(item.get("wms_layers", "")).strip() or None,
                         "wms_format": str(item.get("wms_format", "")).strip() or None,
                         "wms_transparent": bool(item.get("wms_transparent", False)),
                         "wms_version": str(item.get("wms_version", "")).strip() or None,
+                        "wmts_matrix_set": str(item.get("wmts_matrix_set", "")).strip() or None,
+                        "wmts_zoom_offset": int(item.get("wmts_zoom_offset", 0)) if item.get("wmts_zoom_offset") is not None else None,
+                        "fallback_url_template": str(item.get("fallback_url_template", "")).strip() or None,
+                        "fallback_tile_size": int(item.get("fallback_tile_size", 0)) or None,
+                        "fallback_wmts_matrix_set": str(item.get("fallback_wmts_matrix_set", "")).strip() or None,
+                        "fallback_wmts_zoom_offset": int(item.get("fallback_wmts_zoom_offset", 0)) if item.get("fallback_wmts_zoom_offset") is not None else None,
+                        "fallback_zoom_threshold": int(item.get("fallback_zoom_threshold", 0)) if item.get("fallback_zoom_threshold") is not None else None,
                         "crs": str(item.get("crs", "")).strip() or None,
                         "participant_default": participant_default,
                     }
