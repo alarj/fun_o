@@ -41,7 +41,7 @@
       "max_zoom": 18,
       "min_zoom": 0,
       "tms": true,
-      "enabled": false,
+      "enabled": true,
       "participant_default": false
     },
     {
@@ -103,7 +103,7 @@
       "enabled": true,
       "participant_default": false
     },
-	{
+    {
       "code": "maptiler_hybrid",
       "label": "MapTiler hybrid",
       "url_template": "https://api.maptiler.com/maps/hybrid-v4/{z}/{x}/{y}.png?key={MAPTILER_API_KEY}",
@@ -111,6 +111,201 @@
       "max_zoom": 20,
       "min_zoom": 0,
       "enabled": true,
+      "participant_default": false
+    },
+	{
+      "code": "opentopomap",
+      "label": "OpenTopoMap",
+      "url_template": "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+      "attribution": "&copy; OpenTopoMap contributors, SRTM | Map data: &copy; OpenStreetMap contributors",
+      "max_zoom": 17,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "norway_kartverket_topo",
+      "label": "Norway Kartverket Topo",
+      "url_template": "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png",
+      "attribution": "&copy; Kartverket",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "france_ign_planign",
+      "label": "France IGN Plan IGN",
+      "url_template": "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}",
+      "attribution": "&copy; IGN / G\u00e9oplateforme",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "france_ign_orthophoto",
+      "label": "France IGN Orthophoto",
+      "url_template": "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}",
+      "attribution": "&copy; IGN / G\u00e9oplateforme",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "finland_mml_maastokartta",
+      "label": "Finland MML Maastokartta",
+      "url_template": "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/maastokartta/default/WGS84_Pseudo-Mercator/{z}/{y}/{x}.png?api-key={MML_API_KEY}",
+      "attribution": "&copy; Maanmittauslaitos (MML)",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "finland_mml_ortokuva",
+      "label": "Finland MML Ortoilmakuva",
+      "url_template": "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/ortokuva/default/WGS84_Pseudo-Mercator/{z}/{y}/{x}.jpg?api-key={MML_API_KEY}",
+      "attribution": "&copy; Maanmittauslaitos (MML)",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "finland_mml_taustakartta",
+      "label": "Finland MML Taustakartta",
+      "url_template": "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/taustakartta/default/WGS84_Pseudo-Mercator/{z}/{y}/{x}.png?api-key={MML_API_KEY}",
+      "attribution": "&copy; Maanmittauslaitos (MML)",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "latvia_tapis_background",
+      "label": "Latvia TAPIS Background",
+      "url_template": "https://tapis.gov.lv/tapis/services/wms",
+      "attribution": "&copy; Geolatvija.lv / LĢIA",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "layer_type": "wms",
+      "wms_layers": "tapis:background_tapis",
+      "wms_format": "image/png",
+      "wms_transparent": true,
+      "wms_version": "1.3.0",
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "latvia_geolatvija_topo250",
+      "label": "Latvia GeoLatvija Topo 250k",
+      "url_template": "https://geolatvija.lv/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=Topo250&STYLE=&TILEMATRIXSET=lks92&TILEMATRIX={wmts_z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png8",
+      "attribution": "&copy; Geolatvija.lv / LĢIA",
+      "max_zoom": 11,
+      "min_zoom": 0,
+      "tile_size": 512,
+      "layer_type": "wmts",
+      "wmts_matrix_set": "lks92",
+      "wmts_zoom_offset": 2,
+      "crs": "EPSG:3059",
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "latvia_geolatvija_ortho",
+      "label": "Latvia GeoLatvija Orthophoto",
+      "url_template": "https://geolatvija.lv/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ortofoto_kombi&STYLE=&TILEMATRIXSET=lks92&TILEMATRIX={wmts_z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png",
+      "attribution": "&copy; Geolatvija.lv / LĢIA",
+      "max_zoom": 11,
+      "min_zoom": 0,
+      "tile_size": 512,
+      "layer_type": "wmts",
+      "wmts_matrix_set": "lks92",
+      "wmts_zoom_offset": 2,
+      "crs": "EPSG:3059",
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "latvia_geolatvija_fallback",
+      "label": "Latvia GeoLatvija Fallback",
+      "url_template": "https://geolatvija.lv/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=Topo250&STYLE=&TILEMATRIXSET=lks92&TILEMATRIX={wmts_z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png8",
+      "fallback_url_template": "https://geolatvija.lv/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ortofoto_kombi&STYLE=&TILEMATRIXSET=lks92&TILEMATRIX={wmts_z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png",
+      "attribution": "&copy; Geolatvija.lv / LĢIA",
+      "max_zoom": 11,
+      "min_zoom": 0,
+      "tile_size": 512,
+      "fallback_tile_size": 512,
+      "layer_type": "wmts_fallback",
+      "wmts_matrix_set": "lks92",
+      "fallback_wmts_matrix_set": "lks92",
+      "wmts_zoom_offset": 2,
+      "fallback_wmts_zoom_offset": 2,
+      "fallback_zoom_threshold": 1,
+      "crs": "EPSG:3059",
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "baltics_openmap_topo",
+      "label": "Baltics OpenMap.lv Topo",
+      "url_template": "https://a.openmap.lv/topo/{z}/{x}/{y}.png",
+      "attribution": "&copy; OpenMap.lv, OpenStreetMap, NŽT",
+      "max_zoom": 18,
+      "min_zoom": 0,
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "lithuania_standard",
+      "label": "Lithuania Standard",
+      "url_template": "https://gis.vtek.lt/arcgis/rest/services/Baziniai_zemelapiai/Lietuvos_Z_M150000/MapServer/tile/{z}/{y}/{x}",
+      "attribution": "&copy; Geoportal.lt / Nacionalinė žemės tarnyba",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "lithuania_ort10lt",
+      "label": "Lithuania ORT10LT",
+      "url_template": "https://www.geoportal.lt/arcgis/rest/services/NZT/ORT10LT_Web_Mercator_102100/MapServer/tile/{z}/{y}/{x}",
+      "attribution": "&copy; Geoportal.lt / Nacionalinė žemės tarnyba",
+      "max_zoom": 11,
+      "min_zoom": 0,
+      "enabled": false,
+      "participant_default": false
+    },
+    {
+      "code": "austria_basemap_standard",
+      "label": "Austria basemap.at Standard",
+      "url_template": "https://maps.wien.gv.at/basemap/geolandbasemap/normal/google3857/{z}/{y}/{x}.png",
+      "attribution": "&copy; basemap.at / BEV",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "austria_basemap_orthofoto",
+      "label": "Austria basemap.at Orthofoto",
+      "url_template": "https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg",
+      "attribution": "&copy; basemap.at / BEV",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "austria_basemap_topo",
+      "label": "Austria basemap.at topo",
+      "url_template": "https://maps.wien.gv.at/basemap/bmaptopo/subpixel/google3857/{z}/{y}/{x}.png",
+      "attribution": "&copy; basemap.at / BEV",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": false,
       "participant_default": false
     }
   ]

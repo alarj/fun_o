@@ -851,8 +851,55 @@
       cpExistingZoomHandler = null;
     }
     const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
-    if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
-      options.crs = new L.Proj.CRS(
+    const customCrs = createCustomCrs(targetCrs);
+    if (customCrs) options.crs = customCrs;
+    cpMap = L.map("cpMap", options);
+    cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
+    cpMap.on("moveend", writeLastCpDialogView);
+    cpExistingLayer = L.layerGroup().addTo(cpMap);
+    cpExistingRoutesLayer = L.layerGroup().addTo(cpMap);
+    cpDialogCurrentCrs = targetCrs;
+    return previousView;
+  }
+
+  function latLngInBounds(lat, lon, bounds) {
+    if (!bounds) return true;
+    return lat >= bounds.minLat && lat <= bounds.maxLat && lon >= bounds.minLon && lon <= bounds.maxLon;
+  }
+
+  function selectedMapCrsCode(layerCfg) {
+    const code = String(layerCfg?.crs || "").trim().toUpperCase();
+    if (code === "EPSG:3301" || code === "EPSG:3059") return code;
+    return "EPSG:3857";
+  }
+
+  function crsDefaultView(targetCrs) {
+    if (targetCrs === "EPSG:3301") return { lat: 58.6, lon: 25.0, zoom: 5 };
+    if (targetCrs === "EPSG:3059") return { lat: 56.95, lon: 24.1, zoom: 4 };
+    return { lat: 58.6, lon: 25.0, zoom: 7 };
+  }
+
+  function crsMaxOverviewZoom(targetCrs) {
+    if (targetCrs === "EPSG:3301") return 14;
+    if (targetCrs === "EPSG:3059") return 11;
+    return 16;
+  }
+
+  function isViewCompatibleWithCrs(view, targetCrs) {
+    if (!view) return false;
+    if (targetCrs === "EPSG:3301") {
+      return latLngInBounds(view.lat, view.lon, { minLat: 57.3, maxLat: 60.2, minLon: 21.0, maxLon: 29.2 });
+    }
+    if (targetCrs === "EPSG:3059") {
+      return latLngInBounds(view.lat, view.lon, { minLat: 55.5, maxLat: 58.3, minLon: 20.4, maxLon: 28.7 });
+    }
+    return true;
+  }
+
+  function createCustomCrs(targetCrs) {
+    if (!window.L?.Proj?.CRS) return null;
+    if (targetCrs === "EPSG:3301") {
+      return new L.Proj.CRS(
         "EPSG:3301",
         "+proj=lcc +lat_1=59.33333333333334 +lat_2=58 +lat_0=57.51755393055556 +lon_0=24 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
         {
@@ -865,18 +912,117 @@
         }
       );
     }
-    cpMap = L.map("cpMap", options);
-    cpMap.on("click", (e) => setCpCoordinates(e.latlng.lat, e.latlng.lng, true));
-    cpMap.on("moveend", writeLastCpDialogView);
-    cpExistingLayer = L.layerGroup().addTo(cpMap);
-    cpExistingRoutesLayer = L.layerGroup().addTo(cpMap);
-    cpDialogCurrentCrs = targetCrs;
-    return previousView;
+    if (targetCrs === "EPSG:3059") {
+      return new L.Proj.CRS(
+        "EPSG:3059",
+        "+proj=tmerc +lat_0=0 +lon_0=24 +k=0.9996 +x_0=500000 +y_0=-6000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +axis=neu",
+        {
+          origin: [488667, 1500000],
+          resolutions: [
+            132.29193125051253, 66.14596562525626, 33.07298281262813, 16.536491406314066,
+            8.268245703157033, 4.134122851578516, 2.067061425789258, 1.033530712894629,
+            0.5167653564473145, 0.25838267822365724, 0.12919133911182862, 0.06459566955591431
+          ],
+          bounds: L.bounds([488667, 1161333], [1166520, 1500000])
+        }
+      );
+    }
+    return null;
+  }
+
+  function createWmtsTileLayerFromConfig(layerCfg, urlOverride = null, matrixSetOverride = null, zoomOffsetOverride = null, tileSizeOverride = null) {
+    const urlTemplate = String(urlOverride || layerCfg?.url_template || "");
+    const matrixSet = String(matrixSetOverride || layerCfg?.wmts_matrix_set || "").trim();
+    const zoomOffset = Number(zoomOffsetOverride ?? layerCfg?.wmts_zoom_offset ?? 0);
+    const tileSize = Number(tileSizeOverride ?? layerCfg?.tile_size ?? 256);
+    const WmtsTileLayer = L.TileLayer.extend({
+      getTileUrl(coords) {
+        return L.Util.template(urlTemplate, {
+          x: coords.x,
+          y: coords.y,
+          z: coords.z,
+          s: this._getSubdomain(coords),
+          r: L.Browser.retina ? "@2x" : "",
+          wmts_z: matrixSet ? `${matrixSet}:${coords.z + zoomOffset}` : String(coords.z + zoomOffset),
+        });
+      }
+    });
+    return new WmtsTileLayer(urlTemplate, {
+      maxZoom: Number(layerCfg?.max_zoom || 19),
+      minZoom: Number(layerCfg?.min_zoom || 0),
+      attribution: layerCfg?.attribution || "&copy;",
+      tileSize,
+      tms: !!layerCfg?.tms,
+    });
+  }
+
+  function createConfiguredTileLayer(layerCfg, mapRef = null) {
+    if (!layerCfg) return null;
+    if ((layerCfg.layer_type || "xyz") === "wms") {
+      return L.tileLayer.wms(layerCfg.url_template, {
+        layers: layerCfg.wms_layers || "",
+        format: layerCfg.wms_format || "image/png",
+        transparent: !!layerCfg.wms_transparent,
+        version: layerCfg.wms_version || "1.3.0",
+        maxZoom: Number(layerCfg.max_zoom || 19),
+        minZoom: Number(layerCfg.min_zoom || 0),
+        attribution: layerCfg.attribution || "&copy;",
+      });
+    }
+    if ((layerCfg.layer_type || "xyz") === "wmts") {
+      return createWmtsTileLayerFromConfig(layerCfg);
+    }
+    if ((layerCfg.layer_type || "xyz") === "wmts_fallback") {
+      if (!mapRef) return createWmtsTileLayerFromConfig(layerCfg);
+      const topoLayer = createWmtsTileLayerFromConfig(layerCfg);
+      const orthoLayer = createWmtsTileLayerFromConfig(
+        layerCfg,
+        layerCfg.fallback_url_template || layerCfg.url_template,
+        layerCfg.fallback_wmts_matrix_set || layerCfg.wmts_matrix_set,
+        layerCfg.fallback_wmts_zoom_offset,
+        layerCfg.fallback_tile_size
+      );
+      const switchZoom = Number(layerCfg.fallback_zoom_threshold ?? 1);
+      return {
+        _mapRef: null,
+        _activeLayer: null,
+        _updateActiveLayer() {
+          if (!this._mapRef) return;
+          const nextLayer = Number(this._mapRef.getZoom()) <= switchZoom ? topoLayer : orthoLayer;
+          if (this._activeLayer === nextLayer) return;
+          if (this._activeLayer && this._mapRef.hasLayer(this._activeLayer)) this._mapRef.removeLayer(this._activeLayer);
+          this._activeLayer = nextLayer;
+          if (!this._mapRef.hasLayer(this._activeLayer)) this._activeLayer.addTo(this._mapRef);
+        },
+        addTo(targetMap) {
+          this._mapRef = targetMap;
+          this._boundUpdate = this._updateActiveLayer.bind(this);
+          targetMap.on("zoomend", this._boundUpdate);
+          this._boundUpdate();
+          return this;
+        },
+        removeFrom(targetMap) {
+          if (this._boundUpdate) targetMap.off("zoomend", this._boundUpdate);
+          if (targetMap.hasLayer(topoLayer)) targetMap.removeLayer(topoLayer);
+          if (targetMap.hasLayer(orthoLayer)) targetMap.removeLayer(orthoLayer);
+          this._mapRef = null;
+          this._activeLayer = null;
+          return this;
+        }
+      };
+    }
+    return L.tileLayer(layerCfg.url_template, {
+      maxZoom: Number(layerCfg.max_zoom || 19),
+      minZoom: Number(layerCfg.min_zoom || 0),
+      attribution: layerCfg.attribution || "&copy;",
+      tms: !!layerCfg.tms,
+      tileSize: Number(layerCfg.tile_size || 256),
+    });
   }
 
   function initCheckpointMap() {
     const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
-    const targetCrs = requiresLestCrs(layerCfg) ? "EPSG:3301" : "EPSG:3857";
+    const targetCrs = selectedMapCrsCode(layerCfg);
     const clampZoom = (z) => {
       const maxZoom = Number(layerCfg?.max_zoom || 19);
       const minZoom = Number(layerCfg?.min_zoom || 0);
@@ -885,10 +1031,11 @@
     if (!cpMap) {
       createCpDialogMap(targetCrs);
       const saved = readLastCpDialogView(targetCrs);
-      if (saved) {
+      if (saved && isViewCompatibleWithCrs(saved, targetCrs)) {
         cpMap.setView([saved.lat, saved.lon], clampZoom(saved.zoom));
       } else {
-        cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+        const fallback = crsDefaultView(targetCrs);
+        cpMap.setView([fallback.lat, fallback.lon], clampZoom(fallback.zoom));
       }
       applyCheckpointDialogBaseLayer();
       return;
@@ -897,12 +1044,13 @@
       const previousView = createCpDialogMap(targetCrs);
       applyCheckpointDialogBaseLayer();
       const saved = readLastCpDialogView(targetCrs);
-      if (saved) {
+      if (saved && isViewCompatibleWithCrs(saved, targetCrs)) {
         cpMap.setView([saved.lat, saved.lon], clampZoom(saved.zoom));
-      } else if (previousView) {
+      } else if (previousView && isViewCompatibleWithCrs(previousView, targetCrs)) {
         cpMap.setView([previousView.lat, previousView.lon], clampZoom(previousView.zoom));
       } else {
-        cpMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+        const fallback = crsDefaultView(targetCrs);
+        cpMap.setView([fallback.lat, fallback.lon], clampZoom(fallback.zoom));
       }
       return;
     }
@@ -913,25 +1061,12 @@
     if (!cpMap) return;
     const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
     if (!layerCfg) return;
-    if (cpBaseLayer) cpMap.removeLayer(cpBaseLayer);
-    if ((layerCfg.layer_type || "xyz") === "wms") {
-      cpBaseLayer = L.tileLayer.wms(layerCfg.url_template, {
-        layers: layerCfg.wms_layers || "",
-        format: layerCfg.wms_format || "image/png",
-        transparent: !!layerCfg.wms_transparent,
-        version: layerCfg.wms_version || "1.3.0",
-        maxZoom: Number(layerCfg.max_zoom || 19),
-        minZoom: Number(layerCfg.min_zoom || 0),
-        attribution: layerCfg.attribution || "&copy;",
-      }).addTo(cpMap);
-    } else {
-      cpBaseLayer = L.tileLayer(layerCfg.url_template, {
-        maxZoom: Number(layerCfg.max_zoom || 19),
-        minZoom: Number(layerCfg.min_zoom || 0),
-        attribution: layerCfg.attribution || "&copy;",
-        tms: !!layerCfg.tms,
-      }).addTo(cpMap);
+    if (cpBaseLayer) {
+      if (typeof cpBaseLayer.removeFrom === "function") cpBaseLayer.removeFrom(cpMap);
+      else cpMap.removeLayer(cpBaseLayer);
     }
+    cpBaseLayer = createConfiguredTileLayer(layerCfg, cpMap);
+    if (cpBaseLayer && typeof cpBaseLayer.addTo === "function") cpBaseLayer.addTo(cpMap);
   }
 
   function selectedMapLayerCode(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
@@ -946,10 +1081,6 @@
     const code = selectedMapLayerCode(selectId, storageKey);
     const found = availableMapLayers.find((x) => String(x.code) === code);
     return found || availableMapLayers[0] || null;
-  }
-
-  function requiresLestCrs(layerCfg) {
-    return String(layerCfg?.crs || "").toUpperCase() === "EPSG:3301";
   }
 
   function createCpOverviewMap(targetCrs) {
@@ -970,20 +1101,8 @@
       cpOverviewMarkers = [];
     }
     const options = { zoomControl: true, dragging: true, scrollWheelZoom: true };
-    if (targetCrs === "EPSG:3301" && window.L?.Proj?.CRS) {
-      options.crs = new L.Proj.CRS(
-        "EPSG:3301",
-        "+proj=lcc +lat_1=59.33333333333334 +lat_2=58 +lat_0=57.51755393055556 +lon_0=24 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
-        {
-          origin: [40500, 7017000],
-          resolutions: [
-            4000, 2000, 1000, 500, 250, 125, 62.5, 31.25,
-            15.625, 7.8125, 3.90625, 1.953125, 0.9765625, 0.48828125, 0.244140625
-          ],
-          bounds: L.bounds([40500, 5993000], [1064500, 7017000])
-        }
-      );
-    }
+    const customCrs = createCustomCrs(targetCrs);
+    if (customCrs) options.crs = customCrs;
     cpOverviewMap = L.map("cpOverviewMap", options);
     cpOverviewLayer = L.layerGroup().addTo(cpOverviewMap);
     cpOverviewRoutesLayer = L.layerGroup().addTo(cpOverviewMap);
@@ -996,25 +1115,12 @@
     if (!cpOverviewMap) return;
     const layerCfg = resolveSelectedMapLayer();
     if (!layerCfg) return;
-    if (cpOverviewBaseLayer) cpOverviewMap.removeLayer(cpOverviewBaseLayer);
-    if ((layerCfg.layer_type || "xyz") === "wms") {
-      cpOverviewBaseLayer = L.tileLayer.wms(layerCfg.url_template, {
-        layers: layerCfg.wms_layers || "",
-        format: layerCfg.wms_format || "image/png",
-        transparent: !!layerCfg.wms_transparent,
-        version: layerCfg.wms_version || "1.3.0",
-        maxZoom: Number(layerCfg.max_zoom || 19),
-        minZoom: Number(layerCfg.min_zoom || 0),
-        attribution: layerCfg.attribution || "&copy;",
-      }).addTo(cpOverviewMap);
-    } else {
-      cpOverviewBaseLayer = L.tileLayer(layerCfg.url_template, {
-        maxZoom: Number(layerCfg.max_zoom || 19),
-        minZoom: Number(layerCfg.min_zoom || 0),
-        attribution: layerCfg.attribution || "&copy;",
-        tms: !!layerCfg.tms,
-      }).addTo(cpOverviewMap);
+    if (cpOverviewBaseLayer) {
+      if (typeof cpOverviewBaseLayer.removeFrom === "function") cpOverviewBaseLayer.removeFrom(cpOverviewMap);
+      else cpOverviewMap.removeLayer(cpOverviewBaseLayer);
     }
+    cpOverviewBaseLayer = createConfiguredTileLayer(layerCfg, cpOverviewMap);
+    if (cpOverviewBaseLayer && typeof cpOverviewBaseLayer.addTo === "function") cpOverviewBaseLayer.addTo(cpOverviewMap);
   }
 
   async function loadMapLayersConfig() {
@@ -1030,11 +1136,19 @@
         max_zoom: Number(x?.max_zoom || 19),
         min_zoom: Number(x?.min_zoom || 0),
         tms: !!x?.tms,
+        tile_size: Number(x?.tile_size || 256),
         layer_type: String(x?.layer_type || "xyz").trim().toLowerCase(),
         wms_layers: String(x?.wms_layers || "").trim(),
         wms_format: String(x?.wms_format || "").trim(),
         wms_transparent: !!x?.wms_transparent,
         wms_version: String(x?.wms_version || "").trim(),
+        wmts_matrix_set: String(x?.wmts_matrix_set || "").trim(),
+        wmts_zoom_offset: Number(x?.wmts_zoom_offset || 0),
+        fallback_url_template: String(x?.fallback_url_template || "").trim(),
+        fallback_tile_size: Number(x?.fallback_tile_size || 0),
+        fallback_wmts_matrix_set: String(x?.fallback_wmts_matrix_set || "").trim(),
+        fallback_wmts_zoom_offset: Number(x?.fallback_wmts_zoom_offset || 0),
+        fallback_zoom_threshold: Number(x?.fallback_zoom_threshold || 0),
         crs: String(x?.crs || "").trim().toUpperCase(),
         participant_default: !!x?.participant_default,
       }))
@@ -1402,7 +1516,7 @@
   async function openCheckpointOverviewMap() {
     await loadMapLayersConfig();
     const layerCfg = resolveSelectedMapLayer();
-    const targetCrs = requiresLestCrs(layerCfg) ? "EPSG:3301" : "EPSG:3857";
+    const targetCrs = selectedMapCrsCode(layerCfg);
     let carryView = null;
     if (!cpOverviewMap || cpOverviewCurrentCrs !== targetCrs) {
       carryView = createCpOverviewMap(targetCrs);
@@ -1415,7 +1529,8 @@
     const points = buildCheckpointMapPoints();
     const savedView = readLastCpOverviewView();
     if (points.length === 0) {
-      cpOverviewMap.setView([58.6, 25.0], targetCrs === "EPSG:3301" ? 5 : 7);
+      const fallback = crsDefaultView(targetCrs);
+      cpOverviewMap.setView([fallback.lat, fallback.lon], fallback.zoom);
     } else {
       const bounds = [];
       points.forEach((p) => {
@@ -1435,14 +1550,14 @@
         }
         bounds.push([p.lat, p.lon]);
       });
-      if (savedView) {
+      if (savedView && isViewCompatibleWithCrs(savedView, targetCrs)) {
         cpOverviewMap.setView([savedView.lat, savedView.lon], savedView.zoom);
-      } else if (carryView) {
-        const maxZoom = targetCrs === "EPSG:3301" ? 14 : 16;
+      } else if (carryView && isViewCompatibleWithCrs(carryView, targetCrs)) {
+        const maxZoom = crsMaxOverviewZoom(targetCrs);
         const clamped = Math.max(0, Math.min(maxZoom, carryView.zoom));
         cpOverviewMap.setView([carryView.lat, carryView.lon], clamped);
       } else {
-        cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: targetCrs === "EPSG:3301" ? 14 : 16 });
+        cpOverviewMap.fitBounds(bounds, { padding: [30, 30], maxZoom: crsMaxOverviewZoom(targetCrs) });
       }
       const labelPlacement = buildOrderLabelPlacement(cpOverviewMap, points);
       cpOverviewMarkers.forEach((m) => {

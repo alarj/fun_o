@@ -20,9 +20,11 @@ const state = {
 };
 let compMap = null;
 let compMapLayer = null;
+let compMapRouteLayer = null;
 let userPosMarker = null;
 let mapInfoVisible = false;
 let mapRings = [];
+let mapRoutePoints = [];
 let geoWatchId = null;
 let mapFollowUser = true;
 let mapProgrammaticMove = false;
@@ -541,6 +543,38 @@ function selectedCompetitionShowsUserLocation() {
   return String(c?.show_competitor_location || "Y").toUpperCase() === "Y";
 }
 
+function selectedCompetitionType() {
+  const fromState = String(getSelectedCompetition()?.type || "").trim().toUpperCase();
+  if (fromState === "S" || fromState === "R") return fromState;
+  const fromOpen = String(state.openItems?.[0]?.competition_type || "").trim().toUpperCase();
+  if (fromOpen === "S" || fromOpen === "R") return fromOpen;
+  const fromMap = String(state.mapItems?.[0]?.competition_type || "").trim().toUpperCase();
+  if (fromMap === "S" || fromMap === "R") return fromMap;
+  return "R";
+}
+
+function normalizeCheckpointType(rawType) {
+  const value = String(rawType || "NORMAL").trim().toUpperCase();
+  if (value === "START" || value === "FINISH") return value;
+  return "NORMAL";
+}
+
+function isSpecialCheckpointType(rawType) {
+  const value = normalizeCheckpointType(rawType);
+  return value === "START" || value === "FINISH";
+}
+
+function checkpointListLabel(item) {
+  const cpType = normalizeCheckpointType(item?.checkpoint_type);
+  const requiresLocation = String(item?.location_required || "N").toUpperCase() === "Y";
+  const pin = requiresLocation ? "\uD83D\uDCCD " : "";
+  const points = Number(item?.points || 0);
+  const orderNo = Number(item?.checkpoint_order_no);
+  const showOrder = selectedCompetitionType() === "S" && cpType === "NORMAL" && Number.isFinite(orderNo);
+  const orderPrefix = showOrder ? `${orderNo}. ` : "";
+  return `${pin}${orderPrefix}${item?.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
+}
+
 function renderCompetitionPicker() {
   const c = state.activeCompetition;
   el("competitionPickerName").textContent = c?.name || "-";
@@ -573,8 +607,7 @@ function renderCheckpointSelect(preferredCheckpointId = null) {
   state.openItems.forEach((item, idx) => {
     const o = document.createElement("option");
     o.value = String(item.checkpoint_id);
-    const pin = String(item.location_required || "N").toUpperCase() === "Y" ? "\uD83D\uDCCD " : "";
-    o.textContent = `${pin}${item.checkpoint_title} (${item.points || 0} p)`;
+    o.textContent = checkpointListLabel(item);
     if (preferredIdNum > 0 && Number(item.checkpoint_id) === preferredIdNum) {
       o.selected = true;
       hasPreferred = true;
@@ -742,6 +775,9 @@ async function loadOpenCheckpoints(opts = {}) {
     return;
   }
   state.openItems = Array.isArray(res.data.items) ? res.data.items : [];
+  if (state.activeCompetition && state.openItems[0]?.competition_type) {
+    state.activeCompetition.type = String(state.openItems[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
+  }
   state.openItemsLoaded = true;
   openCheckpointsClientCache = {
     key: requestKey,
@@ -765,6 +801,9 @@ async function loadMapCheckpoints() {
   const res = await apiGet(`/api/competitor/map-checkpoints?competition_id=${state.selectedCompetitionId}`);
   if (!res.ok) return [];
   const items = Array.isArray(res.data.items) ? res.data.items : [];
+  if (state.activeCompetition && items[0]?.competition_type) {
+    state.activeCompetition.type = String(items[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
+  }
   const declination = Number(res.data?.declination);
   state.mapDeclination = Number.isFinite(declination) ? declination : 0;
   state.mapDeclinationUpdatedAt = typeof res.data?.declination_last_updated === "string" ? res.data.declination_last_updated : null;

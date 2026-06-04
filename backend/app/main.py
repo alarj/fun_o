@@ -25,6 +25,7 @@ class Settings:
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     mapycz_api_key: str = os.getenv("MAPYCZ_API_KEY", "")
     maptiler_api_key: str = os.getenv("MAPTILER_API_KEY", "")
+    mml_api_key: str = os.getenv("MML_API_KEY", "")
     declination_service_url_template: str | None = os.getenv("DECLINATION_SERVICE_URL_TEMPLATE")
     declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
@@ -96,6 +97,7 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20063",), ("MISSING_SELECTED_OPTION", "api.error.invalid_submission")),
     (("ORA-20064",), ("MISSING_ANSWER_TEXT", "api.error.invalid_submission")),
     (("ORA-20065", "ORA-20066"), ("INVALID_SUBMISSION_STATE", "api.error.invalid_submission")),
+    (("ORA-20067",), ("INVALID_CHECKPOINT_ORDER", "api.error.invalid_checkpoint_order")),
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
@@ -153,6 +155,7 @@ class CompetitorSessionParticipant(BaseModel):
     competition_id: int
     competition_name: str
     competition_description: str | None = None
+    competition_type: str | None = None
     alias_display: str | None = None
     competitor_name: str | None = None
     use_location: str | None = None
@@ -420,11 +423,19 @@ class MapLayerEntry(BaseModel):
     max_zoom: int = 19
     min_zoom: int = 0
     tms: bool = False
+    tile_size: int | None = None
     layer_type: str = "xyz"
     wms_layers: str | None = None
     wms_format: str | None = None
     wms_transparent: bool | None = None
     wms_version: str | None = None
+    wmts_matrix_set: str | None = None
+    wmts_zoom_offset: int | None = None
+    fallback_url_template: str | None = None
+    fallback_tile_size: int | None = None
+    fallback_wmts_matrix_set: str | None = None
+    fallback_wmts_zoom_offset: int | None = None
+    fallback_zoom_threshold: int | None = None
     crs: str | None = None
     participant_default: bool = False
 
@@ -1136,9 +1147,12 @@ def _load_map_layers_config() -> list[dict[str, Any]]:  # NOSONAR
                     continue
                 url_template = url_template.replace("{MAPYCZ_API_KEY}", settings.mapycz_api_key.strip())
                 url_template = url_template.replace("{MAPTILER_API_KEY}", settings.maptiler_api_key.strip())
+                url_template = url_template.replace("{MML_API_KEY}", settings.mml_api_key.strip())
                 if "{MAPYCZ_API_KEY}" in str(item.get("url_template", "")) and not settings.mapycz_api_key.strip():
                     continue
                 if "{MAPTILER_API_KEY}" in str(item.get("url_template", "")) and not settings.maptiler_api_key.strip():
+                    continue
+                if "{MML_API_KEY}" in str(item.get("url_template", "")) and not settings.mml_api_key.strip():
                     continue
                 participant_default = item.get("participant_default", False)
                 if isinstance(participant_default, str):
@@ -1154,11 +1168,19 @@ def _load_map_layers_config() -> list[dict[str, Any]]:  # NOSONAR
                         "max_zoom": int(item.get("max_zoom", 19)),
                         "min_zoom": int(item.get("min_zoom", 0)),
                         "tms": bool(item.get("tms", False)),
+                        "tile_size": int(item.get("tile_size", 0)) or None,
                         "layer_type": str(item.get("layer_type", "xyz")).strip().lower() or "xyz",
                         "wms_layers": str(item.get("wms_layers", "")).strip() or None,
                         "wms_format": str(item.get("wms_format", "")).strip() or None,
                         "wms_transparent": bool(item.get("wms_transparent", False)),
                         "wms_version": str(item.get("wms_version", "")).strip() or None,
+                        "wmts_matrix_set": str(item.get("wmts_matrix_set", "")).strip() or None,
+                        "wmts_zoom_offset": int(item.get("wmts_zoom_offset", 0)) if item.get("wmts_zoom_offset") is not None else None,
+                        "fallback_url_template": str(item.get("fallback_url_template", "")).strip() or None,
+                        "fallback_tile_size": int(item.get("fallback_tile_size", 0)) or None,
+                        "fallback_wmts_matrix_set": str(item.get("fallback_wmts_matrix_set", "")).strip() or None,
+                        "fallback_wmts_zoom_offset": int(item.get("fallback_wmts_zoom_offset", 0)) if item.get("fallback_wmts_zoom_offset") is not None else None,
+                        "fallback_zoom_threshold": int(item.get("fallback_zoom_threshold", 0)) if item.get("fallback_zoom_threshold") is not None else None,
                         "crs": str(item.get("crs", "")).strip() or None,
                         "participant_default": participant_default,
                     }
@@ -1225,6 +1247,40 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     d_lambda = math.radians(lon2 - lon1)
     a = math.sin(d_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
     return 2.0 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
+
+
+def _normalize_competition_type(raw: Any) -> str:
+    value = str(raw or "R").strip().upper()
+    return "S" if value == "S" else "R"
+
+
+def _normalize_checkpoint_type(raw: Any) -> str:
+    value = str(raw or "NORMAL").strip().upper()
+    if value in {"START", "FINISH"}:
+        return value
+    return "NORMAL"
+
+
+def _ordered_checkpoint_id_from_map_items(map_items: list[dict[str, Any]]) -> int | None:
+    pending: list[tuple[int, int]] = []
+    for row in map_items:
+        cp_type = _normalize_checkpoint_type(row.get("checkpoint_type"))
+        if cp_type != "NORMAL":
+            continue
+        if str(row.get("is_answered", "N")).upper() == "Y":
+            continue
+        cp_id = row.get("checkpoint_id")
+        if not isinstance(cp_id, int):
+            continue
+        try:
+            order_no = int(row.get("checkpoint_order_no"))
+        except (TypeError, ValueError):
+            order_no = 9999
+        pending.append((order_no, cp_id))
+    if not pending:
+        return None
+    pending.sort()
+    return pending[0][1]
 
 
 def _parse_utc_datetime(value: Any) -> datetime | None:
@@ -1685,6 +1741,7 @@ async def competitor_session(request: Request, response: Response) -> Competitor
             competition_id=cid,
             competition_name=name,
             competition_description=participant.get("competition_description") if isinstance(participant.get("competition_description"), str) else None,
+            competition_type=participant.get("competition_type") if isinstance(participant.get("competition_type"), str) else None,
             alias_display=participant.get("alias_display") if isinstance(participant.get("alias_display"), str) else None,
             competitor_name=participant.get("competitor_name") if isinstance(participant.get("competitor_name"), str) else None,
             use_location=participant.get("use_location") if isinstance(participant.get("use_location"), str) else None,
@@ -2043,15 +2100,69 @@ async def competitor_checkpoint_access(
     lat = req.latitude if isinstance(req.latitude, (int, float)) else None
     lon = req.longitude if isinstance(req.longitude, (int, float)) else None
     base_radius = req.radius_m if isinstance(req.radius_m, (int, float)) else None
+    comp_type = "R"
+    start_exists = False
+    start_answered = False
+    finish_answered = False
+    next_ordered_checkpoint_id: int | None = None
+    if map_items:
+        comp_type = _normalize_competition_type(
+            next(
+                (
+                    row.get("competition_type")
+                    for row in map_items
+                    if isinstance(row, dict) and row.get("competition_type") is not None
+                ),
+                "R",
+            )
+        )
+        start_exists = any(
+            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+            for row in map_items
+            if isinstance(row, dict)
+        )
+        start_answered = any(
+            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+            and str(row.get("is_answered", "N")).upper() == "Y"
+            for row in map_items
+            if isinstance(row, dict)
+        )
+        finish_answered = any(
+            _normalize_checkpoint_type(row.get("checkpoint_type")) == "FINISH"
+            and str(row.get("is_answered", "N")).upper() == "Y"
+            for row in map_items
+            if isinstance(row, dict)
+        )
+        if comp_type == "S":
+            next_ordered_checkpoint_id = _ordered_checkpoint_id_from_map_items(
+                [row for row in map_items if isinstance(row, dict)]
+            )
 
     for cp_id in requested_ids:
         cp = by_id.get(cp_id)
         if not isinstance(cp, dict):
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="not_found"))
             continue
+        cp_type = _normalize_checkpoint_type(cp.get("checkpoint_type"))
         if str(cp.get("is_answered", "N")).upper() == "Y":
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="answered"))
             continue
+        if finish_answered:
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="finished"))
+            continue
+        if start_exists and not start_answered and cp_type != "START":
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="start_required"))
+            continue
+        if comp_type == "S":
+            if start_exists and not start_answered and cp_type == "START":
+                pass
+            elif next_ordered_checkpoint_id is not None:
+                if cp_type != "NORMAL" or cp_id != next_ordered_checkpoint_id:
+                    items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="wrong_order"))
+                    continue
+            elif cp_type != "FINISH":
+                items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="wrong_order"))
+                continue
         location_required = str(cp.get("location_required", "N")).upper() == "Y"
         if not location_required:
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=True, reason="no_location_required"))

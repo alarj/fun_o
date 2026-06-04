@@ -64,12 +64,14 @@ Staatus:
 
 ### 1.3 `javascript:S7764` eelista `globalThis` asemel `window`
 
-Mõjutatud fail:
+Mõjutatud failid:
 - `frontend_dist/assets/competitor-map.js`
+- `frontend_dist/admin.html`
 
 Miks ei parandatud:
 - competitor UI töötab brauseri-keskses kontekstis;
-- `window` kasutus on selles failis teadlik ja loetav;
+- `admin.html` töötab samuti sihilikult brauseri-globaalide peal ja kasutab `window`-it loetava jagatud state kandjana;
+- `window` kasutus neis failides on teadlik ja loetav;
 - tegemist on madala mõjuga konventsioonisoovitusega.
 
 Staatus:
@@ -143,7 +145,28 @@ Staatus:
 
 ## 2. Gemini teadlikult parandamata leiud
 
-Selle töövoo käigus ei jäänud lahti ühtegi Gemini leidu, mida oleks teadlikult otsustatud parandamata jätta.
+### 2.1 DB päringutes `normalize_checkpoint_type(...)` funktsiooni kasutamine WHERE tingimuses
+
+Mõjutatud fail:
+- `db/oracle/api/05_api_packages_stub.sql`
+
+Näited:
+- `pkg_common.get_next_ordered_checkpoint_id(...)`
+- mitmed `START` / `FINISH` / `NORMAL` kontrollid competitor ja submission flow's
+
+Miks ei parandatud:
+- tähelepanek on sisuliselt õige: tabeli tulba mähkimine funktsiooniga võib pärssida indeksi otsest kasutamist, kui vastavat function-based index'it ei ole;
+- samas pole see praegu kinnitatud funktsionaalne viga, vaid potentsiaalne jõudlusrisk;
+- sama normaliseerimisreegel (`NULL -> NORMAL`, supported values uppercased) elab juba läbivalt DB äriloogikas ning selle asendamine vajab eraldi sihitud ülevaatust, et mitte muuta semantikat ainult ühes või kahes päringus;
+- kuna ORDS on niigi süsteemi tuntud pudelikael, on mõistlik seda teemat hinnata koos tegelike päringuplaanide ja indeksitega, mitte oletuslikult ainult kooditasemel.
+
+Staatus:
+- teadlikult edasi lükatud jõudluse optimeerimine
+
+Millal uuesti hinnata:
+- kui competitor flow päringud muutuvad mõõdetavalt kuumaks;
+- kui tehakse eraldi DB/ORDS jõudluse paranduspass;
+- kui otsustatakse lisada function-based index või asendada normaliseerimisfunktsioon eksplitsiitse tingimusloogikaga.
 
 Parandatud Gemini leiud, mida siia ei käsitleta avatud punktidena:
 - `sanitizeTermsHtml` home-brew sanitizer -> asendatud DOMPurifyga

@@ -1,4 +1,4 @@
-# FastAPI <-> ORDS integration notes
+﻿# FastAPI <-> ORDS integration notes
 
 FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/auth/google/upsert` - loob/uuendab Google kasutaja kirje ja tagastab `user_id`.
@@ -69,6 +69,7 @@ Expected ORDS JSON responses:
 - `competitor/my-submissions` -> `{ "items": [...] }`
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
+  - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.
 - `competitor/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `results/score` -> `{ "score": 42 }`
 - `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
@@ -110,7 +111,7 @@ Required backend env:
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
-- Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`
+- Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
 - You can reload i18n cache without restarting backend: `POST /api/i18n/reload`
@@ -123,16 +124,67 @@ Map layer config (admin "Näita kaardil"):
 - Endpoint: `GET /api/map-layers`
 - Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 31536000s / 1 year).
 - If a layer has `"enabled": false`, it is hidden from UI.
-- If a layer URL contains `{MAPYCZ_API_KEY}` or `{MAPTILER_API_KEY}`, the backend injects key from `.env`.
+- If a layer URL contains `{MAPYCZ_API_KEY}`, `{MAPTILER_API_KEY}` or `{MML_API_KEY}`, the backend injects
+  the matching key from `.env`.
   If key is missing, that layer is automatically omitted from API response.
+- Demo-stage note: `map_layers.json` may intentionally contain both well-verified layers and experimental
+  third-party candidates so that real devices can be used to compare coverage, speed and rendering quality.
+  In this stage, admin and competitor UIs may therefore expose layers whose upstream stability or licensing
+  still needs practical validation.
 - Supported layer types:
   - `layer_type: "xyz"` (default) -> Leaflet `L.tileLayer(...)`
   - `layer_type: "wms"` -> Leaflet `L.tileLayer.wms(...)` with optional
     `wms_layers`, `wms_format`, `wms_transparent`, `wms_version`
+  - `layer_type: "wmts"` -> custom Leaflet tile layer with optional
+    `wmts_matrix_set`, `wmts_zoom_offset`, `tile_size`
+  - `layer_type: "wmts_fallback"` -> admin-side composite WMTS layer that switches from the primary
+    WMTS source to a fallback WMTS source after `fallback_zoom_threshold`
 - Optional CRS override per layer: `crs` (for example `EPSG:3301`).
 - Current optional providers:
   - `mapycz_outdoor` (Mapy.cz Outdoor)
   - `maptiler_outdoor` (MapTiler Outdoor)
+  - `maptiler_topo_v2` (MapTiler Topo)
+  - `maptiler_hybrid` (MapTiler Hybrid)
+  - `finland_mml_maastokartta` (Finland MML Maastokartta, requires `MML_API_KEY`)
+  - `finland_mml_ortokuva` (Finland MML Ortoilmakuva, requires `MML_API_KEY`)
+  - `finland_mml_taustakartta` (Finland MML Taustakartta, requires `MML_API_KEY`)
+  - `norway_kartverket_topo` (Norway Kartverket topo cache, WebMercator WMTS path)
+  - `france_ign_planign` (France IGN Plan IGN via G\u00e9oplateforme WMTS)
+  - `france_ign_orthophoto` (France IGN orthophoto via G\u00e9oplateforme WMTS)
+  - `latvia_geolatvija_fallback` (Latvia GeoLatvija fallback: `Topo250` low zoom, `ortofoto_kombi` high zoom)
+  - `opentopomap` (OpenTopoMap fallback topo layer)
+  - `austria_basemap_standard` (Austria basemap.at Standard)
+  - `austria_basemap_orthofoto` (Austria basemap.at Orthofoto)
+- Currently disabled until a separate validation or access step is completed:
+  - `latvia_tapis_background`
+    because `tapis.gov.lv/tapis/services/wms` did not expose a working public base-map WMS in practice
+    and the official GeoLatvija client uses Latvia topo/ortho through `https://geolatvija.lv/geoserver`
+    WMTS layers on `EPSG:3059`, so the old TAPIS/WMS guess was left disabled after the 3059 path replaced it
+  - `latvia_geolatvija_topo250`, `latvia_geolatvija_ortho`
+    because they were replaced by the temporary composite fallback layer to avoid gray tiles when `Topo250`
+    runs out of supported WMTS matrix levels
+  - `baltics_openmap_topo`
+    because it is a community candidate and was not kept as a default visible layer after validation
+  - `lithuania_standard`
+    because the candidate standard layer did not match the app's current CRS assumptions
+  - `lithuania_ort10lt`
+    because it rendered as a gray background in practical testing and was not compatible with the current
+    Leaflet/slippy-tile assumptions
+  - `austria_basemap_shading`
+    because it is better treated as an overlay than as a standalone base map in the current UI
+- Latvia note: GeoLatvija runtime config points to `https://geolatvija.lv/geoserver` and the public client
+  uses `EPSG:3059` WMTS layers such as `Topo250` and `ortofoto_kombi`. The current admin map now has
+  targeted `EPSG:3059` support plus a temporary fallback layer that shows `Topo250` only on the low zoom
+  levels where it really exists and switches to `ortofoto_kombi` deeper in. Deeper Latvia topo variants
+  (`Topo50_v2`, `Topo10v3`) still depend on upstream LGIA/GeoLatvija service health.
+- Not yet configured: Retkikartta was discussed as a potential Finland WMS overlay, but it is not in
+  `map_layers.json` yet because a concrete public layer identifier / WMS parameter set was not locked down.
+- South Tyrol note: public provincial documentation still points to a legacy BaseMap WMTS path and the current public
+  `https://geoservices9.civis.bz.it/geoserver` preview exposes concrete `p_bz-BasemapImagery:TopographicMap-*`
+  layers, but practical validation showed that the tested public South Tyrol candidates are technically reachable yet
+  visually poor grayscale/legacy maps. They were therefore removed from `map_layers.json` instead of being kept as
+  visible demo layers. A clearly usable public HTTPS South Tyrol color basemap or orthophoto layer contract has not
+  been confirmed yet from the same official sources.
 
 Magnetic declination flow:
 - `competition_declinations` stores one current declination row per competition.
@@ -156,6 +208,7 @@ Error mapping:
 - ORA-20033 -> ALREADY_REGISTERED
 - ORA-20060 -> INVALID_SUBMISSION
 - ORA-20061 -> NOT_PARTICIPANT
+- ORA-20067 -> INVALID_CHECKPOINT_ORDER
 - ORA-20010 -> INVALID_GOOGLE_PROFILE
 
 I18n cache reload:
@@ -488,6 +541,9 @@ Important:
   - uses `map_checkpoints_cache` (same `competition_id:user_id` cache as map view) for checkpoint metadata and `is_answered` hint.
   - if needed, performs final ORDS confirmation via `competitor/open-checkpoints`.
 - Rules:
+  - if `FINISH` is already answered -> `can_open=false, reason=finished`
+  - if active `START` exists and is not answered yet -> only `START` may open, other map clicks return `reason=start_required`
+  - if `competition_type='S'` -> only the next unanswered `NORMAL` checkpoint may open; after all normal checkpoints only `FINISH` may open (`reason=wrong_order` for others)
   - `location_required='N'` can be opened without geo gate.
   - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
   - final "open/not open" decision for candidates comes from ORDS response.
@@ -555,9 +611,12 @@ ORDS/PLSQL side:
 - `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
 - location-required checkpoints are returned only when computed distance is within effective radius.
 - if an active `START` exists and the participant has not yet answered it, only `START` is returned as open;
-- after `START` has been answered, the normal unanswered + location rules continue to apply;
+- if `competition.type='S'`, after `START` has been answered only the next unanswered `NORMAL` checkpoint in `order_no` order is returned as open;
+- if `competition.type='S'` and all normal checkpoints are already answered, only `FINISH` may remain open;
+- if `competition.type='R'`, after `START` has been answered the remaining unanswered checkpoints follow normal location rules in free order;
 - if active `FINISH` has already been answered, no more checkpoints are returned as open;
-- `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint.
+- `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint;
+- `submissions` enforces the same server-authoritative order rule and raises `ORA-20067` on invalid `S`-type checkpoint order.
 
 ### 2) Results distance (`total_distance_m`)
 

@@ -116,8 +116,10 @@ function createCompMap(targetCrs) {
     compMap.remove();
     compMap = null;
     compMapLayer = null;
+    compMapRouteLayer = null;
     baseMapLayer = null;
     mapRings = [];
+    mapRoutePoints = [];
     userPosMarker = null;
   }
   const options = {
@@ -145,8 +147,12 @@ function createCompMap(targetCrs) {
   if (compMap?.rotateControl && typeof compMap.rotateControl.remove === "function") {
     compMap.rotateControl.remove();
   }
+  compMapRouteLayer = L.layerGroup().addTo(compMap);
   compMapLayer = L.layerGroup().addTo(compMap);
-  compMap.on("moveend zoomend", () => saveCompMapView());
+  compMap.on("moveend zoomend", () => {
+    saveCompMapView();
+    refreshCompMapRouteDecorations();
+  });
   compMap.on("movestart", () => {
     if (!mapProgrammaticMove) {
       mapFollowUser = false;
@@ -596,11 +602,313 @@ function setMapInfoVisibility(show) {
 }
 
 function checkpointPopupLabel(cp) {
+  const cpType = normalizeCheckpointType(cp?.checkpoint_type);
+  const orderNo = Number(cp?.checkpoint_order_no);
+  const showOrder = selectedCompetitionType() === "S" && cpType === "NORMAL" && Number.isFinite(orderNo);
+  const orderPrefix = showOrder ? `${orderNo}. ` : "";
   const points = Number(cp?.points || 0);
-  const base = `${cp?.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
+  const base = `${orderPrefix}${cp?.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
   return String(cp?.is_answered || "N").toUpperCase() === "Y"
     ? `${base} ${tr("competitor.map.checkpoint_passed_suffix")}`
     : base;
+}
+
+function buildCompetitionMapPoints(items) {
+  return (items || []).map((cp) => {
+    const lat = Number(cp?.latitude);
+    const lon = Number(cp?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
+    const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
+    const rawOrder = Number(cp?.checkpoint_order_no);
+    return {
+      checkpointId: Number(cp?.checkpoint_id || 0),
+      rawCp: cp,
+      checkpointType,
+      orderNo: Number.isFinite(rawOrder) ? rawOrder : null,
+      lat,
+      lon,
+      markerColor: locationRequired ? "#c0392b" : "#7d3c98",
+      markerRadiusPx: 15,
+      markerWeight: 3,
+    };
+  }).filter(Boolean);
+}
+
+function shouldShowCheckpointOrderLabel(point) {
+  if (selectedCompetitionType() !== "S") return false;
+  if (!point || isSpecialCheckpointType(point.checkpointType)) return false;
+  return Number.isFinite(Number(point.orderNo));
+}
+
+function buildCheckpointShapeMarker(point, extraOptions = {}) {
+  const baseOptions = {
+    color: point.markerColor,
+    weight: point.markerWeight || 3,
+    fillOpacity: 0,
+    ...extraOptions,
+  };
+  if (point.checkpointType === "START" || point.checkpointType === "FINISH") {
+    const stroke = esc(point.markerColor || "#7d3c98");
+    const weight = Math.max(2, Number(point.markerWeight || 3));
+    const svg = point.checkpointType === "START"
+      ? `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`
+      : `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
+    return L.marker([point.lat, point.lon], {
+      icon: L.divIcon({
+        className: "cp-special-div-icon",
+        html: svg,
+        iconSize: point.checkpointType === "FINISH" ? [42, 42] : [36, 36],
+        iconAnchor: point.checkpointType === "FINISH" ? [21, 21] : [18, 18],
+        popupAnchor: point.checkpointType === "FINISH" ? [0, -21] : [0, -18],
+      }),
+      ...extraOptions,
+    });
+  }
+  return L.circleMarker([point.lat, point.lon], {
+    radius: point.markerRadiusPx || 15,
+    ...baseOptions,
+  });
+}
+
+function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
+  if (!mapRef || !layerRef) return;
+  layerRef.clearLayers();
+  if (selectedCompetitionType() !== "S") return;
+  const ordered = (points || [])
+    .filter((p) => Number.isFinite(Number(p.orderNo)))
+    .sort((a, b) => Number(a.orderNo) - Number(b.orderNo) || Number(a.checkpointId) - Number(b.checkpointId));
+  if (ordered.length < 2) return;
+
+  const withPixels = ordered.map((p) => ({
+    ...p,
+    ringRadiusPx: Number.isFinite(Number(p.markerRadiusPx)) ? Number(p.markerRadiusPx) : 15,
+  }));
+
+  const markerGapPx = 10;
+  const breakHalfPx = 10;
+  const segments = [];
+
+  for (let i = 0; i < withPixels.length - 1; i += 1) {
+    const start = withPixels[i];
+    const end = withPixels[i + 1];
+    const p1 = mapRef.latLngToLayerPoint([start.lat, start.lon]);
+    const p2 = mapRef.latLngToLayerPoint([end.lat, end.lon]);
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const length = Math.hypot(dx, dy);
+    if (!Number.isFinite(length) || length <= 0) continue;
+    if (length <= (start.ringRadiusPx + end.ringRadiusPx)) continue;
+    const trimStart = start.ringRadiusPx + markerGapPx;
+    const trimEnd = end.ringRadiusPx + markerGapPx;
+    if (length <= (trimStart + trimEnd)) continue;
+    const ux = dx / length;
+    const uy = dy / length;
+    const sx = p1.x + ux * trimStart;
+    const sy = p1.y + uy * trimStart;
+    const ex = p2.x - ux * trimEnd;
+    const ey = p2.y - uy * trimEnd;
+    const segLen = Math.hypot(ex - sx, ey - sy);
+    if (!Number.isFinite(segLen) || segLen <= 0) continue;
+    segments.push({
+      idx: i,
+      orderPairStart: Number(start.orderNo),
+      orderPairEnd: Number(end.orderNo),
+      color: end.markerColor,
+      weight: Number.isFinite(Number(end.markerWeight)) ? Number(end.markerWeight) : 3,
+      sx,
+      sy,
+      ex,
+      ey,
+      len: segLen,
+    });
+  }
+
+  const tBreaks = new Map();
+  const addBreak = (idx, t0, t1) => {
+    const key = String(idx);
+    if (!tBreaks.has(key)) tBreaks.set(key, []);
+    tBreaks.get(key).push([Math.max(0, t0), Math.min(1, t1)]);
+  };
+  const cross = (ax, ay, bx, by) => ax * by - ay * bx;
+
+  for (let a = 0; a < segments.length; a += 1) {
+    for (let b = a + 1; b < segments.length; b += 1) {
+      const s1 = segments[a];
+      const s2 = segments[b];
+      const shareEndpoint = s1.orderPairStart === s2.orderPairStart
+        || s1.orderPairStart === s2.orderPairEnd
+        || s1.orderPairEnd === s2.orderPairStart
+        || s1.orderPairEnd === s2.orderPairEnd;
+      if (shareEndpoint) continue;
+
+      const rX = s1.ex - s1.sx;
+      const rY = s1.ey - s1.sy;
+      const qmpX = s2.sx - s1.sx;
+      const qmpY = s2.sy - s1.sy;
+      const sX = s2.ex - s2.sx;
+      const sY = s2.ey - s2.sy;
+      const den = cross(rX, rY, sX, sY);
+      if (Math.abs(den) < 1e-9) continue;
+      const t = cross(qmpX, qmpY, sX, sY) / den;
+      const u = cross(qmpX, qmpY, rX, rY) / den;
+      if (t <= 0 || t >= 1 || u <= 0 || u >= 1) continue;
+
+      const lower = s1.orderPairStart < s2.orderPairStart ? s1 : s2;
+      const dt = breakHalfPx / lower.len;
+      addBreak(lower.idx, t - dt, t + dt);
+    }
+  }
+
+  const mergeIntervals = (arr) => {
+    if (!arr || arr.length === 0) return [];
+    const sorted = [...arr].sort((x, y) => x[0] - y[0]);
+    const out = [sorted[0].slice()];
+    for (let i = 1; i < sorted.length; i += 1) {
+      const cur = sorted[i];
+      const last = out[out.length - 1];
+      if (cur[0] <= last[1]) last[1] = Math.max(last[1], cur[1]);
+      else out.push(cur.slice());
+    }
+    return out.filter((x) => x[1] > x[0]);
+  };
+
+  segments.forEach((seg) => {
+    const breaks = mergeIntervals(tBreaks.get(String(seg.idx)) || []);
+    const drawPart = (t0, t1) => {
+      if (t1 <= t0) return;
+      const pA = L.point(seg.sx + (seg.ex - seg.sx) * t0, seg.sy + (seg.ey - seg.sy) * t0);
+      const pB = L.point(seg.sx + (seg.ex - seg.sx) * t1, seg.sy + (seg.ey - seg.sy) * t1);
+      L.polyline([mapRef.layerPointToLatLng(pA), mapRef.layerPointToLatLng(pB)], {
+        color: seg.color,
+        weight: seg.weight,
+        opacity: 0.95,
+        interactive: false,
+      }).addTo(layerRef);
+    };
+    if (!breaks.length) {
+      drawPart(0, 1);
+      return;
+    }
+    let cursor = 0;
+    breaks.forEach(([b0, b1]) => {
+      drawPart(cursor, b0);
+      cursor = Math.max(cursor, b1);
+    });
+    drawPart(cursor, 1);
+  });
+}
+
+function buildOrderLabelPlacement(mapRef, points) {
+  const placements = new Map();
+  (points || []).forEach((p) => {
+    placements.set(Number(p.checkpointId), { direction: "right", offset: [12, 0] });
+  });
+  if (!mapRef || selectedCompetitionType() !== "S") return placements;
+  if (typeof mapRef.getSize !== "function" || typeof mapRef.getZoom !== "function") {
+    return placements;
+  }
+  try {
+    const size = mapRef.getSize();
+    const zoom = Number(mapRef.getZoom());
+    if (!size || size.x <= 0 || size.y <= 0 || !Number.isFinite(zoom)) return placements;
+  } catch {
+    return placements;
+  }
+
+  const ordered = (points || [])
+    .filter((p) => Number.isFinite(Number(p.orderNo)))
+    .sort((a, b) => Number(a.orderNo) - Number(b.orderNo) || Number(a.checkpointId) - Number(b.checkpointId));
+  if (!ordered.length) return placements;
+
+  const unit = (ax, ay, bx, by) => {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy);
+    if (!Number.isFinite(len) || len <= 0) return { x: 0, y: 0 };
+    return { x: dx / len, y: dy / len };
+  };
+
+  for (let i = 0; i < ordered.length; i += 1) {
+    const cur = ordered[i];
+    const curPoint = mapRef.latLngToLayerPoint([cur.lat, cur.lon]);
+    let sumX = 0;
+    let sumY = 0;
+    if (i > 0) {
+      const prev = ordered[i - 1];
+      const prevPoint = mapRef.latLngToLayerPoint([prev.lat, prev.lon]);
+      const v = unit(curPoint.x, curPoint.y, prevPoint.x, prevPoint.y);
+      sumX += v.x;
+      sumY += v.y;
+    }
+    if (i < ordered.length - 1) {
+      const next = ordered[i + 1];
+      const nextPoint = mapRef.latLngToLayerPoint([next.lat, next.lon]);
+      const v = unit(curPoint.x, curPoint.y, nextPoint.x, nextPoint.y);
+      sumX += v.x;
+      sumY += v.y;
+    }
+
+    let dx = -sumX;
+    let dy = -sumY;
+    if (Math.hypot(dx, dy) < 0.01) {
+      dx = 1;
+      dy = -1;
+    }
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len;
+    dy /= len;
+
+    let direction = "right";
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      direction = dx >= 0 ? "right" : "left";
+    } else {
+      direction = dy >= 0 ? "bottom" : "top";
+    }
+    placements.set(Number(cur.checkpointId), {
+      direction,
+      offset: [Math.round(dx * 18), Math.round(dy * 18)],
+    });
+  }
+  return placements;
+}
+
+function refreshCompMapRouteDecorations() {
+  if (!compMap || !compMapRouteLayer) return;
+  drawOrderedRoutesForPoints(compMap, compMapRouteLayer, mapRoutePoints);
+  const labelPlacement = buildOrderLabelPlacement(compMap, mapRoutePoints);
+  mapRings.forEach((entry) => {
+    const marker = entry?.ring;
+    const point = entry?.point;
+    if (!marker || !point) return;
+    if (!shouldShowCheckpointOrderLabel(point)) {
+      if (typeof marker.unbindTooltip === "function") marker.unbindTooltip();
+      return;
+    }
+    const placement = labelPlacement.get(Number(point.checkpointId)) || { direction: "right", offset: [12, 0] };
+    if (typeof marker.unbindTooltip === "function") marker.unbindTooltip();
+    marker.bindTooltip(String(point.orderNo), {
+      permanent: true,
+      direction: placement.direction,
+      offset: placement.offset,
+      className: point.markerColor === "#c0392b" ? "cp-order-tooltip cp-order-red" : "cp-order-tooltip cp-order-purple",
+      interactive: false,
+      opacity: 1,
+    });
+  });
+}
+
+function checkpointAccessReasonMessage(reason) {
+  const key = {
+    missing_location: "competitor.map.access_reason_missing_location",
+    too_far: "competitor.map.access_reason_too_far",
+    finished: "competitor.map.access_reason_finished",
+    start_required: "competitor.map.access_reason_start_required",
+    wrong_order: "competitor.map.access_reason_wrong_order",
+    not_open: "competitor.map.access_reason_not_open",
+    not_found: "competitor.map.access_reason_not_open",
+  }[String(reason || "").toLowerCase()];
+  return key ? tr(key) : "";
 }
 
 function getOpenItemByCheckpointId(checkpointId) {
@@ -651,7 +959,12 @@ async function handleMapCheckpointClick(cp) {
   if (!access || access.can_open !== true) {
     if (String(access?.reason || "") === "answered") {
       cp.is_answered = "Y";
+      const ringEntry = mapRings.find((x) => Number(x?.cp?.checkpoint_id || 0) === cpId);
+      ringEntry?.ring?.setPopupContent(checkpointPopupLabel(cp));
+      return;
     }
+    const reasonMessage = checkpointAccessReasonMessage(access?.reason);
+    if (reasonMessage) setMsg("answerMsg", reasonMessage, false);
     return;
   }
   await loadOpenCheckpoints({ force: true, preferredCheckpointId: cpId });
@@ -696,31 +1009,23 @@ function renderCompMap(items, opts = {}) {
   const preserveViewport = opts && opts.preserveViewport === true;
   ensureCompMapInit();
   compMapLayer.clearLayers();
+  if (compMapRouteLayer) compMapRouteLayer.clearLayers();
   mapRings = [];
+  mapRoutePoints = [];
   if (userPosMarker) {
     compMap.removeLayer(userPosMarker);
     userPosMarker = null;
   }
+  mapRoutePoints = buildCompetitionMapPoints(items);
   const checkpointBounds = [];
-  items.forEach((cp) => {
-    const lat = Number(cp.latitude);
-    const lon = Number(cp.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    const req = String(cp.location_required || "N").toUpperCase() === "Y";
-    const stroke = req ? "#d02d2d" : "#7a43c6";
-    const ring = L.circleMarker([lat, lon], {
-      radius: 15,
-      color: stroke,
-      weight: 3,
-      fillOpacity: 0,
-    }).addTo(compMapLayer);
-    const popupText = checkpointPopupLabel(cp);
-    ring.bindPopup(popupText, { autoClose: false, closeOnClick: false, autoPan: false });
-    ring.on("click", () => {
-      handleMapCheckpointClick(cp).catch(() => {});
+  mapRoutePoints.forEach((point) => {
+    const marker = buildCheckpointShapeMarker(point).addTo(compMapLayer);
+    marker.bindPopup(checkpointPopupLabel(point.rawCp), { autoClose: false, closeOnClick: false, autoPan: false });
+    marker.on("click", () => {
+      handleMapCheckpointClick(point.rawCp).catch(() => {});
     });
-    mapRings.push({ ring, cp });
-    checkpointBounds.push([lat, lon]);
+    mapRings.push({ ring: marker, cp: point.rawCp, point });
+    checkpointBounds.push([point.lat, point.lon]);
   });
   const hasUserGeo = selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
   if (hasUserGeo) {
@@ -763,6 +1068,7 @@ function renderCompMap(items, opts = {}) {
   setTimeout(() => {
     if (!compMap) return;
     compMap.invalidateSize();
+    refreshCompMapRouteDecorations();
     if (mapHeadingMode && Number.isFinite(mapHeadingCurrent)) {
       applyMapHeading(mapHeadingCurrent);
     }
