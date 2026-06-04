@@ -64,12 +64,14 @@ Staatus:
 
 ### 1.3 `javascript:S7764` eelista `globalThis` asemel `window`
 
-Mõjutatud fail:
+Mõjutatud failid:
 - `frontend_dist/assets/competitor-map.js`
+- `frontend_dist/admin.html`
 
 Miks ei parandatud:
 - competitor UI töötab brauseri-keskses kontekstis;
-- `window` kasutus on selles failis teadlik ja loetav;
+- `admin.html` töötab samuti sihilikult brauseri-globaalide peal ja kasutab `window`-it loetava jagatud state kandjana;
+- `window` kasutus neis failides on teadlik ja loetav;
 - tegemist on madala mõjuga konventsioonisoovitusega.
 
 Staatus:

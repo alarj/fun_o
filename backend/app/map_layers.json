@@ -124,6 +124,36 @@
       "participant_default": false
     },
     {
+      "code": "norway_kartverket_topo",
+      "label": "Norway Kartverket Topo",
+      "url_template": "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png",
+      "attribution": "&copy; Kartverket",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "france_ign_planign",
+      "label": "France IGN Plan IGN",
+      "url_template": "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}",
+      "attribution": "&copy; IGN / G\u00e9oplateforme",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
+      "code": "france_ign_orthophoto",
+      "label": "France IGN Orthophoto",
+      "url_template": "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}",
+      "attribution": "&copy; IGN / G\u00e9oplateforme",
+      "max_zoom": 19,
+      "min_zoom": 0,
+      "enabled": true,
+      "participant_default": false
+    },
+    {
       "code": "finland_mml_maastokartta",
       "label": "Finland MML Maastokartta",
       "url_template": "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/maastokartta/default/WGS84_Pseudo-Mercator/{z}/{y}/{x}.png?api-key={MML_API_KEY}",

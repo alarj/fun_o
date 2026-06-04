@@ -2,55 +2,55 @@
 
 FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/auth/google/upsert` - loob/uuendab Google kasutaja kirje ja tagastab `user_id`.
-- POST `/auth/dev/resolve-user` (dev-only login helper) - leiab vĆµi loob dev-kasutaja (`user_id`/`email`) testlogini jaoks.
-- GET `/auth/has-role?user_id=...&role_code=...` - kontrollib, kas kasutajal on nĆµutud roll (nt superadmin).
+- POST `/auth/dev/resolve-user` (dev-only login helper) - leiab või loob dev-kasutaja (`user_id`/`email`) testlogini jaoks.
+- GET `/auth/has-role?user_id=...&role_code=...` - kontrollib, kas kasutajal on nõutud roll (nt superadmin).
 - GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`) sessiooni rikastamiseks.
-- POST `/competitions/register` - registreerib kasutaja vĆµistlusele osalejana ligipĆ¤Ć¤sukoodi alusel.
-- POST `/organizers/register` - registreerib kasutaja vĆµistluse korraldajaks korraldaja koodi alusel.
+- POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
+- POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
 - POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse.
-- POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (vĆµistlus + tingimused).
-- POST `/competitor/join-complete` - lĆµpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nĆµustumise.
-- GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega vĆµistlused.
-- GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab kĆ¼simuste avamiseks lubatud KP-d (lĆµplik serveripoolne otsus).
+- POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
+- POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
+- GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
+- GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab küsimuste avamiseks lubatud KP-d (lõplik serveripoolne otsus).
 - GET `/competitor/map-checkpoints?competition_id=...&user_id=...` - tagastab kaardivaate KP andmed (asukohad, staatused, answered lipud).
-- GET `/competitor/progress?competition_id=...&user_id=...` - tagastab osaleja progressi kokkuvĆµtte (KP-de arv, vastatud, skoor).
+- GET `/competitor/progress?competition_id=...&user_id=...` - tagastab osaleja progressi kokkuvõtte (KP-de arv, vastatud, skoor).
 - GET `/competitor/my-submissions?competition_id=...&user_id=...` - toob osaleja enda vastuste loendi.
-- GET `/competitor/my-submission-detail?competition_id=...&submission_id=...&lang_code=...&user_id=...` - toob osaleja Ć¼he vastuse detailvaate.
+- GET `/competitor/my-submission-detail?competition_id=...&submission_id=...&lang_code=...&user_id=...` - toob osaleja ühe vastuse detailvaate.
 - GET `/competitor/session-by-participant?user_id=...&competition_participant_id=...` - valideerib osalus-sessiooni ja tagastab aktiivse osaluse andmed.
-- GET `/competitor/terms?competition_id=...&user_id=...&lang_code=...` - tagastab vĆµistluse osalustingimused valitud keeles.
-- GET `/results/score?competition_id=...&user_id=...` - tagastab kasutaja skoori vĆµistluses.
+- GET `/competitor/terms?competition_id=...&user_id=...&lang_code=...` - tagastab võistluse osalustingimused valitud keeles.
+- GET `/results/score?competition_id=...&user_id=...` - tagastab kasutaja skoori võistluses.
 - GET `/organizer/leaderboard?competition_id=...` - tagastab korraldaja leaderboardi (punktid, tempo, distants jms).
-- GET `/organizer/checkpoint-results?competition_id=...` - tagastab KP-pĆµhise koondstatistika korraldajale.
+- GET `/organizer/checkpoint-results?competition_id=...` - tagastab KP-põhise koondstatistika korraldajale.
 - GET `/organizer/checkpoint-responders?competition_id=...&checkpoint_id=...` - tagastab konkreetsele KP-le vastanud osalejad.
-- GET `/organizer/participant-submissions?competition_id=...&user_id=...` - tagastab valitud osaleja vastuste ajajoone + koondnĆ¤itajad.
-- GET `/organizer/submission-detail?competition_id=...&user_id=...&submission_id=...` - tagastab korraldajale Ć¼he vastuse detaili.
-- GET `/i18n/translations?lang=...&default_lang=...` - tagastab UI tĆµlked valitud keele jaoks.
-- GET `/admin/competitions?user_id=...` - tagastab admini hallatavate vĆµistluste loendi.
-- GET `/admin/competition-overview?competition_id=...` - tagastab valitud vĆµistluse admin Ć¼levaateandmed.
-- GET `/admin/questions-overview?competition_id=...` - tagastab kĆ¼simuste/KP-de Ć¼levaate admin halduses.
-- GET `/admin/checkpoints?competition_id=...` - tagastab valitud vĆµistluse KP-de loendi.
-- GET `/admin/competitions/map-layers?competition_id=...` - tagastab vĆµistlusele lubatud kaardikihtide sidumise.
+- GET `/organizer/participant-submissions?competition_id=...&user_id=...` - tagastab valitud osaleja vastuste ajajoone + koondnäitajad.
+- GET `/organizer/submission-detail?competition_id=...&user_id=...&submission_id=...` - tagastab korraldajale ühe vastuse detaili.
+- GET `/i18n/translations?lang=...&default_lang=...` - tagastab UI tõlked valitud keele jaoks.
+- GET `/admin/competitions?user_id=...` - tagastab admini hallatavate võistluste loendi.
+- GET `/admin/competition-overview?competition_id=...` - tagastab valitud võistluse admin ülevaateandmed.
+- GET `/admin/questions-overview?competition_id=...` - tagastab küsimuste/KP-de ülevaate admin halduses.
+- GET `/admin/checkpoints?competition_id=...` - tagastab valitud võistluse KP-de loendi.
+- GET `/admin/competitions/map-layers?competition_id=...` - tagastab võistlusele lubatud kaardikihtide sidumise.
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
 - POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete.
-- POST `/admin/questions` - loob uue kĆ¼simuse kontrollpunkti alla.
-- POST `/admin/questions/update` - uuendab kĆ¼simust ja seotud valikuid/vastuseid.
-- POST `/admin/questions/delete` - teeb kĆ¼simuse soft-delete.
-- POST `/admin/question-options` - lisab valikvastuse kĆ¼simusele.
-- POST `/admin/question-answers` - lisab tekstvastuse/Ćµige vastuse reegli kĆ¼simusele.
-- POST `/admin/access-codes` - loob vĆµi uuendab ligipĆ¤Ć¤sukoodi.
-- POST `/admin/competitions/map-layers` - salvestab vĆµistluse aktiivsed kaardikihid.
-- POST `/admin/competitions/dates` - uuendab vĆµistluse algus/lĆµpp kuupĆ¤evi.
-- POST `/admin/competitions/meta` - uuendab vĆµistluse metaandmeid (nimi, tĆ¼Ć¼p, staatus, location lipud jne).
-- POST `/admin/competitions/terms` - salvestab vĆµistluse tingimuste teksti.
-- GET `/superadmin/competitions` - tagastab kĆµik vĆµistlused superadmin vaates.
-- GET `/superadmin/translations` - tagastab tĆµlgete halduse andmed (filtrid + kirjed).
-- POST `/superadmin/competitions` - loob uue vĆµistluse superadmini kaudu.
-- POST `/superadmin/competitions/copy` - kopeerib olemasoleva vĆµistluse seadistused/sisu.
-- POST `/superadmin/organizers/remove` - eemaldab kasutaja korraldaja rollist valitud vĆµistlusel.
-- POST `/superadmin/translations/upsert` - lisab/uuendab tĆµlkekirje.
-- POST `/superadmin/translations/delete` - teeb tĆµlkekirje soft-delete.
+- POST `/admin/questions` - loob uue küsimuse kontrollpunkti alla.
+- POST `/admin/questions/update` - uuendab küsimust ja seotud valikuid/vastuseid.
+- POST `/admin/questions/delete` - teeb küsimuse soft-delete.
+- POST `/admin/question-options` - lisab valikvastuse küsimusele.
+- POST `/admin/question-answers` - lisab tekstvastuse/õige vastuse reegli küsimusele.
+- POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
+- POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
+- POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
+- POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, tüüp, staatus, location lipud jne).
+- POST `/admin/competitions/terms` - salvestab võistluse tingimuste teksti.
+- GET `/superadmin/competitions` - tagastab kõik võistlused superadmin vaates.
+- GET `/superadmin/translations` - tagastab tõlgete halduse andmed (filtrid + kirjed).
+- POST `/superadmin/competitions` - loob uue võistluse superadmini kaudu.
+- POST `/superadmin/competitions/copy` - kopeerib olemasoleva võistluse seadistused/sisu.
+- POST `/superadmin/organizers/remove` - eemaldab kasutaja korraldaja rollist valitud võistlusel.
+- POST `/superadmin/translations/upsert` - lisab/uuendab tõlkekirje.
+- POST `/superadmin/translations/delete` - teeb tõlkekirje soft-delete.
 
 Expected ORDS JSON responses:
 - `auth/google/upsert` -> `{ "user_id": 123 }`
@@ -119,7 +119,7 @@ Required backend env:
   - If authorized and no data exists, API returns empty `items` and `access_granted = Y`.
   - If unauthorized (or inaccessible competition), API returns neutral empty payload with `access_granted = N`.
 
-Map layer config (admin "NĆ¤ita kaardil"):
+Map layer config (admin "Näita kaardil"):
 - File: `backend/app/map_layers.json`
 - Endpoint: `GET /api/map-layers`
 - Config is cached in backend memory (`MAP_LAYERS_CACHE_TTL_SECONDS`, currently 31536000s / 1 year).
@@ -148,6 +148,9 @@ Map layer config (admin "NĆ¤ita kaardil"):
   - `finland_mml_maastokartta` (Finland MML Maastokartta, requires `MML_API_KEY`)
   - `finland_mml_ortokuva` (Finland MML Ortoilmakuva, requires `MML_API_KEY`)
   - `finland_mml_taustakartta` (Finland MML Taustakartta, requires `MML_API_KEY`)
+  - `norway_kartverket_topo` (Norway Kartverket topo cache, WebMercator WMTS path)
+  - `france_ign_planign` (France IGN Plan IGN via G\u00e9oplateforme WMTS)
+  - `france_ign_orthophoto` (France IGN orthophoto via G\u00e9oplateforme WMTS)
   - `latvia_geolatvija_fallback` (Latvia GeoLatvija fallback: `Topo250` low zoom, `ortofoto_kombi` high zoom)
   - `opentopomap` (OpenTopoMap fallback topo layer)
   - `austria_basemap_standard` (Austria basemap.at Standard)
@@ -176,6 +179,12 @@ Map layer config (admin "NĆ¤ita kaardil"):
   (`Topo50_v2`, `Topo10v3`) still depend on upstream LGIA/GeoLatvija service health.
 - Not yet configured: Retkikartta was discussed as a potential Finland WMS overlay, but it is not in
   `map_layers.json` yet because a concrete public layer identifier / WMS parameter set was not locked down.
+- South Tyrol note: public provincial documentation still points to a legacy BaseMap WMTS path and the current public
+  `https://geoservices9.civis.bz.it/geoserver` preview exposes concrete `p_bz-BasemapImagery:TopographicMap-*`
+  layers, but practical validation showed that the tested public South Tyrol candidates are technically reachable yet
+  visually poor grayscale/legacy maps. They were therefore removed from `map_layers.json` instead of being kept as
+  visible demo layers. A clearly usable public HTTPS South Tyrol color basemap or orthophoto layer contract has not
+  been confirmed yet from the same official sources.
 
 Magnetic declination flow:
 - `competition_declinations` stores one current declination row per competition.
