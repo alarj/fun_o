@@ -538,14 +538,16 @@ class AdminQuestionsOverviewResponse(BaseModel):
 class AdminUpsertAccessCodeRequest(BaseModel):
     competition_id: int
     code_type: str
-    code: str
+    code: str | None = None
     status: str = "ACTIVE"
     max_uses: int | None = None
+    force_regenerate: str | None = None
     created_by: int | None = None
 
 
 class AdminUpsertAccessCodeResponse(BaseModel):
     access_code_id: int
+    code: str
 
 
 class AdminCompetitionsResponse(BaseModel):
@@ -1263,6 +1265,62 @@ def _normalize_checkpoint_type(raw: Any) -> str:
     return "NORMAL"
 
 
+def _normalize_checkpoint_title(raw: Any) -> str:
+    return str(raw or "").strip()
+
+
+def _truncate_competitor_map_title_for_r(title: str) -> str:
+    return title if len(title) <= 8 else f"{title[:5]}..."
+
+
+def _truncate_competitor_map_title_for_s(title: str) -> str:
+    return title[:5]
+
+
+def _build_competitor_checkpoint_map_label(
+    checkpoint: dict[str, Any],
+    competition_type: str,
+) -> str | None:
+    cp_type = _normalize_checkpoint_type(checkpoint.get("checkpoint_type"))
+    if cp_type != "NORMAL":
+        return None
+
+    title = _normalize_checkpoint_title(checkpoint.get("checkpoint_title"))
+    if not title:
+        return None
+
+    if competition_type == "S":
+        try:
+            order_no = int(checkpoint.get("checkpoint_order_no"))
+        except (TypeError, ValueError):
+            return None
+        return f"{order_no} - {_truncate_competitor_map_title_for_s(title)}"
+
+    return _truncate_competitor_map_title_for_r(title)
+
+
+def _enrich_competitor_map_checkpoint_items(raw_items: list[Any]) -> list[Any]:
+    competition_type = _normalize_competition_type(
+        next(
+            (
+                row.get("competition_type")
+                for row in raw_items
+                if isinstance(row, dict) and row.get("competition_type") is not None
+            ),
+            "R",
+        )
+    )
+    enriched: list[Any] = []
+    for row in raw_items:
+        if not isinstance(row, dict):
+            enriched.append(row)
+            continue
+        item = dict(row)
+        item["checkpoint_map_label"] = _build_competitor_checkpoint_map_label(item, competition_type)
+        enriched.append(item)
+    return enriched
+
+
 def _ordered_checkpoint_id_from_map_items(map_items: list[dict[str, Any]]) -> int | None:
     pending: list[tuple[int, int]] = []
     for row in map_items:
@@ -1436,7 +1494,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    items = raw_items if isinstance(raw_items, list) else []
+    items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
     declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
     declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
     declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
@@ -2732,21 +2790,26 @@ async def admin_questions_overview(competition_id: int, request: Request, x_user
 @app.post("/api/admin/access-codes", response_model=AdminUpsertAccessCodeResponse)
 async def admin_upsert_access_code(req: AdminUpsertAccessCodeRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminUpsertAccessCodeResponse:
     user_id = _require_google_session_user(request, x_user_id)
+    payload: dict[str, Any] = {
+        "competition_id": req.competition_id,
+        "code_type": req.code_type,
+        "status": req.status,
+        "max_uses": req.max_uses,
+        "created_by": user_id,
+    }
+    if req.code is not None:
+        payload["code"] = req.code
+    if req.force_regenerate is not None:
+        payload["force_regenerate"] = req.force_regenerate
     ords_response = await _post_to_ords(
         "admin/access-codes",
-        {
-            "competition_id": req.competition_id,
-            "code_type": req.code_type,
-            "code": req.code,
-            "status": req.status,
-            "max_uses": req.max_uses,
-            "created_by": user_id,
-        },
+        payload,
     )
     access_code_id = ords_response.get("access_code_id")
-    if not isinstance(access_code_id, int):
+    code = ords_response.get("code")
+    if not isinstance(access_code_id, int) or not isinstance(code, str) or not code.strip():
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    return AdminUpsertAccessCodeResponse(access_code_id=access_code_id)
+    return AdminUpsertAccessCodeResponse(access_code_id=access_code_id, code=code.strip())
 
 
 @app.get("/api/admin/competitions", response_model=AdminCompetitionsResponse)

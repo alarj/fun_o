@@ -88,7 +88,7 @@ Expected ORDS JSON responses:
 - `admin/questions` -> `{ "question_id": 456 }`
 - `admin/question-options` -> `{ "option_id": 789 }`
 - `admin/question-answers` -> `{ "answer_id": 321 }`
-- `admin/access-codes` -> `{ "access_code_id": 654 }`
+- `admin/access-codes` -> `{ "access_code_id": 654, "code": "123456" }`
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
 - `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
 - `superadmin/translations` -> `{ "items": [...] }`
@@ -297,6 +297,11 @@ Architecture rule for all ORDS endpoints:
   - `code_type` in `('COMPETITOR','ORGANIZER')`
   - `status`, `expires_at`, `max_uses`, `used_count`
   - soft-delete columns
+
+Access code generation rule:
+- Global uniqueness is enforced in DB (`competition_access_codes.code` + package-level uniqueness check).
+- Normal "ensure code exists" flow keeps the existing active code unchanged.
+- Explicit admin regeneration flow is separate and must request a new code intentionally; the new code is generated in DB and returned via `POST /admin/access-codes`.
 - `competition_organizers`
   - `competition_organizer_id` PK
   - FK: `competition_id -> competitions`, `user_id -> users`, `assigned_by -> users`
@@ -480,6 +485,15 @@ When updating question options (`replace_question_options_et`), use diff-based u
 - New option (new `option_code`): insert with `order_no = max(active order_no) + 1`.
 - Missing option (not present in incoming payload): soft-delete option texts and option row.
 
+### Admin multilingual question edit limitation
+
+Current admin question edit flow treats empty non-default-language texts as "no update", not as an explicit delete:
+- If `admin-main.js` sends an update for the default language, `question_text` must always be present.
+- If a non-default-language question text is cleared in the UI, the frontend currently skips that language update instead of deleting the existing translation row.
+- The same practical limitation applies to non-default-language SINGLE_CHOICE option texts in the current admin flow: clearing the field in the UI does not remove an already existing translation in the database.
+
+This is intentional for now to avoid `api.error.invalid_submission` on empty translated question text updates. Explicit deletion of existing non-default-language texts needs a separate end-to-end design and implementation.
+
 Important:
 - Keep all changes in one transaction (single commit).
 - Do not compact `order_no` gaps after delete (for example `1,2,4,5` is valid).
@@ -513,6 +527,16 @@ Important:
   - `checkpoint_order_no`
   - `checkpoint_type`
   - `competition_type` (`R|S`)
+  - `checkpoint_map_label` (competitor map tooltip text preformatted for the current competition type)
+- `checkpoint_map_label` formatting:
+  - applies only to `NORMAL` checkpoints; `START`/`FINISH` stay symbol-only on map.
+  - `R` type:
+    - if `checkpoint_title` length is `<= 8`, use full title;
+    - if length is `> 8`, use first 5 characters + `...`.
+  - `S` type:
+    - format is `order_no - title`;
+    - title part is truncated to maximum 5 characters;
+    - no ellipsis is added in `S` type.
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.

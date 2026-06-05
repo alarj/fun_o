@@ -367,6 +367,13 @@ async function setLanguage(langCode) {
   const lang = String(langCode || i18nMeta.default_lang || "et").trim().toLowerCase();
   await loadTranslationsForLang(lang);
   applyUiTranslations();
+  if (el("checkpointSelect")) {
+    const preferredCheckpointId = Number(el("checkpointSelect").value || 0) || null;
+    renderCheckpointSelect(preferredCheckpointId);
+  }
+  if (el("myResultsRows") && myResultsItems.length) {
+    renderMyResults();
+  }
   bindTermsLink();
   const select = el("langSelect");
   if (select) select.value = lang;

@@ -90,9 +90,14 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 ## 6. KP klikid kaardil ja ligipääsukontroll
 
-- KP markerile klikk kuvab koheselt popupi tekstiga:
-  - vastamata: `KP XX (Y p)`;
-  - vastatud: `KP XX (Y p) Läbitud!`.
+- KP markerile klikk avab alati kohese popupi; markeri klikk ise ei käivita enam taustal küsimuse avamise ligipääsukontrolli.
+- Popupi esimene rida näitab ainult vastamise eest teenitavaid punkte ja võimalikku läbimise staatust:
+  - vastamata: `Y p`;
+  - vastatud: `Y p Läbitud!`.
+- Popupi teine rida:
+  - kui KP-l ei ole aktiivset vastatavat küsimust, kuvatakse tõlgetest tekst `Küsimusi ei ole..` / `No questions..`;
+  - kui KP-l on vastatav küsimus, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
+- Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
 - `is_answered` on kasutajapõhine cache-andmestik.
 - Cache võib olla pika TTL-iga, kuid staatus värskendatakse sündmuspõhiselt:
   - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
@@ -116,9 +121,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 ## 7. `Info` nupu käitumine kaardis
 
 - `Info` nupp avab/sulgeb KP popupid.
-- Kui popupid avatakse, võib süsteem samal ajal teha taustal bulk-ligipääsukontrolli asukohanõudega KP-dele:
-  - FastAPI filtreerib kandidaadid;
-  - ORDS-i pöördutakse ainult kandidaatide kinnitamiseks.
+- `Info` nupp ei tee popupide avamisel bulk-ligipääsukontrolli.
+- Ligipääsukontroll tehakse alles siis, kui kasutaja vajutab konkreetse KP popupis vastamise nuppu.
 
 ## 7a. Kaardi suuna (`Heading-up`) reeglid
 
@@ -234,19 +238,30 @@ Reeglid:
 - Võistleja kaardil kehtib `S` tüüpi võistlusel sama visuaalne rajaloogika nagu admin kaardil:
   - `START` kuvatakse kolmnurgana;
   - `FINISH` kuvatakse topeltringina;
-  - `NORMAL` KP-de kõrval kuvatakse järjekorranumbrid sama värviloogikaga nagu markeritel;
+  - `NORMAL` KP-de kõrval kuvatakse tekst kujul `order_no - title`, sama värviloogikaga nagu markeritel;
+  - `title` osa lõigatakse maksimaalselt 5 märgini ja `S` tüübil ellipsit ei lisata;
   - KP-d ühendatakse `order_no ASC` järgi;
+  - ühendusjoontele lisatakse õhuke valge halo, et rada eristuks paremini taustast;
   - joone ristumiste katkestused, markerite lähedusest tulenev joone kärpimine ja numbrilabelite paigutus peavad järgima sama reeglit nagu admin kaardivaadetes.
   - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
-- Kui `competition.type!='S'`:
-  - järjekorranumbreid ega ühendusjooni ei kuvata.
+- Võistleja kaardil `R` tüüpi võistlusel:
+  - `START` kuvatakse kolmnurgana;
+  - `FINISH` kuvatakse topeltringina;
+  - `NORMAL` KP-de kõrval kuvatakse `title` sama värviloogikaga nagu markeritel;
+  - kui `title` pikkus on kuni 8 märki, kuvatakse kogu `title`;
+  - kui `title` pikkus on üle 8 märgi, kuvatakse esimesed 5 märki ja `...`;
+  - vaikimisi paigutatakse label markerist üles-poole-paremale ehk ligikaudu "kella 1 peale";
+  - kui label satub liiga lähedale teise KP tähisele või juba paigutatud teisele labelile, proovib UI alternatiivseid asukohti;
+  - markeritele ja labeli tekstile lisatakse õhuke valge halo parema loetavuse jaoks;
+  - ühendusjooni ei kuvata.
 
 START / FINISH täpsustus:
-- `START` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
-- `FINISH` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
+- `START` kuvatakse kaardil ainult sümbolina, ilma lisatekstita.
+- `FINISH` kuvatakse kaardil ainult sümbolina, ilma lisatekstita.
 - `START` sümbol on võrdkülgne kolmnurk.
 - `FINISH` sümbol on topeltring.
 - `FINISH` topeltringi sisemine ring vastab tavalise KP tähise mõõdule ja välimine ring on sama keskpunktiga sellest suurem.
+- Võistleja kaardil lisatakse KP sümbolitele ja kaarditekstidele visuaalne valge kontuur, mitte taustakast.
 
 Lõikumise reegel:
 - Kui kaks ühendussegmenti lõikuvad, siis väiksema `order_no` segmendile tehakse lõikekohas katkestus.
@@ -256,3 +271,17 @@ Lõikumise reegel:
 Esmarenderduse reegel (“Näita kaardil”):
 - Numbrilabelite dünaamiline paigutus arvutatakse pärast kaardi vaate paigaseadmist (`setView`/`fitBounds`) ja `invalidateSize()` etappi.
 - See väldib olukorda, kus labeli asukoht on modali avamisel vale, kuid zoomimisel läheb õigeks.
+
+### 12c. Admin kaardivaadete markerid ja KP-info
+
+- Admini kaardivaated (`Näita kaardil` ja KP lisamise/muutmise dialoogi kaart) kasutavad sama KP sümboolika loogikat nagu võistleja kaart:
+  - `START` kuvatakse kolmnurgana;
+  - `FINISH` kuvatakse topeltringina;
+  - `NORMAL` KP kuvatakse rõngana.
+- Kõigile admini kaardivaadete KP sümbolitele lisatakse õhuke valge halo parema loetavuse jaoks.
+- `S` tüüpi võistluse ühendusjoontele lisatakse admini kaardivaadetes õhuke valge halo.
+- Admini kaart ei kuva KP `title`-eid otse markerite kõrval täiendavate kaardilabelitena; detailsem KP-info kuvatakse popupis.
+- Admini KP popup jääb tahtlikult kitsaks ning kasutab maksimaalselt kompaktset kolme rea loogikat:
+  - esimene rida: senine KP pealkiri ja võimalik raadius;
+  - teine rida: küsimuse tekst koos küsimusetüübi lühivormiga ja punktidega kujul `(... T/SC x / y)`;
+  - kolmas rida: `TEXT` küsimusel õiged vastused, `SINGLE_CHOICE` küsimusel variandid ning õiged variandid boldis.
