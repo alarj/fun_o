@@ -95,16 +95,23 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - vastamata: `Y p`;
   - vastatud: `Y p Läbitud!`.
 - Popupi teine rida:
-  - kui KP-l ei ole aktiivset vastatavat küsimust, kuvatakse tõlgetest tekst `Küsimusi ei ole..` / `No questions..`;
-  - kui KP-l on vastatav küsimus, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
+  - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimust ei saa praeguses seisus veel vastata, kuvatakse tõlgetest tekst `Küsimusi ei ole..` / `No questions..`;
+  - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimus võib olla vastatav, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
 - Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
 - `is_answered` on kasutajapõhine cache-andmestik.
 - Cache võib olla pika TTL-iga, kuid staatus värskendatakse sündmuspõhiselt:
   - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
   - kui kasutaja avab `Tulemused` (`Kuva tulemused`), värskendatakse kasutaja kaardi KP staatus.
+- Kaardipopupi nupu nähtavus ei tohi teha eraldi `open-checkpoints` masspäringut; see otsus peab tuginema olemasolevale `map-checkpoints` cache'ile ja viimasele teadaolevale kasutaja asukohale.
+- Kaardipopupi sisu ei tohi GPS uuendusel kõigi KP-de jaoks igal sammul ümber renderdada; GPS muutuse järel värskendatakse ainult parajasti avatud popupide sisu.
 - `location_required='N'` KP puhul võib küsimus avaneda kohe.
+- `map-checkpoints` peab asukohanõudega KP-de puhul tagastama iga KP kohta efektiivse vastamisraadiuse:
+  - kui `checkpoints.radius_m` on määratud, kasutatakse seda;
+  - muidu kasutatakse `competitions.radius_m`;
+  - kui kumbki puudub, tagastatakse `radius_m` väärtusena `0`.
 - `location_required='Y'` KP puhul tehakse taustal ligipääsukontroll:
-  - frontend saadab geolokatsiooni FastAPI-le;
+  - popupi nupu nähtavuse eelotsuse teeb FastAPI/cache-põhine loogika ilma täiendava ORDS päringuta;
+  - frontend saadab geolokatsiooni FastAPI-le alles siis, kui kasutaja vajutab popupi vastamise nuppu;
   - FastAPI teeb eelkontrolli (distants + cache-põhine filter);
   - FastAPI küsib ORDS-ist lõpliku avatavuse ainult kandidaatide jaoks.
 - Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
@@ -121,8 +128,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 ## 7. `Info` nupu käitumine kaardis
 
 - `Info` nupp avab/sulgeb KP popupid.
-- `Info` nupp ei tee popupide avamisel bulk-ligipääsukontrolli.
-- Ligipääsukontroll tehakse alles siis, kui kasutaja vajutab konkreetse KP popupis vastamise nuppu.
+- `Info` nupp ei tee popupide avamisel `open-checkpoints` bulk-ligipääsukontrolli.
+- Popupide sisu kasutab sama FastAPI/cache-põhist UI-eelotsust nagu üksiku KP klikk.
+- Lõplik ligipääsukontroll tehakse alles siis, kui kasutaja vajutab konkreetse KP popupis vastamise nuppu.
 
 ## 7a. Kaardi suuna (`Heading-up`) reeglid
 

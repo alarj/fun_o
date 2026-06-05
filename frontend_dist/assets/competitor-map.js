@@ -240,12 +240,7 @@ function updateMapGpsStatus() {
 
 function applyUserMarkerVisualState() {
   if (!userPosMarker) return;
-  userPosMarker.setStyle({
-    color: mapGpsSignalLost ? "#dfe6ea" : "#ffffff",
-    weight: 2,
-    fillColor: mapGpsSignalLost ? "#8a959c" : "#2f8cff",
-    fillOpacity: 1,
-  });
+  userPosMarker.setIcon(buildUserLocationMarkerIcon(mapGpsSignalLost));
 }
 
 function syncMapGpsSignalState(hasSignal) {
@@ -592,6 +587,19 @@ function anyMapPopupOpen() {
   return mapRings.some((entry) => !!entry.ring?.getPopup()?.isOpen());
 }
 
+function isCompMapModalOpen() {
+  return el("compMapBackdrop")?.style?.display === "block";
+}
+
+function refreshCompMapPopupContents() {
+  mapRings.forEach((entry) => {
+    const popup = entry?.ring?.getPopup?.();
+    if (entry?.ring && entry?.cp && popup?.isOpen()) {
+      entry.ring.setPopupContent(checkpointPopupLabel(entry.cp));
+    }
+  });
+}
+
 function setMapInfoVisibility(show) {
   mapInfoVisible = !!show;
   if (mapInfoVisible) {
@@ -607,11 +615,87 @@ function checkpointPopupLabel(cp) {
     ? ` ${tr("competitor.map.checkpoint_passed_suffix")}`
     : "";
   const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
-  const hasAnswerAction = !!getOpenItemByCheckpointId(cp?.checkpoint_id);
+  const hasAnswerAction = canShowCheckpointAnswerAction(cp);
   const secondLine = hasAnswerAction
     ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
     : `<div class="cpPopupNoQuestion">${esc(tr("competitor.map.no_question_msg"))}</div>`;
   return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
+}
+
+function mapCheckpointRows() {
+  return Array.isArray(state.mapItems) ? state.mapItems.filter((row) => row && typeof row === "object") : [];
+}
+
+function currentSequentialCheckpointId() {
+  if (selectedCompetitionType() !== "S") return null;
+  const normals = mapCheckpointRows()
+    .filter((row) => normalizeCheckpointType(row?.checkpoint_type) === "NORMAL" && String(row?.is_answered || "N").toUpperCase() !== "Y")
+    .map((row) => ({
+      checkpointId: Number(row?.checkpoint_id || 0),
+      orderNo: Number(row?.checkpoint_order_no),
+    }))
+    .filter((row) => row.checkpointId > 0 && Number.isFinite(row.orderNo))
+    .sort((a, b) => a.orderNo - b.orderNo || a.checkpointId - b.checkpointId);
+  return normals.length ? normals[0].checkpointId : null;
+}
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = (
+    Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * (Math.sin(dLon / 2) ** 2)
+  );
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+}
+
+function canShowCheckpointAnswerAction(cp) {
+  const checkpointId = Number(cp?.checkpoint_id || 0);
+  const questionId = Number(cp?.question_id || 0);
+  if (checkpointId <= 0 || questionId <= 0) return false;
+  if (String(cp?.is_answered || "N").toUpperCase() === "Y") return false;
+
+  const rows = mapCheckpointRows();
+  const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
+  const finishAnswered = rows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "FINISH"
+    && String(row?.is_answered || "N").toUpperCase() === "Y"
+  ));
+  if (finishAnswered) return false;
+
+  const startExists = rows.some((row) => normalizeCheckpointType(row?.checkpoint_type) === "START");
+  const startAnswered = rows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "START"
+    && String(row?.is_answered || "N").toUpperCase() === "Y"
+  ));
+  if (startExists && !startAnswered && checkpointType !== "START") return false;
+
+  if (selectedCompetitionType() === "S") {
+    if (!(startExists && !startAnswered && checkpointType === "START")) {
+      const nextSequentialId = currentSequentialCheckpointId();
+      if (nextSequentialId != null) {
+        if (checkpointType !== "NORMAL" || checkpointId !== nextSequentialId) return false;
+      } else if (checkpointType !== "FINISH") {
+        return false;
+      }
+    }
+  }
+
+  const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
+  if (!locationRequired) return true;
+  if (!(state.geo.enabled && Number.isFinite(Number(state.geo.latitude)) && Number.isFinite(Number(state.geo.longitude)))) {
+    return false;
+  }
+
+  const lat = Number(cp?.latitude);
+  const lon = Number(cp?.longitude);
+  const effectiveRadius = Number(cp?.radius_m);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(effectiveRadius) || effectiveRadius <= 0) {
+    return false;
+  }
+  const distanceM = haversineMeters(Number(state.geo.latitude), Number(state.geo.longitude), lat, lon);
+  return Number.isFinite(distanceM) && distanceM <= effectiveRadius;
 }
 
 function buildCompetitionMapPoints(items) {
@@ -644,51 +728,54 @@ function shouldShowCheckpointMapLabel(point) {
 
 function buildCheckpointShapeMarker(point, extraOptions = {}) {
   const haloWidth = 2;
-  const baseOptions = {
-    color: point.markerColor,
-    weight: point.markerWeight || 3,
-    fillOpacity: 0,
-    ...extraOptions,
-  };
-  if (point.checkpointType === "START" || point.checkpointType === "FINISH") {
-    const stroke = esc(point.markerColor || "#7d3c98");
-    const weight = Math.max(2, Number(point.markerWeight || 3));
-    const haloStrokeWidth = weight + (haloWidth * 2);
-    const svg = point.checkpointType === "START"
-      ? `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}" stroke-linejoin="round"/><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`
-      : `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}"/><circle cx="21" cy="21" r="20" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}"/><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
-    return L.marker([point.lat, point.lon], {
-      icon: L.divIcon({
-        className: "cp-special-div-icon",
-        html: svg,
-        iconSize: point.checkpointType === "FINISH" ? [42, 42] : [36, 36],
-        iconAnchor: point.checkpointType === "FINISH" ? [21, 21] : [18, 18],
-        popupAnchor: point.checkpointType === "FINISH" ? [0, -21] : [0, -18],
-      }),
-      ...extraOptions,
-    });
+  const stroke = esc(point.markerColor || "#7d3c98");
+  const weight = Math.max(2, Number(point.markerWeight || 3));
+  const haloStrokeWidth = weight + (haloWidth * 2);
+  let svg = "";
+  let iconSize = [36, 36];
+  let iconAnchor = [18, 18];
+  let popupAnchor = [0, -18];
+
+  if (point.checkpointType === "START") {
+    svg = `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}" stroke-linejoin="round"/><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`;
+  } else if (point.checkpointType === "FINISH") {
+    iconSize = [42, 42];
+    iconAnchor = [21, 21];
+    popupAnchor = [0, -21];
+    svg = `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}"/><circle cx="21" cy="21" r="20" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}"/><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
+  } else {
+    svg = `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="#ffffff" stroke-width="${haloStrokeWidth}"/><circle cx="18" cy="18" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
   }
-  const radius = point.markerRadiusPx || 15;
-  return L.circleMarker([point.lat, point.lon], {
-    radius,
-    ...baseOptions,
+
+  return L.marker([point.lat, point.lon], {
+    icon: L.divIcon({
+      className: "cp-special-div-icon",
+      html: svg,
+      iconSize,
+      iconAnchor,
+      popupAnchor,
+    }),
+    pane: "markerPane",
+    ...extraOptions,
   });
 }
 
 function addCheckpointShapeMarker(layerRef, point, extraOptions = {}) {
   if (!layerRef || !point) return null;
-  if (!isSpecialCheckpointType(point.checkpointType)) {
-    const radius = point.markerRadiusPx || 15;
-    const weight = Number(point.markerWeight || 3);
-    L.circleMarker([point.lat, point.lon], {
-      radius,
-      color: "#ffffff",
-      weight: weight + 4,
-      fillOpacity: 0,
-      interactive: false,
-    }).addTo(layerRef);
-  }
   return buildCheckpointShapeMarker(point, extraOptions).addTo(layerRef);
+}
+
+function buildUserLocationMarkerIcon(isSignalLost) {
+  const fill = isSignalLost ? "#8a959c" : "#2f8cff";
+  const stroke = isSignalLost ? "#dfe6ea" : "#ffffff";
+  const svg = `<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="${fill}" stroke="${stroke}" stroke-width="2"/></svg>`;
+  return L.divIcon({
+    className: "cp-special-div-icon",
+    html: svg,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -9],
+  });
 }
 
 function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
@@ -1142,12 +1229,10 @@ function renderCompMap(items, opts = {}) {
   });
   const hasUserGeo = selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
   if (hasUserGeo) {
-    userPosMarker = L.circleMarker([state.geo.latitude, state.geo.longitude], {
-      radius: 7,
-      color: "#ffffff",
-      weight: 2,
-      fillColor: "#2f8cff",
-      fillOpacity: 1,
+    userPosMarker = L.marker([state.geo.latitude, state.geo.longitude], {
+      icon: buildUserLocationMarkerIcon(mapGpsSignalLost),
+      pane: "markerPane",
+      zIndexOffset: -1000,
     }).addTo(compMap);
     userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
     applyUserMarkerVisualState();
@@ -1198,15 +1283,14 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
   mapDebugGpsSpeed = Number.isFinite(Number(gpsSpeed)) ? Number(gpsSpeed) : null;
   syncMapGpsSignalState(true);
   applyHeadingFromGps(gpsHeading);
+  refreshCompMapPopupContents();
   if (!selectedCompetitionShowsUserLocation()) return;
   if (!compMap) return;
   if (!userPosMarker) {
-    userPosMarker = L.circleMarker([lat, lon], {
-      radius: 7,
-      color: "#ffffff",
-      weight: 2,
-      fillColor: "#2f8cff",
-      fillOpacity: 1,
+    userPosMarker = L.marker([lat, lon], {
+      icon: buildUserLocationMarkerIcon(mapGpsSignalLost),
+      pane: "markerPane",
+      zIndexOffset: -1000,
     }).addTo(compMap);
     userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
     applyUserMarkerVisualState();
@@ -1244,6 +1328,8 @@ function stopMapGeolocationWatch() {
 }
 
 async function openCompMapModal() {
+  showCompetitorBusy("competitor.map.open_loading_msg");
+  try {
   mapViewPersistenceEnabled = false;
   mapGpsSignalLost = false;
   mapFollowUser = true;
@@ -1297,6 +1383,9 @@ async function openCompMapModal() {
     setHeadingMode(false);
   }
   startMapGeolocationWatch();
+  } finally {
+    hideCompetitorBusy();
+  }
 }
 
 function closeCompMapModal() {

@@ -180,6 +180,26 @@ Parandatud Gemini leiud, mida siia ei käsitleta avatud punktidena:
 - `deviceorientation` + `deviceorientationabsolute` dubleeritud listener -> korrigeeritud ühe aktiivse allika peale
 - `watchPosition` tühi veacallback -> asendatud kaardisisese GPS signaali kadumise UX-iga
 
+## 2a. Gemini backlog / UX täpsustused
+
+### 2a.1 Competitor map popupi üldsõnaline teade `Küsimusi ei ole..`
+
+Mõjutatud fail:
+- `frontend_dist/assets/competitor-map.js`
+
+Miks ei parandatud kohe:
+- praegune popupi loogika eristab ainult kahte olekut: vastamise nupp või üldine “küsimusi ei ole” teade;
+- tehniliselt ei ole see funktsionaalne viga, sest küsimuse avamise lõplik kontroll toimub endiselt alles nupu vajutusel;
+- samas on Gemini tähelepanek sisuliselt õige: kasutajale võib olla eksitav näidata sama teksti nii juhul, kui KP-l tõesti küsimust ei ole, kui ka juhul, kui küsimus on olemas, kuid tingimused (kaugus, GPS, järjekord, START/FINISH reeglid) ei ole täidetud;
+- täpsemaks paranduseks tuleks boolean-tagastuse asemel viia popupi eelotsus staatusekoodidele (`TOO_FAR`, `NO_GPS`, `WRONG_SEQUENCE`, `START_REQUIRED`, `NO_QUESTION` jne) ja lisada vastavad tõlked.
+
+Staatus:
+- teadlikult edasi lükatud UX-parandus / backlog
+
+Millal uuesti hinnata:
+- kui tehakse järgmine competitor map popupi UX täiustamise ring;
+- kui soovitakse vähendada kasutajate segadust olukorras, kus küsimus on olemas, aga pole veel vastatav.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

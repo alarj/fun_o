@@ -3027,7 +3027,10 @@ create or replace package body pkg_competitor as
                   q.points,
                   cp.latitude,
                   cp.longitude,
-                  cp.radius_m,
+                  case
+                    when nvl(cp.location_required, 'N') = 'Y' then coalesce(cp.radius_m, c.radius_m, 0)
+                    else cp.radius_m
+                  end as radius_m,
                   nvl(cp.location_required, 'N') as location_required,
                   case
                     when exists (
