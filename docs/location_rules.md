@@ -103,6 +103,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
   - kui kasutaja avab `Tulemused` (`Kuva tulemused`), värskendatakse kasutaja kaardi KP staatus.
 - Kaardipopupi nupu nähtavus ei tohi teha eraldi `open-checkpoints` masspäringut; see otsus peab tuginema olemasolevale `map-checkpoints` cache'ile ja viimasele teadaolevale kasutaja asukohale.
+- Kaardipopupi sisu ei tohi GPS uuendusel kõigi KP-de jaoks igal sammul ümber renderdada; GPS muutuse järel värskendatakse ainult parajasti avatud popupide sisu.
 - `location_required='N'` KP puhul võib küsimus avaneda kohe.
 - `map-checkpoints` peab asukohanõudega KP-de puhul tagastama iga KP kohta efektiivse vastamisraadiuse:
   - kui `checkpoints.radius_m` on määratud, kasutatakse seda;

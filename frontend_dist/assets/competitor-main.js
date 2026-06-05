@@ -415,8 +415,11 @@ async function init() {
     }
     showCompetitorBusy("competitor.map.info_loading_msg");
     requestAnimationFrame(() => {
-      setMapInfoVisibility(true);
-      hideCompetitorBusy();
+      try {
+        setMapInfoVisibility(true);
+      } finally {
+        hideCompetitorBusy();
+      }
     });
   });
   el("compMapCanvas").addEventListener("click", (e) => {

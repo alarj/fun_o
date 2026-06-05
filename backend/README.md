@@ -648,6 +648,7 @@ Final authority:
 Competitor map popup flow:
 - map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
 - popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
+- user geolocation updates must not force content refresh for every closed popup; only currently open popup content should be refreshed on GPS movement.
 - the authoritative “can this question really be opened now?” decision still happens only when the user presses the popup answer button and FastAPI calls the final ORDS-backed access flow for candidate checkpoints.
 
 ORDS/PLSQL side:

@@ -593,7 +593,8 @@ function isCompMapModalOpen() {
 
 function refreshCompMapPopupContents() {
   mapRings.forEach((entry) => {
-    if (entry?.ring && entry?.cp) {
+    const popup = entry?.ring?.getPopup?.();
+    if (entry?.ring && entry?.cp && popup?.isOpen()) {
       entry.ring.setPopupContent(checkpointPopupLabel(entry.cp));
     }
   });
