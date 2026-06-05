@@ -173,6 +173,16 @@ button:disabled { opacity: 0.5; }
 .feedback-ok { background: #0b7a35; color: #fff; }
 .feedback-err { background: #d92424; color: #fff; }
 .feedback-ok button, .feedback-err button { background: #fff; color: #000; }
+#feedbackBody,
+#feedbackAnswerLine,
+#feedbackDistanceLine,
+#feedbackElapsedLine,
+#feedbackRankLine {
+  margin: 0 0 10px 0;
+}
+#feedbackRankLine {
+  margin-bottom: 18px;
+}
 .mapBackdrop {
   position: fixed;
   inset: 0;

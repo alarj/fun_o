@@ -2,6 +2,8 @@
 -- Run as FUNO_API (schema already enabled in ORDS)
 -- Assumes grants from FUNO_APP to FUNO_API are in place.
 
+set define off
+
 declare
   c_module_name constant varchar2(30) := 'funo.api';
   c_pattern_superadmin_translations constant varchar2(64) := 'superadmin/translations';
@@ -654,6 +656,12 @@ begin
         l_is_correct     varchar2(1);
         l_awarded_points number;
         l_total_score    number;
+        l_correct_answer_texts_json clob;
+        l_other_correct_answer_texts_json clob;
+        l_total_elapsed_seconds number;
+        l_total_distance_m number;
+        l_distance_display_allowed varchar2(1);
+        l_current_rank number;
       begin
         l_body := json_object_t.parse(:body_text);
 
@@ -662,6 +670,8 @@ begin
           p_competition_id => l_body.get_number('competition_id'),
           p_checkpoint_id  => l_body.get_number('checkpoint_id'),
           p_question_id    => l_body.get_number('question_id'),
+          p_lang_code      => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end,
+          p_default_lang_code => case when l_body.has('default_lang_code') then l_body.get_string('default_lang_code') else 'et' end,
           p_answer_text    => case when l_body.has('answer_text') then l_body.get_string('answer_text') else null end,
           p_selected_option_id => case when l_body.has('selected_option_id') then l_body.get_number('selected_option_id') else null end,
           p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
@@ -670,7 +680,13 @@ begin
           o_submission_id  => l_submission_id,
           o_is_correct     => l_is_correct,
           o_awarded_points => l_awarded_points,
-          o_total_score    => l_total_score
+          o_total_score    => l_total_score,
+          o_correct_answer_texts_json => l_correct_answer_texts_json,
+          o_other_correct_answer_texts_json => l_other_correct_answer_texts_json,
+          o_total_elapsed_seconds => l_total_elapsed_seconds,
+          o_total_distance_m => l_total_distance_m,
+          o_distance_display_allowed => l_distance_display_allowed,
+          o_current_rank => l_current_rank
         );
 
         owa_util.mime_header('application/json', false);
@@ -680,7 +696,13 @@ begin
             'submission_id' value l_submission_id,
             'is_correct' value l_is_correct,
             'awarded_points' value nvl(l_awarded_points, 0),
-            'total_score' value nvl(l_total_score, 0)
+            'total_score' value nvl(l_total_score, 0),
+            'correct_answer_texts' value nvl(l_correct_answer_texts_json, '[]') format json,
+            'other_correct_answer_texts' value nvl(l_other_correct_answer_texts_json, '[]') format json,
+            'total_elapsed_seconds' value l_total_elapsed_seconds,
+            'total_distance_m' value l_total_distance_m,
+            'distance_display_allowed' value case when nvl(l_distance_display_allowed, 'N') = 'Y' then 'Y' else 'N' end,
+            'current_rank' value l_current_rank
           )
         );
       end;

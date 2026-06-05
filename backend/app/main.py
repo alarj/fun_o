@@ -217,6 +217,7 @@ class SubmitAnswerRequest(BaseModel):
     competition_id: int
     checkpoint_id: int
     question_id: int
+    lang_code: str | None = None
     answer_text: str | None = None
     selected_option_id: int | None = None
     latitude: float | None = None
@@ -229,6 +230,12 @@ class SubmitAnswerResponse(BaseModel):
     is_correct: bool
     awarded_points: int
     total_score: int
+    correct_answer_texts: list[str] = []
+    other_correct_answer_texts: list[str] = []
+    total_elapsed_seconds: int | None = None
+    total_distance_m: int | None = None
+    distance_display_allowed: bool = False
+    current_rank: int | None = None
 
 
 class ScoreResponse(BaseModel):
@@ -1992,6 +1999,9 @@ async def submit_answer(
     x_user_id: int | None = Header(default=None),
 ) -> SubmitAnswerResponse:
     user_id = _resolve_user_id(request, req.user_id, x_user_id)
+    effective_lang = (req.lang_code or settings.lang_default or "et").strip().lower()
+    if effective_lang not in settings.lang_available:
+        effective_lang = settings.lang_default
 
     ords_response = await _post_to_ords(
         "submissions",
@@ -2000,6 +2010,8 @@ async def submit_answer(
             "competition_id": req.competition_id,
             "checkpoint_id": req.checkpoint_id,
             "question_id": req.question_id,
+            "lang_code": effective_lang,
+            "default_lang_code": settings.lang_default,
             "answer_text": req.answer_text,
             "selected_option_id": req.selected_option_id,
             "latitude": req.latitude,
@@ -2011,6 +2023,12 @@ async def submit_answer(
     is_correct_raw = ords_response.get("is_correct")
     awarded_points = ords_response.get("awarded_points")
     total_score = ords_response.get("total_score")
+    correct_answer_texts_raw = ords_response.get("correct_answer_texts")
+    other_correct_answer_texts_raw = ords_response.get("other_correct_answer_texts")
+    total_elapsed_seconds = ords_response.get("total_elapsed_seconds")
+    total_distance_m = ords_response.get("total_distance_m")
+    distance_display_allowed_raw = ords_response.get("distance_display_allowed")
+    current_rank = ords_response.get("current_rank")
     if not isinstance(submission_id, int):
         _raise_api_error(
             status.HTTP_502_BAD_GATEWAY,
@@ -2032,6 +2050,17 @@ async def submit_answer(
             "api.error.invalid_ords_response_score",
             {"ords_response": ords_response},
         )
+    correct_answer_texts = (
+        [str(v) for v in correct_answer_texts_raw if isinstance(v, str) and v.strip()]
+        if isinstance(correct_answer_texts_raw, list)
+        else []
+    )
+    other_correct_answer_texts = (
+        [str(v) for v in other_correct_answer_texts_raw if isinstance(v, str) and v.strip()]
+        if isinstance(other_correct_answer_texts_raw, list)
+        else []
+    )
+    distance_display_allowed = distance_display_allowed_raw in (True, "Y", "y", "true", "TRUE", 1)
     # Event-driven cache refresh for competitor status after successful submit.
     map_checkpoints_cache.pop(_map_cache_key(competition_id=req.competition_id, user_id=user_id), None)
     open_checkpoints_last_response.pop(_open_checkpoints_key(competition_id=req.competition_id, user_id=user_id), None)
@@ -2040,6 +2069,12 @@ async def submit_answer(
         is_correct=(is_correct_raw == "Y"),
         awarded_points=awarded_points,
         total_score=total_score,
+        correct_answer_texts=correct_answer_texts,
+        other_correct_answer_texts=other_correct_answer_texts,
+        total_elapsed_seconds=total_elapsed_seconds if isinstance(total_elapsed_seconds, int) else None,
+        total_distance_m=total_distance_m if isinstance(total_distance_m, int) else None,
+        distance_display_allowed=distance_display_allowed,
+        current_rank=current_rank if isinstance(current_rank, int) else None,
     )
 
 

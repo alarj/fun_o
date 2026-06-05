@@ -394,11 +394,15 @@
       const dir = sortDir === "asc" ? 1 : -1;
       const arr = [...items];
       arr.sort((a, b) => {
+        const scoreDiff = Number(b.score || 0) - Number(a.score || 0);
+        const elapsedA = Number.isFinite(Number(a.total_elapsed_seconds)) ? Number(a.total_elapsed_seconds) : Number.POSITIVE_INFINITY;
+        const elapsedB = Number.isFinite(Number(b.total_elapsed_seconds)) ? Number(b.total_elapsed_seconds) : Number.POSITIVE_INFINITY;
+        const elapsedDiffAsc = elapsedA - elapsedB;
         if (sortKey === "competitor_name") {
           return String(a.competitor_name || "").localeCompare(String(b.competitor_name || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
         }
         if (sortKey === "answered_checkpoints" || sortKey === "score") {
-          return ((Number(a[sortKey] || 0) - Number(b[sortKey] || 0)) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+          return ((Number(a[sortKey] || 0) - Number(b[sortKey] || 0)) * dir) || scoreDiff || elapsedDiffAsc;
         }
         if (sortKey === "last_checkpoint") {
           return String(a.last_checkpoint || "").localeCompare(String(b.last_checkpoint || ""), currentUiLang || "et", { sensitivity: "base" }) * dir;
@@ -406,10 +410,10 @@
         if (sortKey === "last_submission_at") {
           const av = a.last_submission_at ? (parseUtcDate(a.last_submission_at)?.getTime() ?? 0) : 0;
           const bv = b.last_submission_at ? (parseUtcDate(b.last_submission_at)?.getTime() ?? 0) : 0;
-          return ((av - bv) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+          return ((av - bv) * dir) || scoreDiff || elapsedDiffAsc;
         }
         if (sortKey === "total_distance_m" || sortKey === "total_elapsed_seconds") {
-          return ((Number(a[sortKey] || -1) - Number(b[sortKey] || -1)) * dir) || (Number(b.score || 0) - Number(a.score || 0));
+          return ((Number(a[sortKey] || -1) - Number(b[sortKey] || -1)) * dir) || scoreDiff || elapsedDiffAsc;
         }
         return 0;
       });
@@ -421,17 +425,23 @@
         const sa = Number(a.score || 0);
         const sb = Number(b.score || 0);
         if (sa !== sb) return sb - sa;
+        const elapsedA = Number.isFinite(Number(a.total_elapsed_seconds)) ? Number(a.total_elapsed_seconds) : Number.POSITIVE_INFINITY;
+        const elapsedB = Number.isFinite(Number(b.total_elapsed_seconds)) ? Number(b.total_elapsed_seconds) : Number.POSITIVE_INFINITY;
+        if (elapsedA !== elapsedB) return elapsedA - elapsedB;
         return Number(a.user_id || 0) - Number(b.user_id || 0);
       });
       const rankByUserId = new Map();
       let prevScore = null;
+      let prevElapsed = null;
       let prevRank = 0;
       for (let i = 0; i < scoreSorted.length; i += 1) {
         const row = scoreSorted[i];
         const score = Number(row.score || 0);
-        const rank = (prevScore !== null && score === prevScore) ? prevRank : (i + 1);
+        const elapsed = Number.isFinite(Number(row.total_elapsed_seconds)) ? Number(row.total_elapsed_seconds) : Number.POSITIVE_INFINITY;
+        const rank = (prevScore !== null && score === prevScore && elapsed === prevElapsed) ? prevRank : (i + 1);
         rankByUserId.set(Number(row.user_id || 0), rank);
         prevScore = score;
+        prevElapsed = elapsed;
         prevRank = rank;
       }
       return rankByUserId;
