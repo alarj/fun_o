@@ -40,6 +40,7 @@ Süsteem loob väärtust kolmes rollis.
 - töötab telefonibrauseris (Android/iOS) ilma eraldi äppi paigaldamata;
 - KP vastamine nii teksti kui valikvastustega;
 - kohene tulemus iga vastuse järel: kas vastus oli õige ja mitu punkti saadi;
+- toetab nii `R` (vaba järjekord) kui `S` (etteantud järjekord) võistlusi ning `START`/`FINISH` erikontrollpunkte;
 - võistluse ajal nähtav enda progress, punktid ja läbitud KP-d.
 
 ### Korraldaja väärtus
@@ -71,6 +72,11 @@ Võistleja UI (`frontend_dist/index.html`) kasutab eraldi staatilisi asset-faile
 - kaardi, suuna ja kaardikihtide loogika: `frontend_dist/assets/competitor-map.js`
 - bootstrap, modalid ja sündmuste sidumine: `frontend_dist/assets/competitor-main.js`
 - võistluse tingimuste rich HTML sanitiseeritakse brauseris DOMPurify abil enne renderdamist
+
+Admin UI (`frontend_dist/admin.html`) kasutab samuti eraldi staatilisi asset-faile:
+- üldine UI/API/i18n loogika: `frontend_dist/assets/admin-core.js`
+- admini kaartide ja kaardikihtide loogika: `frontend_dist/assets/admin-map.js`
+- admini workflow'd, dialoogid, renderdus ja bootstrap: `frontend_dist/assets/admin-main.js`
 
 See arhitektuur toetab eesmärki hoida ärireeglid stabiilsena, vähendada UI-poolset “nutikust” ning tagada, et sama reegel kehtib kõigile klientidele ühtemoodi.
 

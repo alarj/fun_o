@@ -1263,6 +1263,62 @@ def _normalize_checkpoint_type(raw: Any) -> str:
     return "NORMAL"
 
 
+def _normalize_checkpoint_title(raw: Any) -> str:
+    return str(raw or "").strip()
+
+
+def _truncate_competitor_map_title_for_r(title: str) -> str:
+    return title if len(title) <= 8 else f"{title[:5]}..."
+
+
+def _truncate_competitor_map_title_for_s(title: str) -> str:
+    return title[:5]
+
+
+def _build_competitor_checkpoint_map_label(
+    checkpoint: dict[str, Any],
+    competition_type: str,
+) -> str | None:
+    cp_type = _normalize_checkpoint_type(checkpoint.get("checkpoint_type"))
+    if cp_type != "NORMAL":
+        return None
+
+    title = _normalize_checkpoint_title(checkpoint.get("checkpoint_title"))
+    if not title:
+        return None
+
+    if competition_type == "S":
+        try:
+            order_no = int(checkpoint.get("checkpoint_order_no"))
+        except (TypeError, ValueError):
+            return None
+        return f"{order_no} - {_truncate_competitor_map_title_for_s(title)}"
+
+    return _truncate_competitor_map_title_for_r(title)
+
+
+def _enrich_competitor_map_checkpoint_items(raw_items: list[Any]) -> list[Any]:
+    competition_type = _normalize_competition_type(
+        next(
+            (
+                row.get("competition_type")
+                for row in raw_items
+                if isinstance(row, dict) and row.get("competition_type") is not None
+            ),
+            "R",
+        )
+    )
+    enriched: list[Any] = []
+    for row in raw_items:
+        if not isinstance(row, dict):
+            enriched.append(row)
+            continue
+        item = dict(row)
+        item["checkpoint_map_label"] = _build_competitor_checkpoint_map_label(item, competition_type)
+        enriched.append(item)
+    return enriched
+
+
 def _ordered_checkpoint_id_from_map_items(map_items: list[dict[str, Any]]) -> int | None:
     pending: list[tuple[int, int]] = []
     for row in map_items:
@@ -1436,7 +1492,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    items = raw_items if isinstance(raw_items, list) else []
+    items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
     declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
     declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
     declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None

@@ -1,0 +1,1397 @@
+function cpDialogStateSnapshot() {
+  return JSON.stringify({
+    checkpointType: byId("cpType").value,
+    title: byId("cpName").value,
+    location: byId("cpLocation").value,
+    order: byId("cpOrder").value,
+    lat: byId("cpLatitude").value,
+    lon: byId("cpLongitude").value,
+    radius: byId("cpRadiusM").value,
+    required: byId("cpLocationRequired").checked ? "Y" : "N"
+  });
+}
+
+function setCpLocationRequiredValue(v) {
+  const checked = String(v || "N").toUpperCase() === "Y";
+  byId("cpLocationRequired").checked = checked;
+}
+
+function getCpLocationRequiredValue() {
+  return byId("cpLocationRequired").checked ? "Y" : "N";
+}
+
+function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId = null) {
+  const normalizedSelected = normalizeCheckpointType(selectedType);
+  const sel = byId("cpType");
+  const options = [
+    { value: "NORMAL", label: tr("admin.cp_dialog.checkpoint_type.normal") }
+  ];
+  if (normalizedSelected === "START" || !hasActiveCheckpointType("START", editingCheckpointId)) {
+    options.push({ value: "START", label: tr("admin.cp_dialog.checkpoint_type.start") });
+  }
+  if (normalizedSelected === "FINISH" || !hasActiveCheckpointType("FINISH", editingCheckpointId)) {
+    options.push({ value: "FINISH", label: tr("admin.cp_dialog.checkpoint_type.finish") });
+  }
+  sel.innerHTML = options.map((opt) => `<option value="${esc(opt.value)}">${esc(opt.label)}</option>`).join("");
+  sel.value = options.some((opt) => opt.value === normalizedSelected) ? normalizedSelected : "NORMAL";
+}
+
+function syncCheckpointTypeUi() {
+  const checkpointType = normalizeCheckpointType(byId("cpType").value);
+  const isSpecial = isSpecialCheckpointType(checkpointType);
+  const cpName = byId("cpName");
+  const cpOrder = byId("cpOrder");
+  byId("cpNameRow").style.display = "";
+  byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+  byId("cpType").disabled = byId("cpId").value !== "";
+  if (checkpointType === "START") {
+    cpName.value = "START";
+  } else if (checkpointType === "FINISH") {
+    cpName.value = "FINISH";
+  }
+  cpName.readOnly = isSpecial;
+  cpOrder.readOnly = isSpecial;
+  if (isSpecial) {
+    cpOrder.value = checkpointType === "START" ? "0" : "9999";
+  }
+  syncCpQuestionButton();
+}
+
+function setMetaUseLocationValue(v) {
+  byId("metaUseLocationInput").checked = String(v || "N").toUpperCase() === "Y";
+}
+
+function getMetaUseLocationValue() {
+  return byId("metaUseLocationInput").checked ? "Y" : "N";
+}
+
+function setMetaShowCompetitorLocationValue(v) {
+  byId("metaShowCompetitorLocationInput").checked = String(v || "N").toUpperCase() === "Y";
+}
+
+function getMetaShowCompetitorLocationValue() {
+  return byId("metaShowCompetitorLocationInput").checked ? "Y" : "N";
+}
+
+function syncMetaLocationSwitches() {
+  const useLoc = getMetaUseLocationValue() === "Y";
+  const showLocEl = byId("metaShowCompetitorLocationInput");
+  const mapLayerBtn = byId("metaMapLayersBtn");
+  const mapLayersRow = byId("metaMapLayersRow");
+  showLocEl.disabled = !useLoc;
+  if (!useLoc) showLocEl.checked = false;
+  if (mapLayerBtn) mapLayerBtn.style.display = useLoc ? "inline-block" : "none";
+  if (mapLayersRow) mapLayersRow.style.display = useLoc ? "" : "none";
+  if (!useLoc && byId("participantMapLayersDialog").open) {
+    byId("participantMapLayersDialog").close();
+  }
+}
+
+function syncCpQuestionButton() {
+  const btn = byId("cpOpenQuestion");
+  if (!btn) return;
+  if (!cpDialogCheckpointId) {
+    btn.textContent = tr("admin.cp_dialog.open_question_new");
+    btn.disabled = true;
+    return;
+  }
+  const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+  const hasQuestion = !!row?.question_id;
+  btn.textContent = hasQuestion
+    ? tr("admin.cp_dialog.open_question_edit")
+    : tr("admin.cp_dialog.open_question_new");
+  const dirty = cpDialogStateSnapshot() !== cpDialogInitialState;
+  btn.disabled = dirty;
+}
+
+function setEditModeByCompetition(isActive) {
+  currentCompetitionActive = isActive;
+  ["regenCompetitor","regenOrganizer","newCheckpointBtn","newQuestionBtn","openCompetitionEditBtn","openTermsBtn"].forEach((id) => {
+    const el = byId(id);
+    if (el) el.disabled = !isActive;
+  });
+}
+
+function userIconSvg() {
+  return `<svg class="organizer-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="8.5" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 18.5c0-3 2.4-5 5.5-5s5.5 2 5.5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+}
+
+function logoutIconSvg() {
+  return `<svg class="logout-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 8l6 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+}
+
+function copyIconSvg() {
+  return `<svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="11" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="8" width="11" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+}
+
+async function copyTextToClipboard(text) {
+  const value = (text || "").trim();
+  if (!value || value === "-") return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = value;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "absolute";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
+
+function renderOrganizers(org) {
+  const target = byId("organizers");
+  if (!Array.isArray(org) || org.length === 0) {
+    target.textContent = tr("admin.msg.missing_value");
+    return;
+  }
+
+  const current = [];
+  const others = [];
+  org.forEach((o) => {
+    if (Number(o?.user_id) === Number(currentUserId)) current.push(o);
+    else others.push(o);
+  });
+  const ordered = [...current, ...others];
+  const html = ordered.map((o) => {
+    const isCurrent = Number(o?.user_id) === Number(currentUserId);
+    const name = (o?.full_name || o?.email || "-").toString();
+    const email = (o?.email || "").toString();
+    const tooltip = email || name;
+    const logout = isCurrent
+      ? `<button class="logout-btn logout-btn-inline" title="${esc(tr("admin.common.logout_btn"))}" aria-label="${esc(tr("admin.common.logout_btn"))}">${logoutIconSvg()}</button>`
+      : "";
+    return `<div class="organizer-row ${isCurrent ? "current" : ""}" title="${esc(tooltip)}">${isCurrent ? userIconSvg() : ""}<span>${esc(name)}</span>${logout}</div>`;
+  }).join("");
+  target.innerHTML = `<div class="organizers-list">${html}</div>`;
+}
+
+async function finishAdminLogin() {
+  byId("loginCard").classList.add("hidden");
+  byId("appArea").classList.remove("hidden");
+  await refreshSuperadminNavButton();
+  if (isPromo100Mode) {
+    try {
+      await post("/api/admin/promo100/bootstrap", {});
+    } catch (e) {
+      console.warn("promo100 bootstrap failed", e);
+    }
+  }
+  const hasCompetitions = await loadCompetitions();
+  if (hasCompetitions) await loadView();
+}
+
+async function refreshSuperadminNavButton() {
+  const btn = byId("goSuperadminBtn");
+  btn.classList.add("hidden");
+  try {
+    await get("/api/superadmin/session");
+    btn.classList.remove("hidden");
+  } catch (_e) {
+    btn.classList.add("hidden");
+  }
+}
+
+async function googleLoginWithCredential(credential) {
+  const d = await post("/api/auth/google", { id_token: credential });
+  currentUserId = d.user_id || null;
+  currentUserName = d.full_name || "";
+  currentUserEmail = d.email || "";
+  showMsg("loginMsg", true, `${tr("admin.msg.login_ok_prefix")}${d.user_id}`);
+  await finishAdminLogin();
+}
+
+async function initGoogleLogin() {
+  try {
+    const cfg = await get("/api/auth/google/config");
+    if (!cfg || !cfg.enabled || !cfg.client_id) {
+      showMsg("loginMsg", false, tr("admin.msg.google_not_configured"));
+      return;
+    }
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+      showMsg("loginMsg", false, tr("admin.msg.google_script_failed"));
+      return;
+    }
+    window.google.accounts.id.initialize({
+      client_id: cfg.client_id,
+      callback: async (resp) => {
+        try {
+          if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+          await googleLoginWithCredential(resp.credential);
+        } catch (e) {
+          showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));
+        }
+      }
+    });
+    const mount = byId("googleLoginMount");
+    mount.innerHTML = "";
+    window.google.accounts.id.renderButton(mount, {
+      theme: "outline",
+      size: "large",
+      text: "signin_with",
+      shape: "rectangular"
+    });
+  } catch (e) {
+    showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));
+  }
+}
+
+async function hydrateSessionUser() {
+  try {
+    const s = await get("/api/auth/session");
+    if (s && s.authenticated && Number.isFinite(Number(s.user_id))) {
+      currentUserId = Number(s.user_id);
+    }
+  } catch (_e) {
+    // ignore; unauthenticated is handled by admin API calls
+  }
+}
+
+async function loadCompetitions() {
+  const d = await get("/api/admin/competitions");
+  const items = Array.isArray(d.items) ? d.items : [];
+  competitionsData = items;
+  if (items.length === 0) {
+    byId("competitionSelect").innerHTML = "";
+    byId("competitionOverviewCard").classList.add("hidden");
+    byId("noOrgCard").classList.remove("hidden");
+    byId("checkpointsCard").classList.add("hidden");
+    byId("topMsg").textContent = "";
+    byId("topMsg").className = "";
+    byId("cName").textContent = "-";
+    byId("cDesc").textContent = "";
+    byId("cStatus").textContent = "";
+    byId("cType").textContent = "-";
+    byId("cCreated").textContent = "";
+    byId("cUpdated").textContent = "";
+    byId("cStarts").textContent = "-";
+    byId("cEnds2").textContent = "-";
+    byId("codeCompetitor").textContent = "-";
+    byId("codeOrganizer").textContent = "-";
+    byId("organizers").textContent = "-";
+    currentCompetitionUseLocation = "N";
+    currentCompetitionType = "R";
+    checkpointsData = [];
+    renderRows();
+    setEditModeByCompetition(false);
+    return false;
+  }
+  byId("noOrgCard").classList.add("hidden");
+  byId("competitionOverviewCard").classList.remove("hidden");
+  byId("checkpointsCard").classList.remove("hidden");
+  byId("topMsg").textContent = "";
+  byId("topMsg").className = "";
+  renderCompetitionOptions();
+  const rememberedName = lastCompCookieName();
+  const rememberedId = rememberedName ? getCookie(rememberedName) : null;
+  if (rememberedId && competitionsData.some((x) => String(x.competition_id) === String(rememberedId))) {
+    byId("competitionSelect").value = String(rememberedId);
+    return true;
+  }
+  const active = competitionsData
+    .filter((x) => x.is_active === "Y")
+    .sort((a, b) => {
+      const av = a?.starts_at ? (asUtcDate(a.starts_at)?.getTime() ?? 8640000000000000) : 8640000000000000;
+      const bv = b?.starts_at ? (asUtcDate(b.starts_at)?.getTime() ?? 8640000000000000) : 8640000000000000;
+      return av - bv;
+    });
+  if (active.length > 0) {
+    byId("competitionSelect").value = String(active[0].competition_id);
+  }
+  return true;
+}
+
+function renderCompetitionOptions() {
+  const selected = byId("competitionSelect").value;
+  const sorted = [...competitionsData].sort((a, b) => {
+    const av = a?.starts_at ? (asUtcDate(a.starts_at)?.getTime() ?? -8640000000000000) : -8640000000000000;
+    const bv = b?.starts_at ? (asUtcDate(b.starts_at)?.getTime() ?? -8640000000000000) : -8640000000000000;
+    return av - bv;
+  });
+  byId("competitionSelect").innerHTML = sorted.map((c) => {
+    const isEndedByDate = c?.ends_at ? ((asUtcDate(c.ends_at) || new Date(0)) < new Date()) : false;
+    const ended = c?.status !== "ACTIVE" || isEndedByDate;
+    const label = `${esc(c.name)} (id=${c.competition_id}) - ${fmtDateEtShort(c.starts_at)} - ${fmtDateEtShort(c.ends_at)}`;
+    return `<option value="${c.competition_id}" ${ended ? "style=\"font-style:italic;\"" : ""}>${label}</option>`;
+  }).join("");
+  if (selected && sorted.some((x) => String(x.competition_id) === String(selected))) {
+    byId("competitionSelect").value = selected;
+  }
+}
+
+function refreshCompetitionTypeDisplay() {
+  const compType = String(window.__lastCompetitionType || "R").toUpperCase();
+  const target = byId("cType");
+  if (!target) return;
+  target.textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
+}
+
+async function loadView() {
+  if (!byId("competitionSelect").value) return;
+  const rememberedName = lastCompCookieName();
+  if (rememberedName) setCookie(rememberedName, byId("competitionSelect").value);
+  const ov = await get(`/api/admin/competition-overview?competition_id=${compId()}`);
+  const v = ov.data || {};
+  byId("cName").textContent = `${v.name || "-"} (id=${v.competition_id || "-"})`;
+  const locBadge = byId("cLocationBadge");
+  const compLocBadge = byId("cCompetitorLocationBadge");
+  if ((v.use_location || "N") === "Y") {
+    const r = v.radius_m != null ? ` (${Number(v.radius_m)} m)` : "";
+    locBadge.textContent = `📍${r}`;
+    locBadge.classList.remove("hidden");
+    const showCompLoc = String(v.show_competitor_location || "Y").toUpperCase() === "Y";
+    compLocBadge.textContent = "●";
+    compLocBadge.style.color = showCompLoc ? "#2f8cff" : "#8a8a8a";
+    compLocBadge.classList.remove("hidden");
+    compLocBadge.style.display = "inline-block";
+  } else {
+    locBadge.classList.add("hidden");
+    locBadge.textContent = "";
+    compLocBadge.classList.add("hidden");
+    compLocBadge.style.display = "none";
+  }
+  byId("cDesc").textContent = v.description || "";
+  byId("cStatus").textContent = v.status || "";
+  const compType = String(v.type || "R").toUpperCase();
+  byId("cType").textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
+  window.__lastCompetitionName = v.name || "";
+  window.__lastCompetitionDescription = v.description || "";
+  window.__lastCompetitionType = compType;
+  window.__lastCompetitionStatus = v.status || "ACTIVE";
+  window.__lastCompetitionUseLocation = v.use_location || "N";
+  window.__lastCompetitionShowCompetitorLocation = v.show_competitor_location || "Y";
+  window.__lastCompetitionRadiusM = v.radius_m ?? null;
+  window.__lastCompetitionDeclination = v.declination ?? 0;
+  window.__lastCompetitionDeclinationUpdatedAt = v.declination_last_updated || null;
+  currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
+  currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
+  if (currentCompetitionUseLocation === "Y") {
+    await loadMapLayersConfig();
+    await loadCompetitionParticipantMapLayers();
+  } else {
+    competitionParticipantLayerCodes = [];
+  }
+  byId("cCreated").textContent = fmtDateEt(v.created_at) || "";
+  byId("cUpdated").textContent = fmtDateEt(v.updated_at) || "-";
+  byId("cStarts").textContent = fmtDateEt(v.starts_at) || "-";
+  byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
+  window.__lastStartsAt = v.starts_at || null;
+  window.__lastEndsAt = v.ends_at || null;
+  setEditModeByCompetition(!v.ends_at || ((asUtcDate(v.ends_at) || new Date(0)) > new Date()));
+  byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
+  byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
+  const org = Array.isArray(v.organizers) ? v.organizers : [];
+  renderOrganizers(org);
+
+  const q = await get(`/api/admin/questions-overview?competition_id=${compId()}`);
+  const rawItems = Array.isArray(q.items) ? q.items : [];
+  checkpointsData = rawItems.map((it) => {
+    const row = { ...it };
+    if (typeof row.options === "string") {
+      try { row.options = JSON.parse(row.options); } catch (_e) { row.options = []; }
+    }
+    if (!Array.isArray(row.options)) row.options = [];
+    if (typeof row.answers === "string") {
+      try { row.answers = JSON.parse(row.answers); } catch (_e) { row.answers = []; }
+    }
+    if (!Array.isArray(row.answers)) row.answers = [];
+    return row;
+  });
+  renderRows();
+  fillCheckpointSelect();
+}
+
+function renderRows() {
+  const sorted = [...checkpointsData].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortKey === "points") {
+      const av = Number(a?.points ?? 0);
+      const bv = Number(b?.points ?? 0);
+      return (av - bv) * dir;
+    }
+    const av = String(a?.[sortKey] ?? "");
+    const bv = String(b?.[sortKey] ?? "");
+    return av.localeCompare(bv, "et", { sensitivity: "base" }) * dir;
+  });
+
+  byId("cpRows").innerHTML = sorted.map((r) => {
+    const hasQuestion = !!r.question_id;
+    const qText = currentUiLang === "en"
+      ? (r.text_en || r.text_et || "")
+      : (r.text_et || r.text_en || "");
+    const optionsCount = Array.isArray(r.options) ? r.options.length : 0;
+    const questionTypeDisplay = String(r.question_type || "") === "SINGLE_CHOICE"
+      ? `SINGLE_CHOICE (${optionsCount})`
+      : String(r.question_type || "");
+    return `<tr>
+      <td>${esc(r.checkpoint_title || "")}</td>
+      <td>${r.points ?? ""}</td>
+      <td class="q-col"><span class="q-cell-text" title="${esc(qText)}">${esc(qText)}</span></td>
+      <td>${esc(questionTypeDisplay)}</td>
+      <td class="cp-loc-col">${
+        (r.location_required === "Y" ? '<span style="color:#1f9d55;font-weight:700;">&#10003;</span>' : '-')
+        + ((r.latitude != null && r.longitude != null) ? ` (${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)})` : '')
+      }</td>
+      <td class="actions-col">
+        <div class="tools">
+          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn", currentUiLang === "et" ? "Muuda küsimust" : "Edit question"))}</button>
+          <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn", currentUiLang === "et" ? "Muuda KP-d" : "Edit checkpoint"))}</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+  const showLocCol = currentCompetitionUseLocation === "Y";
+  byId("showCheckpointMapBtn").classList.toggle("hidden", !showLocCol);
+  byId("cpLocationColHead").style.display = showLocCol ? "" : "none";
+  document.querySelectorAll(".cp-loc-col").forEach((el) => {
+    el.style.display = showLocCol ? "" : "none";
+  });
+}
+
+function toggleSort(key) {
+  if (sortKey === key) {
+    sortDir = sortDir === "asc" ? "desc" : "asc";
+  } else {
+    sortKey = key;
+    sortDir = "asc";
+  }
+  refreshSortIcons();
+  renderRows();
+}
+
+function sortIconFor(key) {
+  if (sortKey !== key) return "☰";
+  return sortDir === "asc" ? "▲" : "▼";
+}
+
+function refreshSortIcons() {
+  byId("sortByTitleIcon").textContent = sortIconFor("checkpoint_title");
+  byId("sortByPointsIcon").textContent = sortIconFor("points");
+  byId("sortByQuestionEtIcon").textContent = sortIconFor("text_et");
+}
+
+function fillCheckpointSelect(includeAll = true, currentCpId = null) {
+  const currentIdNum = currentCpId == null ? null : Number(currentCpId);
+  const rows = includeAll
+    ? checkpointsData
+    : checkpointsData.filter((c) => {
+      const isCurrent = currentIdNum != null && Number(c.checkpoint_id) === Number(currentIdNum);
+      if (isCurrent) return true;
+      return !c.question_id;
+    });
+  byId("qCheckpoint").innerHTML = rows.map((c) => `<option value="${c.checkpoint_id}">${esc(c.checkpoint_title || "")}</option>`).join("");
+}
+
+function renderQuestionLangRows() {
+  const container = byId("questionLangRows");
+  container.innerHTML = availableLangs.map((lang) => {
+    const required = lang === defaultLang ? " *" : "";
+    return `<div class="row"><label>${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label><textarea id="${qTextId(lang)}"></textarea></div>`;
+  }).join("");
+}
+
+function renderOptionLangHead() {
+  const el = byId("optionLangHead");
+  el.textContent = availableLangs.map((l) => `Tekst (${l})${l === defaultLang ? " *" : ""}`).join(" / ");
+}
+
+function syncQuestionTypeUI() {
+  const t = byId("qType").value;
+  const isSingle = t === "SINGLE_CHOICE";
+  byId("singleChoiceBlock").classList.toggle("hidden", !isSingle);
+  byId("textAnswersBlock").classList.toggle("hidden", isSingle);
+  byId("qInputTypeRow").style.display = isSingle ? "none" : "grid";
+  byId("qInputMaxRow").style.display = isSingle ? "none" : "grid";
+}
+
+function addOptionRow(v = {}) {
+  const rowEl = document.createElement("tr");
+  rowEl.className = "option-row";
+  const existingCodeReadonly = v.option_code ? "readonly" : "";
+  const langsHtml = availableLangs.map((lang) => {
+    const key = `text_${lang}`;
+    return `<input class="opt-lang" data-lang="${lang}" placeholder="Tekst (${lang})${lang === defaultLang ? " *" : ""}" value="${esc(v[key] || "")}" style="margin-bottom:4px;" />`;
+  }).join("");
+  rowEl.innerHTML = `
+    <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" ${existingCodeReadonly} /></td>
+    <td class="opt-text-cell">${langsHtml}</td>
+    <td class="opt-correct-cell"><input class="opt-correct" type="checkbox" ${v.is_correct === "Y" ? "checked" : ""} /></td>
+    <td class="opt-del-cell"><button type="button" class="warn del-opt">${esc(tr("admin.q_dialog.delete_option_row_btn"))}</button></td>
+  `;
+  rowEl.querySelector(".del-opt").onclick = () => rowEl.remove();
+  byId("optionRows").appendChild(rowEl);
+}
+
+function addAnswerRow(v = {}) {
+  const rowEl = document.createElement("tr");
+  rowEl.className = "answer-row";
+  rowEl.innerHTML = `
+    <td><input class="ans-val" value="${esc(v.answer_value || "")}" /></td>
+    <td>
+      <select class="ans-mode">
+        <option value="LOWER_TRIM" ${(v.normalize_mode || "LOWER_TRIM") === "LOWER_TRIM" ? "selected" : ""}>LOWER_TRIM</option>
+        <option value="TRIM" ${v.normalize_mode === "TRIM" ? "selected" : ""}>TRIM</option>
+        <option value="EXACT" ${v.normalize_mode === "EXACT" ? "selected" : ""}>EXACT</option>
+      </select>
+    </td>
+    <td><button type="button" class="warn del-ans">${esc(tr("admin.q_dialog.delete_answer_row_btn"))}</button></td>
+  `;
+  rowEl.querySelector(".del-ans").onclick = () => rowEl.remove();
+  byId("answerRows").appendChild(rowEl);
+}
+
+function collectSingleChoiceOptions() {
+  const rows = Array.from(document.querySelectorAll("#optionRows .option-row"));
+  const opts = [];
+  let hasCorrect = false;
+  rows.forEach((row, idx) => {
+    const texts = {};
+    row.querySelectorAll(".opt-lang").forEach((el) => {
+      const lang = el.getAttribute("data-lang");
+      texts[lang] = el.value.trim();
+    });
+    const code = row.querySelector(".opt-code").value.trim() || nextOptionCode(idx);
+    const isCorrect = row.querySelector(".opt-correct").checked ? "Y" : "N";
+    if (!texts[defaultLang]) return;
+    if (isCorrect === "Y") hasCorrect = true;
+    const item = { option_code: code, is_correct: isCorrect };
+    availableLangs.forEach((lang) => { item[`text_${lang}`] = texts[lang] || null; });
+    opts.push(item);
+  });
+  return { opts, hasCorrect };
+}
+
+function collectTextAnswers() {
+  const rows = Array.from(document.querySelectorAll("#answerRows .answer-row"));
+  const answers = [];
+  rows.forEach((row) => {
+    const value = row.querySelector(".ans-val").value.trim();
+    const mode = row.querySelector(".ans-mode").value || "LOWER_TRIM";
+    if (!value) return;
+    answers.push({ answer_value: value, normalize_mode: mode, is_correct: "Y" });
+  });
+  return answers;
+}
+
+function openCheckpointDialog(cpId = null) {
+  showMsg("cpMsg", false, "");
+  setCheckpointDialogSize(false);
+  setExistingCheckpointsVisible(false);
+  const cpLayerSelect = byId("cpDialogMapLayerSelect");
+  if (cpLayerSelect && !cpLayerSelect.value && availableMapLayers.length) {
+    const rememberedCp = localStorage.getItem(lastCpDialogMapLayerKey) || "";
+    cpLayerSelect.value = availableMapLayers.some((x) => x.code === rememberedCp)
+      ? rememberedCp
+      : availableMapLayers[0].code;
+  }
+  initCheckpointMap();
+  applyCheckpointDialogBaseLayer();
+  const showGps = currentCompetitionUseLocation === "Y";
+  byId("cpMap").style.display = showGps ? "block" : "none";
+  byId("cpMapToggleSizeBtn").style.display = showGps ? "inline-block" : "none";
+  byId("cpToggleExistingBtn").style.display = showGps ? "inline-block" : "none";
+  byId("cpDialogMapLayerSelect").style.display = showGps ? "inline-block" : "none";
+  document.querySelectorAll(".cp-gps-row").forEach((el) => {
+    el.style.display = "grid";
+  });
+  ["cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+    const el = byId(id);
+    if (el) el.disabled = !showGps;
+  });
+  if (!cpId) {
+    if (!currentCompetitionActive) return;
+    byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
+    byId("cpId").value = "";
+    fillCheckpointTypeSelect("NORMAL", null);
+    byId("cpName").value = "";
+    byId("cpLocation").value = "";
+    byId("cpOrder").value = "";
+    byId("cpLatitude").value = "";
+    byId("cpLongitude").value = "";
+    byId("cpRadiusM").value = "";
+    setCpLocationRequiredValue(showGps ? "Y" : "N");
+    byId("cpDelete").disabled = true;
+    cpDialogCheckpointId = null;
+    if (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0) {
+      byId("cpRadiusM").placeholder = String(Number(window.__lastCompetitionRadiusM));
+    } else {
+      byId("cpRadiusM").placeholder = "";
+    }
+    syncCheckpointTypeUi();
+    if (cpMarker) {
+      cpMap.removeLayer(cpMarker);
+      cpMarker = null;
+    }
+    if (cpRadiusCircle) {
+      cpMap.removeLayer(cpRadiusCircle);
+      cpRadiusCircle = null;
+    }
+    const last = readLastCpCoord();
+    if (showGps && last) {
+      cpMap.setView([last.lat, last.lon], 16);
+    } else {
+      cpMap.setView([58.6, 25.0], 7);
+    }
+  } else {
+    const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+    byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
+    byId("cpId").value = cpId;
+    fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
+    byId("cpName").value = row?.checkpoint_title || "";
+    byId("cpLocation").value = row?.location_hint || "";
+    byId("cpOrder").value = row?.checkpoint_order_no ?? "";
+    byId("cpLatitude").value = row?.latitude ?? "";
+    byId("cpLongitude").value = row?.longitude ?? "";
+    byId("cpRadiusM").value = row?.radius_m ?? "";
+    byId("cpRadiusM").placeholder = (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0)
+      ? String(Number(window.__lastCompetitionRadiusM))
+      : "";
+    setCpLocationRequiredValue(row?.location_required || "N");
+    byId("cpDelete").disabled = false;
+    cpDialogCheckpointId = Number(cpId);
+    if (row?.latitude != null && row?.longitude != null) {
+      setCpCoordinates(Number(row.latitude), Number(row.longitude), true);
+    } else if (cpMarker) {
+      cpMap.removeLayer(cpMarker);
+      cpMarker = null;
+      if (cpRadiusCircle) {
+        cpMap.removeLayer(cpRadiusCircle);
+        cpRadiusCircle = null;
+      }
+    }
+    syncCheckpointTypeUi();
+  }
+  cpDialogInitialState = cpDialogStateSnapshot();
+  syncCpQuestionButton();
+  renderExistingCheckpointsOnDialogMap();
+  byId("cpDialog").showModal();
+  setTimeout(() => cpMap.invalidateSize(), 50);
+}
+
+async function saveCheckpoint() {
+  if (!currentCompetitionActive) return;
+  const checkpointType = normalizeCheckpointType(byId("cpType").value);
+  const isSpecial = isSpecialCheckpointType(checkpointType);
+  const title = byId("cpName").value.trim();
+  if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required"));
+  const cpId = byId("cpId").value;
+  const orderRaw = byId("cpOrder").value.trim();
+  const location = byId("cpLocation").value.trim();
+  const latRaw = byId("cpLatitude").value.trim();
+  const lonRaw = byId("cpLongitude").value.trim();
+  const radiusRaw = byId("cpRadiusM").value.trim();
+  const locRequired = getCpLocationRequiredValue();
+  const editingId = cpId ? Number(cpId) : null;
+  if (hasDuplicateCheckpointTitle(title, editingId)) {
+    return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists"));
+  }
+  if (!isSpecial && currentCompetitionType === "S" && orderRaw === "") {
+    return showMsg("cpMsg", false, tr("admin.msg.cp_order_required_for_s"));
+  }
+  if (!isSpecial && currentCompetitionType === "S" && orderRaw !== "") {
+    const nextOrder = Number(orderRaw);
+    const hasDuplicateOrder = checkpointsData.some((r) => {
+      const cpOrder = r?.checkpoint_order_no ?? r?.order_no;
+      if (!Number.isFinite(Number(cpOrder))) return false;
+      if (Number(cpOrder) !== nextOrder) return false;
+      if (editingId != null && Number(r?.checkpoint_id) === Number(editingId)) return false;
+      return true;
+    });
+    if (hasDuplicateOrder) {
+      return showMsg("cpMsg", false, tr("admin.msg.cp_order_exists"));
+    }
+  }
+  if (!cpId) {
+    const payload = { competition_id: compId(), title, checkpoint_type: checkpointType };
+    if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
+    if (location) payload.location_hint = location;
+    if (currentCompetitionUseLocation === "Y") {
+      if (latRaw !== "") payload.latitude = Number(latRaw);
+      if (lonRaw !== "") payload.longitude = Number(lonRaw);
+      if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
+      payload.location_required = locRequired;
+    }
+    await post("/api/admin/checkpoints", payload);
+    if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
+      writeLastCpCoord(Number(latRaw), Number(lonRaw));
+    }
+  } else {
+    const payload = { competition_id: compId(), checkpoint_id: Number(cpId), title };
+    if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
+    if (location) payload.location_hint = location;
+    if (currentCompetitionUseLocation === "Y") {
+      if (latRaw !== "") payload.latitude = Number(latRaw);
+      if (lonRaw !== "") payload.longitude = Number(lonRaw);
+      if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
+      payload.location_required = locRequired;
+    }
+    await post("/api/admin/checkpoints/update", payload);
+    if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
+      writeLastCpCoord(Number(latRaw), Number(lonRaw));
+    }
+  }
+  byId("cpDialog").close();
+  await loadView();
+}
+
+async function deleteCheckpoint() {
+  if (!currentCompetitionActive) return;
+  const cpId = Number(byId("cpId").value);
+  if (!cpId) return;
+  pendingDeleteCheckpointId = cpId;
+  byId("cpDeleteDialog").showModal();
+}
+
+function setQuestionDialogMode(mode, message = "") {
+  const isBlocked = mode === "blocked";
+  byId("qDialog").querySelectorAll(".row").forEach((el) => {
+    el.classList.toggle("hidden", isBlocked);
+    el.style.display = isBlocked ? "none" : "";
+  });
+  ["singleChoiceBlock", "textAnswersBlock", "qDelete", "qSave"].forEach((id) => {
+    const el = byId(id);
+    if (!el) return;
+    el.classList.toggle("hidden", isBlocked);
+    el.style.display = isBlocked ? "none" : "";
+  });
+  byId("qCancel").disabled = false;
+  byId("qDelete").disabled = isBlocked;
+  byId("qSave").disabled = isBlocked;
+
+  const qMsgEl = byId("qMsg");
+  qMsgEl.textContent = "";
+  qMsgEl.className = "";
+  if (isBlocked && message) showMsg("qMsg", false, message);
+}
+
+function openQuestionDialog(cpId, editMode) {
+  if (!currentCompetitionActive) return;
+  setQuestionDialogMode("normal");
+  fillCheckpointSelect(false, cpId);
+  const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+  byId("qCheckpoint").value = String(cpId);
+  if (!editMode) {
+    byId("qTitle").textContent = tr("admin.q_dialog.new_title");
+    byId("qId").value = "";
+    availableLangs.forEach((lang) => { byId(qTextId(lang)).value = ""; });
+    byId("qType").value = "SINGLE_CHOICE";
+    byId("qPoints").value = "0";
+    byId("qWrongPoints").value = "0";
+    byId("qInputType").value = "";
+    byId("qInputMax").value = "";
+    byId("optionRows").innerHTML = "";
+    byId("answerRows").innerHTML = "";
+    addOptionRow();
+    addOptionRow();
+    byId("qDelete").disabled = true;
+  } else {
+    byId("qTitle").textContent = tr("admin.q_dialog.edit_title");
+    byId("qId").value = row?.question_id || "";
+    availableLangs.forEach((lang) => {
+      const key = `text_${lang}`;
+      byId(qTextId(lang)).value = row?.[key] || (lang === "et" ? (row?.text_et || "") : "");
+    });
+    byId("qType").value = row?.question_type || "TEXT";
+    byId("qPoints").value = row?.points ?? 0;
+    byId("qWrongPoints").value = row?.wrong_points ?? 0;
+    byId("qInputType").value = row?.input_type || "";
+    byId("qInputMax").value = row?.input_max_length ?? "";
+    byId("optionRows").innerHTML = "";
+    byId("answerRows").innerHTML = "";
+    (row?.options || []).forEach((o) => addOptionRow({
+      option_code: o.option_code,
+      ...o,
+      is_correct: o.is_correct
+    }));
+    (row?.answers || []).forEach((a) => addAnswerRow({
+      answer_value: a.answer_value,
+      normalize_mode: a.normalize_mode || "LOWER_TRIM"
+    }));
+    if ((row?.question_type || "TEXT") === "SINGLE_CHOICE" && (row?.options || []).length === 0) addOptionRow();
+    if ((row?.question_type || "TEXT") === "TEXT" && (row?.answers || []).length === 0) addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+    byId("qDelete").disabled = false;
+  }
+  syncQuestionTypeUI();
+  byId("qDialog").showModal();
+}
+
+function openQuestionBlockedDialog(message) {
+  byId("qTitle").textContent = tr("admin.q_dialog.new_title");
+  byId("qId").value = "";
+  setQuestionDialogMode("blocked", message);
+  byId("qDialog").showModal();
+}
+
+function resetQuestionDialogVisibility() {
+  setQuestionDialogMode("normal");
+}
+
+async function saveQuestion() {
+  if (!currentCompetitionActive) return;
+  const textsByLang = {};
+  availableLangs.forEach((lang) => { textsByLang[lang] = byId(qTextId(lang)).value.trim(); });
+  const defaultText = textsByLang[defaultLang] || "";
+  if (!defaultText) return showMsg("qMsg", false, `${tr("admin.msg.question_text_required_prefix")} (${defaultLang}) ${tr("admin.msg.required_suffix")}`);
+  const qType = byId("qType").value;
+
+  const qId = byId("qId").value;
+  const payload = {
+    checkpoint_id: Number(byId("qCheckpoint").value),
+    question_type: qType,
+    input_type: qType === "SINGLE_CHOICE" ? null : (byId("qInputType").value || null),
+    input_max_length: qType === "SINGLE_CHOICE" ? null : (byId("qInputMax").value ? Number(byId("qInputMax").value) : null),
+    input_pattern: null,
+    points: Number(byId("qPoints").value || 0),
+    wrong_points: Number(byId("qWrongPoints").value || 0),
+    lang_code: defaultLang,
+    question_text: defaultText
+  };
+
+  let optionsJson = null;
+  let answersJson = null;
+  if (qType === "SINGLE_CHOICE") {
+    const { opts, hasCorrect } = collectSingleChoiceOptions();
+    if (opts.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_option"));
+    if (!hasCorrect) return showMsg("qMsg", false, tr("admin.msg.min_one_correct_option"));
+    optionsJson = JSON.stringify(opts);
+  } else {
+    const answers = collectTextAnswers();
+    if (answers.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_answer"));
+    answersJson = JSON.stringify(answers);
+  }
+
+  try {
+    if (!qId) {
+      const created = await post("/api/admin/questions", payload);
+      const cpState = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(payload.checkpoint_id));
+      const newId = created.question_id;
+      for (const lang of availableLangs) {
+        const text = textsByLang[lang];
+        if (!text) continue;
+        await post("/api/admin/questions/update", {
+          question_id: newId,
+          checkpoint_id: payload.checkpoint_id,
+          question_type: payload.question_type,
+          input_type: payload.input_type,
+          input_max_length: payload.input_max_length,
+          input_pattern: payload.input_pattern,
+          points: payload.points,
+          wrong_points: payload.wrong_points,
+          lang_code: lang,
+          question_text: text,
+          options_json: lang === defaultLang ? optionsJson : null,
+          answers_json: lang === defaultLang ? answersJson : null
+        });
+      }
+      if (!cpState?.question_id) {
+        byId("qDialog").close();
+        await loadView();
+        return;
+      }
+    } else {
+      for (const lang of availableLangs) {
+        const text = textsByLang[lang];
+        if (!text && lang !== defaultLang) continue;
+        await post("/api/admin/questions/update", {
+          question_id: Number(qId),
+          checkpoint_id: payload.checkpoint_id,
+          question_type: payload.question_type,
+          input_type: payload.input_type,
+          input_max_length: payload.input_max_length,
+          input_pattern: payload.input_pattern,
+          points: payload.points,
+          wrong_points: payload.wrong_points,
+          lang_code: lang,
+          question_text: text || defaultText,
+          options_json: lang === defaultLang ? optionsJson : null,
+          answers_json: lang === defaultLang ? answersJson : null
+        });
+      }
+    }
+    byId("qDialog").close();
+    await loadView();
+  } catch (e) {
+    showMsg("qMsg", false, humanizeError(e.message, e.details));
+  }
+}
+
+async function loadCompetitionParticipantMapLayers() {
+  const res = await get(`/api/admin/competitions/map-layers?competition_id=${compId()}`);
+  const selected = Array.isArray(res?.layer_codes) ? res.layer_codes.map((x) => String(x || "").trim()).filter(Boolean) : [];
+  competitionParticipantLayerCodes = selected;
+  if (!competitionParticipantLayerCodes.length && availableMapLayers.length) {
+    const participantDefaults = availableMapLayers.filter((x) => x.participant_default).map((x) => x.code);
+    if (participantDefaults.length) {
+      competitionParticipantLayerCodes = [...participantDefaults];
+    } else {
+      const osm = availableMapLayers.find((x) => x.code === "osm");
+      competitionParticipantLayerCodes = [osm ? osm.code : availableMapLayers[0].code];
+    }
+  }
+  updateMetaMapLayersButtonLabel();
+}
+
+function updateMetaMapLayersButtonLabel() {
+  const btn = byId("metaMapLayersBtn");
+  if (!btn) return;
+  const n = Array.isArray(competitionParticipantLayerCodes) ? competitionParticipantLayerCodes.length : 0;
+  btn.textContent = `${tr("admin.meta.map_layers_btn")} (${n})`;
+}
+
+function renderParticipantMapLayersDialog() {
+  const list = byId("participantMapLayersList");
+  list.innerHTML = availableMapLayers.map((layer, idx) => {
+    const checked = participantLayerSelection.includes(layer.code);
+    const id = `participantLayer_${idx}`;
+    return `
+      <div class="layer-row">
+        <span class="label">${esc(layer.label)}</span>
+        <label class="yn-switch" for="${id}">
+          <input id="${id}" data-layer-code="${esc(layer.code)}" type="checkbox" ${checked ? "checked" : ""} />
+          <span class="yn-slider"></span>
+        </label>
+      </div>`;
+  }).join("");
+}
+
+function selectedParticipantLayersFromDialog() {
+  return Array.from(document.querySelectorAll("#participantMapLayersList input[data-layer-code]:checked"))
+    .map((el) => String(el.getAttribute("data-layer-code") || "").trim())
+    .filter(Boolean);
+}
+
+async function openParticipantMapLayersDialog() {
+  showMsg("participantMapLayersMsg", false, "");
+  await loadMapLayersConfig();
+  await loadCompetitionParticipantMapLayers();
+  participantLayerSelection = [...competitionParticipantLayerCodes];
+  renderParticipantMapLayersDialog();
+  byId("participantMapLayersDialog").showModal();
+}
+
+async function saveParticipantMapLayersDialog() {
+  const selected = selectedParticipantLayersFromDialog();
+  if (!selected.length) {
+    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
+    return;
+  }
+  const prevSorted = [...competitionParticipantLayerCodes].sort();
+  const nextSorted = [...selected].sort();
+  const changed = prevSorted.length !== nextSorted.length || prevSorted.some((x, i) => x !== nextSorted[i]);
+  if (changed) {
+    await post("/api/admin/competitions/map-layers", {
+      competition_id: compId(),
+      layer_codes: selected
+    });
+  }
+  competitionParticipantLayerCodes = selected;
+  participantLayerSelection = [...selected];
+  updateMetaMapLayersButtonLabel();
+  showMsg("participantMapLayersMsg", true, tr("admin.msg.map_layers_saved"));
+  setTimeout(() => byId("participantMapLayersDialog").close(), 350);
+}
+
+function openMetaDialog() {
+  if (!currentCompetitionActive) return;
+  byId("metaMsg").textContent = "";
+  byId("metaMsg").className = "";
+  byId("metaNameInput").value = window.__lastCompetitionName || "";
+  byId("metaDescInput").value = window.__lastCompetitionDescription || "";
+  byId("metaTypeInput").value = String(window.__lastCompetitionType || "R").toUpperCase();
+  byId("metaStatusInput").value = window.__lastCompetitionStatus || "ACTIVE";
+  setMetaUseLocationValue(window.__lastCompetitionUseLocation || "N");
+  setMetaShowCompetitorLocationValue(window.__lastCompetitionShowCompetitorLocation || "Y");
+  syncMetaLocationSwitches();
+  byId("metaRadiusMInput").value = (window.__lastCompetitionRadiusM ?? "");
+  byId("metaDeclinationValue").textContent = fmtMagDeclination(window.__lastCompetitionDeclination);
+  byId("metaDeclinationUpdatedValue").textContent = window.__lastCompetitionDeclinationUpdatedAt
+    ? fmtDateEt(window.__lastCompetitionDeclinationUpdatedAt)
+    : "-";
+  byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
+  byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
+  syncMetaLocationSwitches();
+  updateMetaMapLayersButtonLabel();
+  byId("metaDialog").showModal();
+}
+
+async function saveMetaDialog() {
+  try {
+    const payload = {
+      competition_id: compId(),
+      name: byId("metaNameInput").value.trim(),
+      description: byId("metaDescInput").value.trim() || null,
+      type: String(byId("metaTypeInput").value || "R").toUpperCase(),
+      status: byId("metaStatusInput").value,
+      use_location: getMetaUseLocationValue(),
+      show_competitor_location: getMetaShowCompetitorLocationValue(),
+      radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
+    };
+    if (!payload.name) {
+      showMsg("metaMsg", false, tr("admin.msg.comp_name_required"));
+      return;
+    }
+    const startParsed = parseEtInput(byId("metaStartsEt").value);
+    const endParsed = parseEtInput(byId("metaEndsEt").value);
+    if (startParsed && startParsed.error) return showMsg("metaMsg", false, startParsed.error);
+    if (endParsed && endParsed.error) return showMsg("metaMsg", false, endParsed.error);
+    await post("/api/admin/competitions/meta", payload);
+    await post("/api/admin/competitions/dates", {
+      competition_id: compId(),
+      starts_at: startParsed,
+      ends_at: endParsed
+    });
+    byId("metaDialog").close();
+    await loadCompetitions();
+    await loadView();
+    showMsg("topMsg", true, tr("admin.msg.comp_updated"));
+  } catch (e) {
+    showMsg("metaMsg", false, humanizeError(e.message));
+  }
+}
+
+async function deleteQuestion() {
+  if (!currentCompetitionActive) return;
+  const qId = Number(byId("qId").value);
+  if (!qId) return;
+  pendingDeleteQuestionId = qId;
+  byId("qDeleteDialog").showModal();
+}
+
+byId("uiLang").onchange = async () => {
+  currentUiLang = byId("uiLang").value || defaultLang;
+  setCookie(uiLangCookieName, currentUiLang);
+  await loadTranslations(currentUiLang);
+  refreshCompetitionTypeDisplay();
+  renderRows();
+};
+
+byId("uiLangApp").onchange = async () => {
+  currentUiLang = byId("uiLangApp").value || defaultLang;
+  setCookie(uiLangCookieName, currentUiLang);
+  await loadTranslations(currentUiLang);
+  refreshCompetitionTypeDisplay();
+  renderRows();
+};
+
+byId("organizers").addEventListener("click", async (e) => {
+  const btn = e.target.closest(".logout-btn-inline");
+  if (!btn) return;
+  try {
+    await post("/api/auth/logout", {});
+    currentUserId = null;
+    currentUserName = "";
+    currentUserEmail = "";
+    byId("appArea").classList.add("hidden");
+    byId("loginCard").classList.remove("hidden");
+    showMsg("loginMsg", true, tr("admin.msg.logout_ok"));
+    await initGoogleLogin();
+  } catch (err) {
+    showMsg("topMsg", false, humanizeError(err.message || tr("admin.msg.logout_failed")));
+  }
+});
+
+byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
+byId("openResultsBtn").onclick = () => {
+  const cid = compId();
+  if (!cid) return;
+  window.open(`/results.html?competition_id=${encodeURIComponent(String(cid))}`, "_blank", "noopener");
+};
+byId("competitionPickerCancel").onclick = () => {
+  byId("competitionPickerJoinCode").value = "";
+  showMsg("competitionPickerJoinMsg", false, "");
+  byId("competitionPickerDialog").close();
+};
+byId("competitionPickerApply").onclick = async () => {
+  byId("competitionPickerDialog").close();
+  await loadView().catch((e) => showMsg("topMsg", false, e.message));
+};
+byId("goSuperadminBtn").onclick = () => {
+  window.location.href = "/superadmin.html";
+};
+byId("competitionPickerJoinSave").onclick = async () => {
+  try {
+    const code = byId("competitionPickerJoinCode").value.trim();
+    if (!code) {
+      showMsg("competitionPickerJoinMsg", false, tr("admin.msg.enter_organizer_code_join_dialog"));
+      return;
+    }
+    const joinRes = await post("/api/organizers/register", { access_code: code });
+    const joinedCompetitionId = Number(joinRes?.competition_id || 0);
+    byId("competitionPickerJoinCode").value = "";
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions) {
+      if (joinedCompetitionId && competitionsData.some((x) => Number(x.competition_id) === joinedCompetitionId)) {
+        byId("competitionSelect").value = String(joinedCompetitionId);
+      }
+      await loadView();
+      showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_join_dialog"));
+      showMsg("competitionPickerJoinMsg", false, "");
+      byId("competitionPickerDialog").close();
+    } else {
+      showMsg("competitionPickerJoinMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog"));
+    }
+  } catch (e) {
+    showMsg("competitionPickerJoinMsg", false, humanizeError(e.message));
+  }
+};
+
+byId("copyCompetitorCodeBtn").innerHTML = copyIconSvg();
+byId("copyOrganizerCodeBtn").innerHTML = copyIconSvg();
+byId("copyCompetitorCodeBtn").onclick = async () => {
+  try {
+    await copyTextToClipboard(byId("codeCompetitor").textContent || "");
+  } catch (e) {
+    showMsg("topMsg", false, humanizeError(e.message));
+  }
+};
+byId("copyOrganizerCodeBtn").onclick = async () => {
+  try {
+    await copyTextToClipboard(byId("codeOrganizer").textContent || "");
+  } catch (e) {
+    showMsg("topMsg", false, humanizeError(e.message));
+  }
+};
+
+byId("regenCompetitor").onclick = () => {
+  pendingCodeType = "COMPETITOR";
+  pendingOldCode = (byId("codeCompetitor").textContent || "").trim();
+  byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+  byId("codeConfirmDialog").showModal();
+};
+
+byId("regenOrganizer").onclick = () => {
+  pendingCodeType = "ORGANIZER";
+  pendingOldCode = (byId("codeOrganizer").textContent || "").trim();
+  byId("codeConfirmText").innerHTML = `${esc(tr("admin.code_confirm.prompt_prefix_dup"))} <strong style="font-size:22px;">${esc(pendingOldCode || "-")}</strong>?`;
+  byId("codeConfirmDialog").showModal();
+};
+
+byId("newCheckpointBtn").onclick = () => openCheckpointDialog();
+byId("cpMapToggleSizeBtn").onclick = () => setCheckpointDialogSize(!cpDialogFullscreen);
+byId("showCheckpointMapBtn").onclick = () => openCheckpointOverviewMap().catch((e) => showMsg("topMsg", false, humanizeError(e.message, e.details)));
+byId("cpOverviewOpenLabelsBtn").onclick = () => openAllCheckpointLabels();
+byId("cpOverviewCloseLabelsBtn").onclick = () => closeAllCheckpointLabels();
+byId("cpOverviewMapLayerSelect").onchange = () => {
+  const selected = selectedMapLayerCode();
+  if (selected) localStorage.setItem(lastCpOverviewMapLayerKey, selected);
+  openCheckpointOverviewMap().catch((e) => showMsg("topMsg", false, humanizeError(e.message, e.details)));
+};
+byId("cpDialogMapLayerSelect").onchange = () => {
+  const selected = selectedMapLayerCode("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+  if (selected) localStorage.setItem(lastCpDialogMapLayerKey, selected);
+  initCheckpointMap();
+  const latRaw = (byId("cpLatitude").value || "").trim();
+  const lonRaw = (byId("cpLongitude").value || "").trim();
+  const lat = Number(latRaw);
+  const lon = Number(lonRaw);
+  if (latRaw !== "" && lonRaw !== "" && Number.isFinite(lat) && Number.isFinite(lon)) {
+    setCpCoordinates(lat, lon, true);
+  }
+  renderExistingCheckpointsOnDialogMap();
+};
+
+byId("cpOverviewMapToggleSizeBtn").onclick = () => setCheckpointOverviewSize(!cpOverviewFullscreen);
+byId("cpOverviewMapCloseBtn").onclick = () => {
+  setCheckpointOverviewSize(false);
+  byId("cpOverviewMapDialog").close();
+};
+
+byId("newQuestionBtn").onclick = () => {
+  const first = checkpointsData.find((x) => !x.question_id);
+  if (!first) {
+    openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first"));
+    return;
+  }
+  resetQuestionDialogVisibility();
+  openQuestionDialog(first.checkpoint_id, false);
+};
+
+byId("sortByTitleIcon").onclick = () => toggleSort("checkpoint_title");
+byId("sortByPointsIcon").onclick = () => toggleSort("points");
+byId("sortByQuestionEtIcon").onclick = () => toggleSort("text_et");
+refreshSortIcons();
+
+byId("cpRows").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const cpId = Number(btn.dataset.cp);
+  if (btn.dataset.act === "edit-cp") openCheckpointDialog(cpId);
+  if (btn.dataset.act === "edit-q") openQuestionDialog(cpId, true);
+});
+
+byId("cpSave").onclick = () => saveCheckpoint().catch((e) => showMsg("cpMsg", false, humanizeError(e.message, e.details)));
+byId("cpToggleExistingBtn").onclick = () => setExistingCheckpointsVisible(!cpExistingVisible);
+byId("cpDelete").onclick = () => deleteCheckpoint().catch((e) => showMsg("cpMsg", false, e.message));
+byId("cpCancel").onclick = () => byId("cpDialog").close();
+byId("cpDialog").addEventListener("close", () => {
+  if (cpDialogFullscreen) setCheckpointDialogSize(false);
+  showMsg("cpMsg", false, "");
+  setExistingCheckpointsVisible(false);
+});
+
+byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
+  if (!selectedParticipantLayersFromDialog().length) {
+    e.preventDefault();
+    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
+  }
+});
+
+byId("cpOpenQuestion").onclick = () => {
+  if (!cpDialogCheckpointId) return;
+  const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+  const editMode = !!row?.question_id;
+  byId("cpDialog").close();
+  openQuestionDialog(Number(cpDialogCheckpointId), editMode);
+};
+
+byId("cpType").addEventListener("change", syncCheckpointTypeUi);
+byId("cpLatitude").addEventListener("change", syncMapFromCoordInputs);
+byId("cpLongitude").addEventListener("change", syncMapFromCoordInputs);
+byId("cpRadiusM").addEventListener("input", syncRadiusCircle);
+["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+  byId(id).addEventListener("input", syncCpQuestionButton);
+  byId(id).addEventListener("change", syncCpQuestionButton);
+});
+
+byId("qSave").onclick = () => saveQuestion().catch((e) => showMsg("qMsg", false, e.message));
+byId("qDelete").onclick = () => deleteQuestion().catch((e) => showMsg("qMsg", false, e.message));
+byId("qCancel").onclick = () => byId("qDialog").close();
+byId("qType").onchange = () => syncQuestionTypeUI();
+byId("metaUseLocationInput").addEventListener("change", syncMetaLocationSwitches);
+byId("metaMapLayersBtn").onclick = () => openParticipantMapLayersDialog().catch((e) => showMsg("metaMsg", false, humanizeError(e.message, e.details)));
+byId("participantMapLayersCancel").onclick = () => {
+  if (!selectedParticipantLayersFromDialog().length) {
+    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
+    return;
+  }
+  byId("participantMapLayersDialog").close();
+};
+byId("participantMapLayersSave").onclick = () => saveParticipantMapLayersDialog().catch((e) => showMsg("participantMapLayersMsg", false, humanizeError(e.message, e.details)));
+byId("addOptionBtn").onclick = () => addOptionRow();
+byId("addAnswerBtn").onclick = () => addAnswerRow({ normalize_mode: "LOWER_TRIM" });
+
+byId("cpDeleteNo").onclick = () => {
+  pendingDeleteCheckpointId = null;
+  byId("cpDeleteDialog").close();
+};
+byId("cpDeleteYes").onclick = async () => {
+  try {
+    if (!pendingDeleteCheckpointId) return;
+    await post("/api/admin/checkpoints/delete", { competition_id: compId(), checkpoint_id: pendingDeleteCheckpointId });
+    pendingDeleteCheckpointId = null;
+    byId("cpDeleteDialog").close();
+    byId("cpDialog").close();
+    await loadView();
+  } catch (e) {
+    byId("cpDeleteDialog").close();
+    showMsg("cpMsg", false, humanizeError(e.message));
+  }
+};
+
+byId("qDeleteNo").onclick = () => {
+  pendingDeleteQuestionId = null;
+  byId("qDeleteDialog").close();
+};
+byId("qDeleteYes").onclick = async () => {
+  try {
+    if (!pendingDeleteQuestionId) return;
+    await post("/api/admin/questions/delete", { question_id: pendingDeleteQuestionId });
+    pendingDeleteQuestionId = null;
+    byId("qDeleteDialog").close();
+    byId("qDialog").close();
+    await loadView();
+  } catch (e) {
+    byId("qDeleteDialog").close();
+    showMsg("qMsg", false, humanizeError(e.message));
+  }
+};
+
+byId("metaCancel").onclick = () => byId("metaDialog").close();
+byId("metaSave").onclick = saveMetaDialog;
+byId("openCompetitionEditBtn").onclick = () => openMetaDialog();
+byId("openTermsBtn").onclick = () => openTermsDialog();
+byId("termsCancel").onclick = () => byId("termsDialog").close();
+byId("termsSave").onclick = () => saveTermsDialog();
+byId("termsLangSelect").onchange = async (e) => {
+  const nextLang = String(e?.target?.value || "").toLowerCase();
+  if (!nextLang) return;
+  try {
+    await loadCompetitionTermsForLang(nextLang);
+    showMsg("termsMsg", true, "");
+  } catch (err) {
+    showMsg("termsMsg", false, humanizeError(err.message));
+  }
+};
+
+byId("codeConfirmNo").onclick = () => {
+  pendingCodeType = null;
+  pendingOldCode = null;
+  byId("codeConfirmDialog").close();
+};
+byId("codeConfirmYes").onclick = async () => {
+  try {
+    const newCode = generate6DigitCode();
+    await post("/api/admin/access-codes", {
+      competition_id: compId(),
+      code_type: pendingCodeType,
+      code: newCode,
+      status: "ACTIVE"
+    });
+    await loadView();
+    byId("codeConfirmDialog").close();
+    byId("codeResultText").innerHTML = `${esc(tr("admin.code_result.prefix"))} <strong style="font-size:22px;">${esc(newCode)}</strong>.<br>${esc(tr("admin.code_result.suffix"))}`;
+    byId("codeResultDialog").showModal();
+    pendingCodeType = null;
+    pendingOldCode = null;
+  } catch (e) {
+    byId("codeConfirmDialog").close();
+    showMsg("topMsg", false, humanizeError(e.message));
+  }
+};
+
+byId("codeResultOk").onclick = () => byId("codeResultDialog").close();
+byId("organizerJoinCancelNoComp").onclick = () => {
+  byId("organizerJoinCodeNoComp").value = "";
+  byId("noOrgMsg").textContent = "";
+  byId("noOrgMsg").className = "";
+};
+byId("organizerJoinSaveNoComp").onclick = async () => {
+  try {
+    const code = byId("organizerJoinCodeNoComp").value.trim();
+    if (!code) {
+      showMsg("noOrgMsg", false, tr("admin.msg.enter_organizer_code_no_comp"));
+      return;
+    }
+    await post("/api/organizers/register", { access_code: code });
+    byId("organizerJoinCodeNoComp").value = "";
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions) {
+      await loadView();
+      showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_top"));
+    }
+  } catch (e) {
+    showMsg("noOrgMsg", false, humanizeError(e.message));
+  }
+};
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "F2" && !byId("appArea").classList.contains("hidden")) {
+    const first = checkpointsData.find((x) => !x.question_id);
+    if (first) openQuestionDialog(first.checkpoint_id, false);
+  }
+});
+
+(async () => {
+  await loadI18nMeta().catch(() => {});
+  await hydrateSessionUser();
+  try {
+    await finishAdminLogin();
+  } catch (_) {
+    byId("loginCard").classList.remove("hidden");
+    byId("appArea").classList.add("hidden");
+  }
+  await initGoogleLogin();
+})();

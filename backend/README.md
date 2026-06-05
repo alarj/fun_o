@@ -480,6 +480,15 @@ When updating question options (`replace_question_options_et`), use diff-based u
 - New option (new `option_code`): insert with `order_no = max(active order_no) + 1`.
 - Missing option (not present in incoming payload): soft-delete option texts and option row.
 
+### Admin multilingual question edit limitation
+
+Current admin question edit flow treats empty non-default-language texts as "no update", not as an explicit delete:
+- If `admin-main.js` sends an update for the default language, `question_text` must always be present.
+- If a non-default-language question text is cleared in the UI, the frontend currently skips that language update instead of deleting the existing translation row.
+- The same practical limitation applies to non-default-language SINGLE_CHOICE option texts in the current admin flow: clearing the field in the UI does not remove an already existing translation in the database.
+
+This is intentional for now to avoid `api.error.invalid_submission` on empty translated question text updates. Explicit deletion of existing non-default-language texts needs a separate end-to-end design and implementation.
+
 Important:
 - Keep all changes in one transaction (single commit).
 - Do not compact `order_no` gaps after delete (for example `1,2,4,5` is valid).
@@ -513,6 +522,16 @@ Important:
   - `checkpoint_order_no`
   - `checkpoint_type`
   - `competition_type` (`R|S`)
+  - `checkpoint_map_label` (competitor map tooltip text preformatted for the current competition type)
+- `checkpoint_map_label` formatting:
+  - applies only to `NORMAL` checkpoints; `START`/`FINISH` stay symbol-only on map.
+  - `R` type:
+    - if `checkpoint_title` length is `<= 8`, use full title;
+    - if length is `> 8`, use first 5 characters + `...`.
+  - `S` type:
+    - format is `order_no - title`;
+    - title part is truncated to maximum 5 characters;
+    - no ellipsis is added in `S` type.
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.

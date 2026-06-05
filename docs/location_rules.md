@@ -234,19 +234,30 @@ Reeglid:
 - Võistleja kaardil kehtib `S` tüüpi võistlusel sama visuaalne rajaloogika nagu admin kaardil:
   - `START` kuvatakse kolmnurgana;
   - `FINISH` kuvatakse topeltringina;
-  - `NORMAL` KP-de kõrval kuvatakse järjekorranumbrid sama värviloogikaga nagu markeritel;
+  - `NORMAL` KP-de kõrval kuvatakse tekst kujul `order_no - title`, sama värviloogikaga nagu markeritel;
+  - `title` osa lõigatakse maksimaalselt 5 märgini ja `S` tüübil ellipsit ei lisata;
   - KP-d ühendatakse `order_no ASC` järgi;
+  - ühendusjoontele lisatakse õhuke valge halo, et rada eristuks paremini taustast;
   - joone ristumiste katkestused, markerite lähedusest tulenev joone kärpimine ja numbrilabelite paigutus peavad järgima sama reeglit nagu admin kaardivaadetes.
   - Joon lõpeb enne KP tähist (offset), et joon ei puutuks tähise rõngast.
-- Kui `competition.type!='S'`:
-  - järjekorranumbreid ega ühendusjooni ei kuvata.
+- Võistleja kaardil `R` tüüpi võistlusel:
+  - `START` kuvatakse kolmnurgana;
+  - `FINISH` kuvatakse topeltringina;
+  - `NORMAL` KP-de kõrval kuvatakse `title` sama värviloogikaga nagu markeritel;
+  - kui `title` pikkus on kuni 8 märki, kuvatakse kogu `title`;
+  - kui `title` pikkus on üle 8 märgi, kuvatakse esimesed 5 märki ja `...`;
+  - vaikimisi paigutatakse label markerist üles-poole-paremale ehk ligikaudu "kella 1 peale";
+  - kui label satub liiga lähedale teise KP tähisele või juba paigutatud teisele labelile, proovib UI alternatiivseid asukohti;
+  - markeritele ja labeli tekstile lisatakse õhuke valge halo parema loetavuse jaoks;
+  - ühendusjooni ei kuvata.
 
 START / FINISH täpsustus:
-- `START` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
-- `FINISH` kuvatakse kaardil ainult sümbolina, ilma järjekorranumbrita.
+- `START` kuvatakse kaardil ainult sümbolina, ilma lisatekstita.
+- `FINISH` kuvatakse kaardil ainult sümbolina, ilma lisatekstita.
 - `START` sümbol on võrdkülgne kolmnurk.
 - `FINISH` sümbol on topeltring.
 - `FINISH` topeltringi sisemine ring vastab tavalise KP tähise mõõdule ja välimine ring on sama keskpunktiga sellest suurem.
+- Võistleja kaardil lisatakse KP sümbolitele ja kaarditekstidele visuaalne valge kontuur, mitte taustakast.
 
 Lõikumise reegel:
 - Kui kaks ühendussegmenti lõikuvad, siis väiksema `order_no` segmendile tehakse lõikekohas katkestus.
