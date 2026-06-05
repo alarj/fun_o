@@ -413,7 +413,11 @@ async function init() {
       setMapInfoVisibility(false);
       return;
     }
-    setMapInfoVisibility(true);
+    showCompetitorBusy("competitor.map.info_loading_msg");
+    syncMapPopupOpenItems().finally(() => {
+      setMapInfoVisibility(true);
+      hideCompetitorBusy();
+    });
   });
   el("compMapCanvas").addEventListener("click", (e) => {
     const btn = e.target.closest(".cpPopupAnswerBtn");

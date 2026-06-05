@@ -74,6 +74,8 @@ let joinHasActiveBeforeOpen = false;
 const competitionTermsCache = {};
 let i18nItems = {};
 let i18nMeta = { default_lang: "et", available_langs: ["et", "en"] };
+let competitorBusyDepth = 0;
+let competitorBusyKey = "competitor.map.open_loading_msg";
 
 const el = (id) => document.getElementById(id);
 const tr = (key) => i18nItems[key] || key;
@@ -144,6 +146,7 @@ function applyUiTranslations() {
   el("myAnswerDetailTitle").textContent = tr("competitor.answer_detail.title");
   el("myAnswerDetailCloseBtn").textContent = tr("competitor.common.close_btn");
   el("termsAndLicenseLine").innerHTML = `${tr("competitor.main.terms_prefix")} <a id="openCompetitionTermsLink" href="#">${tr("competitor.main.terms_link")}</a> | ${tr("competitor.main.license_line")}`;
+  refreshCompetitorBusyText();
 }
 
 function bindTermsLink() {
@@ -214,6 +217,27 @@ function getCookie(name) {
   const prefix = name + "=";
   const part = document.cookie.split(";").map((x) => x.trim()).find((x) => x.startsWith(prefix));
   return part ? decodeURIComponent(part.substring(prefix.length)) : null;
+}
+
+function refreshCompetitorBusyText() {
+  const textEl = el("competitorBusyText");
+  if (!textEl) return;
+  textEl.textContent = tr(competitorBusyKey);
+}
+
+function showCompetitorBusy(key) {
+  competitorBusyDepth += 1;
+  competitorBusyKey = String(key || "competitor.map.open_loading_msg");
+  refreshCompetitorBusyText();
+  const backdrop = el("competitorBusyBackdrop");
+  if (backdrop) backdrop.style.display = "flex";
+}
+
+function hideCompetitorBusy() {
+  competitorBusyDepth = Math.max(0, competitorBusyDepth - 1);
+  if (competitorBusyDepth > 0) return;
+  const backdrop = el("competitorBusyBackdrop");
+  if (backdrop) backdrop.style.display = "none";
 }
 
 function getProgressCookieName() {
@@ -879,6 +903,9 @@ async function loadOpenCheckpoints(opts = {}) {
     items: [...state.openItems],
   };
   renderCheckpointSelect(preferredCheckpointId);
+  if (typeof refreshCompMapPopupContents === "function") {
+    refreshCompMapPopupContents();
+  }
 }
 
 async function refreshQuestionsOnLanguageChange(langCode) {
