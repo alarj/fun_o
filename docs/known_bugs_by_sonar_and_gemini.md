@@ -48,6 +48,13 @@ Millal uuesti hinnata:
 - kui competitor UI viiakse ES module või React-põhiseks;
 - kui tekib soov teha eraldi "Sonar cleanup" pass ainult maintainability jaoks.
 
+Sama hinnang kehtib ka admin UI failijaotuse järel järgmiste failide kohta:
+- `frontend_dist/assets/admin-core.js`
+- `frontend_dist/assets/admin-map.js`
+- `frontend_dist/assets/admin-main.js`
+
+Ka admin UI kasutab teadlikult brauseri-globaalidel põhinevat jagatud state'i, kus deklaratsioonid elavad peamiselt `admin-core.js` failis ja kasutused `admin-map.js` / `admin-main.js` failides. Sonar käsitleb neid viiteid osaliselt valepositiivsete `S2703` leidudena.
+
 ### 1.2 `javascript:S6582` optional chaining eelistus
 
 Mõjutatud failid:

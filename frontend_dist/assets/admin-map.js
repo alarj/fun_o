@@ -440,8 +440,18 @@ function buildCheckpointMapPoints(excludeCheckpointId = null) {
     const checkpointType = normalizeCheckpointType(r.checkpoint_type);
     byCheckpoint.set(cpId, {
       checkpointId: cpId,
+      questionId: Number.isFinite(Number(r.question_id)) ? Number(r.question_id) : null,
       title: String(r.checkpoint_title || ""),
       checkpointType,
+      questionType: String(r.question_type || ""),
+      points: Number.isFinite(Number(r.points)) ? Number(r.points) : 0,
+      wrongPoints: Number.isFinite(Number(r.wrong_points)) ? Number(r.wrong_points) : 0,
+      questionTexts: {
+        et: String(r.text_et || ""),
+        en: String(r.text_en || "")
+      },
+      options: Array.isArray(r.options) ? r.options : [],
+      answers: Array.isArray(r.answers) ? r.answers : [],
       lat,
       lon,
       orderNo,
@@ -462,13 +472,85 @@ function shouldShowCheckpointOrderLabel(point) {
   return Number.isFinite(Number(point.orderNo));
 }
 
+function localizedCheckpointQuestionText(point) {
+  const wanted = String(currentUiLang || defaultLang || "et").toLowerCase();
+  const fallback = String(defaultLang || "et").toLowerCase();
+  const texts = [point?.questionTexts || {}, point?.optionTexts || {}];
+  const read = (bucket, lang) => String(bucket?.[lang] || "").trim();
+  for (const bucket of texts) {
+    const wantedValue = read(bucket, wanted);
+    if (wantedValue) return wantedValue;
+    const fallbackValue = read(bucket, fallback);
+    if (fallbackValue) return fallbackValue;
+    const etValue = read(bucket, "et");
+    if (etValue) return etValue;
+    const enValue = read(bucket, "en");
+    if (enValue) return enValue;
+    const anyValue = Object.values(bucket || {}).find((value) => String(value || "").trim());
+    if (anyValue) return String(anyValue).trim();
+  }
+  return "";
+}
+
+function localizedOptionText(option) {
+  const wanted = String(currentUiLang || defaultLang || "et").toLowerCase();
+  const fallback = String(defaultLang || "et").toLowerCase();
+  const wantedValue = String(option?.[`text_${wanted}`] || "").trim();
+  if (wantedValue) return wantedValue;
+  const fallbackValue = String(option?.[`text_${fallback}`] || "").trim();
+  if (fallbackValue) return fallbackValue;
+  const etValue = String(option?.text_et || "").trim();
+  if (etValue) return etValue;
+  const enValue = String(option?.text_en || "").trim();
+  if (enValue) return enValue;
+  return "";
+}
+
+function questionTypeShort(point) {
+  return String(point?.questionType || "").toUpperCase() === "SINGLE_CHOICE" ? "SC" : "T";
+}
+
 function checkpointPopupText(point) {
   const orderPrefix = shouldShowCheckpointOrderLabel(point) ? `${point.orderNo}. ` : "";
   const radiusSuffix = Number.isFinite(point?.ringRadiusM) && point.ringRadiusM > 0 ? ` (${point.ringRadiusM} m)` : "";
-  return `${orderPrefix}${esc(point?.title || "")}${radiusSuffix}`;
+  const firstLine = `${orderPrefix}${esc(point?.title || "")}${radiusSuffix}`;
+  if (!point?.questionId) {
+    return `<div class="cp-map-popup-content"><div class="cp-map-popup-line cp-map-popup-title">${firstLine}</div></div>`;
+  }
+  const questionText = esc(localizedCheckpointQuestionText(point));
+  const questionMeta = `${questionTypeShort(point)} ${Number(point?.points || 0)} / ${Number(point?.wrongPoints || 0)}`;
+  let thirdLine = "";
+  if (String(point?.questionType || "").toUpperCase() === "SINGLE_CHOICE") {
+    const optionHtml = (Array.isArray(point?.options) ? point.options : [])
+      .map((option) => {
+        const text = esc(localizedOptionText(option));
+        if (!text) return "";
+        return option?.is_correct === "Y" ? `<strong>${text}</strong>` : text;
+      })
+      .filter(Boolean)
+      .join(" · ");
+    if (optionHtml) thirdLine = `<div class="cp-map-popup-line cp-map-popup-meta">${optionHtml}</div>`;
+  } else {
+    const answers = (Array.isArray(point?.answers) ? point.answers : [])
+      .map((answer) => esc(String(answer?.answer_value || "").trim()))
+      .filter(Boolean)
+      .join(" · ");
+    if (answers) thirdLine = `<div class="cp-map-popup-line cp-map-popup-meta">${answers}</div>`;
+  }
+  return `<div class="cp-map-popup-content"><div class="cp-map-popup-line cp-map-popup-title">${firstLine}</div><div class="cp-map-popup-line cp-map-popup-question">${questionText} (${esc(questionMeta)})</div>${thirdLine}</div>`;
 }
 
-function buildCheckpointShapeMarker(_mapRef, point, extraOptions = {}) {
+function specialCheckpointSvg(point) {
+  const stroke = esc(point.markerColor || "#7d3c98");
+  const weight = Math.max(2, Number(point.markerWeight || 3));
+  const haloWeight = weight + 4;
+  if (point.checkpointType === "START") {
+    return `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="#ffffff" stroke-width="${haloWeight}" stroke-linejoin="round"/><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`;
+  }
+  return `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="#ffffff" stroke-width="${haloWeight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="#ffffff" stroke-width="${haloWeight}"/><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
+}
+
+function createCheckpointShapeMarker(point, extraOptions = {}) {
   const baseOptions = {
     color: point.markerColor,
     weight: point.markerWeight || 3,
@@ -476,15 +558,10 @@ function buildCheckpointShapeMarker(_mapRef, point, extraOptions = {}) {
     ...extraOptions
   };
   if (point.checkpointType === "START" || point.checkpointType === "FINISH") {
-    const stroke = esc(point.markerColor || "#7d3c98");
-    const weight = Math.max(2, Number(point.markerWeight || 3));
-    const svg = point.checkpointType === "START"
-      ? `<svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,5 31,29 5,29" fill="none" stroke="${stroke}" stroke-width="${weight}" stroke-linejoin="round"/></svg>`
-      : `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15" fill="none" stroke="${stroke}" stroke-width="${weight}"/><circle cx="21" cy="21" r="20" fill="none" stroke="${stroke}" stroke-width="${weight}"/></svg>`;
     return L.marker([point.lat, point.lon], {
       icon: L.divIcon({
         className: "cp-special-div-icon",
-        html: svg,
+        html: specialCheckpointSvg(point),
         iconSize: point.checkpointType === "FINISH" ? [42, 42] : [36, 36],
         iconAnchor: point.checkpointType === "FINISH" ? [21, 21] : [18, 18],
         popupAnchor: point.checkpointType === "FINISH" ? [0, -21] : [0, -18]
@@ -496,6 +573,40 @@ function buildCheckpointShapeMarker(_mapRef, point, extraOptions = {}) {
     radius: point.markerRadiusPx || 15,
     ...baseOptions
   });
+}
+
+function addCheckpointShapeMarker(targetLayer, point, extraOptions = {}) {
+  if (point.checkpointType !== "START" && point.checkpointType !== "FINISH") {
+    L.circleMarker([point.lat, point.lon], {
+      radius: point.markerRadiusPx || 15,
+      color: "#ffffff",
+      weight: (point.markerWeight || 3) + 4,
+      fillOpacity: 0,
+      interactive: false
+    }).addTo(targetLayer);
+  }
+  const marker = createCheckpointShapeMarker(point, extraOptions).addTo(targetLayer);
+  marker.__checkpointId = point.checkpointId;
+  return marker;
+}
+
+function drawRouteSegment(layerRef, mapRef, seg, t0, t1) {
+  if (t1 <= t0) return;
+  const pA = L.point(seg.sx + (seg.ex - seg.sx) * t0, seg.sy + (seg.ey - seg.sy) * t0);
+  const pB = L.point(seg.sx + (seg.ex - seg.sx) * t1, seg.sy + (seg.ey - seg.sy) * t1);
+  const latLngs = [mapRef.layerPointToLatLng(pA), mapRef.layerPointToLatLng(pB)];
+  L.polyline(latLngs, {
+    color: "#ffffff",
+    weight: seg.weight + 2,
+    opacity: 0.95,
+    interactive: false
+  }).addTo(layerRef);
+  L.polyline(latLngs, {
+    color: seg.color,
+    weight: seg.weight,
+    opacity: 0.95,
+    interactive: false
+  }).addTo(layerRef);
 }
 
 function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
@@ -613,27 +724,16 @@ function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
 
   segments.forEach((seg) => {
     const breaks = mergeIntervals(tBreaks.get(keyFor(seg.idx)) || []);
-    const drawPart = (t0, t1) => {
-      if (t1 <= t0) return;
-      const pA = L.point(seg.sx + (seg.ex - seg.sx) * t0, seg.sy + (seg.ey - seg.sy) * t0);
-      const pB = L.point(seg.sx + (seg.ex - seg.sx) * t1, seg.sy + (seg.ey - seg.sy) * t1);
-      L.polyline([mapRef.layerPointToLatLng(pA), mapRef.layerPointToLatLng(pB)], {
-        color: seg.color,
-        weight: seg.weight,
-        opacity: 0.95,
-        interactive: false
-      }).addTo(layerRef);
-    };
     if (breaks.length === 0) {
-      drawPart(0, 1);
+      drawRouteSegment(layerRef, mapRef, seg, 0, 1);
       return;
     }
     let cur = 0;
     breaks.forEach(([b0, b1]) => {
-      drawPart(cur, b0);
+      drawRouteSegment(layerRef, mapRef, seg, cur, b0);
       cur = Math.max(cur, b1);
     });
-    drawPart(cur, 1);
+    drawRouteSegment(layerRef, mapRef, seg, cur, 1);
   });
 }
 
@@ -727,9 +827,8 @@ async function openCheckpointOverviewMap() {
   } else {
     const bounds = [];
     points.forEach((p) => {
-      const m = buildCheckpointShapeMarker(cpOverviewMap, p).addTo(cpOverviewLayer);
-      m.__checkpointId = p.checkpointId;
-      m.bindPopup(checkpointPopupText(p), { autoClose: false, closeOnClick: false });
+      const m = addCheckpointShapeMarker(cpOverviewLayer, p);
+      m.bindPopup(checkpointPopupText(p), { autoClose: false, closeOnClick: false, className: "cp-map-popup", maxWidth: 280 });
       cpOverviewMarkers.push(m);
       if (Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0) {
         L.circle([p.lat, p.lon], {
@@ -875,8 +974,7 @@ function renderExistingCheckpointsOnDialogMap() {
   const points = buildCheckpointMapPoints(currentId);
   const labelPlacement = buildOrderLabelPlacement(cpMap, points);
   points.forEach((p) => {
-    const marker = buildCheckpointShapeMarker(cpMap, p).addTo(cpExistingLayer);
-    marker.__checkpointId = p.checkpointId;
+    const marker = addCheckpointShapeMarker(cpExistingLayer, p);
     if (shouldShowCheckpointOrderLabel(p)) {
       const placement = labelPlacement.get(Number(p.checkpointId)) || { direction: "right", offset: [12, 0] };
       marker.bindTooltip(String(p.orderNo), {
@@ -886,7 +984,7 @@ function renderExistingCheckpointsOnDialogMap() {
         className: p.markerColor === "#c0392b" ? "cp-order-tooltip cp-order-red" : "cp-order-tooltip cp-order-purple"
       });
     }
-    marker.bindPopup(checkpointPopupText(p));
+    marker.bindPopup(checkpointPopupText(p), { className: "cp-map-popup", maxWidth: 280 });
     if (Number.isFinite(p.ringRadiusM) && p.ringRadiusM > 0) {
       L.circle([p.lat, p.lon], {
         radius: p.ringRadiusM,

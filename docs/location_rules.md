@@ -267,3 +267,17 @@ Lõikumise reegel:
 Esmarenderduse reegel (“Näita kaardil”):
 - Numbrilabelite dünaamiline paigutus arvutatakse pärast kaardi vaate paigaseadmist (`setView`/`fitBounds`) ja `invalidateSize()` etappi.
 - See väldib olukorda, kus labeli asukoht on modali avamisel vale, kuid zoomimisel läheb õigeks.
+
+### 12c. Admin kaardivaadete markerid ja KP-info
+
+- Admini kaardivaated (`Näita kaardil` ja KP lisamise/muutmise dialoogi kaart) kasutavad sama KP sümboolika loogikat nagu võistleja kaart:
+  - `START` kuvatakse kolmnurgana;
+  - `FINISH` kuvatakse topeltringina;
+  - `NORMAL` KP kuvatakse rõngana.
+- Kõigile admini kaardivaadete KP sümbolitele lisatakse õhuke valge halo parema loetavuse jaoks.
+- `S` tüüpi võistluse ühendusjoontele lisatakse admini kaardivaadetes õhuke valge halo.
+- Admini kaart ei kuva KP `title`-eid otse markerite kõrval täiendavate kaardilabelitena; detailsem KP-info kuvatakse popupis.
+- Admini KP popup jääb tahtlikult kitsaks ning kasutab maksimaalselt kompaktset kolme rea loogikat:
+  - esimene rida: senine KP pealkiri ja võimalik raadius;
+  - teine rida: küsimuse tekst koos küsimusetüübi lühivormiga ja punktidega kujul `(... T/SC x / y)`;
+  - kolmas rida: `TEXT` küsimusel õiged vastused, `SINGLE_CHOICE` küsimusel variandid ning õiged variandid boldis.

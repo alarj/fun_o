@@ -576,7 +576,7 @@ function collectTextAnswers() {
   return answers;
 }
 
-function openCheckpointDialog(cpId = null) {
+function initCheckpointDialogMapState() {
   showMsg("cpMsg", false, "");
   setCheckpointDialogSize(false);
   setExistingCheckpointsVisible(false);
@@ -589,7 +589,9 @@ function openCheckpointDialog(cpId = null) {
   }
   initCheckpointMap();
   applyCheckpointDialogBaseLayer();
-  const showGps = currentCompetitionUseLocation === "Y";
+}
+
+function applyCheckpointDialogLocationMode(showGps) {
   byId("cpMap").style.display = showGps ? "block" : "none";
   byId("cpMapToggleSizeBtn").style.display = showGps ? "inline-block" : "none";
   byId("cpToggleExistingBtn").style.display = showGps ? "inline-block" : "none";
@@ -601,68 +603,82 @@ function openCheckpointDialog(cpId = null) {
     const el = byId(id);
     if (el) el.disabled = !showGps;
   });
+}
+
+function resetCheckpointDialogMarkerLayers() {
+  if (cpMarker) {
+    cpMap.removeLayer(cpMarker);
+    cpMarker = null;
+  }
+  if (cpRadiusCircle) {
+    cpMap.removeLayer(cpRadiusCircle);
+    cpRadiusCircle = null;
+  }
+}
+
+function checkpointRadiusPlaceholder(showGps) {
+  if (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0) {
+    return String(Number(window.__lastCompetitionRadiusM));
+  }
+  return "";
+}
+
+function applyNewCheckpointDialogState(showGps) {
+  byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
+  byId("cpId").value = "";
+  fillCheckpointTypeSelect("NORMAL", null);
+  byId("cpName").value = "";
+  byId("cpLocation").value = "";
+  byId("cpOrder").value = "";
+  byId("cpLatitude").value = "";
+  byId("cpLongitude").value = "";
+  byId("cpRadiusM").value = "";
+  byId("cpRadiusM").placeholder = checkpointRadiusPlaceholder(showGps);
+  setCpLocationRequiredValue(showGps ? "Y" : "N");
+  byId("cpDelete").disabled = true;
+  cpDialogCheckpointId = null;
+  syncCheckpointTypeUi();
+  resetCheckpointDialogMarkerLayers();
+  const last = readLastCpCoord();
+  if (showGps && last) {
+    cpMap.setView([last.lat, last.lon], 16);
+    return;
+  }
+  cpMap.setView([58.6, 25.0], 7);
+}
+
+function applyExistingCheckpointDialogState(row, cpId, showGps) {
+  byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
+  byId("cpId").value = cpId;
+  fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
+  byId("cpName").value = row?.checkpoint_title || "";
+  byId("cpLocation").value = row?.location_hint || "";
+  byId("cpOrder").value = row?.checkpoint_order_no ?? "";
+  byId("cpLatitude").value = row?.latitude ?? "";
+  byId("cpLongitude").value = row?.longitude ?? "";
+  byId("cpRadiusM").value = row?.radius_m ?? "";
+  byId("cpRadiusM").placeholder = checkpointRadiusPlaceholder(showGps);
+  setCpLocationRequiredValue(row?.location_required || "N");
+  byId("cpDelete").disabled = false;
+  cpDialogCheckpointId = Number(cpId);
+  if (row?.latitude != null && row?.longitude != null) {
+    setCpCoordinates(Number(row.latitude), Number(row.longitude), true);
+  } else {
+    resetCheckpointDialogMarkerLayers();
+  }
+  syncCheckpointTypeUi();
+}
+
+function openCheckpointDialog(cpId = null) {
+  initCheckpointDialogMapState();
+  const showGps = currentCompetitionUseLocation === "Y";
+  applyCheckpointDialogLocationMode(showGps);
   if (!cpId) {
     if (!currentCompetitionActive) return;
-    byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
-    byId("cpId").value = "";
-    fillCheckpointTypeSelect("NORMAL", null);
-    byId("cpName").value = "";
-    byId("cpLocation").value = "";
-    byId("cpOrder").value = "";
-    byId("cpLatitude").value = "";
-    byId("cpLongitude").value = "";
-    byId("cpRadiusM").value = "";
-    setCpLocationRequiredValue(showGps ? "Y" : "N");
-    byId("cpDelete").disabled = true;
-    cpDialogCheckpointId = null;
-    if (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0) {
-      byId("cpRadiusM").placeholder = String(Number(window.__lastCompetitionRadiusM));
-    } else {
-      byId("cpRadiusM").placeholder = "";
-    }
-    syncCheckpointTypeUi();
-    if (cpMarker) {
-      cpMap.removeLayer(cpMarker);
-      cpMarker = null;
-    }
-    if (cpRadiusCircle) {
-      cpMap.removeLayer(cpRadiusCircle);
-      cpRadiusCircle = null;
-    }
-    const last = readLastCpCoord();
-    if (showGps && last) {
-      cpMap.setView([last.lat, last.lon], 16);
-    } else {
-      cpMap.setView([58.6, 25.0], 7);
-    }
+    applyNewCheckpointDialogState(showGps);
   } else {
     const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
-    byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
-    byId("cpId").value = cpId;
-    fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
-    byId("cpName").value = row?.checkpoint_title || "";
-    byId("cpLocation").value = row?.location_hint || "";
-    byId("cpOrder").value = row?.checkpoint_order_no ?? "";
-    byId("cpLatitude").value = row?.latitude ?? "";
-    byId("cpLongitude").value = row?.longitude ?? "";
-    byId("cpRadiusM").value = row?.radius_m ?? "";
-    byId("cpRadiusM").placeholder = (showGps && Number.isFinite(Number(window.__lastCompetitionRadiusM)) && Number(window.__lastCompetitionRadiusM) > 0)
-      ? String(Number(window.__lastCompetitionRadiusM))
-      : "";
-    setCpLocationRequiredValue(row?.location_required || "N");
-    byId("cpDelete").disabled = false;
-    cpDialogCheckpointId = Number(cpId);
-    if (row?.latitude != null && row?.longitude != null) {
-      setCpCoordinates(Number(row.latitude), Number(row.longitude), true);
-    } else if (cpMarker) {
-      cpMap.removeLayer(cpMarker);
-      cpMarker = null;
-      if (cpRadiusCircle) {
-        cpMap.removeLayer(cpRadiusCircle);
-        cpRadiusCircle = null;
-      }
-    }
-    syncCheckpointTypeUi();
+    applyExistingCheckpointDialogState(row, cpId, showGps);
   }
   cpDialogInitialState = cpDialogStateSnapshot();
   syncCpQuestionButton();
@@ -673,64 +689,66 @@ function openCheckpointDialog(cpId = null) {
 
 async function saveCheckpoint() {
   if (!currentCompetitionActive) return;
-  const checkpointType = normalizeCheckpointType(byId("cpType").value);
-  const isSpecial = isSpecialCheckpointType(checkpointType);
-  const title = byId("cpName").value.trim();
-  if (!title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required"));
-  const cpId = byId("cpId").value;
-  const orderRaw = byId("cpOrder").value.trim();
-  const location = byId("cpLocation").value.trim();
-  const latRaw = byId("cpLatitude").value.trim();
-  const lonRaw = byId("cpLongitude").value.trim();
-  const radiusRaw = byId("cpRadiusM").value.trim();
-  const locRequired = getCpLocationRequiredValue();
-  const editingId = cpId ? Number(cpId) : null;
-  if (hasDuplicateCheckpointTitle(title, editingId)) {
+  const form = {
+    checkpointType: normalizeCheckpointType(byId("cpType").value),
+    cpId: byId("cpId").value,
+    title: byId("cpName").value.trim(),
+    orderRaw: byId("cpOrder").value.trim(),
+    location: byId("cpLocation").value.trim(),
+    latRaw: byId("cpLatitude").value.trim(),
+    lonRaw: byId("cpLongitude").value.trim(),
+    radiusRaw: byId("cpRadiusM").value.trim(),
+    locRequired: getCpLocationRequiredValue()
+  };
+  form.isSpecial = isSpecialCheckpointType(form.checkpointType);
+  form.editingId = form.cpId ? Number(form.cpId) : null;
+  if (!form.title) return showMsg("cpMsg", false, tr("admin.msg.cp_title_required"));
+  if (hasDuplicateCheckpointTitle(form.title, form.editingId)) {
     return showMsg("cpMsg", false, tr("admin.msg.cp_title_exists"));
   }
-  if (!isSpecial && currentCompetitionType === "S" && orderRaw === "") {
+  if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw === "") {
     return showMsg("cpMsg", false, tr("admin.msg.cp_order_required_for_s"));
   }
-  if (!isSpecial && currentCompetitionType === "S" && orderRaw !== "") {
-    const nextOrder = Number(orderRaw);
+  if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw !== "") {
+    const nextOrder = Number(form.orderRaw);
     const hasDuplicateOrder = checkpointsData.some((r) => {
       const cpOrder = r?.checkpoint_order_no ?? r?.order_no;
       if (!Number.isFinite(Number(cpOrder))) return false;
       if (Number(cpOrder) !== nextOrder) return false;
-      if (editingId != null && Number(r?.checkpoint_id) === Number(editingId)) return false;
+      if (form.editingId != null && Number(r?.checkpoint_id) === Number(form.editingId)) return false;
       return true;
     });
     if (hasDuplicateOrder) {
       return showMsg("cpMsg", false, tr("admin.msg.cp_order_exists"));
     }
   }
-  if (!cpId) {
-    const payload = { competition_id: compId(), title, checkpoint_type: checkpointType };
-    if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
-    if (location) payload.location_hint = location;
+  if (!form.cpId) {
+    const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType };
+    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
-      if (latRaw !== "") payload.latitude = Number(latRaw);
-      if (lonRaw !== "") payload.longitude = Number(lonRaw);
-      if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
-      payload.location_required = locRequired;
+      if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
+      if (form.lonRaw !== "") payload.longitude = Number(form.lonRaw);
+      if (form.radiusRaw !== "") payload.radius_m = Number(form.radiusRaw);
+      payload.location_required = form.locRequired;
     }
     await post("/api/admin/checkpoints", payload);
-    if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
-      writeLastCpCoord(Number(latRaw), Number(lonRaw));
+    if (currentCompetitionUseLocation === "Y" && form.latRaw !== "" && form.lonRaw !== "") {
+      writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   } else {
-    const payload = { competition_id: compId(), checkpoint_id: Number(cpId), title };
-    if (!isSpecial && orderRaw !== "") payload.order_no = Number(orderRaw);
-    if (location) payload.location_hint = location;
+    const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title };
+    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
-      if (latRaw !== "") payload.latitude = Number(latRaw);
-      if (lonRaw !== "") payload.longitude = Number(lonRaw);
-      if (radiusRaw !== "") payload.radius_m = Number(radiusRaw);
-      payload.location_required = locRequired;
+      if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
+      if (form.lonRaw !== "") payload.longitude = Number(form.lonRaw);
+      if (form.radiusRaw !== "") payload.radius_m = Number(form.radiusRaw);
+      payload.location_required = form.locRequired;
     }
     await post("/api/admin/checkpoints/update", payload);
-    if (currentCompetitionUseLocation === "Y" && latRaw !== "" && lonRaw !== "") {
-      writeLastCpCoord(Number(latRaw), Number(lonRaw));
+    if (currentCompetitionUseLocation === "Y" && form.latRaw !== "" && form.lonRaw !== "") {
+      writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   }
   byId("cpDialog").close();
@@ -829,14 +847,53 @@ function resetQuestionDialogVisibility() {
   setQuestionDialogMode("normal");
 }
 
+function collectQuestionTextsByLang() {
+  const textsByLang = {};
+  availableLangs.forEach((lang) => {
+    textsByLang[lang] = byId(qTextId(lang)).value.trim();
+  });
+  return textsByLang;
+}
+
+function collectQuestionVariantPayload(questionType) {
+  if (questionType === "SINGLE_CHOICE") {
+    const { opts, hasCorrect } = collectSingleChoiceOptions();
+    if (opts.length === 0) return { error: tr("admin.msg.min_one_option") };
+    if (!hasCorrect) return { error: tr("admin.msg.min_one_correct_option") };
+    return { optionsJson: JSON.stringify(opts), answersJson: null };
+  }
+  const answers = collectTextAnswers();
+  if (answers.length === 0) return { error: tr("admin.msg.min_one_answer") };
+  return { optionsJson: null, answersJson: JSON.stringify(answers) };
+}
+
+async function persistQuestionTranslations(questionId, payload, textsByLang, optionsJson, answersJson) {
+  for (const lang of availableLangs) {
+    const text = textsByLang[lang];
+    if (!text && lang !== defaultLang) continue;
+    await post("/api/admin/questions/update", {
+      question_id: Number(questionId),
+      checkpoint_id: payload.checkpoint_id,
+      question_type: payload.question_type,
+      input_type: payload.input_type,
+      input_max_length: payload.input_max_length,
+      input_pattern: payload.input_pattern,
+      points: payload.points,
+      wrong_points: payload.wrong_points,
+      lang_code: lang,
+      question_text: text || payload.question_text,
+      options_json: lang === defaultLang ? optionsJson : null,
+      answers_json: lang === defaultLang ? answersJson : null
+    });
+  }
+}
+
 async function saveQuestion() {
   if (!currentCompetitionActive) return;
-  const textsByLang = {};
-  availableLangs.forEach((lang) => { textsByLang[lang] = byId(qTextId(lang)).value.trim(); });
+  const textsByLang = collectQuestionTextsByLang();
   const defaultText = textsByLang[defaultLang] || "";
   if (!defaultText) return showMsg("qMsg", false, `${tr("admin.msg.question_text_required_prefix")} (${defaultLang}) ${tr("admin.msg.required_suffix")}`);
   const qType = byId("qType").value;
-
   const qId = byId("qId").value;
   const payload = {
     checkpoint_id: Number(byId("qCheckpoint").value),
@@ -850,66 +907,22 @@ async function saveQuestion() {
     question_text: defaultText
   };
 
-  let optionsJson = null;
-  let answersJson = null;
-  if (qType === "SINGLE_CHOICE") {
-    const { opts, hasCorrect } = collectSingleChoiceOptions();
-    if (opts.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_option"));
-    if (!hasCorrect) return showMsg("qMsg", false, tr("admin.msg.min_one_correct_option"));
-    optionsJson = JSON.stringify(opts);
-  } else {
-    const answers = collectTextAnswers();
-    if (answers.length === 0) return showMsg("qMsg", false, tr("admin.msg.min_one_answer"));
-    answersJson = JSON.stringify(answers);
-  }
+  const variants = collectQuestionVariantPayload(qType);
+  if (variants.error) return showMsg("qMsg", false, variants.error);
+  const { optionsJson, answersJson } = variants;
 
   try {
     if (!qId) {
       const created = await post("/api/admin/questions", payload);
       const cpState = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(payload.checkpoint_id));
-      const newId = created.question_id;
-      for (const lang of availableLangs) {
-        const text = textsByLang[lang];
-        if (!text) continue;
-        await post("/api/admin/questions/update", {
-          question_id: newId,
-          checkpoint_id: payload.checkpoint_id,
-          question_type: payload.question_type,
-          input_type: payload.input_type,
-          input_max_length: payload.input_max_length,
-          input_pattern: payload.input_pattern,
-          points: payload.points,
-          wrong_points: payload.wrong_points,
-          lang_code: lang,
-          question_text: text,
-          options_json: lang === defaultLang ? optionsJson : null,
-          answers_json: lang === defaultLang ? answersJson : null
-        });
-      }
+      await persistQuestionTranslations(created.question_id, payload, textsByLang, optionsJson, answersJson);
       if (!cpState?.question_id) {
         byId("qDialog").close();
         await loadView();
         return;
       }
     } else {
-      for (const lang of availableLangs) {
-        const text = textsByLang[lang];
-        if (!text && lang !== defaultLang) continue;
-        await post("/api/admin/questions/update", {
-          question_id: Number(qId),
-          checkpoint_id: payload.checkpoint_id,
-          question_type: payload.question_type,
-          input_type: payload.input_type,
-          input_max_length: payload.input_max_length,
-          input_pattern: payload.input_pattern,
-          points: payload.points,
-          wrong_points: payload.wrong_points,
-          lang_code: lang,
-          question_text: text || defaultText,
-          options_json: lang === defaultLang ? optionsJson : null,
-          answers_json: lang === defaultLang ? answersJson : null
-        });
-      }
+      await persistQuestionTranslations(qId, payload, textsByLang, optionsJson, answersJson);
     }
     byId("qDialog").close();
     await loadView();
@@ -978,8 +991,9 @@ async function saveParticipantMapLayersDialog() {
     showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
     return;
   }
-  const prevSorted = [...competitionParticipantLayerCodes].sort();
-  const nextSorted = [...selected].sort();
+  const compareLayerCodes = (a, b) => String(a || "").localeCompare(String(b || ""), "en", { sensitivity: "base" });
+  const prevSorted = [...competitionParticipantLayerCodes].sort(compareLayerCodes);
+  const nextSorted = [...selected].sort(compareLayerCodes);
   const changed = prevSorted.length !== nextSorted.length || prevSorted.some((x, i) => x !== nextSorted[i]);
   if (changed) {
     await post("/api/admin/competitions/map-layers", {
