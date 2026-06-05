@@ -449,21 +449,27 @@ begin
       declare
         l_body json_object_t;
         l_access_code_id number;
+        l_code varchar2(20);
       begin
         l_body := json_object_t.parse(:body_text);
         FUNO_APP.pkg_admin_content.upsert_access_code(
           p_competition_id => l_body.get_number('competition_id'),
           p_code_type => l_body.get_string('code_type'),
-          p_code => l_body.get_string('code'),
+          p_code => case
+            when l_body.has('code') and l_body.get('code') is not null and not l_body.get('code').is_null then l_body.get_string('code')
+            else null
+          end,
           p_status => case when l_body.has('status') then l_body.get_string('status') else 'ACTIVE' end,
           p_expires_at => null,
           p_max_uses => case when l_body.has('max_uses') then l_body.get_number('max_uses') else null end,
           p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
-          o_access_code_id => l_access_code_id
+          p_force_regenerate => case when l_body.has('force_regenerate') then l_body.get_string('force_regenerate') else 'N' end,
+          o_access_code_id => l_access_code_id,
+          o_code => l_code
         );
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(json_object('access_code_id' value l_access_code_id));
+        htp.p(json_object('access_code_id' value l_access_code_id, 'code' value l_code));
       end;
     ]'
   );

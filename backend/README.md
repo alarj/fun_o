@@ -88,7 +88,7 @@ Expected ORDS JSON responses:
 - `admin/questions` -> `{ "question_id": 456 }`
 - `admin/question-options` -> `{ "option_id": 789 }`
 - `admin/question-answers` -> `{ "answer_id": 321 }`
-- `admin/access-codes` -> `{ "access_code_id": 654 }`
+- `admin/access-codes` -> `{ "access_code_id": 654, "code": "123456" }`
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
 - `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
 - `superadmin/translations` -> `{ "items": [...] }`
@@ -297,6 +297,11 @@ Architecture rule for all ORDS endpoints:
   - `code_type` in `('COMPETITOR','ORGANIZER')`
   - `status`, `expires_at`, `max_uses`, `used_count`
   - soft-delete columns
+
+Access code generation rule:
+- Global uniqueness is enforced in DB (`competition_access_codes.code` + package-level uniqueness check).
+- Normal "ensure code exists" flow keeps the existing active code unchanged.
+- Explicit admin regeneration flow is separate and must request a new code intentionally; the new code is generated in DB and returned via `POST /admin/access-codes`.
 - `competition_organizers`
   - `competition_organizer_id` PK
   - FK: `competition_id -> competitions`, `user_id -> users`, `assigned_by -> users`

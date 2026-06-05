@@ -362,7 +362,6 @@ const parseEtInput = (v) => {
   return localDate.toISOString().slice(0, 19) + "Z";
 };
 
-const generate6DigitCode = () => String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
 const nextOptionCode = (idx) => String.fromCharCode(65 + (idx % 26));
 let pendingCodeType = null;
 let pendingOldCode = null;

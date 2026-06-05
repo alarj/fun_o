@@ -3150,7 +3150,9 @@ create or replace package pkg_admin_content as
     p_expires_at in timestamp,
     p_max_uses in number,
     p_created_by in number,
-    o_access_code_id out number
+    p_force_regenerate in varchar2 default 'N',
+    o_access_code_id out number,
+    o_code out varchar2
   );
   -- get_competition_overview_json: Returns a JSON object for the requested competition overview.
   procedure get_competition_overview_json(p_competition_id in number, o_overview_json out clob);
@@ -4116,13 +4118,19 @@ create or replace package body pkg_admin_content as
   -- upsert_access_code: Inserts or updates access code data.
   procedure upsert_access_code(
     p_competition_id in number, p_code_type in varchar2, p_code in varchar2, p_status in varchar2,
-    p_expires_at in timestamp, p_max_uses in number, p_created_by in number, o_access_code_id out number
+    p_expires_at in timestamp, p_max_uses in number, p_created_by in number,
+    p_force_regenerate in varchar2 default 'N', o_access_code_id out number, o_code out varchar2
   ) is
     l_code varchar2(20);
     l_conflict number;
     l_existing_code varchar2(20);
+    l_force_regenerate varchar2(1);
   begin
     l_code := trim(p_code);
+    l_force_regenerate := case
+      when upper(trim(nvl(p_force_regenerate, 'N'))) in ('Y', '1', 'TRUE', 'YES') then 'Y'
+      else 'N'
+    end;
 
     begin
       select c.access_code_id, c.code
@@ -4137,7 +4145,9 @@ create or replace package body pkg_admin_content as
       l_existing_code := null;
     end;
 
-    if l_code is null then
+    if l_force_regenerate = 'Y' then
+      l_code := generate_unique_access_code;
+    elsif l_code is null then
       if o_access_code_id is not null then
         l_code := l_existing_code;
       else
@@ -4169,15 +4179,17 @@ create or replace package body pkg_admin_content as
       add_audit('ACCESS_CODE', o_access_code_id, 'CREATE', p_created_by, null,
         to_clob(json_object('competition_id' value p_competition_id, 'code_type' value p_code_type, 'code' value l_code)));
     end;
+    o_code := l_code;
   end;
 
   -- get_competition_overview_json: Returns a JSON object for the requested competition overview.
   procedure get_competition_overview_json(p_competition_id in number, o_overview_json out clob) is
     l_dummy number;
+    l_dummy_code varchar2(20);
   begin
     begin
-      upsert_access_code(p_competition_id, 'COMPETITOR', null, 'ACTIVE', null, null, null, l_dummy);
-      upsert_access_code(p_competition_id, 'ORGANIZER', null, 'ACTIVE', null, null, null, l_dummy);
+      upsert_access_code(p_competition_id, 'COMPETITOR', null, 'ACTIVE', null, null, null, 'N', l_dummy, l_dummy_code);
+      upsert_access_code(p_competition_id, 'ORGANIZER', null, 'ACTIVE', null, null, null, 'N', l_dummy, l_dummy_code);
     exception when others then null; end;
 
     select json_object(

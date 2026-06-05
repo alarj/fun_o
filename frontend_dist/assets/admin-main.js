@@ -1347,13 +1347,13 @@ byId("codeConfirmNo").onclick = () => {
 };
 byId("codeConfirmYes").onclick = async () => {
   try {
-    const newCode = generate6DigitCode();
-    await post("/api/admin/access-codes", {
+    const result = await post("/api/admin/access-codes", {
       competition_id: compId(),
       code_type: pendingCodeType,
-      code: newCode,
+      force_regenerate: "Y",
       status: "ACTIVE"
     });
+    const newCode = String(result?.code || "").trim();
     await loadView();
     byId("codeConfirmDialog").close();
     byId("codeResultText").innerHTML = `${esc(tr("admin.code_result.prefix"))} <strong style="font-size:22px;">${esc(newCode)}</strong>.<br>${esc(tr("admin.code_result.suffix"))}`;

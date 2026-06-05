@@ -538,14 +538,16 @@ class AdminQuestionsOverviewResponse(BaseModel):
 class AdminUpsertAccessCodeRequest(BaseModel):
     competition_id: int
     code_type: str
-    code: str
+    code: str | None = None
     status: str = "ACTIVE"
     max_uses: int | None = None
+    force_regenerate: str | None = None
     created_by: int | None = None
 
 
 class AdminUpsertAccessCodeResponse(BaseModel):
     access_code_id: int
+    code: str
 
 
 class AdminCompetitionsResponse(BaseModel):
@@ -2788,21 +2790,26 @@ async def admin_questions_overview(competition_id: int, request: Request, x_user
 @app.post("/api/admin/access-codes", response_model=AdminUpsertAccessCodeResponse)
 async def admin_upsert_access_code(req: AdminUpsertAccessCodeRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminUpsertAccessCodeResponse:
     user_id = _require_google_session_user(request, x_user_id)
+    payload: dict[str, Any] = {
+        "competition_id": req.competition_id,
+        "code_type": req.code_type,
+        "status": req.status,
+        "max_uses": req.max_uses,
+        "created_by": user_id,
+    }
+    if req.code is not None:
+        payload["code"] = req.code
+    if req.force_regenerate is not None:
+        payload["force_regenerate"] = req.force_regenerate
     ords_response = await _post_to_ords(
         "admin/access-codes",
-        {
-            "competition_id": req.competition_id,
-            "code_type": req.code_type,
-            "code": req.code,
-            "status": req.status,
-            "max_uses": req.max_uses,
-            "created_by": user_id,
-        },
+        payload,
     )
     access_code_id = ords_response.get("access_code_id")
-    if not isinstance(access_code_id, int):
+    code = ords_response.get("code")
+    if not isinstance(access_code_id, int) or not isinstance(code, str) or not code.strip():
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    return AdminUpsertAccessCodeResponse(access_code_id=access_code_id)
+    return AdminUpsertAccessCodeResponse(access_code_id=access_code_id, code=code.strip())
 
 
 @app.get("/api/admin/competitions", response_model=AdminCompetitionsResponse)
