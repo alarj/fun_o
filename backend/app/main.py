@@ -705,6 +705,8 @@ def _normalize_ords_payload_datetimes(value: Any, key_hint: str | None = None) -
 
 def _extract_oracle_error(payload: Any) -> tuple[str, str]:
     text = str(payload)
+    if "ORA-00001" in text and "UX_SUBMISSIONS_COMP_USER_CP_Q" in text.upper():
+        return ("DUPLICATE_SUBMISSION", "api.error.duplicate_submission")
     for ora_codes, mapped_error in ORACLE_ERROR_MAP:
         if any(ora_code in text for ora_code in ora_codes):
             return mapped_error

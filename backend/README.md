@@ -209,6 +209,7 @@ Error mapping:
 - ORA-20060 -> INVALID_SUBMISSION
 - ORA-20061 -> NOT_PARTICIPANT
 - ORA-20067 -> INVALID_CHECKPOINT_ORDER
+- ORA-00001 on `UX_SUBMISSIONS_COMP_USER_CP_Q` -> DUPLICATE_SUBMISSION
 - ORA-20010 -> INVALID_GOOGLE_PROFILE
 
 I18n cache reload:
@@ -371,6 +372,7 @@ Architecture rule for all ORDS endpoints:
   - answer fields: `answer_text` CLOB, `selected_option_id`
   - scoring fields: `awarded_points`, `is_correct`
   - timestamps: `submitted_at`, `evaluated_at`
+  - unique business key: `(competition_id, user_id, checkpoint_id, question_id)`
   - no `start_date/end_date` soft-delete columns
 - `materials`
   - `material_id` PK
@@ -388,6 +390,7 @@ Architecture rule for all ORDS endpoints:
 - `ux_users_google_sub` on `google_sub`
 - `ux_roles_code` on `role_code`
 - `ux_competition_access_code_global` on `competition_access_codes(code)` (added by migration 11)
+- `ux_submissions_comp_user_cp_q` on `submissions(competition_id, user_id, checkpoint_id, question_id)` (added by migration 24)
 - Active-record unique indexes (`end_date is null`) for:
   - access codes by `code`
   - organizers by `(competition_id, user_id)`

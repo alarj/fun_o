@@ -470,6 +470,13 @@ create unique index ux_active_qot_lang on question_option_texts (
   case when end_date is null then lower(lang_code) end
 );
 
+create unique index ux_submissions_comp_user_cp_q on submissions (
+  competition_id,
+  user_id,
+  checkpoint_id,
+  question_id
+);
+
 -- Seed roles
 insert into roles(role_id, role_code, role_name, start_date)
 values (seq_roles.nextval, 'SYSTEM_OWNER', 'System Owner', trunc(sysdate));

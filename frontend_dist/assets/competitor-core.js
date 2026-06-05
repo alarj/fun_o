@@ -7,6 +7,7 @@ const state = {
   openItems: [],
   openItemsLoaded: false,
   feedbackOpen: false,
+  submissionInFlight: false,
   geo: {
     enabled: false,
     latitude: null,
@@ -309,7 +310,11 @@ function enrichErrorMessage(status, data, retryAfterSeconds) {
   if (status === 429 || code === "ORDS_RATE_LIMITED") {
     return trf("competitor.msg.server_busy_retry_seconds", { seconds: retryAfterSeconds });
   }
-  return data?.detail?.message || "";
+  const message = data?.detail?.message || "";
+  if (typeof message === "string" && message.startsWith("api.error.")) {
+    return tr(message);
+  }
+  return message;
 }
 
 async function apiRequest(url, init, options = {}) {
@@ -681,6 +686,7 @@ function renderQuestionForSelectedCheckpoint() {
     el("textAnswer").value = "";
     el("textBlock").style.display = "block";
   }
+  setSubmissionBusy(state.submissionInFlight);
 }
 
 function showFeedback(ok, points, total) {
@@ -695,8 +701,20 @@ function showFeedback(ok, points, total) {
   el("feedbackBackdrop").style.display = "flex";
 }
 
+function setSubmissionBusy(isBusy) {
+  state.submissionInFlight = isBusy === true;
+  const textSubmitBtn = el("textSubmitBtn");
+  if (textSubmitBtn) textSubmitBtn.disabled = state.submissionInFlight;
+  const checkpointSelect = el("checkpointSelect");
+  if (checkpointSelect) checkpointSelect.disabled = state.submissionInFlight;
+  const optionButtons = Array.from(document.querySelectorAll("#singleChoiceBlock .optionBtn"));
+  optionButtons.forEach((btn) => {
+    btn.disabled = state.submissionInFlight;
+  });
+}
+
 async function submitAnswer(item, extra) {
-  if (state.feedbackOpen) return;
+  if (state.feedbackOpen || state.submissionInFlight) return;
   setMsg("answerMsg", "", true);
   const payload = {
     competition_id: state.selectedCompetitionId,
@@ -707,40 +725,46 @@ async function submitAnswer(item, extra) {
     radius_m: state.geo.enabled ? state.geo.radius_m : null,
     ...extra,
   };
-  const res = await apiPost("/api/submissions", payload);
-  if (!res.ok) {
-    setMsg("answerMsg", res.userMessage || tr("competitor.msg.submit_failed"), false);
-    return;
-  }
-  const d = res.data || {};
-  progressCache.score = Number(d.total_score || 0);
-  progressCache.answeredKp = Math.max(0, Number(progressCache.answeredKp || 0) + 1);
-  progressCache.updatedAt = Date.now();
-  progressCache.key = getProgressCacheKey();
-  saveProgressCookie();
-  renderProgressBox();
+  setSubmissionBusy(true);
+  try {
+    const res = await apiPost("/api/submissions", payload);
+    if (!res.ok) {
+      setMsg("answerMsg", res.userMessage || tr("competitor.msg.submit_failed"), false);
+      return;
+    }
+    const d = res.data || {};
+    progressCache.score = Number(d.total_score || 0);
+    progressCache.answeredKp = Math.max(0, Number(progressCache.answeredKp || 0) + 1);
+    progressCache.updatedAt = Date.now();
+    progressCache.key = getProgressCacheKey();
+    saveProgressCookie();
+    renderProgressBox();
 
-  const answeredCpId = Number(item?.checkpoint_id || 0);
-  if (answeredCpId > 0 && Array.isArray(state.mapItems)) {
-    state.mapItems.forEach((cp) => {
-      if (Number(cp?.checkpoint_id || 0) === answeredCpId) {
-        cp.is_answered = "Y";
-      }
-    });
-    mapRings.forEach((entry) => {
-      if (Number(entry?.cp?.checkpoint_id || 0) === answeredCpId) {
-        if (entry.cp) entry.cp.is_answered = "Y";
-        entry.ring?.setPopupContent(checkpointPopupLabel(entry.cp));
-      }
-    });
-  }
+    const answeredCpId = Number(item?.checkpoint_id || 0);
+    if (answeredCpId > 0 && Array.isArray(state.mapItems)) {
+      state.mapItems.forEach((cp) => {
+        if (Number(cp?.checkpoint_id || 0) === answeredCpId) {
+          cp.is_answered = "Y";
+        }
+      });
+      mapRings.forEach((entry) => {
+        if (Number(entry?.cp?.checkpoint_id || 0) === answeredCpId) {
+          if (entry.cp) entry.cp.is_answered = "Y";
+          entry.ring?.setPopupContent(checkpointPopupLabel(entry.cp));
+        }
+      });
+    }
 
-  showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
+    showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
+  } finally {
+    if (!state.feedbackOpen) setSubmissionBusy(false);
+  }
 }
 
 async function closeFeedback() {
   state.feedbackOpen = false;
   el("feedbackBackdrop").style.display = "none";
+  setSubmissionBusy(false);
   await loadOpenCheckpoints();
 }
 
