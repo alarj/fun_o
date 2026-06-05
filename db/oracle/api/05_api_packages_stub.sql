@@ -993,7 +993,7 @@ create or replace package body pkg_submissions as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select count(*)
@@ -1654,7 +1654,7 @@ create or replace package body pkg_results as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select json_arrayagg(
@@ -1782,7 +1782,7 @@ create or replace package body pkg_results as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select s.question_id,
@@ -3161,7 +3161,7 @@ create or replace package body pkg_competitor as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select json_object(
