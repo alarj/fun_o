@@ -1363,8 +1363,7 @@ create or replace package body pkg_results as
       select case when nvl(c.use_location, 'N') = 'Y' then 'Y' else 'N' end
         into l_use_location
         from competitions c
-       where c.competition_id = p_competition_id
-         and (c.end_date is null or c.end_date > sysdate);
+       where c.competition_id = p_competition_id;
     exception
       when no_data_found then
         return 'N';
