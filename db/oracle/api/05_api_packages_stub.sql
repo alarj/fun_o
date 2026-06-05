@@ -763,6 +763,91 @@ create or replace package body pkg_questions as
 end pkg_questions;
 /
 
+create or replace package pkg_results as
+  -- get_total_elapsed_seconds: Returns competition elapsed seconds for one competitor.
+  function get_total_elapsed_seconds(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number;
+
+  -- get_distance_available: Returns whether at least two usable geo points exist for distance calculation.
+  function get_distance_available(
+    p_competition_id in number,
+    p_user_id in number
+  ) return varchar2;
+
+  -- get_total_distance_m: Returns cumulative as-the-crow-flies distance in meters for one competitor.
+  function get_total_distance_m(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number;
+
+  -- get_competition_rank: Returns competitor rank using competition ordering rules.
+  function get_competition_rank(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number;
+
+  -- get_competition_score: Returns competition score for one competitor.
+  procedure get_competition_score(
+    p_competition_id in number,
+    p_user_id in number,
+    o_score out number
+  );
+
+  -- get_competition_leaderboard: Returns organizer leaderboard payload for one competition.
+  procedure get_competition_leaderboard(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  );
+
+  -- get_participant_submissions: Returns organizer participant submissions timeline and summary.
+  procedure get_participant_submissions(
+    p_competition_id in number,
+    p_user_id in number,
+    p_requester_user_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
+    o_access_granted out varchar2,
+    o_items_json out clob,
+    o_total_elapsed_seconds out number,
+    o_total_distance_m out number,
+    o_distance_available out varchar2
+  );
+
+  -- get_submission_detail: Returns one organizer-visible submission detail payload.
+  procedure get_submission_detail(
+    p_competition_id in number,
+    p_user_id in number,
+    p_submission_id in number,
+    p_requester_user_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
+    o_access_granted out varchar2,
+    o_item_json out clob
+  );
+
+  -- get_checkpoint_results: Returns organizer checkpoint aggregate results.
+  procedure get_checkpoint_results(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  );
+
+  -- get_checkpoint_responders: Returns organizer-visible responders for one checkpoint.
+  procedure get_checkpoint_responders(
+    p_competition_id in number,
+    p_checkpoint_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  );
+end pkg_results;
+/
+
 create or replace package pkg_submissions as
   -- normalize_text: Normalizes input value(s) according to the expected format.
   function normalize_text(
@@ -776,6 +861,8 @@ create or replace package pkg_submissions as
     p_competition_id in number,
     p_checkpoint_id in number,
     p_question_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     p_answer_text in clob,
     p_selected_option_id in number,
     p_latitude in number,
@@ -784,7 +871,13 @@ create or replace package pkg_submissions as
     o_submission_id out number,
     o_is_correct out varchar2,
     o_awarded_points out number,
-    o_total_score out number
+    o_total_score out number,
+    o_correct_answer_texts_json out clob,
+    o_other_correct_answer_texts_json out clob,
+    o_total_elapsed_seconds out number,
+    o_total_distance_m out number,
+    o_distance_display_allowed out varchar2,
+    o_current_rank out number
   );
 end pkg_submissions;
 /
@@ -815,6 +908,8 @@ create or replace package body pkg_submissions as
     p_competition_id in number,
     p_checkpoint_id in number,
     p_question_id in number,
+    p_lang_code in varchar2,
+    p_default_lang_code in varchar2,
     p_answer_text in clob,
     p_selected_option_id in number,
     p_latitude in number,
@@ -823,7 +918,13 @@ create or replace package body pkg_submissions as
     o_submission_id out number,
     o_is_correct out varchar2,
     o_awarded_points out number,
-    o_total_score out number
+    o_total_score out number,
+    o_correct_answer_texts_json out clob,
+    o_other_correct_answer_texts_json out clob,
+    o_total_elapsed_seconds out number,
+    o_total_distance_m out number,
+    o_distance_display_allowed out varchar2,
+    o_current_rank out number
   ) is
     l_dummy number;
     l_question_type questions.question_type%type;
@@ -839,6 +940,8 @@ create or replace package body pkg_submissions as
     l_start_answered number := 0;
     l_finish_answered number := 0;
     l_next_ordered_checkpoint_id checkpoints.checkpoint_id%type;
+    l_lang varchar2(10);
+    l_fallback_lang varchar2(10);
   begin
     if p_user_id is null or p_competition_id is null or p_checkpoint_id is null or p_question_id is null then
       raise_application_error(-20060, 'user_id, competition_id, checkpoint_id and question_id are required');
@@ -893,6 +996,15 @@ create or replace package body pkg_submissions as
       when no_data_found then
         l_comp_type := pkg_common.c_competition_type_random;
     end;
+
+    l_lang := lower(nvl(trim(p_lang_code), 'et'));
+    l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
+    if l_fallback_lang is null then
+      l_fallback_lang := 'et';
+    end if;
+    if l_fallback_lang = l_lang then
+      l_fallback_lang := null;
+    end if;
 
     select count(*)
       into l_start_exists
@@ -1032,6 +1144,142 @@ create or replace package body pkg_submissions as
       from submissions s
      where s.competition_id = p_competition_id
        and s.user_id = p_user_id;
+
+    if l_question_type = 'SINGLE_CHOICE' then
+      select coalesce(
+               json_arrayagg(x.option_text returning clob),
+               to_clob('[]')
+             )
+        into o_correct_answer_texts_json
+        from (
+          select nvl(
+                   (
+                     select qot_et.option_text
+                       from question_option_texts qot_et
+                      where qot_et.option_id = qo.option_id
+                        and lower(qot_et.lang_code) = l_lang
+                        and (qot_et.end_date is null or qot_et.end_date > sysdate)
+                      fetch first 1 row only
+                   ),
+                   nvl(
+                     (
+                       select qot_f.option_text
+                         from question_option_texts qot_f
+                        where qot_f.option_id = qo.option_id
+                          and lower(qot_f.lang_code) = l_fallback_lang
+                          and (qot_f.end_date is null or qot_f.end_date > sysdate)
+                        fetch first 1 row only
+                     ),
+                     qo.option_code
+                   )
+                 ) as option_text
+            from question_options qo
+           where qo.question_id = p_question_id
+             and qo.is_correct = 'Y'
+             and (qo.end_date is null or qo.end_date > sysdate)
+           order by nvl(qo.order_no, qo.option_id) asc, qo.option_id asc
+        ) x;
+
+      if l_is_correct = 'Y' then
+        select coalesce(
+                 json_arrayagg(x.option_text returning clob),
+                 to_clob('[]')
+               )
+          into o_other_correct_answer_texts_json
+          from (
+            select nvl(
+                     (
+                       select qot_et.option_text
+                         from question_option_texts qot_et
+                        where qot_et.option_id = qo.option_id
+                          and lower(qot_et.lang_code) = l_lang
+                          and (qot_et.end_date is null or qot_et.end_date > sysdate)
+                        fetch first 1 row only
+                     ),
+                     nvl(
+                       (
+                         select qot_f.option_text
+                           from question_option_texts qot_f
+                          where qot_f.option_id = qo.option_id
+                            and lower(qot_f.lang_code) = l_fallback_lang
+                            and (qot_f.end_date is null or qot_f.end_date > sysdate)
+                          fetch first 1 row only
+                       ),
+                       qo.option_code
+                     )
+                   ) as option_text
+              from question_options qo
+             where qo.question_id = p_question_id
+               and qo.is_correct = 'Y'
+               and qo.option_id <> p_selected_option_id
+               and (qo.end_date is null or qo.end_date > sysdate)
+              order by nvl(qo.order_no, qo.option_id) asc, qo.option_id asc
+          ) x;
+      else
+        o_other_correct_answer_texts_json := to_clob('[]');
+      end if;
+    else
+      select coalesce(
+               json_arrayagg(x.answer_value returning clob),
+               to_clob('[]')
+             )
+        into o_correct_answer_texts_json
+        from (
+          select qa.answer_value
+            from question_answers qa
+           where qa.question_id = p_question_id
+             and qa.is_correct = 'Y'
+             and (qa.end_date is null or qa.end_date > sysdate)
+           order by qa.answer_id asc
+        ) x;
+
+      if l_is_correct = 'Y' then
+        select coalesce(
+                 json_arrayagg(x.answer_value returning clob),
+                 to_clob('[]')
+               )
+          into o_other_correct_answer_texts_json
+          from (
+            select qa.answer_value
+              from question_answers qa
+             where qa.question_id = p_question_id
+               and qa.is_correct = 'Y'
+               and (qa.end_date is null or qa.end_date > sysdate)
+               and normalize_text(qa.answer_value, qa.normalize_mode)
+                   <> normalize_text(l_normalized_answer, qa.normalize_mode)
+             order by qa.answer_id asc
+          ) x;
+      else
+        o_other_correct_answer_texts_json := to_clob('[]');
+      end if;
+    end if;
+
+    o_total_elapsed_seconds := pkg_results.get_total_elapsed_seconds(
+      p_competition_id => p_competition_id,
+      p_user_id => p_user_id
+    );
+    o_current_rank := pkg_results.get_competition_rank(
+      p_competition_id => p_competition_id,
+      p_user_id => p_user_id
+    );
+
+    if p_latitude is not null and p_longitude is not null then
+      o_distance_display_allowed := pkg_results.get_distance_available(
+        p_competition_id => p_competition_id,
+        p_user_id => p_user_id
+      );
+      if o_distance_display_allowed = 'Y' then
+        o_total_distance_m := pkg_results.get_total_distance_m(
+          p_competition_id => p_competition_id,
+          p_user_id => p_user_id
+        );
+      else
+        o_total_distance_m := null;
+      end if;
+    else
+      o_distance_display_allowed := 'N';
+      o_total_distance_m := null;
+    end if;
   end;
 end pkg_submissions;
 /
@@ -1083,69 +1331,147 @@ create or replace package body pkg_i18n as
 end pkg_i18n;
 /
 
-create or replace package pkg_results as
-  -- get_competition_score: Returns competition score data.
-  procedure get_competition_score(
-    p_competition_id in number,
-    p_user_id in number,
-    o_score out number
-  );
-
-  -- get_competition_leaderboard: Returns competition leaderboard data.
-  procedure get_competition_leaderboard(
-    p_competition_id in number,
-    p_requester_user_id in number,
-    o_access_granted out varchar2,
-    o_items_json out clob
-  );
-
-  -- get_participant_submissions: Returns participant submissions data.
-  procedure get_participant_submissions(
-    p_competition_id in number,
-    p_user_id in number,
-    p_requester_user_id in number,
-    p_lang_code in varchar2,
-    p_default_lang_code in varchar2,
-    o_access_granted out varchar2,
-    o_items_json out clob,
-    o_total_elapsed_seconds out number,
-    o_total_distance_m out number,
-    o_distance_available out varchar2
-  );
-
-  -- get_submission_detail: Returns submission detail data.
-  procedure get_submission_detail(
-    p_competition_id in number,
-    p_user_id in number,
-    p_submission_id in number,
-    p_requester_user_id in number,
-    p_lang_code in varchar2,
-    p_default_lang_code in varchar2,
-    o_access_granted out varchar2,
-    o_item_json out clob
-  );
-
-  -- get_checkpoint_results: Returns checkpoint results data.
-  procedure get_checkpoint_results(
-    p_competition_id in number,
-    p_requester_user_id in number,
-    o_access_granted out varchar2,
-    o_items_json out clob
-  );
-
-  -- get_checkpoint_responders: Returns checkpoint responders data.
-  procedure get_checkpoint_responders(
-    p_competition_id in number,
-    p_checkpoint_id in number,
-    p_requester_user_id in number,
-    o_access_granted out varchar2,
-    o_items_json out clob
-  );
-end pkg_results;
-/
-
 create or replace package body pkg_results as
   c_json_question_text constant varchar2(30) := 'question_text'; -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+
+  function get_total_elapsed_seconds(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number is
+    l_total_elapsed_seconds number;
+  begin
+    select case
+             when count(*) >= 2 then round((max(cast(s.submitted_at as date)) - min(cast(s.submitted_at as date))) * 86400)
+             else null
+           end
+      into l_total_elapsed_seconds
+      from submissions s
+     where s.competition_id = p_competition_id
+       and s.user_id = p_user_id
+       and s.submitted_at is not null;
+    return l_total_elapsed_seconds;
+  end;
+
+  function get_distance_available(
+    p_competition_id in number,
+    p_user_id in number
+  ) return varchar2 is
+    l_use_location varchar2(1) := 'N';
+    l_geo_count number := 0;
+  begin
+    begin
+      select case when nvl(c.use_location, 'N') = 'Y' then 'Y' else 'N' end
+        into l_use_location
+        from competitions c
+       where c.competition_id = p_competition_id;
+    exception
+      when no_data_found then
+        return 'N';
+    end;
+
+    if l_use_location <> 'Y' then
+      return 'N';
+    end if;
+
+    select count(*)
+      into l_geo_count
+      from (
+        select coalesce(s.latitude, cp.latitude) as effective_latitude,
+               coalesce(s.longitude, cp.longitude) as effective_longitude
+          from submissions s
+          join checkpoints cp
+            on cp.checkpoint_id = s.checkpoint_id
+         where s.competition_id = p_competition_id
+           and s.user_id = p_user_id
+           and s.submitted_at is not null
+           and coalesce(s.latitude, cp.latitude) is not null
+           and coalesce(s.longitude, cp.longitude) is not null
+      ) geo;
+
+    return case when l_geo_count >= 2 then 'Y' else 'N' end;
+  end;
+
+  function get_total_distance_m(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number is
+    l_total_distance_m number;
+  begin
+    if get_distance_available(p_competition_id => p_competition_id, p_user_id => p_user_id) <> 'Y' then
+      return null;
+    end if;
+
+    select round(sum(
+             6371000 * 2 * asin(
+               sqrt(
+                 power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
+                 cos(g.prev_latitude * 0.017453292519943295) *
+                 cos(g.effective_latitude * 0.017453292519943295) *
+                 power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+               )
+             )
+           ))
+      into l_total_distance_m
+      from (
+        select x.effective_latitude,
+               x.effective_longitude,
+               lag(x.effective_latitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_latitude,
+               lag(x.effective_longitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_longitude
+          from (
+            select s.submission_id,
+                   s.submitted_at,
+                   coalesce(s.latitude, cp.latitude) as effective_latitude,
+                   coalesce(s.longitude, cp.longitude) as effective_longitude
+              from submissions s
+              join checkpoints cp
+                on cp.checkpoint_id = s.checkpoint_id
+             where s.competition_id = p_competition_id
+               and s.user_id = p_user_id
+               and s.submitted_at is not null
+               and coalesce(s.latitude, cp.latitude) is not null
+               and coalesce(s.longitude, cp.longitude) is not null
+          ) x
+      ) g
+     where g.prev_latitude is not null
+       and g.prev_longitude is not null;
+
+    return l_total_distance_m;
+  end;
+
+  function get_competition_rank(
+    p_competition_id in number,
+    p_user_id in number
+  ) return number is
+    l_rank number;
+  begin
+    select x.rank_no
+      into l_rank
+      from (
+        select y.user_id,
+               rank() over (
+                 order by
+                   y.score desc,
+                   case when y.total_elapsed_seconds is null then 1 else 0 end asc,
+                   y.total_elapsed_seconds asc
+               ) as rank_no
+          from (
+            select s.user_id,
+                   nvl(sum(nvl(s.awarded_points, 0)), 0) as score,
+                   case
+                     when count(s.submitted_at) >= 2 then round((max(cast(s.submitted_at as date)) - min(cast(s.submitted_at as date))) * 86400)
+                     else null
+                   end as total_elapsed_seconds
+              from submissions s
+             where s.competition_id = p_competition_id
+             group by s.user_id
+          ) y
+      ) x
+     where x.user_id = p_user_id;
+    return l_rank;
+  exception
+    when no_data_found then
+      return null;
+  end;
 
   -- get_competition_score: Returns competition score data.
   procedure get_competition_score(
@@ -1285,7 +1611,11 @@ create or replace package body pkg_results as
            and ls.checkpoint_id = s.checkpoint_id
          where s.competition_id = p_competition_id
          group by s.user_id
-         order by score desc, s.user_id
+         order by
+           score desc,
+           case when total_elapsed_seconds is null then 1 else 0 end asc,
+           total_elapsed_seconds asc,
+            s.user_id asc
       ) x;
 
     if o_items_json is null then
@@ -1308,7 +1638,6 @@ create or replace package body pkg_results as
   ) is
     l_lang varchar2(10);
     l_fallback_lang varchar2(10);
-    l_use_location varchar2(1) := 'N';
     l_is_organizer number := 0;
   begin
     select count(*)
@@ -1334,7 +1663,7 @@ create or replace package body pkg_results as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select json_arrayagg(
@@ -1409,76 +1738,18 @@ create or replace package body pkg_results as
       o_items_json := '[]';
     end if;
 
-    select case when nvl(c.use_location, 'N') = 'Y' then 'Y' else 'N' end
-      into l_use_location
-      from competitions c
-     where c.competition_id = p_competition_id
-       and (c.end_date is null or c.end_date > sysdate);
-
-    select case when count(*) >= 2 then round((max(cast(s.submitted_at as date)) - min(cast(s.submitted_at as date))) * 86400) else null end
-      into o_total_elapsed_seconds
-      from submissions s
-     where s.competition_id = p_competition_id
-       and s.user_id = p_user_id
-       and s.submitted_at is not null;
-
-    if l_use_location = 'Y' then
-      select case when count(*) >= 2 then 'Y' else 'N' end
-        into o_distance_available
-        from (
-          select coalesce(s.latitude, cp.latitude) as effective_latitude,
-                 coalesce(s.longitude, cp.longitude) as effective_longitude
-            from submissions s
-            join checkpoints cp
-              on cp.checkpoint_id = s.checkpoint_id
-           where s.competition_id = p_competition_id
-             and s.user_id = p_user_id
-             and s.submitted_at is not null
-             and coalesce(s.latitude, cp.latitude) is not null
-             and coalesce(s.longitude, cp.longitude) is not null
-        ) geo;
-
-      if o_distance_available = 'Y' then
-        select round(sum(
-                 6371000 * 2 * asin(
-                   sqrt(
-                     power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
-                     cos(g.prev_latitude * 0.017453292519943295) *
-                     cos(g.effective_latitude * 0.017453292519943295) *
-                     power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
-                   )
-                 )
-               ))
-          into o_total_distance_m
-          from (
-            select x.effective_latitude,
-                   x.effective_longitude,
-                   lag(x.effective_latitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_latitude,
-                   lag(x.effective_longitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_longitude
-              from (
-                select s.submission_id,
-                       s.submitted_at,
-                       coalesce(s.latitude, cp.latitude) as effective_latitude,
-                       coalesce(s.longitude, cp.longitude) as effective_longitude
-                  from submissions s
-                  join checkpoints cp
-                    on cp.checkpoint_id = s.checkpoint_id
-                 where s.competition_id = p_competition_id
-                   and s.user_id = p_user_id
-                   and s.submitted_at is not null
-                   and coalesce(s.latitude, cp.latitude) is not null
-                   and coalesce(s.longitude, cp.longitude) is not null
-              ) x
-          ) g
-         where g.prev_latitude is not null
-           and g.prev_longitude is not null;
-      else
-        o_total_distance_m := null;
-      end if;
-    else
-      o_distance_available := 'N';
-      o_total_distance_m := null;
-    end if;
+    o_total_elapsed_seconds := get_total_elapsed_seconds(
+      p_competition_id => p_competition_id,
+      p_user_id => p_user_id
+    );
+    o_distance_available := get_distance_available(
+      p_competition_id => p_competition_id,
+      p_user_id => p_user_id
+    );
+    o_total_distance_m := get_total_distance_m(
+      p_competition_id => p_competition_id,
+      p_user_id => p_user_id
+    );
   end;
 
   -- get_submission_detail: Returns submission detail data.
@@ -1520,7 +1791,7 @@ create or replace package body pkg_results as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select s.question_id,
@@ -2899,7 +3170,7 @@ create or replace package body pkg_competitor as
       l_fallback_lang := 'et';
     end if;
     if l_fallback_lang = l_lang then
-      l_fallback_lang := case when l_lang = 'et' then 'en' else 'et' end;
+      l_fallback_lang := null;
     end if;
 
     select json_object(

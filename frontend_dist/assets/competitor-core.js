@@ -85,6 +85,14 @@ function trf(key, vars) {
   return text;
 }
 
+function trfBold(key, vars) {
+  let text = esc(tr(key));
+  Object.entries(vars || {}).forEach(([k, v]) => {
+    text = text.replaceAll(`{${k}}`, `<strong>${esc(String(v ?? ""))}</strong>`);
+  });
+  return text;
+}
+
 function setMsg(targetId, text, ok) {
   const box = el(targetId);
   if (!text) { box.className = ""; box.textContent = ""; return; }
@@ -180,6 +188,20 @@ function fmtEtLocal(ts) {
   if (!d) return ts;
   const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function fmtHhMmSs(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "-";
+  const value = Math.floor(totalSeconds);
+  const hh = Math.floor(value / 3600);
+  const mm = Math.floor((value % 3600) / 60);
+  const ss = value % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+function fmtDistanceKmFromMeters(distanceM) {
+  if (!Number.isFinite(distanceM) || distanceM < 0) return "-";
+  return (distanceM / 1000).toFixed(2);
 }
 
 function setCookie(name, value, days = 30) {
@@ -696,15 +718,53 @@ function renderQuestionForSelectedCheckpoint() {
   setSubmissionBusy(state.submissionInFlight);
 }
 
-function showFeedback(ok, points, total) {
+function showFeedback(data) {
+  const ok = !!data?.is_correct;
+  const points = Number(data?.awarded_points || 0);
+  const total = Number(data?.total_score || 0);
+  const correctAnswers = Array.isArray(data?.correct_answer_texts)
+    ? data.correct_answer_texts.filter((v) => typeof v === "string" && v.trim())
+    : [];
+  const otherCorrectAnswers = Array.isArray(data?.other_correct_answer_texts)
+    ? data.other_correct_answer_texts.filter((v) => typeof v === "string" && v.trim())
+    : [];
+  const distanceAllowed = data?.distance_display_allowed === true;
+  const totalDistanceM = Number(data?.total_distance_m);
+  const totalElapsedSeconds = Number(data?.total_elapsed_seconds);
+  const currentRank = Number(data?.current_rank);
   state.feedbackOpen = true;
   const modal = el("feedbackModal");
   modal.className = "modal " + (ok ? "feedback-ok" : "feedback-err");
   el("feedbackTitle").textContent = ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
-  el("feedbackBody").textContent = trf("competitor.feedback.points_total", {
-    points: Number(points || 0),
-    total: Number(total || 0),
+  el("feedbackBody").innerHTML = trfBold("competitor.feedback.points_total", {
+    points,
+    total,
   });
+  el("feedbackAnswerLine").innerHTML = "";
+  if (!ok && correctAnswers.length) {
+    el("feedbackAnswerLine").innerHTML = trfBold("competitor.feedback.correct_answers_line", {
+      answers: correctAnswers.join(", "),
+    });
+  } else if (ok && otherCorrectAnswers.length) {
+    el("feedbackAnswerLine").innerHTML = trfBold("competitor.feedback.other_correct_answers_line", {
+      answers: otherCorrectAnswers.join(", "),
+    });
+  }
+  el("feedbackDistanceLine").innerHTML = (
+    distanceAllowed && Number.isFinite(totalDistanceM) && totalDistanceM >= 0
+  ) ? trfBold("competitor.feedback.distance_line", {
+    distance_km: fmtDistanceKmFromMeters(totalDistanceM),
+  }) : "";
+  el("feedbackElapsedLine").innerHTML = (
+    Number.isFinite(totalElapsedSeconds) && totalElapsedSeconds >= 0
+  ) ? trfBold("competitor.feedback.elapsed_line", {
+    elapsed: fmtHhMmSs(totalElapsedSeconds),
+  }) : "";
+  el("feedbackRankLine").innerHTML = (
+    Number.isFinite(currentRank) && currentRank > 0
+  ) ? trfBold("competitor.feedback.rank_line", {
+    rank: currentRank,
+  }) : "";
   el("feedbackBackdrop").style.display = "flex";
 }
 
@@ -727,6 +787,7 @@ async function submitAnswer(item, extra) {
     competition_id: state.selectedCompetitionId,
     checkpoint_id: item.checkpoint_id,
     question_id: item.question_id,
+    lang_code: currentLang(),
     latitude: state.geo.enabled ? state.geo.latitude : null,
     longitude: state.geo.enabled ? state.geo.longitude : null,
     radius_m: state.geo.enabled ? state.geo.radius_m : null,
@@ -761,8 +822,7 @@ async function submitAnswer(item, extra) {
         }
       });
     }
-
-    showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
+    showFeedback(d);
   } catch (err) {
     console.error("submitAnswer failed", err);
     setMsg("answerMsg", tr("competitor.msg.submit_failed"), false);
