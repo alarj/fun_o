@@ -756,6 +756,9 @@ async function submitAnswer(item, extra) {
     }
 
     showFeedback(!!d.is_correct, Number(d.awarded_points || 0), Number(d.total_score || 0));
+  } catch (err) {
+    console.error("submitAnswer failed", err);
+    setMsg("answerMsg", tr("competitor.msg.submit_failed"), false);
   } finally {
     if (!state.feedbackOpen) setSubmissionBusy(false);
   }
