@@ -414,7 +414,7 @@ async function init() {
       return;
     }
     showCompetitorBusy("competitor.map.info_loading_msg");
-    syncMapPopupOpenItems().finally(() => {
+    requestAnimationFrame(() => {
       setMapInfoVisibility(true);
       hideCompetitorBusy();
     });

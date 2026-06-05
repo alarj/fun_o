@@ -7,12 +7,12 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`) sessiooni rikastamiseks.
 - POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
 - POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
-- POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse.
+- POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse koos competitor popupi jaoks vajalike lisaväljadega (õiged vastused, koguaeg, hetke koht ja tingimuslikult kumulatiivne linnulennuline vahemaa).
 - POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
 - POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
 - GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
 - GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab küsimuste avamiseks lubatud KP-d (lõplik serveripoolne otsus).
-- GET `/competitor/map-checkpoints?competition_id=...&user_id=...` - tagastab kaardivaate KP andmed (asukohad, staatused, answered lipud).
+- GET `/competitor/map-checkpoints?competition_id=...&user_id=...` - tagastab kaardivaate KP andmed (asukohad, staatused, answered lipud ja asukohanõudega KP-de efektiivse vastamisraadiuse).
 - GET `/competitor/progress?competition_id=...&user_id=...` - tagastab osaleja progressi kokkuvõtte (KP-de arv, vastatud, skoor).
 - GET `/competitor/my-submissions?competition_id=...&user_id=...` - toob osaleja enda vastuste loendi.
 - GET `/competitor/my-submission-detail?competition_id=...&submission_id=...&lang_code=...&user_id=...` - toob osaleja ühe vastuse detailvaate.
@@ -59,12 +59,23 @@ Expected ORDS JSON responses:
 - `auth/user-profile` -> `{ "email":"...", "full_name":"..." }`
 - `competitions/register` -> `{ "competition_id": 456 }`
 - `organizers/register` -> `{ "competition_id": 456 }`
-- `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42 }`
+- `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42, "correct_answer_texts": ["..."], "other_correct_answer_texts": ["..."], "total_elapsed_seconds": 2975, "total_distance_m": 2460, "distance_display_allowed": "Y|N", "current_rank": 2 }`
+  - request may include `lang_code`; backend forwards it to ORDS so localized correct-answer texts can be returned for `SINGLE_CHOICE` questions.
+  - `correct_answer_texts` contains every correct answer shown to the competitor after submit.
+  - `other_correct_answer_texts` contains the remaining correct answers when the competitor answered correctly and more than one correct answer exists.
+  - `total_elapsed_seconds` is the competitor total elapsed time on that competition from the first submission until the just-saved submission.
+  - `current_rank` is the competitor rank immediately after the just-saved submission using the same ordering rule as results/leaderboard.
+  - `distance_display_allowed = Y` only when the just-saved submission row itself contains `submissions.latitude` and `submissions.longitude` and the competition distance logic has at least two usable geo points; otherwise competitor UI must not show the distance line for that popup.
+  - when `distance_display_allowed = Y`, `total_distance_m` is the cumulative as-the-crow-flies distance using the same DB-side calculation as organizer results.
 - `competitor/join-preview` -> `{ "competition_id": 1, "competition_name":"...", "already_active_for_user":"Y|N", "terms": {...} }`
 - `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
 - `competitor/map-checkpoints` -> `{ "items": [...] }`
+  - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
+    - `checkpoints.radius_m`, kui see on määratud;
+    - muidu `competitions.radius_m`;
+    - kui kumbki puudub, tagastatakse `0`.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
 - `competitor/my-submission-detail` -> `{ ... }`
@@ -622,17 +633,22 @@ FastAPI precheck (`/api/competitor/checkpoint-access`):
   - already answered -> `can_open=false, reason=answered`
   - `location_required='N'` -> `can_open=true, reason=no_location_required`
   - missing user location for location-required checkpoint -> `can_open=false, reason=missing_location`
-- for location-required checkpoints with coordinates/radius available:
+- for location-required checkpoints with coordinates/effective radius available:
   - computes distance with backend `_haversine_meters(lat1, lon1, lat2, lon2)`;
-  - compares against effective radius (`checkpoint.radius_m`, fallback to request `radius_m`);
+  - compares against effective radius from cached `competitor/map-checkpoints` item `radius_m`;
   - if outside radius -> reject immediately (`reason=too_far`) without ORDS roundtrip;
   - if inside radius -> mark as candidate (`needs_ords=true`).
-- for uncertain cases (missing checkpoint geo or effective radius), also mark candidate (`needs_ords=true`).
+- if a location-required checkpoint has no usable effective radius (`radius_m <= 0`), FastAPI rejects it locally (`reason=not_open`) and does not forward it to ORDS as a candidate.
 
 Final authority:
 - candidate checkpoint IDs are validated by ORDS `competitor/open-checkpoints`;
 - FastAPI maps ORDS result to `can_open=true/false` (`reason=open|not_open`);
 - this keeps database-side rule as final source of truth.
+
+Competitor map popup flow:
+- map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
+- popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
+- the authoritative “can this question really be opened now?” decision still happens only when the user presses the popup answer button and FastAPI calls the final ORDS-backed access flow for candidate checkpoints.
 
 ORDS/PLSQL side:
 - `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
@@ -664,6 +680,10 @@ How distance is computed in DB:
 - formula is the same spherical/Haversine-style expression (`6371000 * 2 * asin(sqrt(...))`);
 - result is rounded to meters (`round(sum(...))`).
 
+Competitor submit-popup usage:
+- `POST /api/submissions` may expose the same cumulative distance as `total_distance_m`, but only when the just-saved submission row itself contains submitted coordinates.
+- If the just-saved submission has no `submissions.latitude/longitude`, competitor popup must hide the distance line even if older submissions would allow total path distance calculation.
+
 Availability flag:
 - `distance_available='Y'` only when at least two geo points exist in ordered path;
 - otherwise distance is `null` and availability is `N`.
@@ -679,3 +699,15 @@ To reduce ORDS pressure (important in limited shared environments):
 ### 4) Why two-stage decision exists
 
 FastAPI precheck is an optimization and UX helper. ORDS/DB remains authoritative for final open/not-open decision to keep rule consistency across clients and avoid trusting only edge-device input.
+
+## Results ordering rule (authoritative)
+
+This ordering rule must stay identical in:
+- organizer leaderboard / results view;
+- competitor submit-popup `current_rank`;
+- any other rank presentation added later.
+
+Ordering:
+- first by `score` descending (more points ranks higher);
+- for equal score, by `total_elapsed_seconds` ascending (faster total time ranks higher);
+- if both are still equal, implementation may use a stable deterministic fallback such as `user_id` to keep ordering reproducible, but that fallback must not change the displayed business rule above.

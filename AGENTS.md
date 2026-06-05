@@ -97,3 +97,8 @@
 - Kui töö sisaldab vea parandust, too kokkuvõttes eraldi välja juurpõhjus ja paranduse loogika.
 - Kui töö tugineb oletusele, nimeta oletus selgelt ning küsi enne muudatuse tegemist luba.
 - Kui avastad dokumentatsiooni ja tegeliku käitumise lahknevuse, maini see kokkuvõttes välja ja küsi täiendavaid juhtnööre.
+
+## 9. Kohaliku masina märkus
+
+- Selles töökeskkonnas ei ole käsurealt kättesaadavad `python`, `py` ega `git` käsud.
+- Ära planeeri samme, mis eeldavad nende olemasolu, kui kasutaja pole eraldi andnud muud keskkonnainfot.

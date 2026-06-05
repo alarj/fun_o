@@ -2194,7 +2194,6 @@ async def competitor_checkpoint_access(
     candidate_ids: list[int] = []
     lat = req.latitude if isinstance(req.latitude, (int, float)) else None
     lon = req.longitude if isinstance(req.longitude, (int, float)) else None
-    base_radius = req.radius_m if isinstance(req.radius_m, (int, float)) else None
     comp_type = "R"
     start_exists = False
     start_answered = False
@@ -2273,10 +2272,9 @@ async def competitor_checkpoint_access(
             candidate_ids.append(cp_id)
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
             continue
-        effective_radius = cp_radius if isinstance(cp_radius, (int, float)) and cp_radius > 0 else base_radius
+        effective_radius = cp_radius if isinstance(cp_radius, (int, float)) and cp_radius > 0 else None
         if not isinstance(effective_radius, (int, float)) or effective_radius <= 0:
-            candidate_ids.append(cp_id)
-            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="not_open"))
             continue
         distance_m = _haversine_meters(float(lat), float(lon), float(cp_lat), float(cp_lon))
         if distance_m <= float(effective_radius):
@@ -2293,7 +2291,7 @@ async def competitor_checkpoint_access(
                 "user_id": resolved_user_id,
                 "latitude": lat,
                 "longitude": lon,
-                "radius_m": base_radius,
+                "radius_m": req.radius_m if isinstance(req.radius_m, (int, float)) else None,
             },
         )
         raw = ords_response.get("items") if isinstance(ords_response, dict) else []

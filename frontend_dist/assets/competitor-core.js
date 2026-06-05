@@ -76,6 +76,7 @@ let i18nItems = {};
 let i18nMeta = { default_lang: "et", available_langs: ["et", "en"] };
 let competitorBusyDepth = 0;
 let competitorBusyKey = "competitor.map.open_loading_msg";
+let competitorBusyKeys = [];
 
 const el = (id) => document.getElementById(id);
 const tr = (key) => i18nItems[key] || key;
@@ -227,7 +228,8 @@ function refreshCompetitorBusyText() {
 
 function showCompetitorBusy(key) {
   competitorBusyDepth += 1;
-  competitorBusyKey = String(key || "competitor.map.open_loading_msg");
+  competitorBusyKeys.push(String(key || "competitor.map.open_loading_msg"));
+  competitorBusyKey = competitorBusyKeys[competitorBusyKeys.length - 1] || "competitor.map.open_loading_msg";
   refreshCompetitorBusyText();
   const backdrop = el("competitorBusyBackdrop");
   if (backdrop) backdrop.style.display = "flex";
@@ -235,7 +237,15 @@ function showCompetitorBusy(key) {
 
 function hideCompetitorBusy() {
   competitorBusyDepth = Math.max(0, competitorBusyDepth - 1);
-  if (competitorBusyDepth > 0) return;
+  if (competitorBusyKeys.length) competitorBusyKeys.pop();
+  if (competitorBusyDepth > 0) {
+    competitorBusyKey = competitorBusyKeys[competitorBusyKeys.length - 1] || "competitor.map.open_loading_msg";
+    refreshCompetitorBusyText();
+    return;
+  }
+  competitorBusyKey = "competitor.map.open_loading_msg";
+  competitorBusyKeys = [];
+  refreshCompetitorBusyText();
   const backdrop = el("competitorBusyBackdrop");
   if (backdrop) backdrop.style.display = "none";
 }

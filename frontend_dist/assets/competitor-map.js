@@ -599,37 +599,6 @@ function refreshCompMapPopupContents() {
   });
 }
 
-let mapPopupSyncPromise = null;
-let mapPopupSyncAt = 0;
-
-async function syncMapPopupOpenItems(preferredCheckpointId = null, opts = {}) {
-  if (!state.selectedCompetitionId) return;
-  if (!selectedCompetitionUsesLocation()) {
-    refreshCompMapPopupContents();
-    return;
-  }
-  const force = opts.force === true;
-  const now = Date.now();
-  if (!force && now - mapPopupSyncAt < 1500) {
-    refreshCompMapPopupContents();
-    return;
-  }
-  if (mapPopupSyncPromise) {
-    await mapPopupSyncPromise;
-    refreshCompMapPopupContents();
-    return;
-  }
-  mapPopupSyncAt = now;
-  mapPopupSyncPromise = loadOpenCheckpoints({
-    force: true,
-    preferredCheckpointId,
-  }).catch(() => {}).finally(() => {
-    mapPopupSyncPromise = null;
-  });
-  await mapPopupSyncPromise;
-  refreshCompMapPopupContents();
-}
-
 function setMapInfoVisibility(show) {
   mapInfoVisible = !!show;
   if (mapInfoVisible) {
@@ -645,11 +614,87 @@ function checkpointPopupLabel(cp) {
     ? ` ${tr("competitor.map.checkpoint_passed_suffix")}`
     : "";
   const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
-  const hasAnswerAction = !!getOpenItemByCheckpointId(cp?.checkpoint_id);
+  const hasAnswerAction = canShowCheckpointAnswerAction(cp);
   const secondLine = hasAnswerAction
     ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
     : `<div class="cpPopupNoQuestion">${esc(tr("competitor.map.no_question_msg"))}</div>`;
   return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
+}
+
+function mapCheckpointRows() {
+  return Array.isArray(state.mapItems) ? state.mapItems.filter((row) => row && typeof row === "object") : [];
+}
+
+function currentSequentialCheckpointId() {
+  if (selectedCompetitionType() !== "S") return null;
+  const normals = mapCheckpointRows()
+    .filter((row) => normalizeCheckpointType(row?.checkpoint_type) === "NORMAL" && String(row?.is_answered || "N").toUpperCase() !== "Y")
+    .map((row) => ({
+      checkpointId: Number(row?.checkpoint_id || 0),
+      orderNo: Number(row?.checkpoint_order_no),
+    }))
+    .filter((row) => row.checkpointId > 0 && Number.isFinite(row.orderNo))
+    .sort((a, b) => a.orderNo - b.orderNo || a.checkpointId - b.checkpointId);
+  return normals.length ? normals[0].checkpointId : null;
+}
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = (
+    Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * (Math.sin(dLon / 2) ** 2)
+  );
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+}
+
+function canShowCheckpointAnswerAction(cp) {
+  const checkpointId = Number(cp?.checkpoint_id || 0);
+  const questionId = Number(cp?.question_id || 0);
+  if (checkpointId <= 0 || questionId <= 0) return false;
+  if (String(cp?.is_answered || "N").toUpperCase() === "Y") return false;
+
+  const rows = mapCheckpointRows();
+  const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
+  const finishAnswered = rows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "FINISH"
+    && String(row?.is_answered || "N").toUpperCase() === "Y"
+  ));
+  if (finishAnswered) return false;
+
+  const startExists = rows.some((row) => normalizeCheckpointType(row?.checkpoint_type) === "START");
+  const startAnswered = rows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "START"
+    && String(row?.is_answered || "N").toUpperCase() === "Y"
+  ));
+  if (startExists && !startAnswered && checkpointType !== "START") return false;
+
+  if (selectedCompetitionType() === "S") {
+    if (!(startExists && !startAnswered && checkpointType === "START")) {
+      const nextSequentialId = currentSequentialCheckpointId();
+      if (nextSequentialId != null) {
+        if (checkpointType !== "NORMAL" || checkpointId !== nextSequentialId) return false;
+      } else if (checkpointType !== "FINISH") {
+        return false;
+      }
+    }
+  }
+
+  const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
+  if (!locationRequired) return true;
+  if (!(state.geo.enabled && Number.isFinite(Number(state.geo.latitude)) && Number.isFinite(Number(state.geo.longitude)))) {
+    return false;
+  }
+
+  const lat = Number(cp?.latitude);
+  const lon = Number(cp?.longitude);
+  const effectiveRadius = Number(cp?.radius_m);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(effectiveRadius) || effectiveRadius <= 0) {
+    return false;
+  }
+  const distanceM = haversineMeters(Number(state.geo.latitude), Number(state.geo.longitude), lat, lon);
+  return Number.isFinite(distanceM) && distanceM <= effectiveRadius;
 }
 
 function buildCompetitionMapPoints(items) {
@@ -1178,10 +1223,6 @@ function renderCompMap(items, opts = {}) {
   mapRoutePoints.forEach((point) => {
     const marker = addCheckpointShapeMarker(compMapLayer, point);
     marker.bindPopup(checkpointPopupLabel(point.rawCp), { autoClose: false, closeOnClick: false, autoPan: false, className: "cpPopup", maxWidth: 260 });
-    marker.on("popupopen", () => {
-      if (!isCompMapModalOpen()) return;
-      syncMapPopupOpenItems(point.checkpointId).catch(() => {});
-    });
     mapRings.push({ ring: marker, cp: point.rawCp, point });
     checkpointBounds.push([point.lat, point.lon]);
   });
@@ -1241,6 +1282,7 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
   mapDebugGpsSpeed = Number.isFinite(Number(gpsSpeed)) ? Number(gpsSpeed) : null;
   syncMapGpsSignalState(true);
   applyHeadingFromGps(gpsHeading);
+  refreshCompMapPopupContents();
   if (!selectedCompetitionShowsUserLocation()) return;
   if (!compMap) return;
   if (!userPosMarker) {
@@ -1306,7 +1348,6 @@ async function openCompMapModal() {
     return;
   }
   state.mapItems = await loadMapCheckpoints();
-  await syncMapPopupOpenItems(null, { force: true });
   el("compMapBackdrop").style.display = "block";
   await new Promise((resolve) => requestAnimationFrame(() => resolve()));
   mapProgrammaticMove = true;
