@@ -764,32 +764,38 @@ end pkg_questions;
 /
 
 create or replace package pkg_results as
+  -- get_total_elapsed_seconds: Returns competition elapsed seconds for one competitor.
   function get_total_elapsed_seconds(
     p_competition_id in number,
     p_user_id in number
   ) return number;
 
+  -- get_distance_available: Returns whether at least two usable geo points exist for distance calculation.
   function get_distance_available(
     p_competition_id in number,
     p_user_id in number
   ) return varchar2;
 
+  -- get_total_distance_m: Returns cumulative as-the-crow-flies distance in meters for one competitor.
   function get_total_distance_m(
     p_competition_id in number,
     p_user_id in number
   ) return number;
 
+  -- get_competition_rank: Returns competitor rank using competition ordering rules.
   function get_competition_rank(
     p_competition_id in number,
     p_user_id in number
   ) return number;
 
+  -- get_competition_score: Returns competition score for one competitor.
   procedure get_competition_score(
     p_competition_id in number,
     p_user_id in number,
     o_score out number
   );
 
+  -- get_competition_leaderboard: Returns organizer leaderboard payload for one competition.
   procedure get_competition_leaderboard(
     p_competition_id in number,
     p_requester_user_id in number,
@@ -797,6 +803,7 @@ create or replace package pkg_results as
     o_items_json out clob
   );
 
+  -- get_participant_submissions: Returns organizer participant submissions timeline and summary.
   procedure get_participant_submissions(
     p_competition_id in number,
     p_user_id in number,
@@ -810,6 +817,7 @@ create or replace package pkg_results as
     o_distance_available out varchar2
   );
 
+  -- get_submission_detail: Returns one organizer-visible submission detail payload.
   procedure get_submission_detail(
     p_competition_id in number,
     p_user_id in number,
@@ -821,6 +829,7 @@ create or replace package pkg_results as
     o_item_json out clob
   );
 
+  -- get_checkpoint_results: Returns organizer checkpoint aggregate results.
   procedure get_checkpoint_results(
     p_competition_id in number,
     p_requester_user_id in number,
@@ -828,6 +837,7 @@ create or replace package pkg_results as
     o_items_json out clob
   );
 
+  -- get_checkpoint_responders: Returns organizer-visible responders for one checkpoint.
   procedure get_checkpoint_responders(
     p_competition_id in number,
     p_checkpoint_id in number,
@@ -1167,7 +1177,7 @@ create or replace package body pkg_submissions as
            where qo.question_id = p_question_id
              and qo.is_correct = 'Y'
              and (qo.end_date is null or qo.end_date > sysdate)
-           order by nvl(qo.order_no, qo.option_id), qo.option_id
+           order by nvl(qo.order_no, qo.option_id) asc, qo.option_id asc
         ) x;
 
       if l_is_correct = 'Y' then
@@ -1203,7 +1213,7 @@ create or replace package body pkg_submissions as
                and qo.is_correct = 'Y'
                and qo.option_id <> p_selected_option_id
                and (qo.end_date is null or qo.end_date > sysdate)
-             order by nvl(qo.order_no, qo.option_id), qo.option_id
+              order by nvl(qo.order_no, qo.option_id) asc, qo.option_id asc
           ) x;
       else
         o_other_correct_answer_texts_json := to_clob('[]');
@@ -1220,7 +1230,7 @@ create or replace package body pkg_submissions as
            where qa.question_id = p_question_id
              and qa.is_correct = 'Y'
              and (qa.end_date is null or qa.end_date > sysdate)
-           order by qa.answer_id
+           order by qa.answer_id asc
         ) x;
 
       if l_is_correct = 'Y' then
@@ -1237,7 +1247,7 @@ create or replace package body pkg_submissions as
                and (qa.end_date is null or qa.end_date > sysdate)
                and normalize_text(qa.answer_value, qa.normalize_mode)
                    <> normalize_text(l_normalized_answer, qa.normalize_mode)
-             order by qa.answer_id
+             order by qa.answer_id asc
           ) x;
       else
         o_other_correct_answer_texts_json := to_clob('[]');
@@ -1606,7 +1616,7 @@ create or replace package body pkg_results as
            score desc,
            case when total_elapsed_seconds is null then 1 else 0 end asc,
            total_elapsed_seconds asc,
-           s.user_id
+            s.user_id asc
       ) x;
 
     if o_items_json is null then
