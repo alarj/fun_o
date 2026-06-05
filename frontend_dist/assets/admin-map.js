@@ -1026,8 +1026,6 @@ function setExistingCheckpointsVisible(visible) {
   renderExistingCheckpointsOnDialogMap();
 }
 
-function applyOrderTooltipColor(_marker, _color) {}
-
 function setCpCoordinates(lat, lon, moveMap = false) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
   const lat6 = Number(lat).toFixed(6);

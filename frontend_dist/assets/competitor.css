@@ -227,6 +227,49 @@ button:disabled { opacity: 0.5; }
 .leaflet-tooltip-bottom.cp-order-tooltip:before {
   display: none;
 }
+.leaflet-popup.cpPopup .leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  padding: 0;
+}
+.leaflet-popup.cpPopup .leaflet-popup-content {
+  margin: 0;
+  min-width: 160px;
+  max-width: 220px;
+}
+.cpPopupContent {
+  padding: 10px 12px;
+}
+.cpPopupLine + .cpPopupLine {
+  margin-top: 10px;
+}
+.cpPopupPoints {
+  font-size: 17px;
+  line-height: 1.2;
+  color: #253238;
+}
+.cpPopupAction {
+  display: flex;
+}
+.cpPopupAnswerBtn {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 600;
+  text-align: center;
+}
+.cpPopupNoQuestion {
+  width: 100%;
+  padding: 2px 0;
+  color: #5b6b73;
+  font-size: 15px;
+  line-height: 1.25;
+}
 .mapHeadingFab {
   position: absolute;
   right: 14px;

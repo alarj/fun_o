@@ -602,15 +602,16 @@ function setMapInfoVisibility(show) {
 }
 
 function checkpointPopupLabel(cp) {
-  const cpType = normalizeCheckpointType(cp?.checkpoint_type);
-  const orderNo = Number(cp?.checkpoint_order_no);
-  const showOrder = selectedCompetitionType() === "S" && cpType === "NORMAL" && Number.isFinite(orderNo);
-  const orderPrefix = showOrder ? `${orderNo}. ` : "";
   const points = Number(cp?.points || 0);
-  const base = `${orderPrefix}${cp?.checkpoint_title || tr("competitor.common.checkpoint_short")} (${points} ${tr("competitor.common.points_short")})`;
-  return String(cp?.is_answered || "N").toUpperCase() === "Y"
-    ? `${base} ${tr("competitor.map.checkpoint_passed_suffix")}`
-    : base;
+  const passedSuffix = String(cp?.is_answered || "N").toUpperCase() === "Y"
+    ? ` ${tr("competitor.map.checkpoint_passed_suffix")}`
+    : "";
+  const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
+  const hasAnswerAction = !!getOpenItemByCheckpointId(cp?.checkpoint_id);
+  const secondLine = hasAnswerAction
+    ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
+    : `<div class="cpPopupNoQuestion">${esc(tr("competitor.map.no_question_msg"))}</div>`;
+  return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
 }
 
 function buildCompetitionMapPoints(items) {
@@ -668,19 +669,26 @@ function buildCheckpointShapeMarker(point, extraOptions = {}) {
     });
   }
   const radius = point.markerRadiusPx || 15;
-  const weight = Number(point.markerWeight || 3);
-  const haloMarker = L.circleMarker([point.lat, point.lon], {
-    radius,
-    color: "#ffffff",
-    weight: weight + (haloWidth * 2),
-    fillOpacity: 0,
-    interactive: false,
-  });
-  const colorMarker = L.circleMarker([point.lat, point.lon], {
+  return L.circleMarker([point.lat, point.lon], {
     radius,
     ...baseOptions,
   });
-  return L.featureGroup([haloMarker, colorMarker]);
+}
+
+function addCheckpointShapeMarker(layerRef, point, extraOptions = {}) {
+  if (!layerRef || !point) return null;
+  if (!isSpecialCheckpointType(point.checkpointType)) {
+    const radius = point.markerRadiusPx || 15;
+    const weight = Number(point.markerWeight || 3);
+    L.circleMarker([point.lat, point.lon], {
+      radius,
+      color: "#ffffff",
+      weight: weight + 4,
+      fillOpacity: 0,
+      interactive: false,
+    }).addTo(layerRef);
+  }
+  return buildCheckpointShapeMarker(point, extraOptions).addTo(layerRef);
 }
 
 function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
@@ -1112,37 +1120,6 @@ async function handleMapCheckpointClick(cp) {
   }
 }
 
-async function handleMapInfoAccessCheck() {
-  const candidates = mapRings
-    .map((entry) => entry?.cp)
-    .filter((cp) => cp && String(cp.location_required || "N").toUpperCase() === "Y" && String(cp.is_answered || "N").toUpperCase() !== "Y")
-    .map((cp) => Number(cp.checkpoint_id || 0))
-    .filter((x) => x > 0);
-  if (!candidates.length) return;
-  await requestGeolocation({ maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
-  if (!state.geo.enabled) return;
-  const accessItems = await checkCheckpointAccess(candidates);
-  let preferredCheckpointId = 0;
-  accessItems.forEach((entry) => {
-    const cpId = Number(entry?.checkpoint_id || 0);
-    if (!cpId) return;
-    const ringEntry = mapRings.find((x) => Number(x?.cp?.checkpoint_id || 0) === cpId);
-    if (!ringEntry || !ringEntry.cp) return;
-    if (String(entry.reason || "") === "answered") {
-      ringEntry.cp.is_answered = "Y";
-      ringEntry.ring?.setPopupContent(checkpointPopupLabel(ringEntry.cp));
-    }
-    if (!preferredCheckpointId && entry.can_open === true) {
-      preferredCheckpointId = cpId;
-    }
-  });
-  if (!preferredCheckpointId) return;
-  await loadOpenCheckpoints({ force: true, preferredCheckpointId });
-  if (openQuestionFromCheckpointId(preferredCheckpointId)) {
-    closeCompMapModal();
-  }
-}
-
 function renderCompMap(items, opts = {}) {
   const forceInitialFit = opts && opts.forceInitialFit === true;
   const preserveViewport = opts && opts.preserveViewport === true;
@@ -1158,11 +1135,8 @@ function renderCompMap(items, opts = {}) {
   mapRoutePoints = buildCompetitionMapPoints(items);
   const checkpointBounds = [];
   mapRoutePoints.forEach((point) => {
-    const marker = buildCheckpointShapeMarker(point).addTo(compMapLayer);
-    marker.bindPopup(checkpointPopupLabel(point.rawCp), { autoClose: false, closeOnClick: false, autoPan: false });
-    marker.on("click", () => {
-      handleMapCheckpointClick(point.rawCp).catch(() => {});
-    });
+    const marker = addCheckpointShapeMarker(compMapLayer, point);
+    marker.bindPopup(checkpointPopupLabel(point.rawCp), { autoClose: false, closeOnClick: false, autoPan: false, className: "cpPopup", maxWidth: 260 });
     mapRings.push({ ring: marker, cp: point.rawCp, point });
     checkpointBounds.push([point.lat, point.lon]);
   });

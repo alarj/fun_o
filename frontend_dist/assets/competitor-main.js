@@ -414,7 +414,16 @@ async function init() {
       return;
     }
     setMapInfoVisibility(true);
-    handleMapInfoAccessCheck().catch(() => {});
+  });
+  el("compMapCanvas").addEventListener("click", (e) => {
+    const btn = e.target.closest(".cpPopupAnswerBtn");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const checkpointId = Number(btn.getAttribute("data-checkpoint-id") || 0);
+    const ringEntry = mapRings.find((entry) => Number(entry?.cp?.checkpoint_id || 0) === checkpointId);
+    if (!ringEntry?.cp) return;
+    handleMapCheckpointClick(ringEntry.cp).catch(() => {});
   });
   el("compMapLayerBtn").addEventListener("click", () => {
     renderCompMapLayerList();

@@ -90,9 +90,14 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 ## 6. KP klikid kaardil ja ligipääsukontroll
 
-- KP markerile klikk kuvab koheselt popupi tekstiga:
-  - vastamata: `KP XX (Y p)`;
-  - vastatud: `KP XX (Y p) Läbitud!`.
+- KP markerile klikk avab alati kohese popupi; markeri klikk ise ei käivita enam taustal küsimuse avamise ligipääsukontrolli.
+- Popupi esimene rida näitab ainult vastamise eest teenitavaid punkte ja võimalikku läbimise staatust:
+  - vastamata: `Y p`;
+  - vastatud: `Y p Läbitud!`.
+- Popupi teine rida:
+  - kui KP-l ei ole aktiivset vastatavat küsimust, kuvatakse tõlgetest tekst `Küsimusi ei ole..` / `No questions..`;
+  - kui KP-l on vastatav küsimus, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
+- Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
 - `is_answered` on kasutajapõhine cache-andmestik.
 - Cache võib olla pika TTL-iga, kuid staatus värskendatakse sündmuspõhiselt:
   - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
@@ -116,9 +121,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 ## 7. `Info` nupu käitumine kaardis
 
 - `Info` nupp avab/sulgeb KP popupid.
-- Kui popupid avatakse, võib süsteem samal ajal teha taustal bulk-ligipääsukontrolli asukohanõudega KP-dele:
-  - FastAPI filtreerib kandidaadid;
-  - ORDS-i pöördutakse ainult kandidaatide kinnitamiseks.
+- `Info` nupp ei tee popupide avamisel bulk-ligipääsukontrolli.
+- Ligipääsukontroll tehakse alles siis, kui kasutaja vajutab konkreetse KP popupis vastamise nuppu.
 
 ## 7a. Kaardi suuna (`Heading-up`) reeglid
 
