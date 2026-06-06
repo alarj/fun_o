@@ -296,6 +296,18 @@ html, body { max-width: 100%; overflow-x: hidden; }
     .info-modal-body li + li {
       margin-top: 4px;
     }
+    .info-invalid-html {
+      margin: 12px 0 0;
+      padding: 12px;
+      border: 1px solid #d5a8a8;
+      border-radius: 10px;
+      background: #fff4f4;
+      color: #5f1f1f;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+    }
     .info-note {
       color: #245f65;
       font-weight: 600;

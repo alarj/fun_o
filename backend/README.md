@@ -619,6 +619,10 @@ Admin contextual info modals:
   - title: `<label_key>.info_title`
   - body HTML: `<label_key>.info`
 - Body HTML is sanitized in browser before render.
+- Before sanitizing, admin UI also performs a lightweight structural check for unbalanced or misnested allowed tags.
+- If that check fails, the bad HTML is contained to that single info modal body:
+  - the page outside the modal must remain unaffected;
+  - the modal shows a translated warning and escaped raw source text for easier translation repair.
 - Current allowed tags:
   - `p`, `br`, `strong`, `em`, `b`, `i`, `ul`, `ol`, `li`, `span`, `code`
 - Current allowed attributes:

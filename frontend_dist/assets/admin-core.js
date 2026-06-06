@@ -45,11 +45,55 @@ function sanitizeInfoHtml(html) {
   });
 }
 
+function hasValidInfoHtmlStructure(html) {
+  const dirty = String(html || "");
+  const stack = [];
+  const allowedTags = new Set(["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "span", "code"]);
+  const selfClosingTags = new Set(["br"]);
+  const tagRegex = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi;
+  let match;
+  while ((match = tagRegex.exec(dirty))) {
+    const fullTag = match[0];
+    const tagName = String(match[1] || "").toLowerCase();
+    if (!allowedTags.has(tagName)) continue;
+    const isClosing = fullTag.startsWith("</");
+    const isSelfClosing = selfClosingTags.has(tagName) || /\/\s*>$/.test(fullTag);
+    if (isClosing) {
+      if (stack.pop() !== tagName) return false;
+      continue;
+    }
+    if (!isSelfClosing) stack.push(tagName);
+  }
+  return stack.length === 0;
+}
+
+function renderInvalidInfoHtml(bodyEl, rawHtml) {
+  if (!bodyEl) return;
+  const warning = document.createElement("p");
+  warning.className = "info-warning";
+  warning.textContent = tr("admin.common.info_html_invalid");
+  const pre = document.createElement("pre");
+  pre.className = "info-invalid-html";
+  pre.textContent = String(rawHtml || "");
+  bodyEl.replaceChildren(warning, pre);
+}
+
+function renderFieldInfoBody(baseKey) {
+  const bodyEl = byId("fieldInfoBody");
+  if (!bodyEl) return;
+  const rawHtml = tr(`${baseKey}.info`);
+  if (!hasValidInfoHtmlStructure(rawHtml)) {
+    renderInvalidInfoHtml(bodyEl, rawHtml);
+    return;
+  }
+  bodyEl.innerHTML = sanitizeInfoHtml(rawHtml);
+}
+
 function refreshFieldInfoDialog() {
   const dialog = byId("fieldInfoDialog");
   if (!dialog || !dialog.open || !activeFieldInfoKey) return;
   byId("fieldInfoTitle").textContent = tr(`${activeFieldInfoKey}.info_title`);
-  byId("fieldInfoBody").innerHTML = sanitizeInfoHtml(tr(`${activeFieldInfoKey}.info`));
+  renderFieldInfoBody(activeFieldInfoKey);
 }
 
 function openFieldInfoDialog(baseKey) {
@@ -59,7 +103,7 @@ function openFieldInfoDialog(baseKey) {
   if (!dialog) return;
   activeFieldInfoKey = normalized;
   byId("fieldInfoTitle").textContent = tr(`${normalized}.info_title`);
-  byId("fieldInfoBody").innerHTML = sanitizeInfoHtml(tr(`${normalized}.info`));
+  renderFieldInfoBody(normalized);
   if (!dialog.open) {
     dialog.showModal();
   }
