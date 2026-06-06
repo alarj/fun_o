@@ -467,7 +467,7 @@ This section reflects current behavior in `backend/app/main.py`.
 - TTL: no time-based TTL (lives in memory until reload/restart).
 - Filled: backend startup.
 - Invalidated/reset:
-  - `POST /api/i18n/reload` clears + reloads.
+  - `POST /api/i18n/reload` loads a fresh cache snapshot and swaps it in only after all configured languages load successfully.
   - Process restart clears + reloads.
 
 ### Multilingual fallback rules (all views)
@@ -613,6 +613,21 @@ Strict UI i18n implementation rule (all views):
   2) `.env LANG_DEFAULT`
   3) translation key string
 - Do not replace or alter icon glyphs/entities while making i18n-only text changes.
+
+Admin contextual info modals:
+- Admin field-level help texts use translation keys derived from the existing label key:
+  - title: `<label_key>.info_title`
+  - body HTML: `<label_key>.info`
+- Body HTML is sanitized in browser before render.
+- Before sanitizing, admin UI also performs a lightweight structural check for unbalanced or misnested allowed tags.
+- If that check fails, the bad HTML is contained to that single info modal body:
+  - the page outside the modal must remain unaffected;
+  - the modal shows a translated warning and escaped raw source text for easier translation repair.
+- Current allowed tags:
+  - `p`, `br`, `strong`, `em`, `b`, `i`, `ul`, `ol`, `li`, `span`, `code`
+- Current allowed attributes:
+  - `class`, `title`
+- Do not rely on inline `style`; use shared `assets/app.css` classes instead when formatted emphasis or color is needed.
 
 ## Geolocation Distance Logic (checkpoint access + results distance)
 

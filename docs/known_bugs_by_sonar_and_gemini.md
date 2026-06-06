@@ -1,10 +1,10 @@
 # Known Bugs By Sonar And Gemini
 
-See dokument koondab siinses töölõimes läbi käinud SonarQube ja Gemini leiud, mida ei ole teadlikult veel parandatud.
+See dokument koondab siinses töövoos läbi käinud SonarQube ja Gemini leiud, mida ei ole teadlikult veel parandatud.
 
 Eesmärk:
 - hoida ühes kohas alles otsus, miks mõni leid jäi praegu lahtiseks;
-- vältida sama leiu uuesti läbiarutamist järgmistes commitides;
+- vältida sama leiu uuesti läbirääkimist järgmistes commitides;
 - eristada päris parandamata tehnilist võlga valepositiivsetest või teadlikult edasi lükatud tähelepanekutest.
 
 Ulatus:
@@ -61,6 +61,7 @@ Mõjutatud failid:
 - `frontend_dist/assets/competitor-core.js`
 - `frontend_dist/assets/competitor-map.js`
 - `frontend_dist/assets/competitor-main.js`
+- `frontend_dist/assets/admin-core.js`
 
 Miks ei parandatud:
 - tegemist on valdavalt loetavus- ja stiilisoovitusega, mitte funktsionaalse bugiga;
@@ -99,8 +100,9 @@ Staatus:
 
 ### 1.5 `javascript:S7761` eelista `.dataset` üle `getAttribute(...)`
 
-Mõjutatud fail:
+Mõjutatud failid:
 - `frontend_dist/assets/competitor-main.js`
+- `frontend_dist/assets/admin-main.js`
 
 Miks ei parandatud:
 - tegemist on API eelistuse, mitte vea või regressiooniga;
@@ -197,8 +199,34 @@ Staatus:
 - teadlikult edasi lükatud UX-parandus / backlog
 
 Millal uuesti hinnata:
-- kui tehakse järgmine competitor map popupi UX täiustamise ring;
+- kui tehakse järgmine competitor map popupi UX täpsustamise ring;
 - kui soovitakse vähendada kasutajate segadust olukorras, kus küsimus on olemas, aga pole veel vastatav.
+
+### 2a.2 Admin info-modali HTML struktuurikontrolli valepositiivid toorete `<` / `>` märkide korral
+
+Mõjutatud fail:
+- `frontend_dist/assets/admin-core.js`
+
+Mõjutatud ala:
+- `hasValidInfoHtmlStructure(...)`
+- admin väljapõhiste info-modalite HTML guard enne DOMPurify sanitiseerimist
+
+Miks ei parandatud kohe:
+- praegune guard on teadlikult kitsas ja selle põhieesmärk on piirata vigase help-HTML mõju ainult konkreetse modali sisse;
+- see eesmärk on saavutatud: katkine või valesti pesastatud HTML ei tohi enam lõhkuda tervet lehte;
+- samas võib regex-põhine kontroll anda valepositiivse vea, kui tõlkes kasutatakse toorest `<` või `>` märki tekstisisuna, näiteks koodinäites või matemaatilistes võrdlustes;
+- sellisel juhul kuvatakse sama modali sees turvaline fallback (hoiatus + escaped toortekst), kuigi sisu ise ei pruugi olla sisuliselt vigane;
+- kiirparandust ei tehtud, sest see kipuks muutuma uueks regex-lapiks; sisuline parandus tuleks teha eraldi, kui otsustatakse guard asendada parseripõhisema loogikaga.
+
+Staatus:
+- teadlikult edasi lükatud UX-parandus / teadaolev piirang
+
+Praegune workaround:
+- tõlgetes tuleb kasutada tekstisiseste nurksulgude asemel HTML olemeid `&lt;` ja `&gt;`
+
+Millal uuesti hinnata:
+- kui info-modalitesse lisatakse rohkem tehnilisi näiteid või abiinfodes hakatakse sagedamini kasutama võrdlusmärke;
+- kui tehakse eraldi admin i18n / help-modalite robustsuse paranduspass.
 
 ## 3. Kuidas seda dokumenti kasutada
 

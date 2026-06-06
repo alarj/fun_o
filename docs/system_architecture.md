@@ -96,7 +96,7 @@ Tehnoloogia:
 - Vanilla JavaScript (võistleja UI loogika on jaotatud staatilisteks asset-failideks)
 - CSS
 - Leaflet (`leaflet`), `proj4`, `proj4leaflet` kaardifunktsioonide jaoks
-- DOMPurify võistluse tingimuste HTML turvaliseks sanitiseerimiseks enne renderdamist
+- DOMPurify võistluse tingimuste HTML ning admin UI kontekstitundlike info-modalite piiratud HTML turvaliseks sanitiseerimiseks enne renderdamist
 - HTTP API kaudu suhtlus FastAPI-ga
 
 Viited:
