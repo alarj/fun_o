@@ -489,7 +489,8 @@ function renderQuestionLangRows() {
   const container = byId("questionLangRows");
   container.innerHTML = availableLangs.map((lang) => {
     const required = lang === defaultLang ? " *" : "";
-    return `<div class="row"><div class="field-label-with-info"><label>${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label>${infoButtonHtml("admin.q_dialog.question_text_prefix")}</div><textarea id="${qTextId(lang)}"></textarea></div>`;
+    const inputId = qTextId(lang);
+    return `<div class="row"><div class="field-label-with-info"><label for="${inputId}">${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label>${infoButtonHtml("admin.q_dialog.question_text_prefix")}</div><textarea id="${inputId}"></textarea></div>`;
   }).join("");
 }
 
