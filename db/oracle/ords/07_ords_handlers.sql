@@ -1596,6 +1596,10 @@ begin
         l_lang varchar2(10) := nvl(:lang, 'et');
         l_default_lang varchar2(10) := nvl(:default_lang, 'et');
         l_items_json clob;
+        l_json clob;
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_i18n.get_translations_json(
           p_lang_code => l_lang,
@@ -1603,9 +1607,14 @@ begin
           o_items_json => l_items_json
         );
 
+        l_json := '{"lang":"' || l_lang || '","default_lang":"' || l_default_lang || '","items":' || nvl(l_items_json, '{}') || '}';
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"lang":"' || l_lang || '","default_lang":"' || l_default_lang || '","items":' || nvl(l_items_json, '{}') || '}');
+        l_len := dbms_lob.getlength(l_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );

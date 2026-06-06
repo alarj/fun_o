@@ -1098,7 +1098,7 @@ async def _verify_google_id_token(id_token: str) -> dict[str, Any]:
 
 
 async def _load_i18n_cache() -> None:
-    i18n_cache.clear()
+    next_cache: dict[str, dict[str, str]] = {}
     for lang in settings.lang_available:
         data = await _get_from_ords(
             "i18n/translations",
@@ -1106,9 +1106,11 @@ async def _load_i18n_cache() -> None:
         )
         raw_items = data.get("items") if isinstance(data, dict) else None
         if isinstance(raw_items, dict):
-            i18n_cache[lang] = {str(k): str(v) for k, v in raw_items.items()}
+            next_cache[lang] = {str(k): str(v) for k, v in raw_items.items()}
         else:
-            i18n_cache[lang] = {}
+            next_cache[lang] = {}
+    i18n_cache.clear()
+    i18n_cache.update(next_cache)
 
 
 def _fallback_map_layers() -> list[dict[str, Any]]:

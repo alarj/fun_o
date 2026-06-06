@@ -326,7 +326,7 @@ function refreshCompetitionTypeDisplay() {
   const compType = String(window.__lastCompetitionType || "R").toUpperCase();
   const target = byId("cType");
   if (!target) return;
-  target.textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
+  target.textContent = tr(`admin.competition.type.${compType.toLowerCase()}`);
 }
 
 async function loadView() {
@@ -356,7 +356,7 @@ async function loadView() {
   byId("cDesc").textContent = v.description || "";
   byId("cStatus").textContent = v.status || "";
   const compType = String(v.type || "R").toUpperCase();
-  byId("cType").textContent = tr(`admin.competition.type.${compType.toLowerCase()}`, compType);
+  byId("cType").textContent = tr(`admin.competition.type.${compType.toLowerCase()}`);
   window.__lastCompetitionName = v.name || "";
   window.__lastCompetitionDescription = v.description || "";
   window.__lastCompetitionType = compType;
@@ -437,8 +437,8 @@ function renderRows() {
       }</td>
       <td class="actions-col">
         <div class="tools">
-          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn", currentUiLang === "et" ? "Muuda küsimust" : "Edit question"))}</button>
-          <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn", currentUiLang === "et" ? "Muuda KP-d" : "Edit checkpoint"))}</button>
+          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
+          <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn"))}</button>
         </div>
       </td>
     </tr>`;
@@ -489,13 +489,14 @@ function renderQuestionLangRows() {
   const container = byId("questionLangRows");
   container.innerHTML = availableLangs.map((lang) => {
     const required = lang === defaultLang ? " *" : "";
-    return `<div class="row"><label>${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label><textarea id="${qTextId(lang)}"></textarea></div>`;
+    return `<div class="row"><div class="field-label-with-info"><label>${esc(tr("admin.q_dialog.question_text_prefix"))} (${lang})${required}</label>${infoButtonHtml("admin.q_dialog.question_text_prefix")}</div><textarea id="${qTextId(lang)}"></textarea></div>`;
   }).join("");
 }
 
 function renderOptionLangHead() {
   const el = byId("optionLangHead");
-  el.textContent = availableLangs.map((l) => `Tekst (${l})${l === defaultLang ? " *" : ""}`).join(" / ");
+  const text = availableLangs.map((l) => `${tr("admin.q_dialog.option_text_prefix")} (${l})${l === defaultLang ? " *" : ""}`).join(" / ");
+  el.innerHTML = `<span class="field-label-with-info"><span>${esc(text)}</span>${infoButtonHtml("admin.q_dialog.option_text_prefix")}</span>`;
 }
 
 function syncQuestionTypeUI() {
@@ -513,7 +514,8 @@ function addOptionRow(v = {}) {
   const existingCodeReadonly = v.option_code ? "readonly" : "";
   const langsHtml = availableLangs.map((lang) => {
     const key = `text_${lang}`;
-    return `<input class="opt-lang" data-lang="${lang}" placeholder="Tekst (${lang})${lang === defaultLang ? " *" : ""}" value="${esc(v[key] || "")}" style="margin-bottom:4px;" />`;
+    const placeholder = `${tr("admin.q_dialog.option_text_prefix")} (${lang})${lang === defaultLang ? " *" : ""}`;
+    return `<input class="opt-lang" data-lang="${lang}" placeholder="${esc(placeholder)}" value="${esc(v[key] || "")}" style="margin-bottom:4px;" />`;
   }).join("");
   rowEl.innerHTML = `
     <td class="opt-code-cell"><input class="opt-code" value="${esc(v.option_code || "")}" ${existingCodeReadonly} /></td>
@@ -1367,6 +1369,7 @@ byId("codeConfirmYes").onclick = async () => {
 };
 
 byId("codeResultOk").onclick = () => byId("codeResultDialog").close();
+byId("fieldInfoClose").onclick = () => closeFieldInfoDialog();
 byId("organizerJoinCancelNoComp").onclick = () => {
   byId("organizerJoinCodeNoComp").value = "";
   byId("noOrgMsg").textContent = "";
@@ -1396,6 +1399,13 @@ document.addEventListener("keydown", (e) => {
     const first = checkpointsData.find((x) => !x.question_id);
     if (first) openQuestionDialog(first.checkpoint_id, false);
   }
+});
+
+document.addEventListener("click", (e) => {
+  const trigger = e.target.closest("[data-info-key]");
+  if (!trigger) return;
+  e.preventDefault();
+  openFieldInfoDialog(trigger.getAttribute("data-info-key"));
 });
 
 (async () => {

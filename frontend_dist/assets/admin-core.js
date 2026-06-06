@@ -11,26 +11,75 @@ let currentUserEmail = "";
 let currentUiLang = "et";
 let availableLangs = ["et", "en"];
 let defaultLang = "et";
+let activeFieldInfoKey = "";
 
-const tr = (key, fallback = "") => i18nItems[key] || fallback || key;
+const tr = (key) => i18nItems[key] || key;
 const applyI18n = () => {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
-    el.textContent = tr(key, el.textContent);
+    el.textContent = tr(key);
   });
   document.querySelectorAll("[data-i18n-title]").forEach((el) => {
     const key = el.getAttribute("data-i18n-title");
-    el.setAttribute("title", tr(key, el.getAttribute("title") || key));
+    el.setAttribute("title", tr(key));
   });
   document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
     const key = el.getAttribute("data-i18n-aria-label");
-    el.setAttribute("aria-label", tr(key, el.getAttribute("aria-label") || key));
+    el.setAttribute("aria-label", tr(key));
   });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
     const key = el.getAttribute("data-i18n-placeholder");
-    el.setAttribute("placeholder", tr(key, el.getAttribute("placeholder") || key));
+    el.setAttribute("placeholder", tr(key));
   });
+  refreshFieldInfoDialog();
 };
+
+function sanitizeInfoHtml(html) {
+  const dirty = String(html || "");
+  if (!globalThis.DOMPurify?.sanitize) {
+    return esc(dirty);
+  }
+  return globalThis.DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "span", "code"],
+    ALLOWED_ATTR: ["class", "title"],
+  });
+}
+
+function refreshFieldInfoDialog() {
+  const dialog = byId("fieldInfoDialog");
+  if (!dialog || !dialog.open || !activeFieldInfoKey) return;
+  byId("fieldInfoTitle").textContent = tr(`${activeFieldInfoKey}.info_title`);
+  byId("fieldInfoBody").innerHTML = sanitizeInfoHtml(tr(`${activeFieldInfoKey}.info`));
+}
+
+function openFieldInfoDialog(baseKey) {
+  const normalized = String(baseKey || "").trim();
+  if (!normalized) return;
+  const dialog = byId("fieldInfoDialog");
+  if (!dialog) return;
+  activeFieldInfoKey = normalized;
+  byId("fieldInfoTitle").textContent = tr(`${normalized}.info_title`);
+  byId("fieldInfoBody").innerHTML = sanitizeInfoHtml(tr(`${normalized}.info`));
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+}
+
+function closeFieldInfoDialog() {
+  const dialog = byId("fieldInfoDialog");
+  if (!dialog) return;
+  dialog.close();
+  activeFieldInfoKey = "";
+}
+
+function infoButtonHtml(baseKey) {
+  const key = esc(String(baseKey || "").trim());
+  return `<button class="info-icon-btn" type="button" data-info-key="${key}" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>`;
+}
+
+byId("fieldInfoDialog")?.addEventListener("close", () => {
+  activeFieldInfoKey = "";
+});
 
 const showMsg = (id, ok, text) => {
   const el = byId(id);

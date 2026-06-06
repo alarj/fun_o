@@ -81,9 +81,27 @@
           </div>
         </div>
         <div class="cols" style="margin-top:14px;">
-          <div><strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div></div>
-          <div><strong data-i18n="admin.comp.organizer_code_label">admin.comp.organizer_code_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="Kopeeri kood" aria-label="Kopeeri kood"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">admin.comp.regen_organizer_btn</button></div></div>
-          <div><strong data-i18n="admin.comp.organizers_label">admin.comp.organizers_label</strong><div id="organizers" class="muted">-</div></div>
+          <div>
+            <div class="field-label-with-info">
+              <strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong>
+              <button class="info-icon-btn" type="button" data-info-key="admin.comp.competitor_code_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+            </div>
+            <div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div>
+          </div>
+          <div>
+            <div class="field-label-with-info">
+              <strong data-i18n="admin.comp.organizer_code_label">admin.comp.organizer_code_label</strong>
+              <button class="info-icon-btn" type="button" data-info-key="admin.comp.organizer_code_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+            </div>
+            <div class="tools" style="align-items:center; margin-top:4px;"><div id="codeOrganizer" style="min-width:72px;">-</div><button id="copyOrganizerCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button><button id="regenOrganizer" data-i18n="admin.comp.regen_organizer_btn">admin.comp.regen_organizer_btn</button></div>
+          </div>
+          <div>
+            <div class="field-label-with-info">
+              <strong data-i18n="admin.comp.organizers_label">admin.comp.organizers_label</strong>
+              <button class="info-icon-btn" type="button" data-info-key="admin.comp.organizers_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+            </div>
+            <div id="organizers" class="muted">-</div>
+          </div>
         </div>
         <div id="topMsg"></div>
       </div>
@@ -119,21 +137,24 @@
       <h3 id="cpTitle" style="margin:0; white-space:nowrap;" data-i18n="admin.cp_dialog.heading">admin.cp_dialog.heading</h3>
       <div class="tools" style="display:flex; flex-wrap:nowrap; gap:8px; align-items:center;">
         <select id="cpDialogMapLayerSelect" style="width:240px; min-width:240px;"></select>
+        <button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.map_layer_select_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
         <button id="cpToggleExistingBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.existing_btn">admin.cp_dialog.existing_btn</button>
+        <button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.existing_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
         <button id="cpMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.expand_btn">admin.cp_dialog.expand_btn</button>
+        <button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.expand_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
       </div>
     </div>
     <input id="cpId" type="hidden" />
     <div id="cpMap"></div>
-    <div class="row" id="cpNameRow"><label for="cpName" data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><input id="cpName" /></div>
-    <div class="row" id="cpTypeRow"><label for="cpType" data-i18n="admin.cp_dialog.checkpoint_type.label">admin.cp_dialog.checkpoint_type.label</label><select id="cpType"></select></div>
-    <div class="row"><label for="cpLocation" data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><input id="cpLocation" /></div>
-    <div class="row" id="cpOrderRow"><label for="cpOrder" data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><input id="cpOrder" type="number" /></div>
-    <div class="row cp-gps-row"><label for="cpLatitude" data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
-    <div class="row cp-gps-row"><label for="cpLongitude" data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
-    <div class="row cp-gps-row"><label for="cpRadiusM" data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><input id="cpRadiusM" type="number" step="1" min="1" /></div>
+    <div class="row" id="cpNameRow"><div class="field-label-with-info"><label for="cpName" data-i18n="admin.cp_dialog.title_label">admin.cp_dialog.title_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.title_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpName" /></div>
+    <div class="row" id="cpTypeRow"><div class="field-label-with-info"><label for="cpType" data-i18n="admin.cp_dialog.checkpoint_type.label">admin.cp_dialog.checkpoint_type.label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.checkpoint_type.label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="cpType"></select></div>
+    <div class="row"><div class="field-label-with-info"><label for="cpLocation" data-i18n="admin.cp_dialog.location_label">admin.cp_dialog.location_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.location_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpLocation" /></div>
+    <div class="row" id="cpOrderRow"><div class="field-label-with-info"><label for="cpOrder" data-i18n="admin.cp_dialog.order_label">admin.cp_dialog.order_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.order_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpOrder" type="number" /></div>
+    <div class="row cp-gps-row"><div class="field-label-with-info"><label for="cpLatitude" data-i18n="admin.cp_dialog.latitude_label">admin.cp_dialog.latitude_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.latitude_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpLatitude" type="number" step="0.000001" placeholder="59.437000" /></div>
+    <div class="row cp-gps-row"><div class="field-label-with-info"><label for="cpLongitude" data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.longitude_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
+    <div class="row cp-gps-row"><div class="field-label-with-info"><label for="cpRadiusM" data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.radius_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpRadiusM" type="number" step="1" min="1" /></div>
     <div class="row cp-gps-row">
-      <label data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label>
+      <div class="field-label-with-info"><label data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.location_required_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div>
       <div class="yn-switch-wrap">
         <label class="yn-switch" for="cpLocationRequired">
           <input id="cpLocationRequired" type="checkbox" />
@@ -155,16 +176,16 @@
   <dialog id="qDialog">
     <h3 id="qTitle" data-i18n="admin.q_dialog.heading">admin.q_dialog.heading</h3>
     <input id="qId" type="hidden" />
-    <div class="row"><label data-i18n="admin.q_dialog.checkpoint_label">admin.q_dialog.checkpoint_label</label><select id="qCheckpoint"></select></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.checkpoint_label">admin.q_dialog.checkpoint_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.checkpoint_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="qCheckpoint"></select></div>
     <div id="questionLangRows"></div>
-    <div class="row"><label data-i18n="admin.q_dialog.type_label">admin.q_dialog.type_label</label><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
-    <div class="row"><label data-i18n="admin.q_dialog.points_label">admin.q_dialog.points_label</label><input id="qPoints" type="number" value="0" /></div>
-    <div class="row"><label data-i18n="admin.q_dialog.wrong_points_label">admin.q_dialog.wrong_points_label</label><input id="qWrongPoints" type="number" value="0" /></div>
-    <div class="row" id="qInputTypeRow"><label data-i18n="admin.q_dialog.input_type_label">admin.q_dialog.input_type_label</label><select id="qInputType"><option value="" data-i18n="admin.q_dialog.input_type_none">admin.q_dialog.input_type_none</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
-    <div class="row" id="qInputMaxRow"><label data-i18n="admin.q_dialog.input_max_label">admin.q_dialog.input_max_label</label><input id="qInputMax" type="number" /></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.type_label">admin.q_dialog.type_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.type_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="qType"><option value="TEXT">TEXT</option><option value="SINGLE_CHOICE">SINGLE_CHOICE</option></select></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.points_label">admin.q_dialog.points_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.points_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="qPoints" type="number" value="0" /></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.wrong_points_label">admin.q_dialog.wrong_points_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.wrong_points_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="qWrongPoints" type="number" value="0" /></div>
+    <div class="row" id="qInputTypeRow"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.input_type_label">admin.q_dialog.input_type_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.input_type_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="qInputType"><option value="" data-i18n="admin.q_dialog.input_type_none">admin.q_dialog.input_type_none</option><option value="TEXT">TEXT</option><option value="NUMERIC">NUMERIC</option></select></div>
+    <div class="row" id="qInputMaxRow"><div class="field-label-with-info"><label data-i18n="admin.q_dialog.input_max_label">admin.q_dialog.input_max_label</label><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.input_max_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="qInputMax" type="number" /></div>
 
     <div id="singleChoiceBlock">
-      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.options_heading">admin.q_dialog.options_heading</h4>
+      <div class="field-label-with-info" style="margin:8px 0 6px;"><h4 style="margin:0;" data-i18n="admin.q_dialog.options_heading">admin.q_dialog.options_heading</h4><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.options_heading" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div>
       <table class="table q-options-table">
         <colgroup>
           <col class="code-col" />
@@ -174,9 +195,9 @@
         </colgroup>
         <thead>
           <tr>
-            <th data-i18n="admin.q_dialog.options_code_col">admin.q_dialog.options_code_col</th>
+            <th><span class="field-label-with-info"><span data-i18n="admin.q_dialog.options_code_col">admin.q_dialog.options_code_col</span><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.options_code_col" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span></th>
             <th id="optionLangHead"></th>
-            <th data-i18n="admin.q_dialog.options_correct_col">admin.q_dialog.options_correct_col</th>
+            <th><span class="field-label-with-info"><span data-i18n="admin.q_dialog.options_correct_col">admin.q_dialog.options_correct_col</span><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.options_correct_col" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span></th>
             <th></th>
           </tr>
         </thead>
@@ -186,12 +207,12 @@
     </div>
 
     <div id="textAnswersBlock" class="hidden">
-      <h4 style="margin:8px 0 6px;" data-i18n="admin.q_dialog.answers_heading">admin.q_dialog.answers_heading</h4>
+      <div class="field-label-with-info" style="margin:8px 0 6px;"><h4 style="margin:0;" data-i18n="admin.q_dialog.answers_heading">admin.q_dialog.answers_heading</h4><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.answers_heading" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div>
       <table class="table">
         <thead>
           <tr>
-            <th data-i18n="admin.q_dialog.answers_value_col">admin.q_dialog.answers_value_col</th>
-            <th data-i18n="admin.q_dialog.answers_mode_col">admin.q_dialog.answers_mode_col</th>
+            <th><span class="field-label-with-info"><span data-i18n="admin.q_dialog.answers_value_col">admin.q_dialog.answers_value_col</span><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.answers_value_col" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span></th>
+            <th><span class="field-label-with-info"><span data-i18n="admin.q_dialog.answers_mode_col">admin.q_dialog.answers_mode_col</span><button class="info-icon-btn" type="button" data-info-key="admin.q_dialog.answers_mode_col" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span></th>
             <th></th>
           </tr>
         </thead>
@@ -259,22 +280,31 @@
 
   <dialog id="metaDialog">
     <h3 id="metaDialogTitle" data-i18n="admin.meta.edit_comp_title">admin.meta.edit_comp_title</h3>
-    <div class="row"><label data-i18n="admin.meta.name_label">admin.meta.name_label</label><input id="metaNameInput" /></div>
-    <div class="row"><label data-i18n="admin.meta.desc_label">admin.meta.desc_label</label><textarea id="metaDescInput"></textarea></div>
-    <div class="row"><label data-i18n="admin.meta.type_label">admin.meta.type_label</label><select id="metaTypeInput"><option value="R" data-i18n="admin.competition.type.r">admin.competition.type.r</option><option value="S" data-i18n="admin.competition.type.s">admin.competition.type.s</option></select></div>
-    <div class="row"><label data-i18n="admin.meta.status_label">admin.meta.status_label</label><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.meta.name_label">admin.meta.name_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.name_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaNameInput" /></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.meta.desc_label">admin.meta.desc_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.desc_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><textarea id="metaDescInput"></textarea></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.meta.type_label">admin.meta.type_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.type_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="metaTypeInput"><option value="R" data-i18n="admin.competition.type.r">admin.competition.type.r</option><option value="S" data-i18n="admin.competition.type.s">admin.competition.type.s</option></select></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.meta.status_label">admin.meta.status_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.status_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><select id="metaStatusInput"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="DRAFT">DRAFT</option></select></div>
     <div class="row">
-      <label data-i18n="admin.meta.location_settings_label">admin.meta.location_settings_label</label>
+      <div class="field-label-with-info">
+        <label data-i18n="admin.meta.location_settings_label">admin.meta.location_settings_label</label>
+        <button class="info-icon-btn" type="button" data-info-key="admin.meta.location_settings_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+      </div>
       <div class="yn-inline-row">
         <div class="yn-inline">
-          <span data-i18n="admin.meta.use_location_label">admin.meta.use_location_label</span>
+          <div class="field-label-with-info field-label-inline">
+            <span data-i18n="admin.meta.use_location_label">admin.meta.use_location_label</span>
+            <button class="info-icon-btn" type="button" data-info-key="admin.meta.use_location_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+          </div>
           <label class="yn-switch" for="metaUseLocationInput">
             <input id="metaUseLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
         </div>
         <div class="yn-inline">
-          <span data-i18n="admin.meta.show_competitor_location_label">admin.meta.show_competitor_location_label</span>
+          <div class="field-label-with-info field-label-inline">
+            <span data-i18n="admin.meta.show_competitor_location_label">admin.meta.show_competitor_location_label</span>
+            <button class="info-icon-btn" type="button" data-info-key="admin.meta.show_competitor_location_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+          </div>
           <label class="yn-switch" for="metaShowCompetitorLocationInput">
             <input id="metaShowCompetitorLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
@@ -282,20 +312,20 @@
         </div>
       </div>
     </div>
-    <div class="row"><label data-i18n="admin.meta.default_radius_label">admin.meta.default_radius_label</label><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.meta.default_radius_label">admin.meta.default_radius_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.default_radius_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaRadiusMInput" type="number" step="1" min="1" /></div>
     <div class="meta-readonly-row">
       <div class="meta-readonly-item">
-        <span class="meta-readonly-label" data-i18n="admin.meta.magnetic_declination_label">admin.meta.magnetic_declination_label</span>
+        <span class="meta-readonly-label field-label-with-info"><span data-i18n="admin.meta.magnetic_declination_label">admin.meta.magnetic_declination_label</span><button class="info-icon-btn" type="button" data-info-key="admin.meta.magnetic_declination_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span>
         <span id="metaDeclinationValue" class="meta-readonly-value muted">-</span>
       </div>
       <div class="meta-readonly-item">
-        <span class="meta-readonly-label" data-i18n="admin.meta.magnetic_declination_updated_label">admin.meta.magnetic_declination_updated_label</span>
+        <span class="meta-readonly-label field-label-with-info"><span data-i18n="admin.meta.magnetic_declination_updated_label">admin.meta.magnetic_declination_updated_label</span><button class="info-icon-btn" type="button" data-info-key="admin.meta.magnetic_declination_updated_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span>
         <span id="metaDeclinationUpdatedValue" class="meta-readonly-value muted">-</span>
       </div>
     </div>
-    <div class="row"><label data-i18n="admin.dates.start_label">admin.dates.start_label</label><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
-    <div class="row"><label data-i18n="admin.dates.end_label">admin.dates.end_label</label><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
-    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button></div></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.dates.start_label">admin.dates.start_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.start_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
+    <div class="row"><div class="field-label-with-info"><label data-i18n="admin.dates.end_label">admin.dates.end_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.end_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div class="row" id="metaMapLayersRow"><label></label><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button><button class="info-icon-btn" type="button" data-info-key="admin.meta.map_layers_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div></div>
     <div id="metaMsg"></div>
     <div class="dialog-actions">
       <div></div>
@@ -393,6 +423,17 @@
     </div>
   </dialog>
 
+  <dialog id="fieldInfoDialog">
+    <h3 id="fieldInfoTitle"></h3>
+    <div id="fieldInfoBody" class="info-modal-body"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="fieldInfoClose" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+      </div>
+    </div>
+  </dialog>
+
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -409,6 +450,7 @@
     crossorigin=""
   ></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="./assets/vendor/dompurify-3.4.7.min.js"></script>
   <script src="./assets/admin-core.js"></script>
   <script src="./assets/admin-map.js"></script>
   <script src="./assets/admin-main.js"></script>
