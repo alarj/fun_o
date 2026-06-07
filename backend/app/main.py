@@ -477,11 +477,6 @@ class MapLayersResponse(BaseModel):
     items: list[MapLayerEntry]
 
 
-class CompetitorMapLayersResponse(BaseModel):
-    competition_id: int
-    items: list[MapLayerEntry]
-
-
 class AdminCompetitionMapLayersResponse(BaseModel):
     competition_id: int
     layer_codes: list[str]
@@ -497,6 +492,19 @@ class CompetitionOverlayBoundsResponse(BaseModel):
     min_y: float
     max_x: float
     max_y: float
+
+
+class CompetitorMapLayerEntry(MapLayerEntry):
+    overlay_composite_base_code: str | None = None
+    overlay_tile_url_template: str | None = None
+    overlay_tile_min_zoom: int | None = None
+    overlay_tile_max_zoom: int | None = None
+    overlay_bounds_3301: CompetitionOverlayBoundsResponse | None = None
+
+
+class CompetitorMapLayersResponse(BaseModel):
+    competition_id: int
+    items: list[CompetitorMapLayerEntry]
 
 
 class CompetitionOverlayResponse(BaseModel):
@@ -1520,6 +1528,26 @@ def _make_admin_overlay_tile_token(user_id: int, overlay: CompetitionOverlayResp
     )
 
 
+def _make_competitor_overlay_tile_token(
+    user_id: int,
+    competition_participant_id: int,
+    overlay: CompetitionOverlayResponse,
+) -> str | None:
+    if not overlay.exists or not overlay.overlay_id or not overlay.tile_storage_rel_path:
+        return None
+    return _make_signed_token(
+        {
+            "kind": "competitor_overlay_tile",
+            "user_id": user_id,
+            "competition_participant_id": competition_participant_id,
+            "competition_id": overlay.competition_id,
+            "overlay_id": overlay.overlay_id,
+            "tile_storage_rel_path": overlay.tile_storage_rel_path,
+            "exp": int(time.time()) + max(60, int(settings.overlay_tile_token_ttl_seconds)),
+        }
+    )
+
+
 def _decorate_admin_overlay_response(overlay: CompetitionOverlayResponse, user_id: int) -> CompetitionOverlayResponse:
     if not overlay.exists:
         overlay.max_upload_bytes = settings.overlay_max_upload_bytes
@@ -1532,6 +1560,59 @@ def _decorate_admin_overlay_response(overlay: CompetitionOverlayResponse, user_i
                 f"/api/admin/competitions/overlay/tiles/{overlay.overlay_id}/{{z}}/{{x}}/{{y}}.png?token={token}"
             )
     return overlay
+
+
+def _build_competitor_overlay_layer_cache_item(
+    base_layer: dict[str, Any],
+    overlay: CompetitionOverlayResponse,
+) -> dict[str, Any] | None:
+    if not overlay.exists:
+        return None
+    if (
+        str(overlay.processing_status or "").upper() != "READY"
+        or str(overlay.crs_code or "").upper() != "EPSG:3301"
+        or not overlay.overlay_id
+        or not overlay.tile_storage_rel_path
+    ):
+        return None
+    label = str(overlay.display_label or overlay.display_name or "").strip()
+    if not label:
+        return None
+    return {
+        **base_layer,
+        "code": EPK_OVERLAY_LAYER_CODE,
+        "label": label,
+        "participant_default": False,
+        "crs": "EPSG:3301",
+        "overlay_composite_base_code": EPK_LAYER_CODE,
+        "overlay_tile_min_zoom": overlay.tile_min_zoom,
+        "overlay_tile_max_zoom": overlay.tile_max_zoom,
+        "overlay_bounds_3301": overlay.bounds_3301.model_dump() if overlay.bounds_3301 else None,
+        "__overlay_id": overlay.overlay_id,
+        "__overlay_tile_storage_rel_path": overlay.tile_storage_rel_path,
+        "__competition_id": overlay.competition_id,
+    }
+
+
+def _decorate_competitor_map_layer_entry(
+    raw_layer: dict[str, Any],
+    user_id: int,
+    competition_participant_id: int,
+) -> CompetitorMapLayerEntry:
+    layer_data = {k: v for k, v in raw_layer.items() if not str(k).startswith("__")}
+    if str(layer_data.get("code") or "").strip().lower() == EPK_OVERLAY_LAYER_CODE:
+        overlay = CompetitionOverlayResponse(
+            overlay_id=int(raw_layer.get("__overlay_id") or 0) or None,
+            competition_id=int(raw_layer.get("__competition_id") or 0),
+            tile_storage_rel_path=str(raw_layer.get("__overlay_tile_storage_rel_path") or "").strip() or None,
+            exists=True,
+        )
+        token = _make_competitor_overlay_tile_token(user_id, competition_participant_id, overlay)
+        if token and overlay.overlay_id:
+            layer_data["overlay_tile_url_template"] = (
+                f"/api/competitor/competitions/overlay/tiles/{overlay.overlay_id}/{{z}}/{{x}}/{{y}}.png?token={token}"
+            )
+    return CompetitorMapLayerEntry(**layer_data)
 
 
 async def _set_overlay_processing_status(
@@ -1681,6 +1762,7 @@ async def _process_overlay_tiles(overlay: CompetitionOverlayResponse, user_id: i
         return
     try:
         await _set_overlay_processing_status(overlay.overlay_id, "PROCESSING", updated_by=user_id)
+        competitor_map_layers_cache.pop(overlay.competition_id, None)
         tile_rel_path, tile_min_zoom, tile_max_zoom = await asyncio.to_thread(_generate_overlay_tiles_sync, overlay)
         refreshed = await _get_admin_competition_overlay(overlay.competition_id)
         if (
@@ -1698,6 +1780,7 @@ async def _process_overlay_tiles(overlay: CompetitionOverlayResponse, user_id: i
             tile_min_zoom=tile_min_zoom,
             tile_max_zoom=tile_max_zoom,
         )
+        competitor_map_layers_cache.pop(overlay.competition_id, None)
     except Exception as exc:
         _remove_overlay_dir(_overlay_tiles_rel_path(overlay))
         try:
@@ -1707,6 +1790,7 @@ async def _process_overlay_tiles(overlay: CompetitionOverlayResponse, user_id: i
                 updated_by=user_id,
                 processing_error=str(exc)[:2000],
             )
+            competitor_map_layers_cache.pop(overlay.competition_id, None)
         except Exception:
             return
 
@@ -2092,12 +2176,18 @@ async def competitor_map_layers(  # NOSONAR
     request: Request,
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorMapLayersResponse:
-    _ = _resolve_user_id(request, None, x_user_id)
+    user_id = _resolve_user_id(request, None, x_user_id)
+    competition_participant_id = _read_competitor_participation_id(request)
+    if competition_participant_id is None:
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "NOT_AUTHENTICATED", "api.error.not_authenticated")
     cached = competitor_map_layers_cache.get(competition_id)
     if isinstance(cached, dict):
         cached_items = cached.get("items")
         if isinstance(cached_items, list):
-            return CompetitorMapLayersResponse(competition_id=competition_id, items=cached_items)
+            return CompetitorMapLayersResponse(
+                competition_id=competition_id,
+                items=[_decorate_competitor_map_layer_entry(item, user_id, competition_participant_id) for item in cached_items],
+            )
 
     enabled_layers = _load_map_layers_config()
     enabled_by_code: dict[str, dict[str, Any]] = {}
@@ -2118,17 +2208,32 @@ async def competitor_map_layers(  # NOSONAR
                 selected_codes.append(code)
 
     selected_set = {code for code in selected_codes if code}
+    if EPK_OVERLAY_LAYER_CODE in selected_set:
+        selected_set.add(EPK_LAYER_CODE)
+    overlay: CompetitionOverlayResponse | None = None
+    should_offer_overlay = EPK_OVERLAY_LAYER_CODE in selected_set and EPK_LAYER_CODE in enabled_by_code
+    if should_offer_overlay:
+        overlay = await _get_admin_competition_overlay(competition_id)
     resolved_layers: list[MapLayerEntry] = []
+    cache_items: list[dict[str, Any]] = []
     for layer in enabled_layers:
         code = str(layer.get("code", "")).strip().lower()
         if not code or code not in selected_set:
             continue
-        resolved_layers.append(MapLayerEntry(**layer))
+        cache_items.append(dict(layer))
+        if code == EPK_LAYER_CODE and overlay is not None:
+            overlay_layer = _build_competitor_overlay_layer_cache_item(layer, overlay)
+            if overlay_layer is not None:
+                cache_items.append(overlay_layer)
 
     competitor_map_layers_cache[competition_id] = {
         "cached_at": time.time(),
-        "items": resolved_layers,
+        "items": cache_items,
     }
+    resolved_layers = [
+        _decorate_competitor_map_layer_entry(item, user_id, competition_participant_id)
+        for item in cache_items
+    ]
     return CompetitorMapLayersResponse(competition_id=competition_id, items=resolved_layers)
 
 
@@ -3584,6 +3689,7 @@ async def admin_competition_overlay_upload(
             raise
 
         current_overlay = await _get_admin_competition_overlay(competition_id)
+        competitor_map_layers_cache.pop(competition_id, None)
         _schedule_overlay_processing(current_overlay, user_id)
 
         if previous_overlay.exists and previous_overlay.storage_rel_path and previous_overlay.storage_rel_path != storage_rel_path:
@@ -3609,6 +3715,7 @@ async def admin_competition_overlay_delete(
             "updated_by": user_id,
         },
     )
+    competitor_map_layers_cache.pop(req.competition_id, None)
     if previous_overlay.exists and previous_overlay.storage_rel_path:
         _remove_overlay_dir(previous_overlay.storage_rel_path)
     return {"ok": True}
@@ -3649,6 +3756,42 @@ async def admin_competition_overlay_tile(
     if str(payload.get("kind") or "") != "admin_overlay_tile":
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
     if int(payload.get("user_id") or 0) != user_id or int(payload.get("overlay_id") or 0) != overlay_id:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    tile_rel_path = str(payload.get("tile_storage_rel_path") or "").strip()
+    if not tile_rel_path:
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_TILE_NOT_FOUND", "api.error.invalid_submission")
+    file_path = _safe_overlay_path(tile_rel_path) / str(z) / str(x) / f"{y}.png"
+    if not file_path.exists():
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_TILE_NOT_FOUND", "api.error.invalid_submission")
+    return FileResponse(file_path, media_type="image/png")
+
+
+@app.get("/api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png")
+async def competitor_competition_overlay_tile(
+    overlay_id: int,
+    z: int,
+    x: int,
+    y: int,
+    token: str,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> FileResponse:
+    user_id = _resolve_user_id(request, None, x_user_id)
+    competition_participant_id = _read_competitor_participation_id(request)
+    if competition_participant_id is None:
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "NOT_AUTHENTICATED", "api.error.not_authenticated")
+    payload = _read_signed_token(token)
+    if not isinstance(payload, dict):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    if _signed_payload_is_expired(payload):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "EXPIRED_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    if str(payload.get("kind") or "") != "competitor_overlay_tile":
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    if (
+        int(payload.get("user_id") or 0) != user_id
+        or int(payload.get("competition_participant_id") or 0) != competition_participant_id
+        or int(payload.get("overlay_id") or 0) != overlay_id
+    ):
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
     tile_rel_path = str(payload.get("tile_storage_rel_path") or "").strip()
     if not tile_rel_path:

@@ -211,6 +211,28 @@ Map layer config (admin "Näita kaardil"):
   visible demo layers. A clearly usable public HTTPS South Tyrol color basemap or orthophoto layer contract has not
   been confirmed yet from the same official sources.
 
+Competition-specific own map overlay in competitor UI:
+- `GET /api/competitor/map-layers?competition_id=...` may add a dynamic map-layer entry when all of these are true:
+  - participant map-layers include `maaamet_pohikaart_overlay`;
+  - active competition overlay exists and `processing_status = READY`;
+  - global base layer `maaamet_pohikaart` is enabled in `map_layers.json`.
+- The dynamic competitor-visible layer is returned as:
+  - `code = "maaamet_pohikaart_overlay"`
+  - `label = "* <display_name>"`
+  - `overlay_composite_base_code = "maaamet_pohikaart"`
+  - `overlay_tile_url_template = "/api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=..."`
+- The dynamic layer is not a separate global base map; competitor frontend must render it as a composite:
+  - base map = `maaamet_pohikaart`
+  - overlay = competition-specific tile layer
+- Competitor frontend must treat this overlay as a plain map layer on top of EPK:
+  - overlay visibility must not depend on GPS availability, current user location or follow mode;
+  - follow mode may change only map center movement;
+  - user location marker may change only user-location rendering.
+- If participant layer selection contains `maaamet_pohikaart_overlay`, backend treats `maaamet_pohikaart` as its technical prerequisite.
+- Overlay tile media is served by FastAPI endpoint:
+  - `GET /api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=...`
+- If current map view is outside the overlay coverage, only the base layer remains visible in that area because matching overlay tiles do not exist there.
+
 Magnetic declination flow:
 - `competition_declinations` stores one current declination row per competition.
 - The backend schedules an asynchronous refresh after competition meta/date changes and checkpoint create/update/delete events when the competition is active and uses location.

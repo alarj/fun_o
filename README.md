@@ -4,6 +4,7 @@
 - Võistlusi saab luua nii mobiilis kuvatava kaardiga kui ka kaardita. Kaardirežiimis on võimalik kuvada võistleja asukohta ning lubada küsimustele vastata ainult kindlas piirkonnas viibides. 
 - Võistluste korraldamisel saab kasutada erinevaid avalikest allikatest pärit kaarte, nii Eesti-keskseid kaarte (nt Maa-ameti kaardid) kui laiema katvusega kaarte (nt OpenStreetMap, Mapy.cz jms.). 
 - Korraldaja saab võistlusele lisada ka oma georeferentseeritud kaardi, mida kasutatakse võistluspõhise overlayna toetatud aluskaardi peal.
+- Kui korraldaja on selle lubanud, kuvatakse oma kaart võistlejale EPK (`Maa-amet Eesti põhikaart`) peale joonistatava eraldi tile-overlayna; selle kuvamine ei sõltu GPS-ist ega follow-režiimist.
 - Sama rakendust saab kasutada ka klassikaliste viktoriinide ja muude teadmismängude läbiviimiseks.
 
 ## Projekti taust
@@ -42,6 +43,7 @@ Süsteem loob väärtust kolmes rollis.
 - KP vastamine nii teksti kui valikvastustega;
 - kohene tulemus iga vastuse järel: kas vastus oli õige ja mitu punkti saadi;
 - toetab nii `R` (vaba järjekord) kui `S` (etteantud järjekord) võistlusi ning `START`/`FINISH` erikontrollpunkte;
+- kui korraldaja on lubanud, saab võistleja kasutada ka võistluspõhist oma kaarti toetatud aluskaardi peal;
 - võistluse ajal nähtav enda progress, punktid ja läbitud KP-d.
 
 ### Korraldaja väärtus
@@ -66,7 +68,7 @@ Lahendus on veebipõhine mitmekihiline süsteem:
 - FastAPI backend ühtse API, sessiooni, valideerimise ja cache’iga;
 - Oracle andmemudel + ORDS REST-kiht, kus paiknevad andmete ja reeglite kesksemad kontrollid;
 - kaardikiht avalikest kaardiallikatest (nt Maa-ameti kaardid, OpenStreetMap, Mapy.cz), mida saab kasutada võistluse loogika osana või taustakaardina;
-- võistluspõhised oma kaardid, mis salvestatakse eraldi failistorage'isse, töödeldakse taustas tile'ideks ning kuvatakse adminis overlayna aluskaardi peal;
+- võistluspõhised oma kaardid, mis salvestatakse eraldi failistorage'isse, töödeldakse taustas tile'ideks ning kuvatakse nii adminis kui võistleja vaates EPK aluskaardi peal eraldi overlay-kihina;
 - Docker Compose’iga käivitatav tervik (nginx + backend + testiprofiil).
 
 Võistleja UI (`frontend_dist/index.html`) kasutab eraldi staatilisi asset-faile:

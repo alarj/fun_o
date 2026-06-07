@@ -87,6 +87,7 @@ Mida teeb:
 - `results.html` võistleja modal kasutab `participant-submissions` andmeid, sh iga rea `delta_from_prev_seconds` ning kokkuvõtte väljasid `total_elapsed_seconds` / `total_distance_m`.
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
 - Admin UI saab võistlusele lisatud oma kaardi korral dünaamilise kaardivaliku `* {display_name}`, kuid alles siis, kui overlay töötlusstaatus on `READY`.
+- Competitor UI saab samal põhimõttel dünaamilise kaardivaliku `* {display_name}`, mida renderdatakse EPK peale tavalise tile-overlay kihina.
 
 Miks nii on tehtud:
 - Staatilise frontendi serveerimine nginx-ist on lihtne ja odav.
@@ -94,6 +95,7 @@ Miks nii on tehtud:
 - Demostaadiumis võib sama konfiguratsioon sisaldada nii kontrollitud kui katsetatavaid väliseid kaardikihte,
   et eri riikide taustakaarte saaks reaalseadmetes kiiresti võrrelda ilma eraldi deploy-ringideta.
 - Võistluspõhise overlay elutsükkel on frontendile lihtne: UI näitab source-kaardi metaandmeid ja töötlusolekut, kuid kasutab overlayd kaardil alles siis, kui backend on tile'id valmis loonud.
+- Võistleja vaates on oma kaart, kasutaja asukoht ja follow-režiim üksteisest lahutatud: overlay valik määrab ainult aktiivse kaardikihikomplekti, follow määrab ainult kaardi keskpunkti liikumise.
 
 Tehnoloogia:
 - HTML
