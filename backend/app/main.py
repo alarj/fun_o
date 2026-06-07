@@ -110,8 +110,13 @@ ADMIN_CHECKPOINTS_PATH = "admin/checkpoints"
 API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
 ADMIN_OVERLAY_INVALID_IMAGE_FILE_MSG = "admin.overlay.invalid_image_file_msg"
 ADMIN_OVERLAY_INVALID_WORLD_FILE_MSG = "admin.overlay.invalid_world_file_msg"
+ADMIN_OVERLAY_INVALID_LEST97_BOUNDS_MSG = "admin.overlay.invalid_lest97_bounds_msg"
 ADMIN_OVERLAY_IMAGE_FILE_SIZE_TOO_LARGE_MSG = "admin.overlay.image_file_size_too_large_msg"
 ADMIN_OVERLAY_IMAGE_DIMENSIONS_TOO_LARGE_MSG = "admin.overlay.image_dimensions_too_large_msg"
+L_EST97_MIN_X = 300000.0
+L_EST97_MAX_X = 800000.0
+L_EST97_MIN_Y = 6300000.0
+L_EST97_MAX_Y = 7000000.0
 ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-01722",), ("INVALID_NUMBER_FORMAT", "api.error.invalid_request")),
     (("ORA-20031",), ("INVALID_ACCESS_CODE", "api.error.invalid_access_code")),
@@ -1355,6 +1360,24 @@ def _parse_world_file(raw_text: str) -> dict[str, float]:
     }
 
 
+def _validate_overlay_bounds_lest97(bounds: dict[str, float]) -> None:
+    min_x = float(bounds.get("min_x") or 0.0)
+    max_x = float(bounds.get("max_x") or 0.0)
+    min_y = float(bounds.get("min_y") or 0.0)
+    max_y = float(bounds.get("max_y") or 0.0)
+    if (
+        min_x < L_EST97_MIN_X
+        or max_x > L_EST97_MAX_X
+        or min_y < L_EST97_MIN_Y
+        or max_y > L_EST97_MAX_Y
+    ):
+        _raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "INVALID_OVERLAY_LEST97_BOUNDS",
+            ADMIN_OVERLAY_INVALID_LEST97_BOUNDS_MSG,
+        )
+
+
 def _format_mb(value_bytes: int) -> str:
     return f"{value_bytes / (1024 * 1024):.1f}"
 
@@ -1500,7 +1523,7 @@ async def _get_admin_competition_overlay(competition_id: int) -> CompetitionOver
 
 
 async def _get_pending_admin_competition_overlays() -> list[CompetitionOverlayResponse]:
-    payload = await _get_from_ords("admin/competitions/overlays/pending-processing")
+    payload = await _get_from_ords("admin/competitions/overlays/pending-processing", {})
     items = payload.get("items") if isinstance(payload, dict) else []
     if not isinstance(items, list):
         return []
@@ -3643,6 +3666,7 @@ async def admin_competition_overlay_upload(
             top_left_x=world_meta["top_left_x"],
             top_left_y=world_meta["top_left_y"],
         )
+        _validate_overlay_bounds_lest97(bounds)
 
         previous_overlay = await _get_admin_competition_overlay(competition_id)
         storage_rel_path = _overlay_relative_dir(competition_id)

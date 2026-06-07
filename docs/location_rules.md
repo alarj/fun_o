@@ -93,6 +93,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 ### 5a. Võistleja võistluspõhine oma kaart
 
+- Uploadi valideerimise eeltingimus:
+  - world file põhjal arvutatud overlay boundid peavad jääma Eesti L-EST97 mõistlikku piirkonda (X `300000..800000`, Y `6300000..7000000`);
+  - kui uploaditud world file viitab teise CRS-i või ilmselgelt valedele koordinaatidele, tuleb upload tagasi lükata.
 - Võistleja kaardivalikusse ilmub võistluspõhine oma kaart ainult siis, kui:
   - võistlusele on osaleja jaoks lubatud kaardikiht `maaamet_pohikaart_overlay`;
   - aktiivne overlay eksisteerib;

@@ -101,6 +101,7 @@ Expected ORDS JSON responses:
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
 - `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
 - `admin/competitions/overlay` (GET) tagastab overlay metadata admin UI jaoks; kui `processing_status != READY`, ei tohi frontend pakkuda seda kasutatava kaardina admin kaardivaadetes.
+- Overlay upload valideerib world file põhjal arvutatud boundse Eesti L-EST97 mõistlikkuse vastu; kui `bounds_3301` jääb väljapoole X `300000..800000` või Y `6300000..7000000`, lükatakse upload tagasi.
 - `admin/competitions/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `admin/checkpoints` -> `{ "checkpoint_id": 123 }`
 - `admin/questions` -> `{ "question_id": 456 }`
