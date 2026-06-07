@@ -31,6 +31,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/admin/checkpoints?competition_id=...` - tagastab valitud võistluse KP-de loendi.
 - GET `/admin/competitions/map-layers?competition_id=...` - tagastab võistlusele lubatud kaardikihtide sidumise.
 - GET `/admin/competitions/overlay?competition_id=...` - tagastab võistluse aktiivse oma kaardi metadata, kui see on olemas.
+- GET `/admin/competitions/overlays/pending-processing` - tagastab aktiivsed oma kaardid, mille töötlus tuleb käivitada või taastada.
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
@@ -131,7 +132,9 @@ Required backend env:
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
+- Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
 - Overlay upload voog salvestab source-failid `OVERLAY_STORAGE_DIR` alla ning käivitab taustatöö, mis lõikab rasteri tile'ideks ja uuendab staatust `UPLOADED -> PROCESSING -> READY|FAILED`.
+- Backend startup proovib uuesti käivitada aktiivsed overlay'd, mille staatus on jäänud `UPLOADED` või `PROCESSING`.
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)

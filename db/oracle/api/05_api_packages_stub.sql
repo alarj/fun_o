@@ -3418,6 +3418,10 @@ create or replace package pkg_admin_content as
     p_competition_id in number,
     o_item_json out clob
   );
+  -- list_pending_competition_map_overlays_json: Returns active overlays waiting for processing or recovery.
+  procedure list_pending_competition_map_overlays_json(
+    o_items_json out clob
+  );
   -- upsert_competition_map_overlay: Inserts or updates the active competition overlay metadata.
   procedure upsert_competition_map_overlay(
     p_competition_id in number,
@@ -4469,6 +4473,56 @@ create or replace package body pkg_admin_content as
       when no_data_found then
         o_item_json := null;
     end;
+  end;
+
+  -- list_pending_competition_map_overlays_json: Returns active overlays waiting for processing or recovery.
+  procedure list_pending_competition_map_overlays_json(
+    o_items_json out clob
+  ) is
+    l_now_utc_date date;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    select json_arrayagg(
+             json_object(
+               'overlay_id' value cmo.overlay_id,
+               'competition_id' value cmo.competition_id,
+               'display_name' value cmo.display_name,
+               'image_file_name' value cmo.image_file_name,
+               'world_file_name' value cmo.world_file_name,
+               'image_mime_type' value cmo.image_mime_type,
+               'image_size_bytes' value cmo.image_size_bytes,
+               'storage_rel_path' value cmo.storage_rel_path,
+               'processing_status' value cmo.processing_status,
+               'processing_error' value cmo.processing_error,
+               'tile_storage_rel_path' value cmo.tile_storage_rel_path,
+               'tile_min_zoom' value cmo.tile_min_zoom,
+               'tile_max_zoom' value cmo.tile_max_zoom,
+               'tiles_generated_at' value to_char(cmo.tiles_generated_at, pkg_common.c_iso_ts_format),
+               'crs_code' value cmo.crs_code,
+               'width_px' value cmo.width_px,
+               'height_px' value cmo.height_px,
+               'pixel_size_x' value cmo.pixel_size_x,
+               'pixel_size_y' value cmo.pixel_size_y,
+               'top_left_x' value cmo.top_left_x,
+               'top_left_y' value cmo.top_left_y,
+               'min_x' value cmo.min_x,
+               'min_y' value cmo.min_y,
+               'max_x' value cmo.max_x,
+               'max_y' value cmo.max_y,
+               'updated_at' value to_char(cmo.updated_at, pkg_common.c_iso_ts_format),
+               'created_at' value to_char(cmo.created_at, pkg_common.c_iso_ts_format)
+               returning clob
+             ) returning clob
+           )
+      into o_items_json
+      from competition_map_overlays cmo
+     where (cmo.end_date is null or cmo.end_date > l_now_utc_date)
+       and upper(trim(nvl(cmo.processing_status, 'UPLOADED'))) in ('UPLOADED', 'PROCESSING');
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
   end;
 
   -- upsert_competition_map_overlay: Inserts or updates the active competition overlay metadata.

@@ -1103,7 +1103,10 @@ async function saveOverlayDialog() {
     return;
   }
   if (Number.isFinite(maxUploadBytes) && maxUploadBytes > 0 && Number(imageFile.size || 0) > maxUploadBytes) {
-    showMsg("overlayMsg", false, tr("admin.overlay.image_too_large_msg"));
+    showMsg("overlayMsg", false, formatTr("admin.overlay.image_file_size_too_large_msg", {
+      actual_mb: formatFileSizeMb(imageFile.size || 0),
+      max_mb: formatFileSizeMb(maxUploadBytes),
+    }));
     return;
   }
   const fd = new FormData();

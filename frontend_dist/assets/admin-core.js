@@ -14,6 +14,11 @@ let defaultLang = "et";
 let activeFieldInfoKey = "";
 
 const tr = (key) => i18nItems[key] || key;
+const formatTr = (key, params = {}) => tr(key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, name) => {
+  const value = params[name];
+  return value == null ? `{${name}}` : String(value);
+});
+const formatFileSizeMb = (bytes) => (Number(bytes || 0) / (1024 * 1024)).toFixed(1);
 const applyI18n = () => {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
@@ -161,6 +166,20 @@ const translateAdminError = (msg, detailsText) => {
 const humanizeError = (raw, details = null) => {
   const msg = (raw || "").toString().trim();
   if (!msg) return tr("admin.msg.error_generic");
+  if (msg === "admin.overlay.image_file_size_too_large_msg") {
+    return formatTr(msg, {
+      actual_mb: details?.actual_mb || formatFileSizeMb(details?.actual_bytes || 0),
+      max_mb: details?.max_mb || formatFileSizeMb(details?.max_bytes || 0),
+    });
+  }
+  if (msg === "admin.overlay.image_dimensions_too_large_msg") {
+    return formatTr(msg, {
+      actual_width: details?.actual_width ?? "?",
+      actual_height: details?.actual_height ?? "?",
+      max_width: details?.max_width ?? "?",
+      max_height: details?.max_height ?? "?",
+    });
+  }
   if (msg.startsWith("admin.")) return tr(msg);
   if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code");
   if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer");

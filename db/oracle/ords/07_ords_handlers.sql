@@ -2100,6 +2100,26 @@ begin
     p_access_method      => 'IN'
   );
 
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlays/pending-processing'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlays/pending-processing',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.list_pending_competition_map_overlays_json(
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('items' value nvl(l_json, '[]') format json));
+      end;
+    ~'
+  );
+
   -- POST /funo/admin/competitions/overlay
   ORDS.DEFINE_HANDLER(
     p_module_name => c_module_name,
