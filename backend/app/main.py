@@ -3521,6 +3521,12 @@ async def admin_competition_overlay_upload(
     try:
         world_text = world_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:
+        _raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "INVALID_OVERLAY_WORLD_FILE",
+            ADMIN_OVERLAY_INVALID_WORLD_FILE_MSG,
+        )
+
     try:
         world_meta = _parse_world_file(world_text)
         width_px, height_px = _read_overlay_image_meta_from_path(temp_image_path)
