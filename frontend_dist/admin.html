@@ -53,6 +53,20 @@
           <h1 id="cName">-</h1>
           <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">&#128205;</span>
           <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">?</span>
+          <span
+            id="cOverlayReadyBadge"
+            class="competition-overlay-ready-badge hidden"
+            data-i18n-title="admin.comp.overlay_ready_badge_title"
+            data-i18n-aria-label="admin.comp.overlay_ready_badge_title"
+            title="admin.comp.overlay_ready_badge_title"
+            aria-label="admin.comp.overlay_ready_badge_title"
+            role="img"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M3.5 6.5 8 3l4 3.5L16 3l4.5 3.5v11L16 21l-4-3.5L8 21l-4.5-3.5zM8 5.4 5.5 7.3v8.2L8 17.4zm1 0v12l2.5-2.2V7.6zm3.5 2.2v7.6l2.5 2.2v-12zm3.5-2.2v12l2.5-1.9V7.3z"/>
+              <path d="m9.1 11.7 2.1 2.1 4.2-4.2" class="overlay-ready-check"/>
+            </svg>
+          </span>
           <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
           <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
           <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
@@ -325,6 +339,7 @@
     </div>
     <div class="row"><div class="field-label-with-info"><label for="metaStartsEt" data-i18n="admin.dates.start_label">admin.dates.start_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.start_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><div class="field-label-with-info"><label for="metaEndsEt" data-i18n="admin.dates.end_label">admin.dates.end_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.end_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div class="row" id="metaOwnMapRow"><span aria-hidden="true"></span><div class="tools"><button id="metaOwnMapBtn" class="secondary" type="button" data-i18n="admin.meta.overlay_btn">admin.meta.overlay_btn</button><button class="info-icon-btn" type="button" data-info-key="admin.meta.overlay_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div></div>
     <div class="row" id="metaMapLayersRow"><span aria-hidden="true"></span><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button><button class="info-icon-btn" type="button" data-info-key="admin.meta.map_layers_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div></div>
     <div id="metaMsg"></div>
     <div class="dialog-actions">
@@ -332,6 +347,24 @@
       <div class="dialog-right">
         <button id="metaCancel" class="secondary" type="button" data-i18n="admin.meta.cancel_btn">admin.meta.cancel_btn</button>
         <button id="metaSave" type="button" data-i18n="admin.meta.save_btn">admin.meta.save_btn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="overlayDialog">
+    <h3 data-i18n="admin.overlay.heading">admin.overlay.heading</h3>
+    <div class="row"><div class="field-label-with-info"><label for="overlayNameInput" data-i18n="admin.overlay.name_label">admin.overlay.name_label</label><button class="info-icon-btn" type="button" data-info-key="admin.overlay.name_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="overlayNameInput" /></div>
+    <div class="row"><div class="field-label-with-info"><label for="overlayImageInput" data-i18n="admin.overlay.image_file_label">admin.overlay.image_file_label</label><button class="info-icon-btn" type="button" data-info-key="admin.overlay.image_file_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="overlayImageInput" type="file" accept=".png,.jpg,.jpeg" /></div>
+    <div class="row"><div class="field-label-with-info"><label for="overlayWorldInput" data-i18n="admin.overlay.world_file_label">admin.overlay.world_file_label</label><button class="info-icon-btn" type="button" data-info-key="admin.overlay.world_file_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="overlayWorldInput" type="file" accept=".pgw,.jgw" /></div>
+    <div class="row"><div class="field-label-with-info"><span data-i18n="admin.overlay.current_label">admin.overlay.current_label</span><button class="info-icon-btn" type="button" data-info-key="admin.overlay.current_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><div id="overlayCurrentInfo" class="muted">-</div></div>
+    <div class="row"><div class="field-label-with-info"><span data-i18n="admin.overlay.status_label">admin.overlay.status_label</span><button class="info-icon-btn" type="button" data-info-key="admin.overlay.status_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><div id="overlayStatusInfo" class="muted">-</div></div>
+    <div class="row hidden" id="overlayErrorRow"><div class="field-label-with-info"><span data-i18n="admin.overlay.processing_error_label">admin.overlay.processing_error_label</span><button class="info-icon-btn" type="button" data-info-key="admin.overlay.processing_error_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><div id="overlayErrorInfo" class="muted">-</div></div>
+    <div id="overlayMsg"></div>
+    <div class="dialog-actions">
+      <button id="overlayDeleteBtn" class="warn" type="button" data-i18n="admin.overlay.delete_btn">admin.overlay.delete_btn</button>
+      <div class="dialog-right">
+        <button id="overlayCancelBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        <button id="overlaySaveBtn" type="button" data-i18n="admin.overlay.save_btn">admin.overlay.save_btn</button>
       </div>
     </div>
   </dialog>

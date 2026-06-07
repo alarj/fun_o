@@ -10,6 +10,7 @@ create sequence seq_competition_access_codes start with 1 increment by 1;
 create sequence seq_competition_organizers start with 1 increment by 1;
 create sequence seq_competition_participants start with 1 increment by 1;
 create sequence seq_competition_part_map_layers start with 1 increment by 1;
+create sequence seq_competition_map_overlays start with 1 increment by 1;
 create sequence seq_competition_terms start with 1 increment by 1;
 create sequence seq_competition_terms_texts start with 1 increment by 1;
 create sequence seq_checkpoints start with 1 increment by 1;
@@ -203,6 +204,48 @@ create table competition_participant_map_layers (
   constraint fk_cpml_created_by foreign key (created_by) references users(user_id),
   constraint fk_cpml_updated_by foreign key (updated_by) references users(user_id),
   constraint chk_cpml_dates check (end_date is null or end_date >= start_date)
+);
+
+create table competition_map_overlays (
+  overlay_id number primary key,
+  competition_id number not null,
+  display_name varchar2(200) not null,
+  image_file_name varchar2(255) not null,
+  world_file_name varchar2(255) not null,
+  image_mime_type varchar2(100) not null,
+  image_size_bytes number not null,
+  storage_rel_path varchar2(1000) not null,
+  processing_status varchar2(20) default 'UPLOADED' not null,
+  processing_error varchar2(2000),
+  tile_storage_rel_path varchar2(1000),
+  tile_min_zoom number,
+  tile_max_zoom number,
+  tiles_generated_at timestamp,
+  crs_code varchar2(32) not null,
+  width_px number not null,
+  height_px number not null,
+  pixel_size_x number not null,
+  pixel_size_y number not null,
+  top_left_x number not null,
+  top_left_y number not null,
+  min_x number not null,
+  min_y number not null,
+  max_x number not null,
+  max_y number not null,
+  start_date date default cast((systimestamp at time zone 'UTC') as date) not null,
+  end_date date,
+  created_by number,
+  updated_by number,
+  created_at timestamp default systimestamp not null,
+  updated_at timestamp,
+  constraint fk_cmo_comp foreign key (competition_id) references competitions(competition_id),
+  constraint fk_cmo_created_by foreign key (created_by) references users(user_id),
+  constraint fk_cmo_updated_by foreign key (updated_by) references users(user_id),
+  constraint chk_cmo_dates check (end_date is null or end_date >= start_date),
+  constraint chk_cmo_crs check (upper(crs_code) = 'EPSG:3301'),
+  constraint chk_cmo_processing_status check (processing_status in ('UPLOADED', 'PROCESSING', 'READY', 'FAILED')),
+  constraint chk_cmo_image_size check (image_size_bytes > 0),
+  constraint chk_cmo_dimensions check (width_px > 0 and height_px > 0)
 );
 
 create table checkpoints (
@@ -410,6 +453,10 @@ create unique index ux_active_comp_participant_comp_user on competition_particip
 create unique index ux_active_cpml_comp_layer on competition_participant_map_layers (
   case when end_date is null then competition_id end,
   case when end_date is null then lower(layer_code) end
+);
+
+create unique index ux_active_cmo_comp on competition_map_overlays (
+  case when end_date is null then competition_id end
 );
 
 create unique index ux_active_cp_alias_ci on competition_participants (

@@ -61,11 +61,13 @@ Mida teeb:
 - Haldab sessiooniküpsist (`funo_session` vaikimisi) ja kasutaja sidumist päringutega.
 - Laeb i18n tõlked mällu ning pakub reload endpointi.
 - Pakub ka kaardikihtide konfiguratsiooni endpointi (`/api/map-layers`) README kirjelduse järgi.
+- Haldab võistluspõhiste oma kaartide uploadi, metadata salvestust, taustatöötluse käivitamist ning valmis tile'ide serveerimist admin vaadetele.
 
 Miks nii on tehtud:
 - Frontend ei pea teadma ORDS/Oracle detaili.
 - Autentimine, sessioon ja veakäsitlus on ühes kontrollitavas kihis.
 - Ühtne API leping lihtsustab frontend arendust.
+- Suured võistluspõhised kaardifailid saab töödelda taustas tile'ideks ilma ORDS-i või brauserit ühe suure rasteri renderdamisega koormamata.
 
 Tehnoloogia:
 - Python + FastAPI
@@ -84,12 +86,16 @@ Mida teeb:
 - Kasutab backendi antud andmeid võistluste, KP-de, küsimuste, tulemuste ja i18n kuvamiseks.
 - `results.html` võistleja modal kasutab `participant-submissions` andmeid, sh iga rea `delta_from_prev_seconds` ning kokkuvõtte väljasid `total_elapsed_seconds` / `total_distance_m`.
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
+- Admin UI saab võistlusele lisatud oma kaardi korral dünaamilise kaardivaliku `* {display_name}`, kuid alles siis, kui overlay töötlusstaatus on `READY`.
+- Competitor UI saab samal põhimõttel dünaamilise kaardivaliku `* {display_name}`, mida renderdatakse EPK peale tavalise tile-overlay kihina.
 
 Miks nii on tehtud:
 - Staatilise frontendi serveerimine nginx-ist on lihtne ja odav.
 - Frontend jääb õhukeseks kliendiks; äriloogika ja turvakontroll on backend/DB kihis.
 - Demostaadiumis võib sama konfiguratsioon sisaldada nii kontrollitud kui katsetatavaid väliseid kaardikihte,
   et eri riikide taustakaarte saaks reaalseadmetes kiiresti võrrelda ilma eraldi deploy-ringideta.
+- Võistluspõhise overlay elutsükkel on frontendile lihtne: UI näitab source-kaardi metaandmeid ja töötlusolekut, kuid kasutab overlayd kaardil alles siis, kui backend on tile'id valmis loonud.
+- Võistleja vaates on oma kaart, kasutaja asukoht ja follow-režiim üksteisest lahutatud: overlay valik määrab ainult aktiivse kaardikihikomplekti, follow määrab ainult kaardi keskpunkti liikumise.
 
 Tehnoloogia:
 - HTML
@@ -117,11 +123,13 @@ Mida teeb:
 - Google OAuth / tokeninfo: kasutaja identiteedi kontroll backendi autentimisvoos.
 - Kaardipakkujad: Mapy.cz ja MapTiler võtmed/URL-id map layerite jaoks (README järgi).
 - Oracle Cloud ORDS URL: backendi ORDS baas-URL.
+- Kohalik failistorage võistluspõhiste oma kaartide source-failide ja tile-püramiidide jaoks.
 
 Miks nii on tehtud:
 - Identiteedi kontroll delegeeritakse Google'ile.
 - Kaardikihtide jaoks kasutatakse valmis teenuseid, mitte oma tile-serverit.
 - ORDS kaudu välditakse otse DB ühenduse avamist frontendile.
+- Võistluspõhiste oma kaartide puhul kasutatakse rakenduse hallatud lokaalset storage'it, sest suured rasterfailid ei sobi ORDS-i kaudu edasi-tagasi vahendamiseks.
 
 Tehnoloogia:
 - Google tokeninfo

@@ -14,6 +14,11 @@ let defaultLang = "et";
 let activeFieldInfoKey = "";
 
 const tr = (key) => i18nItems[key] || key;
+const formatTr = (key, params = {}) => tr(key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, name) => {
+  const value = params[name];
+  return value == null ? `{${name}}` : String(value);
+});
+const formatFileSizeMb = (bytes) => (Number(bytes || 0) / (1024 * 1024)).toFixed(1);
 const applyI18n = () => {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
@@ -153,12 +158,29 @@ const translateAdminError = (msg, detailsText) => {
   if (errorMatchesAny(msg, detailsText, ["ora-20196"])) return tr("admin.msg.cp_reserved_title");
   if (errorMatchesAny(msg, detailsText, ["ora-20197"])) return tr("admin.msg.cp_order_reserved");
   if (errorMatchesAny(msg, detailsText, ["ora-20198"])) return tr("admin.msg.cp_special_type_exists");
+  if (errorMatchesAny(msg, detailsText, ["ora-20183"])) return tr("admin.overlay.epk_required_for_overlay_option_msg");
+  if (errorMatchesAny(msg, detailsText, ["ora-20188"])) return tr("admin.overlay.epk_required_before_save_msg");
   return "";
 };
 
 const humanizeError = (raw, details = null) => {
   const msg = (raw || "").toString().trim();
   if (!msg) return tr("admin.msg.error_generic");
+  if (msg === "admin.overlay.image_file_size_too_large_msg") {
+    return formatTr(msg, {
+      actual_mb: details?.actual_mb || formatFileSizeMb(details?.actual_bytes || 0),
+      max_mb: details?.max_mb || formatFileSizeMb(details?.max_bytes || 0),
+    });
+  }
+  if (msg === "admin.overlay.image_dimensions_too_large_msg") {
+    return formatTr(msg, {
+      actual_width: details?.actual_width ?? "?",
+      actual_height: details?.actual_height ?? "?",
+      max_width: details?.max_width ?? "?",
+      max_height: details?.max_height ?? "?",
+    });
+  }
+  if (msg.startsWith("admin.")) return tr(msg);
   if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code");
   if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer");
   if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated");
@@ -203,7 +225,7 @@ const getCookie = (name) => {
 
 async function get(url) {
   const r = await fetch(url);
-  const d = await r.json();
+  const d = await readApiResponse(r);
   if (!r.ok) {
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
@@ -215,7 +237,7 @@ async function get(url) {
 
 async function post(url, body) {
   const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const d = await r.json();
+  const d = await readApiResponse(r);
   if (!r.ok) {
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
@@ -223,6 +245,38 @@ async function post(url, body) {
     throw err;
   }
   return d;
+}
+
+async function postFormData(url, formData) {
+  const r = await fetch(url, { method: "POST", body: formData });
+  const d = await readApiResponse(r);
+  if (!r.ok) {
+    const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
+    err.details = d?.detail?.details || null;
+    err.code = d?.detail?.code || null;
+    throw err;
+  }
+  return d;
+}
+
+async function readApiResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (_e) {
+    const compact = text.replace(/\s+/g, " ").trim().slice(0, 220);
+    return {
+      detail: {
+        code: "NON_JSON_RESPONSE",
+        message: compact || tr("admin.msg.error_short"),
+        details: {
+          status: response.status,
+          content_type: response.headers.get("content-type") || "",
+        }
+      }
+    };
+  }
 }
 
 function hasDuplicateCheckpointTitle(title, editingCheckpointId = null) {
@@ -476,6 +530,7 @@ let cpOverviewMarkers = [];
 let cpOverviewCurrentCrs = "EPSG:3857";
 let cpOverviewFullscreen = false;
 let availableMapLayers = [];
+let baseMapLayers = [];
 let competitionParticipantLayerCodes = [];
 let participantLayerSelection = [];
 let termsCurrentLang = "et";
@@ -492,3 +547,6 @@ const lastCpOverviewViewKey = () => `funo_cp_overview_view_c${compId()}`;
 const lastCpDialogViewKey = () => `funo_cp_dialog_view_c${compId()}`;
 const lastCpOverviewMapLayerKey = "funo_cp_overview_map_layer";
 const lastCpDialogMapLayerKey = "funo_cp_dialog_map_layer";
+const EPK_LAYER_CODE = "maaamet_pohikaart";
+const EPK_OVERLAY_LAYER_CODE = "maaamet_pohikaart_overlay";
+let currentCompetitionOverlay = null;

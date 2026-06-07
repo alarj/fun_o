@@ -101,6 +101,31 @@ function createBaseLayer(layer) {
   return L.tileLayer(url, { attribution: attrib, minZoom, maxZoom, tms });
 }
 
+function isCompetitionOverlaySelection(layer) {
+  return String(layer?.code || "").toLowerCase() === EPK_OVERLAY_LAYER_CODE
+    && String(layer?.overlay_composite_base_code || "").trim().length > 0;
+}
+
+function resolveBaseLayerForSelection(layer) {
+  if (!isCompetitionOverlaySelection(layer)) return layer;
+  const baseCode = String(layer?.overlay_composite_base_code || "").toLowerCase();
+  return mapLayersByCode[baseCode] || layer;
+}
+
+function createCompetitionOverlayTileLayer(layer) {
+  const url = String(layer?.overlay_tile_url_template || "").trim();
+  if (!url) return null;
+  return L.tileLayer(url, {
+    minZoom: Number(layer?.overlay_tile_min_zoom ?? 0),
+    maxZoom: Number(layer?.overlay_tile_max_zoom ?? 14),
+    tileSize: 256,
+    opacity: 1,
+    tms: false,
+    noWrap: true,
+    attribution: "",
+  });
+}
+
 function requiresLestCrs(layer) {
   return String(layer?.crs || "").toUpperCase() === "EPSG:3301";
 }
@@ -118,6 +143,7 @@ function createCompMap(targetCrs) {
     compMapLayer = null;
     compMapRouteLayer = null;
     baseMapLayer = null;
+    competitionOverlayTileLayer = null;
     mapRings = [];
     mapRoutePoints = [];
     userPosMarker = null;
@@ -182,17 +208,32 @@ function applyBaseLayer(code) {
   const low = String(code || "").toLowerCase();
   const layer = mapLayersByCode[low];
   if (!layer) return false;
-  const targetCrs = requiresLestCrs(layer) ? "EPSG:3301" : "EPSG:3857";
+  const baseLayerConfig = resolveBaseLayerForSelection(layer);
+  if (!baseLayerConfig) return false;
+  const targetCrs = requiresLestCrs(baseLayerConfig) ? "EPSG:3301" : "EPSG:3857";
   let previousView = null;
   if (compMapCurrentCrs !== targetCrs) {
     previousView = createCompMap(targetCrs);
+  }
+  if (competitionOverlayTileLayer) {
+    compMap.removeLayer(competitionOverlayTileLayer);
+    competitionOverlayTileLayer = null;
   }
   if (baseMapLayer) {
     compMap.removeLayer(baseMapLayer);
     baseMapLayer = null;
   }
-  baseMapLayer = createBaseLayer(layer);
+  baseMapLayer = createBaseLayer(baseLayerConfig);
   baseMapLayer.addTo(compMap);
+  if (isCompetitionOverlaySelection(layer)) {
+    competitionOverlayTileLayer = createCompetitionOverlayTileLayer(layer);
+    if (competitionOverlayTileLayer) {
+      competitionOverlayTileLayer.addTo(compMap);
+      if (typeof competitionOverlayTileLayer.bringToFront === "function") {
+        competitionOverlayTileLayer.bringToFront();
+      }
+    }
+  }
   activeMapLayerCode = low;
   setCookie(getMapLayerCookieKey(), activeMapLayerCode, 30);
   if (previousView) {
@@ -1332,7 +1373,6 @@ async function openCompMapModal() {
   try {
   mapViewPersistenceEnabled = false;
   mapGpsSignalLost = false;
-  mapFollowUser = true;
   mapHeadingPermissionAsked = false;
   updateFollowButton();
   updateHeadingButton();

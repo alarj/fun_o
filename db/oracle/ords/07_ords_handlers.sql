@@ -2064,6 +2064,157 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/admin/competitions/overlay?competition_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlay'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlay',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.get_competition_map_overlay_json(
+          p_competition_id => to_number(:competition_id),
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        if l_json is null then
+          htp.p('{}');
+        else
+          htp.p(l_json);
+        end if;
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'admin/competitions/overlay',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlays/pending-processing'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlays/pending-processing',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_admin_content.list_pending_competition_map_overlays_json(
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('items' value nvl(l_json, '[]') format json));
+      end;
+    ~'
+  );
+
+  -- POST /funo/admin/competitions/overlay
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlay',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_body json_object_t;
+        l_overlay_id number;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.upsert_competition_map_overlay(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_display_name => l_body.get_string('display_name'),
+          p_image_file_name => l_body.get_string('image_file_name'),
+          p_world_file_name => l_body.get_string('world_file_name'),
+          p_image_mime_type => l_body.get_string('image_mime_type'),
+          p_image_size_bytes => l_body.get_number('image_size_bytes'),
+          p_storage_rel_path => l_body.get_string('storage_rel_path'),
+          p_crs_code => l_body.get_string('crs_code'),
+          p_width_px => l_body.get_number('width_px'),
+          p_height_px => l_body.get_number('height_px'),
+          p_pixel_size_x => l_body.get_number('pixel_size_x'),
+          p_pixel_size_y => l_body.get_number('pixel_size_y'),
+          p_top_left_x => l_body.get_number('top_left_x'),
+          p_top_left_y => l_body.get_number('top_left_y'),
+          p_min_x => l_body.get_number('min_x'),
+          p_min_y => l_body.get_number('min_y'),
+          p_max_x => l_body.get_number('max_x'),
+          p_max_y => l_body.get_number('max_y'),
+          p_updated_by => l_body.get_number('updated_by'),
+          o_overlay_id => l_overlay_id
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('overlay_id' value l_overlay_id));
+      end;
+    ~'
+  );
+
+  -- POST /funo/admin/competitions/overlay/delete
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlay/delete'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlay/delete',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.delete_competition_map_overlay(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_updated_by => l_body.get_number('updated_by')
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ~'
+  );
+
+  -- POST /funo/admin/competitions/overlay/processing
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlay/processing'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlay/processing',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.set_competition_map_overlay_processing(
+          p_overlay_id => l_body.get_number('overlay_id'),
+          p_processing_status => l_body.get_string('processing_status'),
+          p_processing_error => case when l_body.has('processing_error') and not l_body.get('processing_error').is_null then l_body.get_string('processing_error') else null end,
+          p_tile_storage_rel_path => case when l_body.has('tile_storage_rel_path') and not l_body.get('tile_storage_rel_path').is_null then l_body.get_string('tile_storage_rel_path') else null end,
+          p_tile_min_zoom => case when l_body.has('tile_min_zoom') and not l_body.get('tile_min_zoom').is_null then l_body.get_number('tile_min_zoom') else null end,
+          p_tile_max_zoom => case when l_body.has('tile_max_zoom') and not l_body.get('tile_max_zoom').is_null then l_body.get_number('tile_max_zoom') else null end,
+          p_updated_by => case when l_body.has('updated_by') and not l_body.get('updated_by').is_null then l_body.get_number('updated_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ~'
+  );
+
   -- POST /funo/admin/competitions/map-layers
   ORDS.DEFINE_HANDLER(
     p_module_name => c_module_name,

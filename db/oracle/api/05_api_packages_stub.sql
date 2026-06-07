@@ -3413,6 +3413,53 @@ create or replace package pkg_admin_content as
     p_layer_codes_json in clob,
     p_updated_by in number
   );
+  -- get_competition_map_overlay_json: Returns the active competition overlay JSON object.
+  procedure get_competition_map_overlay_json(
+    p_competition_id in number,
+    o_item_json out clob
+  );
+  -- list_pending_competition_map_overlays_json: Returns active overlays waiting for processing or recovery.
+  procedure list_pending_competition_map_overlays_json(
+    o_items_json out clob
+  );
+  -- upsert_competition_map_overlay: Inserts or updates the active competition overlay metadata.
+  procedure upsert_competition_map_overlay(
+    p_competition_id in number,
+    p_display_name in varchar2,
+    p_image_file_name in varchar2,
+    p_world_file_name in varchar2,
+    p_image_mime_type in varchar2,
+    p_image_size_bytes in number,
+    p_storage_rel_path in varchar2,
+    p_crs_code in varchar2,
+    p_width_px in number,
+    p_height_px in number,
+    p_pixel_size_x in number,
+    p_pixel_size_y in number,
+    p_top_left_x in number,
+    p_top_left_y in number,
+    p_min_x in number,
+    p_min_y in number,
+    p_max_x in number,
+    p_max_y in number,
+    p_updated_by in number,
+    o_overlay_id out number
+  );
+  -- set_competition_map_overlay_processing: Updates active competition overlay processing state and tile metadata.
+  procedure set_competition_map_overlay_processing(
+    p_overlay_id in number,
+    p_processing_status in varchar2,
+    p_processing_error in varchar2,
+    p_tile_storage_rel_path in varchar2,
+    p_tile_min_zoom in number,
+    p_tile_max_zoom in number,
+    p_updated_by in number
+  );
+  -- delete_competition_map_overlay: Soft-deletes the active competition overlay.
+  procedure delete_competition_map_overlay(
+    p_competition_id in number,
+    p_updated_by in number
+  );
   -- list_checkpoints_json: Returns a JSON array for the requested checkpoints.
   procedure list_checkpoints_json(p_competition_id in number, o_items_json out clob);
   -- upsert_access_code: Inserts or updates access code data.
@@ -4285,6 +4332,8 @@ create or replace package body pkg_admin_content as
     l_selected_list t_code_list;
     l_selected_count pls_integer := 0;
     l_change_count pls_integer := 0;
+    l_has_epk pls_integer := 0;
+    l_has_epk_overlay pls_integer := 0;
   begin
     l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
 
@@ -4309,11 +4358,19 @@ create or replace package body pkg_admin_content as
           l_selected_list(l_selected_count) := l_norm_code;
           l_selected_set(l_norm_code) := 1;
         end if;
+        if l_norm_code = 'maaamet_pohikaart' then
+          l_has_epk := 1;
+        elsif l_norm_code = 'maaamet_pohikaart_overlay' then
+          l_has_epk_overlay := 1;
+        end if;
       end loop;
     end if;
 
     if l_selected_count < 1 then
       raise_application_error(-20182, 'at least one layer must be selected');
+    end if;
+    if l_has_epk_overlay = 1 and l_has_epk = 0 then
+      raise_application_error(-20183, 'maaamet_pohikaart is required when maaamet_pohikaart_overlay is selected');
     end if;
 
     for rec in (
@@ -4365,6 +4422,313 @@ create or replace package body pkg_admin_content as
         p_layer_codes_json
       );
     end if;
+  end;
+
+  -- get_competition_map_overlay_json: Returns the active competition overlay JSON object.
+  procedure get_competition_map_overlay_json(
+    p_competition_id in number,
+    o_item_json out clob
+  ) is
+    l_now_utc_date date;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    begin
+      select json_object(
+               'overlay_id' value cmo.overlay_id,
+               'competition_id' value cmo.competition_id,
+               'display_name' value cmo.display_name,
+               'image_file_name' value cmo.image_file_name,
+               'world_file_name' value cmo.world_file_name,
+               'image_mime_type' value cmo.image_mime_type,
+               'image_size_bytes' value cmo.image_size_bytes,
+               'storage_rel_path' value cmo.storage_rel_path,
+               'processing_status' value cmo.processing_status,
+               'processing_error' value cmo.processing_error,
+               'tile_storage_rel_path' value cmo.tile_storage_rel_path,
+               'tile_min_zoom' value cmo.tile_min_zoom,
+               'tile_max_zoom' value cmo.tile_max_zoom,
+               'tiles_generated_at' value to_char(cmo.tiles_generated_at, pkg_common.c_iso_ts_format),
+               'crs_code' value cmo.crs_code,
+               'width_px' value cmo.width_px,
+               'height_px' value cmo.height_px,
+               'pixel_size_x' value cmo.pixel_size_x,
+               'pixel_size_y' value cmo.pixel_size_y,
+               'top_left_x' value cmo.top_left_x,
+               'top_left_y' value cmo.top_left_y,
+               'min_x' value cmo.min_x,
+               'min_y' value cmo.min_y,
+               'max_x' value cmo.max_x,
+               'max_y' value cmo.max_y,
+               'updated_at' value to_char(cmo.updated_at, pkg_common.c_iso_ts_format),
+               'created_at' value to_char(cmo.created_at, pkg_common.c_iso_ts_format)
+               returning clob
+             )
+        into o_item_json
+        from competition_map_overlays cmo
+       where cmo.competition_id = p_competition_id
+         and (cmo.end_date is null or cmo.end_date > l_now_utc_date)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        o_item_json := null;
+    end;
+  end;
+
+  -- list_pending_competition_map_overlays_json: Returns active overlays waiting for processing or recovery.
+  procedure list_pending_competition_map_overlays_json(
+    o_items_json out clob
+  ) is
+    l_now_utc_date date;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    select json_arrayagg(
+             json_object(
+               'overlay_id' value cmo.overlay_id,
+               'competition_id' value cmo.competition_id,
+               'display_name' value cmo.display_name,
+               'image_file_name' value cmo.image_file_name,
+               'world_file_name' value cmo.world_file_name,
+               'image_mime_type' value cmo.image_mime_type,
+               'image_size_bytes' value cmo.image_size_bytes,
+               'storage_rel_path' value cmo.storage_rel_path,
+               'processing_status' value cmo.processing_status,
+               'processing_error' value cmo.processing_error,
+               'tile_storage_rel_path' value cmo.tile_storage_rel_path,
+               'tile_min_zoom' value cmo.tile_min_zoom,
+               'tile_max_zoom' value cmo.tile_max_zoom,
+               'tiles_generated_at' value to_char(cmo.tiles_generated_at, pkg_common.c_iso_ts_format),
+               'crs_code' value cmo.crs_code,
+               'width_px' value cmo.width_px,
+               'height_px' value cmo.height_px,
+               'pixel_size_x' value cmo.pixel_size_x,
+               'pixel_size_y' value cmo.pixel_size_y,
+               'top_left_x' value cmo.top_left_x,
+               'top_left_y' value cmo.top_left_y,
+               'min_x' value cmo.min_x,
+               'min_y' value cmo.min_y,
+               'max_x' value cmo.max_x,
+               'max_y' value cmo.max_y,
+               'updated_at' value to_char(cmo.updated_at, pkg_common.c_iso_ts_format),
+               'created_at' value to_char(cmo.created_at, pkg_common.c_iso_ts_format)
+               returning clob
+             ) returning clob
+           )
+      into o_items_json
+      from competition_map_overlays cmo
+     where (cmo.end_date is null or cmo.end_date > l_now_utc_date)
+       and upper(trim(nvl(cmo.processing_status, 'UPLOADED'))) in ('UPLOADED', 'PROCESSING');
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  -- upsert_competition_map_overlay: Inserts or updates the active competition overlay metadata.
+  procedure upsert_competition_map_overlay(
+    p_competition_id in number,
+    p_display_name in varchar2,
+    p_image_file_name in varchar2,
+    p_world_file_name in varchar2,
+    p_image_mime_type in varchar2,
+    p_image_size_bytes in number,
+    p_storage_rel_path in varchar2,
+    p_crs_code in varchar2,
+    p_width_px in number,
+    p_height_px in number,
+    p_pixel_size_x in number,
+    p_pixel_size_y in number,
+    p_top_left_x in number,
+    p_top_left_y in number,
+    p_min_x in number,
+    p_min_y in number,
+    p_max_x in number,
+    p_max_y in number,
+    p_updated_by in number,
+    o_overlay_id out number
+  ) is
+    l_now_utc_date date;
+    l_overlay_id competition_map_overlays.overlay_id%type;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    if p_competition_id is null then
+      raise_application_error(-20184, 'competition_id is required');
+    end if;
+    if trim(p_display_name) is null then
+      raise_application_error(-20185, 'display_name is required');
+    end if;
+    if trim(p_image_file_name) is null or trim(p_world_file_name) is null then
+      raise_application_error(-20186, 'image and world file names are required');
+    end if;
+    if upper(trim(nvl(p_crs_code, ''))) <> 'EPSG:3301' then
+      raise_application_error(-20187, 'only EPSG:3301 overlays are supported');
+    end if;
+
+    begin
+      select cmo.overlay_id
+        into l_overlay_id
+        from competition_map_overlays cmo
+       where cmo.competition_id = p_competition_id
+         and (cmo.end_date is null or cmo.end_date > l_now_utc_date)
+       fetch first 1 row only
+       for update;
+
+      update competition_map_overlays
+         set display_name = trim(p_display_name),
+             image_file_name = trim(p_image_file_name),
+             world_file_name = trim(p_world_file_name),
+             image_mime_type = trim(p_image_mime_type),
+             image_size_bytes = p_image_size_bytes,
+             storage_rel_path = trim(p_storage_rel_path),
+             processing_status = 'UPLOADED',
+             processing_error = null,
+             tile_storage_rel_path = null,
+             tile_min_zoom = null,
+             tile_max_zoom = null,
+             tiles_generated_at = null,
+             crs_code = upper(trim(p_crs_code)),
+             width_px = p_width_px,
+             height_px = p_height_px,
+             pixel_size_x = p_pixel_size_x,
+             pixel_size_y = p_pixel_size_y,
+             top_left_x = p_top_left_x,
+             top_left_y = p_top_left_y,
+             min_x = p_min_x,
+             min_y = p_min_y,
+             max_x = p_max_x,
+             max_y = p_max_y,
+             updated_by = p_updated_by,
+             updated_at = systimestamp
+       where overlay_id = l_overlay_id;
+    exception
+      when no_data_found then
+        l_overlay_id := seq_competition_map_overlays.nextval;
+        insert into competition_map_overlays (
+          overlay_id,
+          competition_id,
+          display_name,
+          image_file_name,
+          world_file_name,
+          image_mime_type,
+          image_size_bytes,
+          storage_rel_path,
+          processing_status,
+          processing_error,
+          tile_storage_rel_path,
+          tile_min_zoom,
+          tile_max_zoom,
+          tiles_generated_at,
+          crs_code,
+          width_px,
+          height_px,
+          pixel_size_x,
+          pixel_size_y,
+          top_left_x,
+          top_left_y,
+          min_x,
+          min_y,
+          max_x,
+          max_y,
+          start_date,
+          created_by,
+          created_at
+        ) values (
+          l_overlay_id,
+          p_competition_id,
+          trim(p_display_name),
+          trim(p_image_file_name),
+          trim(p_world_file_name),
+          trim(p_image_mime_type),
+          p_image_size_bytes,
+          trim(p_storage_rel_path),
+          'UPLOADED',
+          null,
+          null,
+          null,
+          null,
+          null,
+          upper(trim(p_crs_code)),
+          p_width_px,
+          p_height_px,
+          p_pixel_size_x,
+          p_pixel_size_y,
+          p_top_left_x,
+          p_top_left_y,
+          p_min_x,
+          p_min_y,
+          p_max_x,
+          p_max_y,
+          l_now_utc_date,
+          p_updated_by,
+          systimestamp
+        );
+    end;
+
+    o_overlay_id := l_overlay_id;
+  end;
+
+  -- set_competition_map_overlay_processing: Updates active competition overlay processing state and tile metadata.
+  procedure set_competition_map_overlay_processing(
+    p_overlay_id in number,
+    p_processing_status in varchar2,
+    p_processing_error in varchar2,
+    p_tile_storage_rel_path in varchar2,
+    p_tile_min_zoom in number,
+    p_tile_max_zoom in number,
+    p_updated_by in number
+  ) is
+    l_norm_status varchar2(20);
+  begin
+    l_norm_status := upper(trim(nvl(p_processing_status, '')));
+    if l_norm_status not in ('UPLOADED', 'PROCESSING', 'READY', 'FAILED') then
+      raise_application_error(-20189, 'invalid overlay processing status');
+    end if;
+
+    update competition_map_overlays
+       set processing_status = l_norm_status,
+           processing_error = case
+             when l_norm_status = 'FAILED' then substr(p_processing_error, 1, 2000)
+             else null
+           end,
+           tile_storage_rel_path = case
+             when l_norm_status = 'READY' then trim(p_tile_storage_rel_path)
+             else null
+           end,
+           tile_min_zoom = case
+             when l_norm_status = 'READY' then p_tile_min_zoom
+             else null
+           end,
+           tile_max_zoom = case
+             when l_norm_status = 'READY' then p_tile_max_zoom
+             else null
+           end,
+           tiles_generated_at = case
+             when l_norm_status = 'READY' then systimestamp
+             else null
+           end,
+           updated_by = p_updated_by,
+           updated_at = systimestamp
+     where overlay_id = p_overlay_id
+       and (end_date is null or end_date > cast((systimestamp at time zone 'UTC') as date));
+  end;
+
+  -- delete_competition_map_overlay: Soft-deletes the active competition overlay.
+  procedure delete_competition_map_overlay(
+    p_competition_id in number,
+    p_updated_by in number
+  ) is
+    l_now_utc_date date;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    update competition_map_overlays
+       set end_date = greatest(start_date, l_now_utc_date),
+           updated_by = p_updated_by,
+           updated_at = systimestamp
+     where competition_id = p_competition_id
+       and (end_date is null or end_date > l_now_utc_date);
   end;
 
   -- list_checkpoints_json: Returns a JSON array for the requested checkpoints.

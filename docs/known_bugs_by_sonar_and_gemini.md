@@ -228,6 +228,49 @@ Millal uuesti hinnata:
 - kui info-modalitesse lisatakse rohkem tehnilisi näiteid või abiinfodes hakatakse sagedamini kasutama võrdlusmärke;
 - kui tehakse eraldi admin i18n / help-modalite robustsuse paranduspass.
 
+### 2a.3 Admin participant map layer dialoogi EPK visuaalne sünk
+
+Mõjutatud fail:
+- `frontend_dist/assets/admin-main.js`
+
+Mõjutatud ala:
+- `normalizeParticipantLayerSelection(...)`
+- participant map-layer checkboxide renderdus
+
+Miks ei parandatud kohe:
+- praegu lisab süsteem salvestamisel automaatselt `maaamet_pohikaart` kihi, kui administraator valib overlay-valiku;
+- andmed salvestuvad õigesti ja ärireegel ei lähe katki;
+- samas ei peegeldu see automaatne lisand kohe dialoogi checkboxites, mistõttu võib kasutaja näha teistsugust seisu kui see, mis lõpuks salvestatakse;
+- tegemist on UX-parandusega, mitte andmekorruptsiooni või turvaveaga.
+
+Staatus:
+- teadlikult edasi lükatud UX-parandus / backlog
+
+Millal uuesti hinnata:
+- kui tehakse järgmine admin kaardivalikute UX ring;
+- kui overlay-valik jõuab ka competitor UI-sse.
+
+### 2a.4 Overlay uploadi ja tile-töötluse backend refaktor väiksemateks tükkideks
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- overlay upload voog
+- tile generation ja taustatöötluse orkestreerimine
+
+Miks ei parandatud kohe:
+- praegune lahendus on funktsionaalselt korrektne ja selle peale lisati esmalt töökindluse parandused (taastöötlus startupil, tokeni aegumine, mälusäästlikum upload);
+- Sonari cognitive complexity märkus on maintainability mõttes sisuliselt õige;
+- funktsioonide väiksemateks tükkideks jagamine on mõistlik teha eraldi refaktorina, et mitte segada aktiivseid äriloogika muudatusi ja deploy-voogu.
+
+Staatus:
+- päris tehniline võlg, kuid teadlikult edasi lükatud refaktor / backlog
+
+Millal uuesti hinnata:
+- kui overlay-workflow stabiliseerub;
+- kui tehakse eraldi backend maintainability pass.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

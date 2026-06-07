@@ -41,7 +41,7 @@
       "max_zoom": 18,
       "min_zoom": 0,
       "tms": true,
-      "enabled": true,
+      "enabled": false,
       "participant_default": false
     },
     {

@@ -8,6 +8,23 @@ function cpDialogViewStorageKey(crs = null) {
   return `${lastCpDialogViewKey()}_${code.replace(/[^A-Z0-9]+/g, "_")}`;
 }
 
+let cpOverlayLayer = null;
+let cpOverviewOverlayLayer = null;
+
+function ensureCompetitionOverlayPane(mapRef, target = "dialog") {
+  if (!mapRef?.createPane) return null;
+  const paneName = target === "overview" ? "competitionOverlayPaneOverview" : "competitionOverlayPaneDialog";
+  let pane = mapRef.getPane?.(paneName);
+  if (!pane) {
+    pane = mapRef.createPane(paneName);
+  }
+  if (pane?.style) {
+    pane.style.zIndex = "350";
+    pane.style.pointerEvents = "none";
+  }
+  return paneName;
+}
+
 function readLastCpDialogView(crs = null) {
   try {
     const raw = localStorage.getItem(cpDialogViewStorageKey(crs)) || localStorage.getItem(lastCpDialogViewKey());
@@ -42,6 +59,7 @@ function createCpDialogMap(targetCrs) {
     cpMap.remove();
     cpMap = null;
     cpBaseLayer = null;
+    cpOverlayLayer = null;
     cpMarker = null;
     cpRadiusCircle = null;
     cpExistingLayer = null;
@@ -69,6 +87,76 @@ function selectedMapCrsCode(layerCfg) {
   const code = String(layerCfg?.crs || "").trim().toUpperCase();
   if (code === "EPSG:3301" || code === "EPSG:3059") return code;
   return "EPSG:3857";
+}
+
+function hasBaseLayerCode(code) {
+  return Array.isArray(baseMapLayers) && baseMapLayers.some((x) => String(x?.code || "") === String(code || ""));
+}
+
+function hasActiveCompetitionOverlay() {
+  return !!(currentCompetitionOverlay && currentCompetitionOverlay.exists && currentCompetitionOverlay.bounds_3301);
+}
+
+function hasReadyCompetitionOverlay() {
+  return hasActiveCompetitionOverlay()
+    && String(currentCompetitionOverlay.processing_status || "").toUpperCase() === "READY"
+    && !!String(currentCompetitionOverlay.tile_url_template || "").trim();
+}
+
+function buildEffectiveMapLayers() {
+  const base = Array.isArray(baseMapLayers) ? [...baseMapLayers] : [];
+  const canUseOverlay = hasBaseLayerCode(EPK_LAYER_CODE) && hasReadyCompetitionOverlay();
+  if (canUseOverlay) {
+    const epk = base.find((x) => String(x?.code || "") === EPK_LAYER_CODE);
+    if (epk) {
+      base.push({
+        ...epk,
+        code: EPK_OVERLAY_LAYER_CODE,
+        label: String(currentCompetitionOverlay?.display_label || currentCompetitionOverlay?.display_name || "").trim(),
+        participant_default: false,
+      });
+    }
+  }
+  return base;
+}
+
+function refreshAdminMapLayerOptions() {
+  availableMapLayers = buildEffectiveMapLayers();
+  if (!availableMapLayers.length) return availableMapLayers;
+  const sel = byId("cpOverviewMapLayerSelect");
+  const cpSel = byId("cpDialogMapLayerSelect");
+  const remembered = localStorage.getItem(lastCpOverviewMapLayerKey) || "";
+  const rememberedCp = localStorage.getItem(lastCpDialogMapLayerKey) || "";
+  if (sel) {
+    sel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
+    sel.value = availableMapLayers.some((x) => x.code === remembered) ? remembered : availableMapLayers[0].code;
+  }
+  if (cpSel) {
+    cpSel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
+    cpSel.value = availableMapLayers.some((x) => x.code === rememberedCp)
+      ? rememberedCp
+      : ((sel?.value && availableMapLayers.some((x) => x.code === sel.value)) ? sel.value : availableMapLayers[0].code);
+  }
+  return availableMapLayers;
+}
+
+function overlaySelectionUsesComposite(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
+  return selectedMapLayerCode(selectId, storageKey) === EPK_OVERLAY_LAYER_CODE;
+}
+
+function resolveBaseMapLayerForSelection(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
+  const layerCfg = resolveSelectedMapLayer(selectId, storageKey);
+  if (!layerCfg) return null;
+  if (String(layerCfg.code || "") !== EPK_OVERLAY_LAYER_CODE) return layerCfg;
+  return (Array.isArray(baseMapLayers) ? baseMapLayers : []).find((x) => String(x.code || "") === EPK_LAYER_CODE) || layerCfg;
+}
+
+function overlayBoundsToLatLng(bounds3301) {
+  if (!bounds3301 || !window.proj4) return null;
+  const sw = window.proj4("EPSG:3301", "EPSG:4326", [Number(bounds3301.min_x), Number(bounds3301.min_y)]);
+  const ne = window.proj4("EPSG:3301", "EPSG:4326", [Number(bounds3301.max_x), Number(bounds3301.max_y)]);
+  if (!Array.isArray(sw) || !Array.isArray(ne)) return null;
+  return L.latLngBounds([sw[1], sw[0]], [ne[1], ne[0]]);
 }
 
 function crsDefaultView(targetCrs) {
@@ -218,6 +306,38 @@ function createConfiguredTileLayer(layerCfg, mapRef = null) {
   });
 }
 
+function applyCompetitionOverlayToMap(mapRef, target = "dialog") {
+  const overlayRefName = target === "overview" ? "cpOverviewOverlayLayer" : "cpOverlayLayer";
+  const existing = target === "overview" ? cpOverviewOverlayLayer : cpOverlayLayer;
+  if (existing && mapRef?.hasLayer?.(existing)) {
+    mapRef.removeLayer(existing);
+  }
+  if (target === "overview") cpOverviewOverlayLayer = null;
+  else cpOverlayLayer = null;
+
+  const shouldUseOverlay = target === "overview"
+    ? overlaySelectionUsesComposite("cpOverviewMapLayerSelect", lastCpOverviewMapLayerKey)
+    : overlaySelectionUsesComposite("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+  if (!shouldUseOverlay || !hasReadyCompetitionOverlay() || !mapRef) return;
+  const bounds = overlayBoundsToLatLng(currentCompetitionOverlay.bounds_3301);
+  if (!bounds) return;
+  const paneName = ensureCompetitionOverlayPane(mapRef, target);
+  const layer = L.tileLayer(currentCompetitionOverlay.tile_url_template, {
+    minZoom: Number(currentCompetitionOverlay.tile_min_zoom ?? 0),
+    maxZoom: Number(currentCompetitionOverlay.tile_max_zoom ?? 14),
+    tileSize: 256,
+    opacity: 1,
+    bounds,
+    pane: paneName || undefined,
+    tms: false,
+    noWrap: true,
+    attribution: "",
+  });
+  layer.addTo(mapRef);
+  if (overlayRefName === "cpOverviewOverlayLayer") cpOverviewOverlayLayer = layer;
+  else cpOverlayLayer = layer;
+}
+
 function initCheckpointMap() {
   const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
   const targetCrs = selectedMapCrsCode(layerCfg);
@@ -257,7 +377,7 @@ function initCheckpointMap() {
 
 function applyCheckpointDialogBaseLayer() {
   if (!cpMap) return;
-  const layerCfg = resolveSelectedMapLayer("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
+  const layerCfg = resolveBaseMapLayerForSelection("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
   if (!layerCfg) return;
   if (cpBaseLayer) {
     if (typeof cpBaseLayer.removeFrom === "function") cpBaseLayer.removeFrom(cpMap);
@@ -265,6 +385,7 @@ function applyCheckpointDialogBaseLayer() {
   }
   cpBaseLayer = createConfiguredTileLayer(layerCfg, cpMap);
   if (cpBaseLayer && typeof cpBaseLayer.addTo === "function") cpBaseLayer.addTo(cpMap);
+  applyCompetitionOverlayToMap(cpMap, "dialog");
 }
 
 function selectedMapLayerCode(selectId = "cpOverviewMapLayerSelect", storageKey = lastCpOverviewMapLayerKey) {
@@ -293,6 +414,7 @@ function createCpOverviewMap(targetCrs) {
     cpOverviewMap.remove();
     cpOverviewMap = null;
     cpOverviewBaseLayer = null;
+    cpOverviewOverlayLayer = null;
     cpOverviewLayer = null;
     cpOverviewRoutesLayer = null;
     cpOverviewZoomHandler = null;
@@ -311,7 +433,7 @@ function createCpOverviewMap(targetCrs) {
 
 function applyCheckpointOverviewBaseLayer() {
   if (!cpOverviewMap) return;
-  const layerCfg = resolveSelectedMapLayer();
+  const layerCfg = resolveBaseMapLayerForSelection();
   if (!layerCfg) return;
   if (cpOverviewBaseLayer) {
     if (typeof cpOverviewBaseLayer.removeFrom === "function") cpOverviewBaseLayer.removeFrom(cpOverviewMap);
@@ -319,13 +441,17 @@ function applyCheckpointOverviewBaseLayer() {
   }
   cpOverviewBaseLayer = createConfiguredTileLayer(layerCfg, cpOverviewMap);
   if (cpOverviewBaseLayer && typeof cpOverviewBaseLayer.addTo === "function") cpOverviewBaseLayer.addTo(cpOverviewMap);
+  applyCompetitionOverlayToMap(cpOverviewMap, "overview");
 }
 
 async function loadMapLayersConfig() {
-  if (availableMapLayers.length) return availableMapLayers;
+  if (baseMapLayers.length) {
+    refreshAdminMapLayerOptions();
+    return availableMapLayers;
+  }
   const d = await get("/api/map-layers");
   const items = Array.isArray(d?.items) ? d.items : [];
-  availableMapLayers = items
+  baseMapLayers = items
     .map((x) => ({
       code: String(x?.code || "").trim(),
       label: String(x?.label || "").trim(),
@@ -351,8 +477,8 @@ async function loadMapLayersConfig() {
       participant_default: !!x?.participant_default,
     }))
     .filter((x) => x.code && x.label && x.url_template);
-  if (!availableMapLayers.length) {
-    availableMapLayers = [{
+  if (!baseMapLayers.length) {
+    baseMapLayers = [{
       code: "osm",
       label: "OpenStreetMap",
       url_template: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -368,22 +494,7 @@ async function loadMapLayersConfig() {
       crs: "",
     }];
   }
-  const sel = byId("cpOverviewMapLayerSelect");
-  const cpSel = byId("cpDialogMapLayerSelect");
-  const remembered = localStorage.getItem(lastCpOverviewMapLayerKey) || "";
-  const rememberedCp = localStorage.getItem(lastCpDialogMapLayerKey) || "";
-  sel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
-  cpSel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
-  if (remembered && availableMapLayers.some((x) => x.code === remembered)) {
-    sel.value = remembered;
-  } else {
-    sel.value = availableMapLayers[0].code;
-  }
-  if (rememberedCp && availableMapLayers.some((x) => x.code === rememberedCp)) {
-    cpSel.value = rememberedCp;
-  } else {
-    cpSel.value = sel.value || availableMapLayers[0].code;
-  }
+  refreshAdminMapLayerOptions();
   return availableMapLayers;
 }
 

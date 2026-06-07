@@ -83,10 +83,37 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
     - puuduvad nii asukoht kui KP-d -> vaikimisi Eesti vaade (`58.8, 25.4`, zoom 8).
 - Kui GPS asukoht saabub viitega pärast kaardi avamist:
   - follow-režiimis tehakse `panTo(user)` (keskpunkt uuendatakse) ilma zoomi jõuga muutmata.
+- Kaardi avamine ei tohi follow-režiimi kasutaja eest sunniviisiliselt sisse lülitada ega muuta:
+  - follow olek säilib kasutaja viimase valiku järgi;
+  - võistluspõhise oma kaardi valik ei tohi ise muuta follow käitumist.
 - Kui kaardivaate taustal töötav GPS jälgimine katkeb või GPS signaal puudub:
   - kaardivaates kuvatakse alati väike staatustekst `GPS signaal puudub` / `No GPS` samas visuaalses stiilis nagu heading debug kast;
   - kui kasutaja asukoha markerit selle võistluse jaoks kuvatakse ja viimane teadaolev asukoht on olemas, jääb marker viimasesse teadaolevasse punkti, kuid muutub halliks;
   - järgmise eduka GPS uuenduse järel staatustekst kaob ja marker taastub tavavärvi.
+
+### 5a. Võistleja võistluspõhine oma kaart
+
+- Uploadi valideerimise eeltingimus:
+  - world file põhjal arvutatud overlay boundid peavad jääma Eesti L-EST97 mõistlikku piirkonda (X `300000..800000`, Y `6300000..7000000`);
+  - kui uploaditud world file viitab teise CRS-i või ilmselgelt valedele koordinaatidele, tuleb upload tagasi lükata.
+- Võistleja kaardivalikusse ilmub võistluspõhine oma kaart ainult siis, kui:
+  - võistlusele on osaleja jaoks lubatud kaardikiht `maaamet_pohikaart_overlay`;
+  - aktiivne overlay eksisteerib;
+  - overlay `processing_status = READY`;
+  - süsteemis on olemas ja aktiivne aluskaart `maaamet_pohikaart`.
+- Võistleja UI-s kuvatakse selline kaart nimega `* <competition_map_overlays.display_name>`.
+- See valik ei ole iseseisev aluskaart, vaid komposiit:
+  - aluskaart on `maaamet_pohikaart`;
+  - selle peale renderdatakse võistluspõhise kaardi tile layer.
+- Võistleja vaates käsitletakse overlay'd tavalise kaardikihina:
+  - overlay renderdatakse EPK peale eraldi tile-layerina;
+  - selle nähtavus ei tohi sõltuda kasutaja GPS asukohast, asukohamarkerist ega follow-režiimist;
+  - follow-režiim tohib mõjutada ainult kaardi keskpunkti/vaate liikumist, mitte seda, kas overlay kiht on aktiivne või mitte.
+- Kui osalejale lubatud kihtidesse salvestatakse `maaamet_pohikaart_overlay`, käsitletakse `maaamet_pohikaart` kihti selle tehnilise eeldusena.
+- Võistleja UI-s ei kuvata eraldi overlay sisse-välja lülitit; oma kaart valitakse samast kaardivalikust nagu teised kaardid.
+- Kui kaardivaate keskpunkt satub väljapoole overlay kaetud ala, jääb selles vaates nähtavale lihtsalt aluskaart `maaamet_pohikaart`, sest nendes tile-koordinaatides overlay pilte ei eksisteeri.
+- Kui overlay kustutatakse või selle staatus ei ole enam `READY`, eemaldatakse `* <display_name>` võistleja kaardivalikust.
+- Võistleja oma kaart kasutab alati `EPSG:3301` CRS-i.
 
 ## 6. KP klikid kaardil ja ligipääsukontroll
 

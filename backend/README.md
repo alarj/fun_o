@@ -30,6 +30,8 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/admin/questions-overview?competition_id=...` - tagastab küsimuste/KP-de ülevaate admin halduses.
 - GET `/admin/checkpoints?competition_id=...` - tagastab valitud võistluse KP-de loendi.
 - GET `/admin/competitions/map-layers?competition_id=...` - tagastab võistlusele lubatud kaardikihtide sidumise.
+- GET `/admin/competitions/overlay?competition_id=...` - tagastab võistluse aktiivse oma kaardi metadata, kui see on olemas.
+- GET `/admin/competitions/overlays/pending-processing` - tagastab aktiivsed oma kaardid, mille töötlus tuleb käivitada või taastada.
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
@@ -41,6 +43,9 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/admin/question-answers` - lisab tekstvastuse/õige vastuse reegli küsimusele.
 - POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
 - POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
+- POST `/admin/competitions/overlay` - salvestab või asendab võistluse aktiivse oma kaardi metadata.
+- POST `/admin/competitions/overlay/processing` - uuendab oma kaardi töötluse staatust ja tile metadata't.
+- POST `/admin/competitions/overlay/delete` - teeb võistluse oma kaardi soft-delete.
 - POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
 - POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, tüüp, staatus, location lipud jne).
 - POST `/admin/competitions/terms` - salvestab võistluse tingimuste teksti.
@@ -94,12 +99,18 @@ Expected ORDS JSON responses:
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
+- `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
+- `admin/competitions/overlay` (GET) tagastab overlay metadata admin UI jaoks; kui `processing_status != READY`, ei tohi frontend pakkuda seda kasutatava kaardina admin kaardivaadetes.
+- Overlay upload valideerib world file põhjal arvutatud boundse Eesti L-EST97 mõistlikkuse vastu; kui `bounds_3301` jääb väljapoole X `300000..800000` või Y `6300000..7000000`, lükatakse upload tagasi.
 - `admin/competitions/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `admin/checkpoints` -> `{ "checkpoint_id": 123 }`
 - `admin/questions` -> `{ "question_id": 456 }`
 - `admin/question-options` -> `{ "option_id": 789 }`
 - `admin/question-answers` -> `{ "answer_id": 321 }`
 - `admin/access-codes` -> `{ "access_code_id": 654, "code": "123456" }`
+- `admin/competitions/overlay` (POST) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }`
+- `admin/competitions/overlay/processing` -> `{ "ok": true }` või tühi 200 JSON
+- `admin/competitions/overlay/delete` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
 - `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
 - `superadmin/translations` -> `{ "items": [...] }`
@@ -121,6 +132,10 @@ Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
+- Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
+- Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
+- Overlay upload voog salvestab source-failid `OVERLAY_STORAGE_DIR` alla ning käivitab taustatöö, mis lõikab rasteri tile'ideks ja uuendab staatust `UPLOADED -> PROCESSING -> READY|FAILED`.
+- Backend startup proovib uuesti käivitada aktiivsed overlay'd, mille staatus on jäänud `UPLOADED` või `PROCESSING`.
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
@@ -196,6 +211,28 @@ Map layer config (admin "Näita kaardil"):
   visually poor grayscale/legacy maps. They were therefore removed from `map_layers.json` instead of being kept as
   visible demo layers. A clearly usable public HTTPS South Tyrol color basemap or orthophoto layer contract has not
   been confirmed yet from the same official sources.
+
+Competition-specific own map overlay in competitor UI:
+- `GET /api/competitor/map-layers?competition_id=...` may add a dynamic map-layer entry when all of these are true:
+  - participant map-layers include `maaamet_pohikaart_overlay`;
+  - active competition overlay exists and `processing_status = READY`;
+  - global base layer `maaamet_pohikaart` is enabled in `map_layers.json`.
+- The dynamic competitor-visible layer is returned as:
+  - `code = "maaamet_pohikaart_overlay"`
+  - `label = "* <display_name>"`
+  - `overlay_composite_base_code = "maaamet_pohikaart"`
+  - `overlay_tile_url_template = "/api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=..."`
+- The dynamic layer is not a separate global base map; competitor frontend must render it as a composite:
+  - base map = `maaamet_pohikaart`
+  - overlay = competition-specific tile layer
+- Competitor frontend must treat this overlay as a plain map layer on top of EPK:
+  - overlay visibility must not depend on GPS availability, current user location or follow mode;
+  - follow mode may change only map center movement;
+  - user location marker may change only user-location rendering.
+- If participant layer selection contains `maaamet_pohikaart_overlay`, backend treats `maaamet_pohikaart` as its technical prerequisite.
+- Overlay tile media is served by FastAPI endpoint:
+  - `GET /api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=...`
+- If current map view is outside the overlay coverage, only the base layer remains visible in that area because matching overlay tiles do not exist there.
 
 Magnetic declination flow:
 - `competition_declinations` stores one current declination row per competition.
