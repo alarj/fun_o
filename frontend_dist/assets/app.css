@@ -338,6 +338,28 @@ html, body { max-width: 100%; overflow-x: hidden; }
   align-items: center;
   gap: 8px;
 }
+.competition-overlay-ready-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #1d1b1d;
+  flex: 0 0 auto;
+}
+.competition-overlay-ready-badge svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+  fill: currentColor;
+}
+.competition-overlay-ready-badge .overlay-ready-check {
+  fill: none;
+  stroke: #2f7f87;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .adminTopLineSpacer {
   margin-left: auto;
 }

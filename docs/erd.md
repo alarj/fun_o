@@ -137,6 +137,52 @@ erDiagram
         timestamp joined_at
     }
 
+    COMPETITION_PARTICIPANT_MAP_LAYERS {
+        number competition_participant_map_layer_id PK
+        number competition_id FK
+        varchar2 layer_code
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    COMPETITION_MAP_OVERLAYS {
+        number overlay_id PK
+        number competition_id FK
+        varchar2 display_name
+        varchar2 image_file_name
+        varchar2 world_file_name
+        varchar2 image_mime_type
+        number image_size_bytes
+        varchar2 storage_rel_path
+        varchar2 processing_status
+        varchar2 processing_error
+        varchar2 tile_storage_rel_path
+        number tile_min_zoom
+        number tile_max_zoom
+        timestamp tiles_generated_at
+        varchar2 crs_code
+        number width_px
+        number height_px
+        number pixel_size_x
+        number pixel_size_y
+        number top_left_x
+        number top_left_y
+        number min_x
+        number min_y
+        number max_x
+        number max_y
+        date start_date
+        date end_date
+        number created_by
+        number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
     CHECKPOINTS {
         number checkpoint_id PK
         number competition_id FK
@@ -296,6 +342,8 @@ erDiagram
     COMPETITION_TERMS ||--o{ COMPETITION_TERMS_TEXTS : has_texts
 
     COMPETITIONS ||--o{ COMPETITION_PARTICIPANTS : has
+    COMPETITIONS ||--o{ COMPETITION_PARTICIPANT_MAP_LAYERS : allows_layers
+    COMPETITIONS ||--o| COMPETITION_MAP_OVERLAYS : has_optional_overlay
     USERS ||--o{ COMPETITION_PARTICIPANTS : participates
     COMPETITION_ACCESS_CODES ||--o{ COMPETITION_PARTICIPANTS : joined_with_code
     COMPETITION_TERMS ||--o{ COMPETITION_PARTICIPANTS : accepted_terms
@@ -323,3 +371,12 @@ erDiagram
 - Ühel aktiivsel võistlusel võib olla maksimaalselt üks aktiivne `START` ja üks aktiivne `FINISH`.
 - Aktiivse sisu reegel on `1 checkpoint = 1 active question`.
 - `submissions` tabelis kehtib unikaalsusreegel `(competition_id, user_id, checkpoint_id, question_id)`, st sama osaleja ei saa sama KP sama küsimust rohkem kui ühe korra esitada.
+
+## Kaardikihid ja overlay märkused
+
+- `competition_participant_map_layers` hoiab võistluse jaoks lubatud globaalseid aluskaarte.
+- `competition_map_overlays` hoiab võistluse aktiivset lokaalset georefereeritud raster-overlay'd.
+- MVP-s toetab `competition_map_overlays.crs_code` ainult väärtust `EPSG:3301`.
+- MVP-s on ühe võistluse kohta lubatud maksimaalselt üks aktiivne overlay.
+- Tiled-versioonis salvestub lähtematerjal `storage_rel_path` alla ja valmis tile-püramiid `tile_storage_rel_path` alla.
+- `processing_status` juhib seda, kas admini kaardivalikusse võib ilmuda dünaamiline `* {display_name}` overlay valik.

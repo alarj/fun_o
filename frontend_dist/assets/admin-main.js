@@ -78,10 +78,14 @@ function syncMetaLocationSwitches() {
   const showLocEl = byId("metaShowCompetitorLocationInput");
   const mapLayerBtn = byId("metaMapLayersBtn");
   const mapLayersRow = byId("metaMapLayersRow");
+  const ownMapBtn = byId("metaOwnMapBtn");
+  const ownMapRow = byId("metaOwnMapRow");
   showLocEl.disabled = !useLoc;
   if (!useLoc) showLocEl.checked = false;
   if (mapLayerBtn) mapLayerBtn.style.display = useLoc ? "inline-block" : "none";
   if (mapLayersRow) mapLayersRow.style.display = useLoc ? "" : "none";
+  if (ownMapBtn) ownMapBtn.style.display = useLoc ? "inline-block" : "none";
+  if (ownMapRow) ownMapRow.style.display = useLoc ? "" : "none";
   if (!useLoc && byId("participantMapLayersDialog").open) {
     byId("participantMapLayersDialog").close();
   }
@@ -370,8 +374,11 @@ async function loadView() {
   currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
   if (currentCompetitionUseLocation === "Y") {
     await loadMapLayersConfig();
+    await loadCompetitionOverlay();
     await loadCompetitionParticipantMapLayers();
   } else {
+    currentCompetitionOverlay = { exists: false };
+    refreshAdminMapLayerOptions();
     competitionParticipantLayerCodes = [];
   }
   byId("cCreated").textContent = fmtDateEt(v.created_at) || "";
@@ -402,6 +409,14 @@ async function loadView() {
   });
   renderRows();
   fillCheckpointSelect();
+}
+
+async function loadCompetitionOverlay() {
+  const overlay = await get(`/api/admin/competitions/overlay?competition_id=${compId()}`);
+  currentCompetitionOverlay = overlay || { exists: false };
+  refreshAdminMapLayerOptions();
+  updateMetaOwnMapButtonLabel();
+  updateCompetitionOverlayReadyBadge();
 }
 
 function renderRows() {
@@ -938,6 +953,9 @@ async function loadCompetitionParticipantMapLayers() {
   const res = await get(`/api/admin/competitions/map-layers?competition_id=${compId()}`);
   const selected = Array.isArray(res?.layer_codes) ? res.layer_codes.map((x) => String(x || "").trim()).filter(Boolean) : [];
   competitionParticipantLayerCodes = selected;
+  if (!currentCompetitionOverlay?.exists || String(currentCompetitionOverlay?.processing_status || "").toUpperCase() !== "READY") {
+    competitionParticipantLayerCodes = competitionParticipantLayerCodes.filter((code) => code !== EPK_OVERLAY_LAYER_CODE);
+  }
   if (!competitionParticipantLayerCodes.length && availableMapLayers.length) {
     const participantDefaults = availableMapLayers.filter((x) => x.participant_default).map((x) => x.code);
     if (participantDefaults.length) {
@@ -947,7 +965,23 @@ async function loadCompetitionParticipantMapLayers() {
       competitionParticipantLayerCodes = [osm ? osm.code : availableMapLayers[0].code];
     }
   }
+  refreshAdminMapLayerOptions();
   updateMetaMapLayersButtonLabel();
+}
+
+function updateMetaOwnMapButtonLabel() {
+  const btn = byId("metaOwnMapBtn");
+  if (!btn) return;
+  btn.textContent = currentCompetitionOverlay?.exists
+    ? `${tr("admin.meta.overlay_btn")} (${tr("admin.overlay.exists_short")})`
+    : tr("admin.meta.overlay_btn");
+}
+
+function updateCompetitionOverlayReadyBadge() {
+  const badge = byId("cOverlayReadyBadge");
+  if (!badge) return;
+  const isReady = String(currentCompetitionOverlay?.processing_status || "").toUpperCase() === "READY";
+  badge.classList.toggle("hidden", !isReady);
 }
 
 function updateMetaMapLayersButtonLabel() {
@@ -979,6 +1013,14 @@ function selectedParticipantLayersFromDialog() {
     .filter(Boolean);
 }
 
+function normalizeParticipantLayerSelection(selected) {
+  const cleaned = Array.isArray(selected) ? selected.filter(Boolean) : [];
+  if (cleaned.includes(EPK_OVERLAY_LAYER_CODE) && !cleaned.includes(EPK_LAYER_CODE)) {
+    return [...cleaned, EPK_LAYER_CODE];
+  }
+  return cleaned;
+}
+
 async function openParticipantMapLayersDialog() {
   showMsg("participantMapLayersMsg", false, "");
   await loadMapLayersConfig();
@@ -989,7 +1031,7 @@ async function openParticipantMapLayersDialog() {
 }
 
 async function saveParticipantMapLayersDialog() {
-  const selected = selectedParticipantLayersFromDialog();
+  const selected = normalizeParticipantLayerSelection(selectedParticipantLayersFromDialog());
   if (!selected.length) {
     showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
     return;
@@ -1006,9 +1048,93 @@ async function saveParticipantMapLayersDialog() {
   }
   competitionParticipantLayerCodes = selected;
   participantLayerSelection = [...selected];
+  refreshAdminMapLayerOptions();
   updateMetaMapLayersButtonLabel();
   showMsg("participantMapLayersMsg", true, tr("admin.msg.map_layers_saved"));
   setTimeout(() => byId("participantMapLayersDialog").close(), 350);
+}
+
+function renderOverlayCurrentInfo() {
+  const target = byId("overlayCurrentInfo");
+  const statusTarget = byId("overlayStatusInfo");
+  const errorTarget = byId("overlayErrorInfo");
+  const errorRow = byId("overlayErrorRow");
+  if (!target) return;
+  if (statusTarget) statusTarget.textContent = tr("admin.overlay.status.none");
+  if (errorTarget) errorTarget.textContent = "";
+  if (errorRow) errorRow.classList.add("hidden");
+  if (!currentCompetitionOverlay?.exists) {
+    target.textContent = tr("admin.overlay.none_selected");
+    return;
+  }
+  const width = Number(currentCompetitionOverlay.width_px || 0);
+  const height = Number(currentCompetitionOverlay.height_px || 0);
+  target.textContent = `${currentCompetitionOverlay.display_name || "-"} (${width} x ${height})`;
+  const statusCode = String(currentCompetitionOverlay.processing_status || "UPLOADED").trim().toLowerCase();
+  if (statusTarget) statusTarget.textContent = tr(`admin.overlay.status.${statusCode}`);
+  if (errorTarget && errorRow && String(currentCompetitionOverlay.processing_status || "").toUpperCase() === "FAILED" && currentCompetitionOverlay.processing_error) {
+    errorTarget.textContent = currentCompetitionOverlay.processing_error;
+    errorRow.classList.remove("hidden");
+  }
+}
+
+async function openOverlayDialog() {
+  showMsg("overlayMsg", false, "");
+  await loadCompetitionOverlay();
+  byId("overlayNameInput").value = currentCompetitionOverlay?.display_name || "";
+  byId("overlayImageInput").value = "";
+  byId("overlayWorldInput").value = "";
+  renderOverlayCurrentInfo();
+  byId("overlayDeleteBtn").disabled = !currentCompetitionOverlay?.exists;
+  byId("overlayDialog").showModal();
+}
+
+async function saveOverlayDialog() {
+  const imageFile = byId("overlayImageInput").files?.[0] || null;
+  const worldFile = byId("overlayWorldInput").files?.[0] || null;
+  const displayName = byId("overlayNameInput").value.trim();
+  const maxUploadBytes = Number(currentCompetitionOverlay?.max_upload_bytes || 0);
+  if (!displayName) {
+    showMsg("overlayMsg", false, tr("admin.overlay.name_required_msg"));
+    return;
+  }
+  if (!imageFile || !worldFile) {
+    showMsg("overlayMsg", false, tr("admin.overlay.files_required_msg"));
+    return;
+  }
+  if (Number.isFinite(maxUploadBytes) && maxUploadBytes > 0 && Number(imageFile.size || 0) > maxUploadBytes) {
+    showMsg("overlayMsg", false, tr("admin.overlay.image_too_large_msg"));
+    return;
+  }
+  const fd = new FormData();
+  fd.append("competition_id", String(compId()));
+  fd.append("display_name", displayName);
+  fd.append("image_file", imageFile);
+  fd.append("world_file", worldFile);
+  await postFormData("/api/admin/competitions/overlay/upload", fd);
+  await loadView();
+  renderOverlayCurrentInfo();
+  showMsg("overlayMsg", true, tr("admin.overlay.saved_msg"));
+}
+
+async function deleteOverlayDialog() {
+  await post("/api/admin/competitions/overlay/delete", { competition_id: compId() });
+  if (competitionParticipantLayerCodes.includes(EPK_OVERLAY_LAYER_CODE)) {
+    const nextLayers = competitionParticipantLayerCodes.filter((code) => code !== EPK_OVERLAY_LAYER_CODE);
+    if (nextLayers.length) {
+      await post("/api/admin/competitions/map-layers", {
+        competition_id: compId(),
+        layer_codes: nextLayers
+      });
+    }
+  }
+  await loadView();
+  byId("overlayImageInput").value = "";
+  byId("overlayWorldInput").value = "";
+  byId("overlayNameInput").value = "";
+  renderOverlayCurrentInfo();
+  byId("overlayDeleteBtn").disabled = true;
+  showMsg("overlayMsg", true, tr("admin.overlay.deleted_msg"));
 }
 
 function openMetaDialog() {
@@ -1030,6 +1156,7 @@ function openMetaDialog() {
   byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
   byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
   syncMetaLocationSwitches();
+  updateMetaOwnMapButtonLabel();
   updateMetaMapLayersButtonLabel();
   byId("metaDialog").showModal();
 }
@@ -1081,6 +1208,7 @@ byId("uiLang").onchange = async () => {
   currentUiLang = byId("uiLang").value || defaultLang;
   setCookie(uiLangCookieName, currentUiLang);
   await loadTranslations(currentUiLang);
+  refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
   renderRows();
 };
@@ -1089,6 +1217,7 @@ byId("uiLangApp").onchange = async () => {
   currentUiLang = byId("uiLangApp").value || defaultLang;
   setCookie(uiLangCookieName, currentUiLang);
   await loadTranslations(currentUiLang);
+  refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
   renderRows();
 };
@@ -1278,7 +1407,11 @@ byId("qDelete").onclick = () => deleteQuestion().catch((e) => showMsg("qMsg", fa
 byId("qCancel").onclick = () => byId("qDialog").close();
 byId("qType").onchange = () => syncQuestionTypeUI();
 byId("metaUseLocationInput").addEventListener("change", syncMetaLocationSwitches);
+byId("metaOwnMapBtn").onclick = () => openOverlayDialog().catch((e) => showMsg("topMsg", false, humanizeError(e.message, e.details)));
 byId("metaMapLayersBtn").onclick = () => openParticipantMapLayersDialog().catch((e) => showMsg("metaMsg", false, humanizeError(e.message, e.details)));
+byId("overlayCancelBtn").onclick = () => byId("overlayDialog").close();
+byId("overlaySaveBtn").onclick = () => saveOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
+byId("overlayDeleteBtn").onclick = () => deleteOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
 byId("participantMapLayersCancel").onclick = () => {
   if (!selectedParticipantLayersFromDialog().length) {
     showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));

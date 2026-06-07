@@ -2,16 +2,22 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import io
 import json
 import math
 import os
+import shutil
 import re
 import time
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, Request, Response, status
+from PIL import Image
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="fun_o API", version="0.3.0")
@@ -38,6 +44,11 @@ class Settings:
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
     lang_default: str = os.getenv("LANG_DEFAULT", "et").strip() or "et"
     promo100_max_total_competitions: int = int(os.getenv("PROMO100_MAX_TOTAL_COMPETITIONS", "100"))
+    overlay_storage_dir: str = os.getenv("OVERLAY_STORAGE_DIR", "/app/storage/competition_overlays").strip() or "/app/storage/competition_overlays"
+    overlay_max_upload_bytes: int = int(os.getenv("OVERLAY_MAX_UPLOAD_BYTES", "104857600"))
+    overlay_max_dimension_px: int = int(os.getenv("OVERLAY_MAX_DIMENSION_PX", "12000"))
+    overlay_tile_min_zoom: int = int(os.getenv("OVERLAY_TILE_MIN_ZOOM", "5"))
+    overlay_tile_max_zoom: int = int(os.getenv("OVERLAY_TILE_MAX_ZOOM", "14"))
 
 
 settings = Settings()
@@ -55,6 +66,17 @@ ORDS_RETRY_ATTEMPTS = 3
 ORDS_RETRY_BACKOFF_SECONDS = (0.2, 0.5, 1.0)
 MAP_LAYERS_CACHE_TTL_SECONDS = 31536000.0
 MAP_LAYERS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "map_layers.json")
+EPK_LAYER_CODE = "maaamet_pohikaart"
+EPK_OVERLAY_LAYER_CODE = "maaamet_pohikaart_overlay"
+SUPPORTED_OVERLAY_IMAGE_EXTENSIONS = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+SUPPORTED_OVERLAY_WORLD_EXTENSIONS = {".png": {".pgw"}, ".jpg": {".jgw"}, ".jpeg": {".jgw"}}
+OVERLAY_TILE_SIZE_PX = 256
+EPSG3301_ORIGIN_X = 40500.0
+EPSG3301_ORIGIN_Y = 7017000.0
+EPSG3301_RESOLUTIONS = (
+    4000.0, 2000.0, 1000.0, 500.0, 250.0, 125.0, 62.5, 31.25,
+    15.625, 7.8125, 3.90625, 1.953125, 0.9765625, 0.48828125, 0.244140625,
+)
 CONTENT_DEFAULTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "frontend_dist", "content")
 )
@@ -466,6 +488,47 @@ class AdminCompetitionMapLayersUpdateRequest(BaseModel):
     layer_codes: list[str] = []
 
 
+class CompetitionOverlayBoundsResponse(BaseModel):
+    min_x: float
+    min_y: float
+    max_x: float
+    max_y: float
+
+
+class CompetitionOverlayResponse(BaseModel):
+    overlay_id: int | None = None
+    competition_id: int
+    max_upload_bytes: int | None = None
+    display_label: str | None = None
+    display_name: str | None = None
+    image_file_name: str | None = None
+    world_file_name: str | None = None
+    image_mime_type: str | None = None
+    image_size_bytes: int | None = None
+    storage_rel_path: str | None = None
+    processing_status: str | None = None
+    processing_error: str | None = None
+    tile_storage_rel_path: str | None = None
+    tile_min_zoom: int | None = None
+    tile_max_zoom: int | None = None
+    tiles_generated_at: str | None = None
+    crs_code: str | None = None
+    width_px: int | None = None
+    height_px: int | None = None
+    pixel_size_x: float | None = None
+    pixel_size_y: float | None = None
+    top_left_x: float | None = None
+    top_left_y: float | None = None
+    bounds_3301: CompetitionOverlayBoundsResponse | None = None
+    image_url: str | None = None
+    tile_url_template: str | None = None
+    exists: bool = False
+
+
+class CompetitionOverlayDeleteRequest(BaseModel):
+    competition_id: int
+
+
 class SessionInfoResponse(BaseModel):
     authenticated: bool
     user_id: int | None = None
@@ -871,20 +934,7 @@ def _make_competitor_participation_token(competition_participant_id: int) -> str
     return _make_signed_token({"competition_participant_id": competition_participant_id})
 
 
-def _read_session_payload(request: Request) -> dict[str, Any] | None:
-    return _read_session_payload_from_cookie(request, settings.session_cookie_name)
-
-
-def _read_competitor_session_payload(request: Request) -> dict[str, Any] | None:
-    return _read_session_payload_from_cookie(request, settings.competitor_session_cookie_name)
-
-
-def _read_competitor_participation_payload(request: Request) -> dict[str, Any] | None:
-    return _read_session_payload_from_cookie(request, settings.competitor_participation_cookie_name)
-
-
-def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
-    token = request.cookies.get(cookie_name)
+def _read_signed_token(token: str | None) -> dict[str, Any] | None:
     if not token or "." not in token:
         return None
 
@@ -901,6 +951,22 @@ def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dic
     if not isinstance(payload, dict):
         return None
     return payload
+
+
+def _read_session_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.session_cookie_name)
+
+
+def _read_competitor_session_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.competitor_session_cookie_name)
+
+
+def _read_competitor_participation_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.competitor_participation_cookie_name)
+
+
+def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
+    return _read_signed_token(request.cookies.get(cookie_name))
 
 
 def _read_session_user_id(request: Request) -> int | None:
@@ -1206,6 +1272,360 @@ def _load_map_layers_config() -> list[dict[str, Any]]:  # NOSONAR
     map_layers_cache["items"] = items
     map_layers_cache["loaded_at"] = now
     return items
+
+
+def _overlay_storage_root() -> Path:
+    return Path(settings.overlay_storage_dir).resolve()
+
+
+def _overlay_relative_dir(competition_id: int) -> str:
+    return f"{competition_id}/{uuid.uuid4().hex}"
+
+
+def _safe_overlay_path(storage_rel_path: str) -> Path:
+    rel = Path(storage_rel_path)
+    if rel.is_absolute():
+        _raise_api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INVALID_OVERLAY_PATH", API_ERROR_INVALID_ORDS_RESPONSE)
+    full = (_overlay_storage_root() / rel).resolve()
+    try:
+        full.relative_to(_overlay_storage_root())
+    except ValueError:
+        _raise_api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "INVALID_OVERLAY_PATH", API_ERROR_INVALID_ORDS_RESPONSE)
+    return full
+
+
+def _normalize_overlay_extension(filename: str) -> str:
+    return Path(filename or "").suffix.lower()
+
+
+def _validate_overlay_filename(image_name: str, world_name: str) -> tuple[str, str]:
+    image_ext = _normalize_overlay_extension(image_name)
+    world_ext = _normalize_overlay_extension(world_name)
+    if image_ext not in SUPPORTED_OVERLAY_IMAGE_EXTENSIONS:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_IMAGE", "admin.overlay.invalid_image_file_msg")
+    if world_ext not in SUPPORTED_OVERLAY_WORLD_EXTENSIONS.get(image_ext, set()):
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_WORLD_FILE", "admin.overlay.invalid_world_file_msg")
+    return image_ext, world_ext
+
+
+def _parse_world_file(raw_text: str) -> dict[str, float]:
+    rows = [line.strip() for line in raw_text.replace("\r", "\n").split("\n") if line.strip()]
+    if len(rows) != 6:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_WORLD_FILE", "admin.overlay.invalid_world_file_msg")
+    try:
+        pixel_size_x = float(rows[0])
+        rotation_x = float(rows[1])
+        rotation_y = float(rows[2])
+        pixel_size_y = float(rows[3])
+        top_left_x = float(rows[4])
+        top_left_y = float(rows[5])
+    except ValueError:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_WORLD_FILE", "admin.overlay.invalid_world_file_msg")
+    if abs(rotation_x) > 1e-9 or abs(rotation_y) > 1e-9:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "UNSUPPORTED_OVERLAY_ROTATION", "admin.overlay.rotation_not_supported_msg")
+    return {
+        "pixel_size_x": pixel_size_x,
+        "pixel_size_y": pixel_size_y,
+        "top_left_x": top_left_x,
+        "top_left_y": top_left_y,
+    }
+
+
+def _read_overlay_image_meta(image_bytes: bytes) -> tuple[int, int]:
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            width, height = img.size
+    except Exception:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_IMAGE", "admin.overlay.invalid_image_file_msg")
+    if width < 1 or height < 1 or width > settings.overlay_max_dimension_px or height > settings.overlay_max_dimension_px:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "OVERLAY_IMAGE_TOO_LARGE", "admin.overlay.image_too_large_msg")
+    return width, height
+
+
+def _build_overlay_bounds(*, width_px: int, height_px: int, pixel_size_x: float, pixel_size_y: float, top_left_x: float, top_left_y: float) -> dict[str, float]:
+    min_x = top_left_x - (pixel_size_x / 2.0)
+    max_x = top_left_x + (width_px - 0.5) * pixel_size_x
+    max_y = top_left_y - (pixel_size_y / 2.0)
+    min_y = top_left_y + (height_px - 0.5) * pixel_size_y
+    return {
+        "min_x": min(min_x, max_x),
+        "max_x": max(min_x, max_x),
+        "min_y": min(min_y, max_y),
+        "max_y": max(min_y, max_y),
+    }
+
+
+def _overlay_display_label(display_name: str | None) -> str | None:
+    name = str(display_name or "").strip()
+    if not name:
+        return None
+    return f"* {name}"
+
+
+def _overlay_response_from_ords(competition_id: int, data: dict[str, Any] | None) -> CompetitionOverlayResponse:
+    if not isinstance(data, dict) or not data.get("overlay_id"):
+        return CompetitionOverlayResponse(
+            competition_id=competition_id,
+            max_upload_bytes=settings.overlay_max_upload_bytes,
+            exists=False,
+        )
+    version = str(data.get("updated_at") or data.get("created_at") or "").replace(":", "").replace("-", "").replace("T", "").replace("Z", "")
+    bounds = CompetitionOverlayBoundsResponse(
+        min_x=float(data.get("min_x")),
+        min_y=float(data.get("min_y")),
+        max_x=float(data.get("max_x")),
+        max_y=float(data.get("max_y")),
+    )
+    overlay_id = int(data.get("overlay_id"))
+    return CompetitionOverlayResponse(
+        overlay_id=overlay_id,
+        competition_id=competition_id,
+        max_upload_bytes=settings.overlay_max_upload_bytes,
+        display_label=_overlay_display_label(str(data.get("display_name") or "")),
+        display_name=str(data.get("display_name") or ""),
+        image_file_name=str(data.get("image_file_name") or ""),
+        world_file_name=str(data.get("world_file_name") or ""),
+        image_mime_type=str(data.get("image_mime_type") or ""),
+        image_size_bytes=int(data.get("image_size_bytes")) if data.get("image_size_bytes") is not None else None,
+        storage_rel_path=str(data.get("storage_rel_path") or ""),
+        processing_status=str(data.get("processing_status") or ""),
+        processing_error=str(data.get("processing_error") or "") or None,
+        tile_storage_rel_path=str(data.get("tile_storage_rel_path") or "") or None,
+        tile_min_zoom=int(data.get("tile_min_zoom")) if data.get("tile_min_zoom") is not None else None,
+        tile_max_zoom=int(data.get("tile_max_zoom")) if data.get("tile_max_zoom") is not None else None,
+        tiles_generated_at=str(data.get("tiles_generated_at") or "") or None,
+        crs_code=str(data.get("crs_code") or ""),
+        width_px=int(data.get("width_px")) if data.get("width_px") is not None else None,
+        height_px=int(data.get("height_px")) if data.get("height_px") is not None else None,
+        pixel_size_x=float(data.get("pixel_size_x")) if data.get("pixel_size_x") is not None else None,
+        pixel_size_y=float(data.get("pixel_size_y")) if data.get("pixel_size_y") is not None else None,
+        top_left_x=float(data.get("top_left_x")) if data.get("top_left_x") is not None else None,
+        top_left_y=float(data.get("top_left_y")) if data.get("top_left_y") is not None else None,
+        bounds_3301=bounds,
+        image_url=f"/api/admin/competitions/overlay/file/{competition_id}?v={version}" if version else f"/api/admin/competitions/overlay/file/{competition_id}",
+        exists=True,
+    )
+
+
+async def _get_admin_competition_overlay(competition_id: int) -> CompetitionOverlayResponse:
+    data = await _get_from_ords("admin/competitions/overlay", {"competition_id": competition_id})
+    return _overlay_response_from_ords(competition_id, data)
+
+
+def _make_admin_overlay_tile_token(user_id: int, overlay: CompetitionOverlayResponse) -> str | None:
+    if not overlay.exists or not overlay.overlay_id or not overlay.tile_storage_rel_path:
+        return None
+    return _make_signed_token(
+        {
+            "kind": "admin_overlay_tile",
+            "user_id": user_id,
+            "competition_id": overlay.competition_id,
+            "overlay_id": overlay.overlay_id,
+            "tile_storage_rel_path": overlay.tile_storage_rel_path,
+        }
+    )
+
+
+def _decorate_admin_overlay_response(overlay: CompetitionOverlayResponse, user_id: int) -> CompetitionOverlayResponse:
+    if not overlay.exists:
+        overlay.max_upload_bytes = settings.overlay_max_upload_bytes
+        return overlay
+    overlay.display_label = overlay.display_label or _overlay_display_label(overlay.display_name)
+    if overlay.processing_status == "READY" and overlay.tile_storage_rel_path and overlay.overlay_id:
+        token = _make_admin_overlay_tile_token(user_id, overlay)
+        if token:
+            overlay.tile_url_template = (
+                f"/api/admin/competitions/overlay/tiles/{overlay.overlay_id}/{{z}}/{{x}}/{{y}}.png?token={token}"
+            )
+    return overlay
+
+
+async def _set_overlay_processing_status(
+    overlay_id: int,
+    processing_status: str,
+    *,
+    updated_by: int | None,
+    processing_error: str | None = None,
+    tile_storage_rel_path: str | None = None,
+    tile_min_zoom: int | None = None,
+    tile_max_zoom: int | None = None,
+) -> None:
+    await _post_to_ords(
+        "admin/competitions/overlay/processing",
+        {
+            "overlay_id": overlay_id,
+            "processing_status": processing_status,
+            "processing_error": processing_error,
+            "tile_storage_rel_path": tile_storage_rel_path,
+            "tile_min_zoom": tile_min_zoom,
+            "tile_max_zoom": tile_max_zoom,
+            "updated_by": updated_by,
+        },
+    )
+
+
+def _ensure_overlay_storage_root_exists() -> None:
+    _overlay_storage_root().mkdir(parents=True, exist_ok=True)
+
+
+def _remove_overlay_dir(storage_rel_path: str | None) -> None:
+    if not storage_rel_path:
+        return
+    target = _safe_overlay_path(storage_rel_path)
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+
+
+def _overlay_zoom_range(overlay: CompetitionOverlayResponse) -> tuple[int, int]:
+    min_zoom = max(0, min(len(EPSG3301_RESOLUTIONS) - 1, int(settings.overlay_tile_min_zoom)))
+    max_zoom = max(0, min(len(EPSG3301_RESOLUTIONS) - 1, int(settings.overlay_tile_max_zoom)))
+    if max_zoom < min_zoom:
+        max_zoom = min_zoom
+    return min_zoom, max_zoom
+
+
+def _overlay_source_path(overlay: CompetitionOverlayResponse) -> Path:
+    if not overlay.storage_rel_path or not overlay.image_file_name:
+        raise FileNotFoundError("overlay source path missing")
+    return _safe_overlay_path(overlay.storage_rel_path) / overlay.image_file_name
+
+
+def _overlay_tiles_rel_path(overlay: CompetitionOverlayResponse) -> str:
+    return f"{str(overlay.storage_rel_path or '').rstrip('/').rstrip('\\')}/tiles"
+
+
+def _generate_overlay_tiles_sync(overlay: CompetitionOverlayResponse) -> tuple[str, int, int]:
+    if not overlay.exists or not overlay.bounds_3301:
+        raise ValueError("overlay does not exist")
+    if not overlay.storage_rel_path:
+        raise ValueError("overlay storage path missing")
+
+    source_path = _overlay_source_path(overlay)
+    if not source_path.exists():
+        raise FileNotFoundError("overlay source image not found")
+
+    bounds = overlay.bounds_3301
+    pixel_size_x = float(overlay.pixel_size_x or 0)
+    pixel_size_y = abs(float(overlay.pixel_size_y or 0))
+    if pixel_size_x <= 0 or pixel_size_y <= 0:
+        raise ValueError("overlay pixel size invalid")
+
+    tile_rel_path = _overlay_tiles_rel_path(overlay)
+    tile_root = _safe_overlay_path(tile_rel_path)
+    if tile_root.exists():
+        shutil.rmtree(tile_root, ignore_errors=True)
+    tile_root.mkdir(parents=True, exist_ok=True)
+
+    min_zoom, max_zoom = _overlay_zoom_range(overlay)
+    source_min_x = float(bounds.min_x)
+    source_max_x = float(bounds.max_x)
+    source_min_y = float(bounds.min_y)
+    source_max_y = float(bounds.max_y)
+    epsilon = 1e-9
+
+    with Image.open(source_path) as src_img:
+        for zoom in range(min_zoom, max_zoom + 1):
+            resolution = float(EPSG3301_RESOLUTIONS[zoom])
+            tile_world_size = OVERLAY_TILE_SIZE_PX * resolution
+            x_start = max(0, int(math.floor((source_min_x - EPSG3301_ORIGIN_X) / tile_world_size)))
+            x_end = max(0, int(math.floor(((source_max_x - epsilon) - EPSG3301_ORIGIN_X) / tile_world_size)))
+            y_start = max(0, int(math.floor((EPSG3301_ORIGIN_Y - source_max_y) / tile_world_size)))
+            y_end = max(0, int(math.floor((EPSG3301_ORIGIN_Y - (source_min_y + epsilon)) / tile_world_size)))
+
+            for tile_x in range(x_start, x_end + 1):
+                tile_min_x = EPSG3301_ORIGIN_X + tile_x * tile_world_size
+                tile_max_x = tile_min_x + tile_world_size
+                intersect_min_x = max(tile_min_x, source_min_x)
+                intersect_max_x = min(tile_max_x, source_max_x)
+                if intersect_min_x >= intersect_max_x:
+                    continue
+
+                for tile_y in range(y_start, y_end + 1):
+                    tile_max_y = EPSG3301_ORIGIN_Y - tile_y * tile_world_size
+                    tile_min_y = tile_max_y - tile_world_size
+                    intersect_min_y = max(tile_min_y, source_min_y)
+                    intersect_max_y = min(tile_max_y, source_max_y)
+                    if intersect_min_y >= intersect_max_y:
+                        continue
+
+                    src_left = (intersect_min_x - source_min_x) / pixel_size_x
+                    src_right = (intersect_max_x - source_min_x) / pixel_size_x
+                    src_top = (source_max_y - intersect_max_y) / pixel_size_y
+                    src_bottom = (source_max_y - intersect_min_y) / pixel_size_y
+                    crop_box = (
+                        max(0, int(math.floor(src_left))),
+                        max(0, int(math.floor(src_top))),
+                        min(int(overlay.width_px or src_img.width), int(math.ceil(src_right))),
+                        min(int(overlay.height_px or src_img.height), int(math.ceil(src_bottom))),
+                    )
+                    if crop_box[2] <= crop_box[0] or crop_box[3] <= crop_box[1]:
+                        continue
+
+                    target_left = max(0, int(round((intersect_min_x - tile_min_x) / resolution)))
+                    target_right = min(OVERLAY_TILE_SIZE_PX, int(round((intersect_max_x - tile_min_x) / resolution)))
+                    target_top = max(0, int(round((tile_max_y - intersect_max_y) / resolution)))
+                    target_bottom = min(OVERLAY_TILE_SIZE_PX, int(round((tile_max_y - intersect_min_y) / resolution)))
+                    if target_right <= target_left or target_bottom <= target_top:
+                        continue
+
+                    tile_image = Image.new("RGBA", (OVERLAY_TILE_SIZE_PX, OVERLAY_TILE_SIZE_PX), (0, 0, 0, 0))
+                    crop = src_img.crop(crop_box)
+                    resized = crop.resize((target_right - target_left, target_bottom - target_top), Image.Resampling.LANCZOS)
+                    if resized.mode != "RGBA":
+                        resized = resized.convert("RGBA")
+                    tile_image.paste(resized, (target_left, target_top), resized)
+
+                    tile_dir = tile_root / str(zoom) / str(tile_x)
+                    tile_dir.mkdir(parents=True, exist_ok=True)
+                    tile_image.save(tile_dir / f"{tile_y}.png", format="PNG", optimize=True)
+
+    return tile_rel_path, min_zoom, max_zoom
+
+
+async def _process_overlay_tiles(overlay: CompetitionOverlayResponse, user_id: int) -> None:
+    if not overlay.exists or not overlay.overlay_id or not overlay.storage_rel_path:
+        return
+    try:
+        await _set_overlay_processing_status(overlay.overlay_id, "PROCESSING", updated_by=user_id)
+        tile_rel_path, tile_min_zoom, tile_max_zoom = await asyncio.to_thread(_generate_overlay_tiles_sync, overlay)
+        refreshed = await _get_admin_competition_overlay(overlay.competition_id)
+        if (
+            not refreshed.exists
+            or refreshed.overlay_id != overlay.overlay_id
+            or refreshed.storage_rel_path != overlay.storage_rel_path
+        ):
+            _remove_overlay_dir(tile_rel_path)
+            return
+        await _set_overlay_processing_status(
+            overlay.overlay_id,
+            "READY",
+            updated_by=user_id,
+            tile_storage_rel_path=tile_rel_path,
+            tile_min_zoom=tile_min_zoom,
+            tile_max_zoom=tile_max_zoom,
+        )
+    except Exception as exc:
+        _remove_overlay_dir(_overlay_tiles_rel_path(overlay))
+        try:
+            await _set_overlay_processing_status(
+                overlay.overlay_id,
+                "FAILED",
+                updated_by=user_id,
+                processing_error=str(exc)[:2000],
+            )
+        except Exception:
+            return
+
+
+def _schedule_overlay_processing(overlay: CompetitionOverlayResponse, user_id: int) -> None:
+    if not overlay.exists or not overlay.overlay_id:
+        return
+    try:
+        task = asyncio.create_task(_process_overlay_tiles(overlay, user_id))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
+    except RuntimeError:
+        pass
 
 
 def _map_cache_key(*, competition_id: int, user_id: int) -> str:
@@ -2960,6 +3380,164 @@ async def admin_competition_map_layers_update(
     )
     competitor_map_layers_cache.pop(req.competition_id, None)
     return {"ok": True}
+
+
+@app.get("/api/admin/competitions/overlay", response_model=CompetitionOverlayResponse)
+async def admin_competition_overlay(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitionOverlayResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    overlay = await _get_admin_competition_overlay(competition_id)
+    return _decorate_admin_overlay_response(overlay, user_id)
+
+
+@app.post("/api/admin/competitions/overlay/upload", response_model=CompetitionOverlayResponse)
+async def admin_competition_overlay_upload(
+    request: Request,
+    competition_id: int = Form(...),
+    display_name: str = Form(...),
+    image_file: UploadFile = File(...),
+    world_file: UploadFile = File(...),
+    x_user_id: int | None = Header(default=None),
+) -> CompetitionOverlayResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    _ensure_overlay_storage_root_exists()
+    image_name = image_file.filename or "map.png"
+    world_name = world_file.filename or "map.pgw"
+    image_ext, world_ext = _validate_overlay_filename(image_name, world_name)
+    image_bytes = await image_file.read()
+    if not image_bytes or len(image_bytes) > settings.overlay_max_upload_bytes:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "OVERLAY_IMAGE_TOO_LARGE", "admin.overlay.image_too_large_msg")
+    world_bytes = await world_file.read()
+    try:
+        world_text = world_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_OVERLAY_WORLD_FILE", "admin.overlay.invalid_world_file_msg")
+
+    width_px, height_px = _read_overlay_image_meta(image_bytes)
+    world_meta = _parse_world_file(world_text)
+    bounds = _build_overlay_bounds(
+        width_px=width_px,
+        height_px=height_px,
+        pixel_size_x=world_meta["pixel_size_x"],
+        pixel_size_y=world_meta["pixel_size_y"],
+        top_left_x=world_meta["top_left_x"],
+        top_left_y=world_meta["top_left_y"],
+    )
+
+    previous_overlay = await _get_admin_competition_overlay(competition_id)
+    storage_rel_path = _overlay_relative_dir(competition_id)
+    storage_dir = _safe_overlay_path(storage_rel_path)
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    image_target_name = f"map{'.jpg' if image_ext in ('.jpg', '.jpeg') else image_ext}"
+    world_target_name = f"map{world_ext}"
+    try:
+        (storage_dir / image_target_name).write_bytes(image_bytes)
+        (storage_dir / world_target_name).write_text(world_text, encoding="utf-8")
+    except Exception:
+        _remove_overlay_dir(storage_rel_path)
+        _raise_api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "OVERLAY_WRITE_FAILED", API_ERROR_INVALID_ORDS_RESPONSE)
+
+    try:
+        await _post_to_ords(
+            "admin/competitions/overlay",
+            {
+                "competition_id": competition_id,
+                "display_name": display_name.strip(),
+                "image_file_name": image_target_name,
+                "world_file_name": world_target_name,
+                "image_mime_type": SUPPORTED_OVERLAY_IMAGE_EXTENSIONS[image_ext],
+                "image_size_bytes": len(image_bytes),
+                "storage_rel_path": storage_rel_path,
+                "crs_code": "EPSG:3301",
+                "width_px": width_px,
+                "height_px": height_px,
+                "pixel_size_x": world_meta["pixel_size_x"],
+                "pixel_size_y": world_meta["pixel_size_y"],
+                "top_left_x": world_meta["top_left_x"],
+                "top_left_y": world_meta["top_left_y"],
+                "min_x": bounds["min_x"],
+                "min_y": bounds["min_y"],
+                "max_x": bounds["max_x"],
+                "max_y": bounds["max_y"],
+                "updated_by": user_id,
+            },
+        )
+    except Exception:
+        _remove_overlay_dir(storage_rel_path)
+        raise
+
+    current_overlay = await _get_admin_competition_overlay(competition_id)
+    _schedule_overlay_processing(current_overlay, user_id)
+
+    if previous_overlay.exists and previous_overlay.storage_rel_path and previous_overlay.storage_rel_path != storage_rel_path:
+        _remove_overlay_dir(previous_overlay.storage_rel_path)
+    return _decorate_admin_overlay_response(current_overlay, user_id)
+
+
+@app.post("/api/admin/competitions/overlay/delete")
+async def admin_competition_overlay_delete(
+    req: CompetitionOverlayDeleteRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    previous_overlay = await _get_admin_competition_overlay(req.competition_id)
+    await _post_to_ords(
+        "admin/competitions/overlay/delete",
+        {
+            "competition_id": req.competition_id,
+            "updated_by": user_id,
+        },
+    )
+    if previous_overlay.exists and previous_overlay.storage_rel_path:
+        _remove_overlay_dir(previous_overlay.storage_rel_path)
+    return {"ok": True}
+
+
+@app.get("/api/admin/competitions/overlay/file/{competition_id}")
+async def admin_competition_overlay_file(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> FileResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    overlay = await _get_admin_competition_overlay(competition_id)
+    if not overlay.exists or not overlay.storage_rel_path or not overlay.image_file_name:
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_NOT_FOUND", "api.error.invalid_submission")
+    file_path = _safe_overlay_path(overlay.storage_rel_path) / overlay.image_file_name
+    if not file_path.exists():
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_FILE_NOT_FOUND", "api.error.invalid_submission")
+    return FileResponse(file_path, media_type=overlay.image_mime_type or "application/octet-stream")
+
+
+@app.get("/api/admin/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png")
+async def admin_competition_overlay_tile(
+    overlay_id: int,
+    z: int,
+    x: int,
+    y: int,
+    token: str,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> FileResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    payload = _read_signed_token(token)
+    if not isinstance(payload, dict):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    if str(payload.get("kind") or "") != "admin_overlay_tile":
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    if int(payload.get("user_id") or 0) != user_id or int(payload.get("overlay_id") or 0) != overlay_id:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_OVERLAY_TILE_TOKEN", "api.error.invalid_submission")
+    tile_rel_path = str(payload.get("tile_storage_rel_path") or "").strip()
+    if not tile_rel_path:
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_TILE_NOT_FOUND", "api.error.invalid_submission")
+    file_path = _safe_overlay_path(tile_rel_path) / str(z) / str(x) / f"{y}.png"
+    if not file_path.exists():
+        _raise_api_error(status.HTTP_404_NOT_FOUND, "OVERLAY_TILE_NOT_FOUND", "api.error.invalid_submission")
+    return FileResponse(file_path, media_type="image/png")
 
 
 @app.get("/api/superadmin/session", response_model=SuperAdminSessionResponse)
