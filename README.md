@@ -3,6 +3,7 @@
 `fun_o` on mobiilisõbralik veebisüsteem orienteerumisvõistluste korraldamiseks ja läbiviimiseks, kus kontrollpunktides (KP) vastatakse küsimustele ning punktiarvestus on automaatne. 
 - Võistlusi saab luua nii mobiilis kuvatava kaardiga kui ka kaardita. Kaardirežiimis on võimalik kuvada võistleja asukohta ning lubada küsimustele vastata ainult kindlas piirkonnas viibides. 
 - Võistluste korraldamisel saab kasutada erinevaid avalikest allikatest pärit kaarte, nii Eesti-keskseid kaarte (nt Maa-ameti kaardid) kui laiema katvusega kaarte (nt OpenStreetMap, Mapy.cz jms.). 
+- Korraldaja saab võistlusele lisada ka oma georeferentseeritud kaardi, mida kasutatakse võistluspõhise overlayna toetatud aluskaardi peal.
 - Sama rakendust saab kasutada ka klassikaliste viktoriinide ja muude teadmismängude läbiviimiseks.
 
 ## Projekti taust
@@ -46,6 +47,7 @@ Süsteem loob väärtust kolmes rollis.
 ### Korraldaja väärtus
 
 - võistluse, KP-de, küsimuste, vastuste ja koodide haldus ühest kohast;
+- võimalus lisada võistlusele oma georeferentseeritud kaart overlayna ning kasutada seda admini kaardivaadetes pärast taustatöötluse valmimist;
 - jooksev leaderboard ning detailne vaade vastustele/KP-de läbimisele;
 - võistluse lõpus automaatne tulemuste tabel (punktid + ajakriteerium);
 - vähem käsitsi arvutamist, vähem inimlikke vigu, parem läbipaistvus osalejatele.
@@ -64,6 +66,7 @@ Lahendus on veebipõhine mitmekihiline süsteem:
 - FastAPI backend ühtse API, sessiooni, valideerimise ja cache’iga;
 - Oracle andmemudel + ORDS REST-kiht, kus paiknevad andmete ja reeglite kesksemad kontrollid;
 - kaardikiht avalikest kaardiallikatest (nt Maa-ameti kaardid, OpenStreetMap, Mapy.cz), mida saab kasutada võistluse loogika osana või taustakaardina;
+- võistluspõhised oma kaardid, mis salvestatakse eraldi failistorage'isse, töödeldakse taustas tile'ideks ning kuvatakse adminis overlayna aluskaardi peal;
 - Docker Compose’iga käivitatav tervik (nginx + backend + testiprofiil).
 
 Võistleja UI (`frontend_dist/index.html`) kasutab eraldi staatilisi asset-faile:

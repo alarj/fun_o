@@ -99,6 +99,7 @@ Expected ORDS JSON responses:
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
 - `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
+- `admin/competitions/overlay` (GET) tagastab overlay metadata admin UI jaoks; kui `processing_status != READY`, ei tohi frontend pakkuda seda kasutatava kaardina admin kaardivaadetes.
 - `admin/competitions/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `admin/checkpoints` -> `{ "checkpoint_id": 123 }`
 - `admin/questions` -> `{ "question_id": 456 }`
@@ -130,6 +131,7 @@ Required backend env:
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
+- Overlay upload voog salvestab source-failid `OVERLAY_STORAGE_DIR` alla ning käivitab taustatöö, mis lõikab rasteri tile'ideks ja uuendab staatust `UPLOADED -> PROCESSING -> READY|FAILED`.
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
