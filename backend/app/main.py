@@ -518,6 +518,7 @@ class CompetitionOverlayResponse(BaseModel):
     max_upload_bytes: int | None = None
     display_label: str | None = None
     display_name: str | None = None
+    attribution: str | None = None
     image_file_name: str | None = None
     world_file_name: str | None = None
     image_mime_type: str | None = None
@@ -544,6 +545,12 @@ class CompetitionOverlayResponse(BaseModel):
 
 class CompetitionOverlayDeleteRequest(BaseModel):
     competition_id: int
+
+
+class CompetitionOverlayMetaUpdateRequest(BaseModel):
+    competition_id: int
+    display_name: str
+    attribution: str | None = None
 
 
 class SessionInfoResponse(BaseModel):
@@ -1472,6 +1479,23 @@ def _overlay_display_label(display_name: str | None) -> str | None:
     return f"* {name}"
 
 
+def _normalize_overlay_attribution(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _merge_layer_attribution(base_attribution: Any, overlay_attribution: Any) -> str:
+    base = str(base_attribution or "").strip()
+    overlay = _normalize_overlay_attribution(overlay_attribution)
+    if base and overlay:
+        return f"{base} | {overlay}"
+    if overlay:
+        return overlay
+    if base:
+        return base
+    return "&copy;"
+
+
 def _overlay_response_from_ords(competition_id: int, data: dict[str, Any] | None) -> CompetitionOverlayResponse:
     if not isinstance(data, dict) or not data.get("overlay_id"):
         return CompetitionOverlayResponse(
@@ -1493,6 +1517,7 @@ def _overlay_response_from_ords(competition_id: int, data: dict[str, Any] | None
         max_upload_bytes=settings.overlay_max_upload_bytes,
         display_label=_overlay_display_label(str(data.get("display_name") or "")),
         display_name=str(data.get("display_name") or ""),
+        attribution=_normalize_overlay_attribution(data.get("attribution")),
         image_file_name=str(data.get("image_file_name") or ""),
         world_file_name=str(data.get("world_file_name") or ""),
         image_mime_type=str(data.get("image_mime_type") or ""),
@@ -1605,6 +1630,7 @@ def _build_competitor_overlay_layer_cache_item(
         **base_layer,
         "code": EPK_OVERLAY_LAYER_CODE,
         "label": label,
+        "attribution": _merge_layer_attribution(base_layer.get("attribution"), overlay.attribution),
         "participant_default": False,
         "crs": "EPSG:3301",
         "overlay_composite_base_code": EPK_LAYER_CODE,
@@ -3631,6 +3657,7 @@ async def admin_competition_overlay_upload(
     request: Request,
     competition_id: int = Form(...),
     display_name: str = Form(...),
+    attribution: str = Form(""),
     image_file: UploadFile = File(...),
     world_file: UploadFile = File(...),
     x_user_id: int | None = Header(default=None),
@@ -3689,6 +3716,7 @@ async def admin_competition_overlay_upload(
                 {
                     "competition_id": competition_id,
                     "display_name": display_name.strip(),
+                    "attribution": attribution.strip(),
                     "image_file_name": image_target_name,
                     "world_file_name": world_target_name,
                     "image_mime_type": SUPPORTED_OVERLAY_IMAGE_EXTENSIONS[image_ext],
@@ -3722,6 +3750,27 @@ async def admin_competition_overlay_upload(
     finally:
         _remove_path_quietly(temp_image_path)
         await world_file.close()
+
+
+@app.post("/api/admin/competitions/overlay/meta", response_model=CompetitionOverlayResponse)
+async def admin_competition_overlay_meta_update(
+    req: CompetitionOverlayMetaUpdateRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> CompetitionOverlayResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    await _post_to_ords(
+        "admin/competitions/overlay/meta",
+        {
+            "competition_id": req.competition_id,
+            "display_name": req.display_name.strip(),
+            "attribution": (req.attribution or "").strip(),
+            "updated_by": user_id,
+        },
+    )
+    competitor_map_layers_cache.pop(req.competition_id, None)
+    overlay = await _get_admin_competition_overlay(req.competition_id)
+    return _decorate_admin_overlay_response(overlay, user_id)
 
 
 @app.post("/api/admin/competitions/overlay/delete")

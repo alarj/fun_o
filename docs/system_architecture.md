@@ -85,6 +85,7 @@ Mida teeb:
 - Tarbib backendi `/api/*` endpointe.
 - Kasutab backendi antud andmeid võistluste, KP-de, küsimuste, tulemuste ja i18n kuvamiseks.
 - `results.html` võistleja modal kasutab `participant-submissions` andmeid, sh iga rea `delta_from_prev_seconds` ning kokkuvõtte väljasid `total_elapsed_seconds` / `total_distance_m`.
+- `results.html` automaatvärskendus töötab ainult lehe avamisel aktiivseks loetud võistlusel, mille `starts_at <= now` ja mille `ends_at` on kas tulevikus või `NULL`, ning peatub hiljemalt 1 tunni möödumisel lehe avamisest.
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
 - Admin UI saab võistlusele lisatud oma kaardi korral dünaamilise kaardivaliku `* {display_name}`, kuid alles siis, kui overlay töötlusstaatus on `READY`.
 - Competitor UI saab samal põhimõttel dünaamilise kaardivaliku `* {display_name}`, mida renderdatakse EPK peale tavalise tile-overlay kihina.

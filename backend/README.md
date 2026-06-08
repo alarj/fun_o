@@ -44,6 +44,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
 - POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
 - POST `/admin/competitions/overlay` - salvestab või asendab võistluse aktiivse oma kaardi metadata.
+- POST `/admin/competitions/overlay/meta` - uuendab olemasoleva oma kaardi nime ja attributioni ilma faili ega tile-state'i muutmata.
 - POST `/admin/competitions/overlay/processing` - uuendab oma kaardi töötluse staatust ja tile metadata't.
 - POST `/admin/competitions/overlay/delete` - teeb võistluse oma kaardi soft-delete.
 - POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
@@ -99,7 +100,7 @@ Expected ORDS JSON responses:
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
-- `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
+- `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "attribution":"&copy; ...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
 - `admin/competitions/overlay` (GET) tagastab overlay metadata admin UI jaoks; kui `processing_status != READY`, ei tohi frontend pakkuda seda kasutatava kaardina admin kaardivaadetes.
 - Overlay upload valideerib world file põhjal arvutatud boundse Eesti L-EST97 mõistlikkuse vastu; kui `bounds_3301` jääb väljapoole X `300000..800000` või Y `6300000..7000000`, lükatakse upload tagasi.
 - `admin/competitions/terms` -> `{ "competition_id":1, "terms": {...} }`
@@ -108,7 +109,8 @@ Expected ORDS JSON responses:
 - `admin/question-options` -> `{ "option_id": 789 }`
 - `admin/question-answers` -> `{ "answer_id": 321 }`
 - `admin/access-codes` -> `{ "access_code_id": 654, "code": "123456" }`
-- `admin/competitions/overlay` (POST) -> `{ "overlay_id":..., "display_name":"...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }`
+- `admin/competitions/overlay` (POST) -> `{ "overlay_id":..., "display_name":"...", "attribution":"&copy; ...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }`
+- `admin/competitions/overlay/meta` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/competitions/overlay/processing` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/competitions/overlay/delete` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
@@ -220,6 +222,7 @@ Competition-specific own map overlay in competitor UI:
 - The dynamic competitor-visible layer is returned as:
   - `code = "maaamet_pohikaart_overlay"`
   - `label = "* <display_name>"`
+  - `attribution = "<base attribution> | <overlay attribution>"`, kui overlay attribution ei ole tühi; muidu jääb ainult aluskaardi attribution
   - `overlay_composite_base_code = "maaamet_pohikaart"`
   - `overlay_tile_url_template = "/api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=..."`
 - The dynamic layer is not a separate global base map; competitor frontend must render it as a composite:
@@ -525,6 +528,16 @@ Scope:
   - `admin.html`
   - `superadmin.html`
   - `results.html`
+
+### Results view auto-refresh guard
+
+- `frontend_dist/results.html` starts the 60-second auto-refresh loop only when the competition overview loaded at page open says:
+  - `status = ACTIVE`
+  - `starts_at <= now`
+  - `ends_at is null` or `now < ends_at`
+- Even in that case, the page stops automatic refresh no later than 1 hour after the page was opened.
+- A full page reload starts a fresh 1-hour window.
+- The guard is frontend-side on purpose to avoid adding an extra ORDS roundtrip every 60 seconds just to re-check whether polling is still allowed.
 
 ### Admin SINGLE_CHOICE option update rules
 

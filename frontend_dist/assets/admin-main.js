@@ -1078,44 +1078,65 @@ function renderOverlayCurrentInfo() {
   }
 }
 
+function syncOverlayFileInputsEnabled() {
+  const hasExistingOverlay = !!currentCompetitionOverlay?.exists;
+  const imageInput = byId("overlayImageInput");
+  const worldInput = byId("overlayWorldInput");
+  if (imageInput) imageInput.disabled = hasExistingOverlay;
+  if (worldInput) worldInput.disabled = hasExistingOverlay;
+}
+
 async function openOverlayDialog() {
   showMsg("overlayMsg", false, "");
   await loadCompetitionOverlay();
   byId("overlayNameInput").value = currentCompetitionOverlay?.display_name || "";
+  byId("overlayAttributionInput").value = currentCompetitionOverlay?.attribution || "";
   byId("overlayImageInput").value = "";
   byId("overlayWorldInput").value = "";
+  syncOverlayFileInputsEnabled();
   renderOverlayCurrentInfo();
   byId("overlayDeleteBtn").disabled = !currentCompetitionOverlay?.exists;
   byId("overlayDialog").showModal();
 }
 
 async function saveOverlayDialog() {
-  const imageFile = byId("overlayImageInput").files?.[0] || null;
-  const worldFile = byId("overlayWorldInput").files?.[0] || null;
   const displayName = byId("overlayNameInput").value.trim();
-  const maxUploadBytes = Number(currentCompetitionOverlay?.max_upload_bytes || 0);
+  const attribution = byId("overlayAttributionInput").value.trim();
   if (!displayName) {
     showMsg("overlayMsg", false, tr("admin.overlay.name_required_msg"));
     return;
   }
-  if (!imageFile || !worldFile) {
-    showMsg("overlayMsg", false, tr("admin.overlay.files_required_msg"));
-    return;
+  if (currentCompetitionOverlay?.exists) {
+    await post("/api/admin/competitions/overlay/meta", {
+      competition_id: compId(),
+      display_name: displayName,
+      attribution,
+    });
+  } else {
+    const imageFile = byId("overlayImageInput").files?.[0] || null;
+    const worldFile = byId("overlayWorldInput").files?.[0] || null;
+    const maxUploadBytes = Number(currentCompetitionOverlay?.max_upload_bytes || 0);
+    if (!imageFile || !worldFile) {
+      showMsg("overlayMsg", false, tr("admin.overlay.files_required_msg"));
+      return;
+    }
+    if (Number.isFinite(maxUploadBytes) && maxUploadBytes > 0 && Number(imageFile.size || 0) > maxUploadBytes) {
+      showMsg("overlayMsg", false, formatTr("admin.overlay.image_file_size_too_large_msg", {
+        actual_mb: formatFileSizeMb(imageFile.size || 0),
+        max_mb: formatFileSizeMb(maxUploadBytes),
+      }));
+      return;
+    }
+    const fd = new FormData();
+    fd.append("competition_id", String(compId()));
+    fd.append("display_name", displayName);
+    fd.append("attribution", attribution);
+    fd.append("image_file", imageFile);
+    fd.append("world_file", worldFile);
+    await postFormData("/api/admin/competitions/overlay/upload", fd);
   }
-  if (Number.isFinite(maxUploadBytes) && maxUploadBytes > 0 && Number(imageFile.size || 0) > maxUploadBytes) {
-    showMsg("overlayMsg", false, formatTr("admin.overlay.image_file_size_too_large_msg", {
-      actual_mb: formatFileSizeMb(imageFile.size || 0),
-      max_mb: formatFileSizeMb(maxUploadBytes),
-    }));
-    return;
-  }
-  const fd = new FormData();
-  fd.append("competition_id", String(compId()));
-  fd.append("display_name", displayName);
-  fd.append("image_file", imageFile);
-  fd.append("world_file", worldFile);
-  await postFormData("/api/admin/competitions/overlay/upload", fd);
   await loadView();
+  syncOverlayFileInputsEnabled();
   renderOverlayCurrentInfo();
   showMsg("overlayMsg", true, tr("admin.overlay.saved_msg"));
 }
@@ -1135,6 +1156,8 @@ async function deleteOverlayDialog() {
   byId("overlayImageInput").value = "";
   byId("overlayWorldInput").value = "";
   byId("overlayNameInput").value = "";
+  byId("overlayAttributionInput").value = "";
+  syncOverlayFileInputsEnabled();
   renderOverlayCurrentInfo();
   byId("overlayDeleteBtn").disabled = true;
   showMsg("overlayMsg", true, tr("admin.overlay.deleted_msg"));

@@ -79,9 +79,9 @@ async function loadAllowedMapLayers() {
   return items;
 }
 
-function createBaseLayer(layer) {
+function createBaseLayer(layer, options = {}) {
   const url = String(layer.url_template || "");
-  const attrib = String(layer.attribution || "");
+  const attrib = options.suppressAttribution ? "" : String(layer.attribution || "");
   const minZoom = Number(layer.min_zoom ?? 0);
   const maxZoom = Number(layer.max_zoom ?? 19);
   const tms = String(layer.tms || "false").toLowerCase() === "true" || layer.tms === true;
@@ -122,7 +122,7 @@ function createCompetitionOverlayTileLayer(layer) {
     opacity: 1,
     tms: false,
     noWrap: true,
-    attribution: "",
+    attribution: String(layer?.attribution || ""),
   });
 }
 
@@ -223,7 +223,7 @@ function applyBaseLayer(code) {
     compMap.removeLayer(baseMapLayer);
     baseMapLayer = null;
   }
-  baseMapLayer = createBaseLayer(baseLayerConfig);
+  baseMapLayer = createBaseLayer(baseLayerConfig, { suppressAttribution: isCompetitionOverlaySelection(layer) });
   baseMapLayer.addTo(compMap);
   if (isCompetitionOverlaySelection(layer)) {
     competitionOverlayTileLayer = createCompetitionOverlayTileLayer(layer);

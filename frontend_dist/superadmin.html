@@ -339,6 +339,10 @@
       return `<svg class="logoutIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 8l6 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
     }
 
+    function overlayReadyIconSvg() {
+      return `<span class="competition-overlay-ready-badge superadminOverlayBadge" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3.5 6.5 8 3l4 3.5L16 3l4.5 3.5v11L16 21l-4-3.5L8 21l-4.5-3.5zM8 5.4 5.5 7.3v8.2L8 17.4zm1 0v12l2.5-2.2V7.6zm3.5 2.2v7.6l2.5 2.2v-12zm3.5-2.2v12l2.5-1.9V7.3z"/><path d="m9.1 11.7 2.1 2.1 4.2-4.2" class="overlay-ready-check"/></svg></span>`;
+    }
+
     function renderCurrentUser(session) {
       const box = byId("currentUserBox");
       const name = (session?.full_name || session?.email || (session?.user_id ? `user#${session.user_id}` : "-")).toString();
@@ -439,7 +443,8 @@
         const org = parseOrganizers(x.organizers);
         const useLocation = String(x.use_location || "N").toUpperCase() === "Y";
         const showCompetitorLocation = String(x.show_competitor_location || "N").toUpperCase() === "Y";
-        const locationBadges = `${useLocation ? '<span style="font-weight:700;color:#b74545;">&#128205;</span>' : ''}${showCompetitorLocation ? '<span style="font-weight:700;color:#2f8cff;font-size:18px;line-height:1;margin-left:4px;">&#9679;</span>' : ''}`;
+        const hasOverlay = String(x.has_overlay || "N").toUpperCase() === "Y";
+        const locationBadges = `${useLocation ? '<span style="font-weight:700;color:#b74545;">&#128205;</span>' : ''}${showCompetitorLocation ? '<span style="font-weight:700;color:#2f8cff;font-size:18px;line-height:1;margin-left:4px;">&#9679;</span>' : ''}${hasOverlay ? overlayReadyIconSvg() : ''}`;
         const compId = Number(x.competition_id || 0);
         const compName = String(x.name || "");
         const orgText = renderOrganizersCell(org, compId, compName);

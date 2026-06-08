@@ -3426,6 +3426,7 @@ create or replace package pkg_admin_content as
   procedure upsert_competition_map_overlay(
     p_competition_id in number,
     p_display_name in varchar2,
+    p_attribution in varchar2,
     p_image_file_name in varchar2,
     p_world_file_name in varchar2,
     p_image_mime_type in varchar2,
@@ -3444,6 +3445,13 @@ create or replace package pkg_admin_content as
     p_max_y in number,
     p_updated_by in number,
     o_overlay_id out number
+  );
+  -- update_competition_map_overlay_meta: Updates only active competition overlay display metadata.
+  procedure update_competition_map_overlay_meta(
+    p_competition_id in number,
+    p_display_name in varchar2,
+    p_attribution in varchar2,
+    p_updated_by in number
   );
   -- set_competition_map_overlay_processing: Updates active competition overlay processing state and tile metadata.
   procedure set_competition_map_overlay_processing(
@@ -3638,6 +3646,12 @@ create or replace package body pkg_admin_content as
         'status' value c.status,
         'use_location' value nvl(c.use_location, 'N'),
         'show_competitor_location' value nvl(c.show_competitor_location, 'N'),
+        'has_overlay' value (
+          select case when count(*) > 0 then 'Y' else 'N' end
+            from competition_map_overlays cmo
+           where cmo.competition_id = c.competition_id
+             and (cmo.end_date is null or cmo.end_date > sysdate)
+        ),
         'checkpoint_count' value (
           select count(*)
             from checkpoints cp
@@ -4438,6 +4452,7 @@ create or replace package body pkg_admin_content as
                'overlay_id' value cmo.overlay_id,
                'competition_id' value cmo.competition_id,
                'display_name' value cmo.display_name,
+               'attribution' value cmo.attribution,
                'image_file_name' value cmo.image_file_name,
                'world_file_name' value cmo.world_file_name,
                'image_mime_type' value cmo.image_mime_type,
@@ -4488,6 +4503,7 @@ create or replace package body pkg_admin_content as
                'overlay_id' value cmo.overlay_id,
                'competition_id' value cmo.competition_id,
                'display_name' value cmo.display_name,
+               'attribution' value cmo.attribution,
                'image_file_name' value cmo.image_file_name,
                'world_file_name' value cmo.world_file_name,
                'image_mime_type' value cmo.image_mime_type,
@@ -4529,6 +4545,7 @@ create or replace package body pkg_admin_content as
   procedure upsert_competition_map_overlay(
     p_competition_id in number,
     p_display_name in varchar2,
+    p_attribution in varchar2,
     p_image_file_name in varchar2,
     p_world_file_name in varchar2,
     p_image_mime_type in varchar2,
@@ -4577,6 +4594,7 @@ create or replace package body pkg_admin_content as
 
       update competition_map_overlays
          set display_name = trim(p_display_name),
+             attribution = trim(p_attribution),
              image_file_name = trim(p_image_file_name),
              world_file_name = trim(p_world_file_name),
              image_mime_type = trim(p_image_mime_type),
@@ -4609,6 +4627,7 @@ create or replace package body pkg_admin_content as
           overlay_id,
           competition_id,
           display_name,
+          attribution,
           image_file_name,
           world_file_name,
           image_mime_type,
@@ -4638,6 +4657,7 @@ create or replace package body pkg_admin_content as
           l_overlay_id,
           p_competition_id,
           trim(p_display_name),
+          trim(p_attribution),
           trim(p_image_file_name),
           trim(p_world_file_name),
           trim(p_image_mime_type),
@@ -4667,6 +4687,39 @@ create or replace package body pkg_admin_content as
     end;
 
     o_overlay_id := l_overlay_id;
+  end;
+
+  -- update_competition_map_overlay_meta: Updates only active competition overlay display metadata.
+  procedure update_competition_map_overlay_meta(
+    p_competition_id in number,
+    p_display_name in varchar2,
+    p_attribution in varchar2,
+    p_updated_by in number
+  ) is
+    l_now_utc_date date;
+    l_rows number;
+  begin
+    l_now_utc_date := cast((systimestamp at time zone 'UTC') as date);
+
+    if p_competition_id is null then
+      raise_application_error(-20184, 'competition_id is required');
+    end if;
+    if trim(p_display_name) is null then
+      raise_application_error(-20185, 'display_name is required');
+    end if;
+
+    update competition_map_overlays
+       set display_name = trim(p_display_name),
+           attribution = trim(p_attribution),
+           updated_by = p_updated_by,
+           updated_at = systimestamp
+     where competition_id = p_competition_id
+       and (end_date is null or end_date > l_now_utc_date);
+
+    l_rows := sql%rowcount;
+    if l_rows = 0 then
+      raise_application_error(-20189, 'active overlay not found');
+    end if;
   end;
 
   -- set_competition_map_overlay_processing: Updates active competition overlay processing state and tile metadata.
