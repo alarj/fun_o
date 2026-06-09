@@ -360,6 +360,16 @@ html, body { max-width: 100%; overflow-x: hidden; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.superadminOverlayBadge {
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.superadminOverlayBadge svg {
+  width: 18px;
+  height: 18px;
+}
 .adminTopLineSpacer {
   margin-left: auto;
 }

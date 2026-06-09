@@ -2136,6 +2136,7 @@ begin
         FUNO_APP.pkg_admin_content.upsert_competition_map_overlay(
           p_competition_id => l_body.get_number('competition_id'),
           p_display_name => l_body.get_string('display_name'),
+          p_attribution => l_body.get_string('attribution'),
           p_image_file_name => l_body.get_string('image_file_name'),
           p_world_file_name => l_body.get_string('world_file_name'),
           p_image_mime_type => l_body.get_string('image_mime_type'),
@@ -2158,6 +2159,32 @@ begin
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
         htp.p(json_object('overlay_id' value l_overlay_id));
+      end;
+    ~'
+  );
+
+  -- POST /funo/admin/competitions/overlay/meta
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/overlay/meta'); -- NOSONAR: repeated literal accepted for script readability/stability
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/overlay/meta',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.update_competition_map_overlay_meta(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_display_name => l_body.get_string('display_name'),
+          p_attribution => l_body.get_string('attribution'),
+          p_updated_by => l_body.get_number('updated_by')
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('ok' value true));
       end;
     ~'
   );

@@ -210,6 +210,7 @@ create table competition_map_overlays (
   overlay_id number primary key,
   competition_id number not null,
   display_name varchar2(200) not null,
+  attribution varchar2(1000),
   image_file_name varchar2(255) not null,
   world_file_name varchar2(255) not null,
   image_mime_type varchar2(100) not null,

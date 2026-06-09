@@ -161,6 +161,12 @@
     let participantSortDir = "asc";
     let refreshTimer = null;
     let autoRefreshEnabled = false;
+    const AUTO_REFRESH_INTERVAL_MS = 60000;
+    const AUTO_REFRESH_MAX_DURATION_MS = 60 * 60 * 1000;
+    const pageOpenedAtMs = Date.now();
+    let competitionStatusSnapshot = "";
+    let competitionStartsAtSnapshot = null;
+    let competitionEndsAtSnapshot = null;
     let checkpointResponderItems = [];
     let checkpointResponderSortKey = "competitor_name";
     let checkpointResponderSortDir = "asc";
@@ -346,6 +352,40 @@
       byId("refreshNowBtn").title = tr("results.refresh_now_btn","results.refresh_now_btn");
       byId("refreshNowBtn").setAttribute("aria-label", tr("results.refresh_now_btn","results.refresh_now_btn"));
       applyView();
+    }
+
+    function clearRefreshTimer() {
+      if (!refreshTimer) return;
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+
+    function isAutoRefreshStillAllowed() {
+      if (competitionStatusSnapshot !== "ACTIVE") return false;
+      const nowMs = Date.now();
+      if ((nowMs - pageOpenedAtMs) >= AUTO_REFRESH_MAX_DURATION_MS) return false;
+      const now = new Date(nowMs);
+      if (competitionStartsAtSnapshot && !Number.isNaN(competitionStartsAtSnapshot.getTime()) && now < competitionStartsAtSnapshot) return false;
+      if (competitionEndsAtSnapshot && !Number.isNaN(competitionEndsAtSnapshot.getTime()) && now >= competitionEndsAtSnapshot) return false;
+      return true;
+    }
+
+    function syncAutoRefreshTimer() {
+      autoRefreshEnabled = isAutoRefreshStillAllowed();
+      if (!autoRefreshEnabled) {
+        clearRefreshTimer();
+      } else if (!refreshTimer) {
+        refreshTimer = setInterval(() => {
+          if (!isAutoRefreshStillAllowed()) {
+            autoRefreshEnabled = false;
+            clearRefreshTimer();
+            applyStaticTexts();
+            return;
+          }
+          refreshData(true).catch(() => {});
+        }, AUTO_REFRESH_INTERVAL_MS);
+      }
+      applyStaticTexts();
     }
 
     function sortIconFor(key) {
@@ -605,25 +645,16 @@
       renderCheckpointRows();
     }
 
-    function isWithinActiveWindow(overview) {
-      const status = String(overview?.status || "").toUpperCase();
-      if (status !== "ACTIVE") return false;
-      const now = new Date();
-      const startsAt = overview?.starts_at ? parseUtcDate(overview.starts_at) : null;
-      const endsAt = overview?.ends_at ? parseUtcDate(overview.ends_at) : null;
-      if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) return false;
-      if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) return false;
-      return true;
-    }
-
     async function loadCompetitionTitle() {
       const d = await get(`/api/admin/competition-overview?competition_id=${competitionId}`);
       const v = d?.data || {};
       const name = v.name || "-";
       byId("subtitle").textContent = `${name} (id=${competitionId})`;
       competitionUsesLocation = String(v.use_location || "N").toUpperCase() === "Y";
-      autoRefreshEnabled = isWithinActiveWindow(v);
-      applyStaticTexts();
+      competitionStatusSnapshot = String(v.status || "").toUpperCase();
+      competitionStartsAtSnapshot = v?.starts_at ? parseUtcDate(v.starts_at) : null;
+      competitionEndsAtSnapshot = v?.ends_at ? parseUtcDate(v.ends_at) : null;
+      syncAutoRefreshTimer();
     }
 
     async function refreshData(silent = false) {
@@ -830,7 +861,6 @@
       byId("langSelect").addEventListener("change", async (e) => {
         try {
           await loadI18nForLanguage(e.target.value);
-          applyStaticTexts();
           await loadCompetitionTitle();
           await refreshData(true);
           if (!byId("participantModal").classList.contains("hidden") && currentParticipantUserId) {
@@ -907,12 +937,6 @@
 
       await loadCompetitionTitle();
       await refreshData();
-
-      if (autoRefreshEnabled) {
-        refreshTimer = setInterval(() => {
-          refreshData(true).catch(() => {});
-        }, 60000);
-      }
     }
 
     function fmtHhMmSs(totalSeconds) {
@@ -994,7 +1018,7 @@
       }
     }
     window.addEventListener("beforeunload", () => {
-      if (refreshTimer) clearInterval(refreshTimer);
+      clearRefreshTimer();
     });
 
     init().catch((e) => showMsg(false, e.message || tr("results.open_failed","results.open_failed")));

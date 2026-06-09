@@ -14,6 +14,25 @@ Ulatus:
 
 ## 1. SonarQube teadlikult parandamata leiud
 
+### 1.0 2026-06 overlay / results töövoo Sonar leiud
+
+Mõjutatud failid:
+- `backend/app/main.py`
+- `db/oracle/ords/07_ords_handlers.sql`
+
+Märkused:
+- `python:S8410` FastAPI dependency injection võiks kasutada `Annotated[...]`
+- `python:S8409` redundantne `response_model` parameeter, kui return type annotation on juba olemas
+- `plsql:LiteralsNonPrintableCharactersCheck` ORDS handleri `q'~ ... ~'` literaliploki alguses
+
+Miks ei parandatud:
+- Pythoni leiud on madala mõjuga maintainability / stiilimärkused, mitte funktsionaalsed vead.
+- Praegune FastAPI stiil on projektis läbivalt kasutusel ja ei tekita käitumisriski.
+- PL/SQL leid käitub siin tööriista piiranguna: ORDS handler kasutab korrektset mitmerealist `q'~ ... ~'` literalit ja Sonar raporteerib selle sees newline märgi kui mitteprinditava sümboli.
+
+Staatus:
+- teadlikult aktsepteeritud madala väärtusega cleanup / valepositiiv
+
 ### 1.1 `javascript:S2703` competitor UI failide vahel jagatud globaalse state kohta
 
 Mõjutatud failid:
@@ -154,6 +173,23 @@ Staatus:
 
 ## 2. Gemini teadlikult parandamata leiud
 
+### 2.0 2026-06 overlay / results töövoo Gemini märkused
+
+Mõjutatud failid:
+- `db/oracle/api/05_api_packages_stub.sql`
+- `frontend_dist/results.html`
+
+Märkused:
+- overlay olemasolu kontroll kasutab mõnes kohas `sysdate`, samal ajal kui mujal kasutatakse eksplitsiitset UTC normaliseerimist
+- tulemuste lehe automaatvärskendus ei aktiveeru ise hiljem, kui leht avati enne võistluse algust
+
+Miks ei parandatud:
+- Oracle pilveandmebaasi keskkonnas on süsteemi eeldus, et DB serveri aeg on UTC; selles projektis on see teadlik arhitektuurne alusreegel, mitte juhuslik sõltuvus. Seetõttu ei käsitleta `sysdate` kasutust siin reaalse bugina.
+- Tulemuste lehe “avatud enne starti” käitumine kuulutati teadlikuks ärireegliks: automaatvärskendus hinnatakse lehe avamisel ning kui võistlus polnud siis veel alanud, peab kasutaja hilisemaks automaatvärskenduseks lehe käsitsi refreshima.
+
+Staatus:
+- teadlikult aktsepteeritud keskkonnaspetsiifiline eeldus / ärireegel
+
 ### 2.1 DB päringutes `normalize_checkpoint_type(...)` funktsiooni kasutamine WHERE tingimuses
 
 Mõjutatud fail:
@@ -270,6 +306,29 @@ Staatus:
 Millal uuesti hinnata:
 - kui overlay-workflow stabiliseerub;
 - kui tehakse eraldi backend maintainability pass.
+
+### 2a.5 Competitor overlay tile tokeni dünaamiline uuendamine pikkadel sessioonidel
+
+Mõjutatud failid:
+- `backend/app/main.py`
+- `frontend_dist/assets/competitor-map.js`
+
+Mõjutatud ala:
+- võistleja oma kaardi tile URL token
+- overlay tile-layeri vea- ja refreshiloogika
+
+Miks ei parandatud kohe:
+- praegune tokeni TTL on pikk ja vaikimisi `86400` sekundit, mis katab tüüpilise võistluse;
+- funktsionaalsus töötab MVP-s korrektselt, kuid väga pika sessiooni või tulevikus lühema TTL-i korral võib võistleja overlay tile token aeguda keset võistlust;
+- korrektne lahendus vajab frontendi ja backendi koostööd: tile `403` vea tuvastamist, uue signed URL/template küsimist ja olemasoleva overlay layeri sujuvat uuendamist ilma lehte värskendamata.
+
+Staatus:
+- teadlikult edasi lükatud töökindluse/UX parandus / backlog
+
+Millal uuesti hinnata:
+- kui competitor overlay workflow stabiliseerub;
+- kui tokeni TTL-i soovitakse turvakaalutlustel lühendada;
+- enne pikemate või mitmepäevaste võistluste laiemat kasutust.
 
 ## 3. Kuidas seda dokumenti kasutada
 

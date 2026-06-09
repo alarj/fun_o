@@ -25,6 +25,29 @@ function ensureCompetitionOverlayPane(mapRef, target = "dialog") {
   return paneName;
 }
 
+function ensureCheckpointRadiusPane(mapRef, target = "dialog") {
+  if (!mapRef?.createPane) return null;
+  const paneName = target === "overview" ? "checkpointRadiusPaneOverview" : "checkpointRadiusPaneDialog";
+  let pane = mapRef.getPane?.(paneName);
+  if (!pane) {
+    pane = mapRef.createPane(paneName);
+  }
+  if (pane?.style) {
+    pane.style.zIndex = "560";
+    pane.style.pointerEvents = "none";
+  }
+  return paneName;
+}
+
+function mergeMapAttribution(baseAttribution, overlayAttribution) {
+  const base = String(baseAttribution || "").trim();
+  const overlay = String(overlayAttribution || "").trim();
+  if (base && overlay) return `${base} | ${overlay}`;
+  if (overlay) return overlay;
+  if (base) return base;
+  return "&copy;";
+}
+
 function readLastCpDialogView(crs = null) {
   try {
     const raw = localStorage.getItem(cpDialogViewStorageKey(crs)) || localStorage.getItem(lastCpDialogViewKey());
@@ -306,6 +329,14 @@ function createConfiguredTileLayer(layerCfg, mapRef = null) {
   });
 }
 
+function baseLayerConfigForSelection(layerCfg, usesOverlay) {
+  if (!layerCfg || !usesOverlay) return layerCfg;
+  return {
+    ...layerCfg,
+    attribution: "",
+  };
+}
+
 function applyCompetitionOverlayToMap(mapRef, target = "dialog") {
   const overlayRefName = target === "overview" ? "cpOverviewOverlayLayer" : "cpOverlayLayer";
   const existing = target === "overview" ? cpOverviewOverlayLayer : cpOverlayLayer;
@@ -331,7 +362,13 @@ function applyCompetitionOverlayToMap(mapRef, target = "dialog") {
     pane: paneName || undefined,
     tms: false,
     noWrap: true,
-    attribution: "",
+    attribution: mergeMapAttribution(
+      resolveBaseMapLayerForSelection(
+        target === "overview" ? "cpOverviewMapLayerSelect" : "cpDialogMapLayerSelect",
+        target === "overview" ? lastCpOverviewMapLayerKey : lastCpDialogMapLayerKey
+      )?.attribution,
+      currentCompetitionOverlay.attribution
+    ),
   });
   layer.addTo(mapRef);
   if (overlayRefName === "cpOverviewOverlayLayer") cpOverviewOverlayLayer = layer;
@@ -379,11 +416,12 @@ function applyCheckpointDialogBaseLayer() {
   if (!cpMap) return;
   const layerCfg = resolveBaseMapLayerForSelection("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
   if (!layerCfg) return;
+  const usesOverlay = overlaySelectionUsesComposite("cpDialogMapLayerSelect", lastCpDialogMapLayerKey);
   if (cpBaseLayer) {
     if (typeof cpBaseLayer.removeFrom === "function") cpBaseLayer.removeFrom(cpMap);
     else cpMap.removeLayer(cpBaseLayer);
   }
-  cpBaseLayer = createConfiguredTileLayer(layerCfg, cpMap);
+  cpBaseLayer = createConfiguredTileLayer(baseLayerConfigForSelection(layerCfg, usesOverlay), cpMap);
   if (cpBaseLayer && typeof cpBaseLayer.addTo === "function") cpBaseLayer.addTo(cpMap);
   applyCompetitionOverlayToMap(cpMap, "dialog");
 }
@@ -435,11 +473,12 @@ function applyCheckpointOverviewBaseLayer() {
   if (!cpOverviewMap) return;
   const layerCfg = resolveBaseMapLayerForSelection();
   if (!layerCfg) return;
+  const usesOverlay = overlaySelectionUsesComposite();
   if (cpOverviewBaseLayer) {
     if (typeof cpOverviewBaseLayer.removeFrom === "function") cpOverviewBaseLayer.removeFrom(cpOverviewMap);
     else cpOverviewMap.removeLayer(cpOverviewBaseLayer);
   }
-  cpOverviewBaseLayer = createConfiguredTileLayer(layerCfg, cpOverviewMap);
+  cpOverviewBaseLayer = createConfiguredTileLayer(baseLayerConfigForSelection(layerCfg, usesOverlay), cpOverviewMap);
   if (cpOverviewBaseLayer && typeof cpOverviewBaseLayer.addTo === "function") cpOverviewBaseLayer.addTo(cpOverviewMap);
   applyCompetitionOverlayToMap(cpOverviewMap, "overview");
 }
@@ -948,7 +987,8 @@ async function openCheckpointOverviewMap() {
           weight: p.ringWeight,
           fillColor: p.ringColor,
           fillOpacity: 0.12,
-          interactive: false
+          interactive: false,
+          pane: ensureCheckpointRadiusPane(cpOverviewMap, "overview") || undefined
         }).addTo(cpOverviewLayer);
       }
       bounds.push([p.lat, p.lon]);
@@ -1068,7 +1108,8 @@ function syncRadiusCircle() {
       color: "#2f7f87",
       weight: 2,
       fillColor: "#2f7f87",
-      fillOpacity: 0.15
+      fillOpacity: 0.15,
+      pane: ensureCheckpointRadiusPane(cpMap, "dialog") || undefined
     }).addTo(cpMap);
   } else {
     cpRadiusCircle.setLatLng(center);
@@ -1103,7 +1144,8 @@ function renderExistingCheckpointsOnDialogMap() {
         weight: p.ringWeight,
         fillColor: p.ringColor,
         fillOpacity: 0.12,
-        interactive: false
+        interactive: false,
+        pane: ensureCheckpointRadiusPane(cpMap, "dialog") || undefined
       }).addTo(cpExistingLayer);
     }
   });
