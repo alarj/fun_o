@@ -209,6 +209,8 @@ begin
           p_name => l_body.get_string('name'),
           p_description => case when l_body.has('description') then l_body.get_string('description') else null end,
           p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          p_add_creator_as_organizer => case when l_body.has('add_creator_as_organizer') then l_body.get_string('add_creator_as_organizer') else 'N' end,
+          p_max_admin_competitions => case when l_body.has('max_admin_competitions') then l_body.get_number('max_admin_competitions') else null end,
           o_competition_id => l_competition_id,
           o_organizer_code => l_organizer_code
         );
@@ -238,6 +240,7 @@ begin
           p_source_competition_id => l_body.get_number('source_competition_id'),
           p_copy_questions        => case when l_body.has('copy_questions') then l_body.get_string('copy_questions') else 'N' end,
           p_copy_organizers       => case when l_body.has('copy_organizers') then l_body.get_string('copy_organizers') else 'N' end,
+          p_copy_overlay          => case when l_body.has('copy_overlay') then l_body.get_string('copy_overlay') else 'N' end,
           p_created_by            => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
           o_competition_id        => l_competition_id,
           o_organizer_code        => l_organizer_code
@@ -2324,7 +2327,70 @@ begin
     ~'
   );
 
+  -- POST /funo/admin/competitions/create-empty
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/create-empty');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/create-empty',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_body json_object_t;
+        l_competition_id number;
+        l_organizer_code varchar2(20);
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.create_empty_competition(
+          p_name => l_body.get_string('name'),
+          p_description => case when l_body.has('description') then l_body.get_string('description') else null end,
+          p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          p_add_creator_as_organizer => case when l_body.has('add_creator_as_organizer') then l_body.get_string('add_creator_as_organizer') else 'N' end,
+          p_max_admin_competitions => case when l_body.has('max_admin_competitions') then l_body.get_number('max_admin_competitions') else null end,
+          o_competition_id => l_competition_id,
+          o_organizer_code => l_organizer_code
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('competition_id' value l_competition_id, 'organizer_code' value l_organizer_code));
+      end;
+    ]'
+  );
+
+  -- POST /funo/admin/competitions/copy
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/copy');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/copy',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_body json_object_t;
+        l_competition_id number;
+        l_organizer_code varchar2(20);
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.copy_competition(
+          p_source_competition_id => l_body.get_number('source_competition_id'),
+          p_copy_questions        => case when l_body.has('copy_questions') then l_body.get_string('copy_questions') else 'N' end,
+          p_copy_organizers       => case when l_body.has('copy_organizers') then l_body.get_string('copy_organizers') else 'N' end,
+          p_copy_overlay          => case when l_body.has('copy_overlay') then l_body.get_string('copy_overlay') else 'N' end,
+          p_created_by            => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
+          p_add_creator_as_organizer => case when l_body.has('add_creator_as_organizer') then l_body.get_string('add_creator_as_organizer') else 'N' end,
+          p_max_admin_competitions => case when l_body.has('max_admin_competitions') then l_body.get_number('max_admin_competitions') else null end,
+          o_competition_id        => l_competition_id,
+          o_organizer_code        => l_organizer_code
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('competition_id' value l_competition_id, 'organizer_code' value l_organizer_code));
+      end;
+    ]'
+  );
+
   commit;
 end;
 /
-

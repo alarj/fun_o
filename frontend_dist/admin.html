@@ -37,6 +37,7 @@
     <div id="appArea" class="hidden">
       <div class="card hidden" id="noOrgCard">
         <h3 data-i18n="admin.no_org.heading">admin.no_org.heading</h3>
+        <div class="muted" id="noOrgChoiceHint" data-i18n="admin.no_org.choice_hint">admin.no_org.choice_hint</div>
         <div class="row">
           <label for="organizerJoinCodeNoComp" data-i18n="admin.no_org.code_label">admin.no_org.code_label</label>
           <input id="organizerJoinCodeNoComp" />
@@ -44,6 +45,10 @@
         <div class="tools">
           <button id="organizerJoinCancelNoComp" class="secondary" data-i18n="admin.no_org.cancel_btn">admin.no_org.cancel_btn</button>
           <button id="organizerJoinSaveNoComp" data-i18n="admin.no_org.save_btn">admin.no_org.save_btn</button>
+        </div>
+        <div class="tools hidden" id="createEmptyCompetitionNoCompRow">
+          <span data-i18n="admin.no_org.or_label">admin.no_org.or_label</span>
+          <button id="createEmptyCompetitionNoComp" type="button" data-i18n="admin.no_org.create_empty_btn">admin.no_org.create_empty_btn</button>
         </div>
         <div id="noOrgMsg"></div>
       </div>
@@ -68,6 +73,7 @@
             </svg>
           </span>
           <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
+          <button id="copyCompetitionBtn" class="secondary" data-i18n="admin.comp.copy_comp_btn">admin.comp.copy_comp_btn</button>
           <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
           <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
           <span class="adminTopLineSpacer"></span>
@@ -288,6 +294,41 @@
       <div></div>
       <div class="dialog-right">
         <button id="competitionPickerCancel" class="secondary" type="button" data-i18n="admin.comp_picker.close_btn">admin.comp_picker.close_btn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="copyCompetitionDialog">
+    <h3 data-i18n="admin.copy.heading">admin.copy.heading</h3>
+    <div id="copyCompetitionText" class="muted" style="margin-bottom:10px;"></div>
+    <div class="yn-inline">
+      <label class="yn-switch" for="copyCompetitionWithQuestions">
+        <input id="copyCompetitionWithQuestions" type="checkbox" />
+        <span class="yn-slider"></span>
+      </label>
+      <label for="copyCompetitionWithQuestions" data-i18n="admin.copy.with_questions_label">admin.copy.with_questions_label</label>
+    </div>
+    <div class="yn-inline hidden" id="copyCompetitionWithOrganizersRow">
+      <label class="yn-switch" for="copyCompetitionWithOrganizers">
+        <input id="copyCompetitionWithOrganizers" type="checkbox" />
+        <span class="yn-slider"></span>
+      </label>
+      <label for="copyCompetitionWithOrganizers" data-i18n="admin.copy.with_other_organizers_label">admin.copy.with_other_organizers_label</label>
+    </div>
+    <div class="yn-inline hidden" id="copyCompetitionWithOverlayRow">
+      <label class="yn-switch" for="copyCompetitionWithOverlay">
+        <input id="copyCompetitionWithOverlay" type="checkbox" />
+        <span class="yn-slider"></span>
+      </label>
+      <label for="copyCompetitionWithOverlay" data-i18n="admin.copy.with_overlay_label">admin.copy.with_overlay_label</label>
+    </div>
+    <div class="muted" data-i18n="admin.copy.help_text">admin.copy.help_text</div>
+    <div id="copyCompetitionMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="copyCompetitionCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        <button id="copyCompetitionSave" type="button" data-i18n="admin.copy.copy_btn">admin.copy.copy_btn</button>
       </div>
     </div>
   </dialog>

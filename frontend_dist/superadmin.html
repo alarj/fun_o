@@ -142,6 +142,13 @@
           </label>
           <label for="copyWithOrganizers" data-i18n="superadmin.copy.with_organizers_label">superadmin.copy.with_organizers_label</label>
         </div>
+        <div class="yn-inline hidden" style="margin-bottom:10px;" id="copyWithOverlayRow">
+          <label class="yn-switch" for="copyWithOverlay">
+            <input id="copyWithOverlay" type="checkbox" />
+            <span class="yn-slider"></span>
+          </label>
+          <label for="copyWithOverlay" data-i18n="superadmin.copy.with_overlay_label">superadmin.copy.with_overlay_label</label>
+        </div>
         <div class="muted" style="margin-bottom:8px;" data-i18n="superadmin.copy.help_text">superadmin.copy.help_text</div>
       </div>
       <div id="copyCompetitionMsg"></div>
@@ -458,7 +465,7 @@
           <td class="organizersCol">${orgText}</td>
           <td class="startColCell">${esc(fmtEt(x.starts_at))}</td>
           <td class="endColCell">${esc(fmtEt(x.ends_at))}</td>
-          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" title="${esc(tr("superadmin.copy.copy_btn"))}" aria-label="${esc(tr("superadmin.copy.copy_btn"))}">${cloneIconSvg()}</button></td>
+          <td><button class="iconBtn" type="button" data-act="copy-competition" data-competition-id="${compId}" data-competition-name="${esc(compName || `#${compId}`)}" data-organizer-count="${org.length}" data-has-overlay="${hasOverlay ? "Y" : "N"}" title="${esc(tr("superadmin.copy.copy_btn"))}" aria-label="${esc(tr("superadmin.copy.copy_btn"))}">${cloneIconSvg()}</button></td>
         </tr>`;
       }).join("");
       refreshSortIcons();
@@ -663,6 +670,8 @@
       byId("copyCompetitionFormArea").classList.remove("hidden");
       byId("copyWithQuestions").checked = false;
       byId("copyWithOrganizers").checked = false;
+      byId("copyWithOverlay").checked = false;
+      byId("copyWithOverlayRow").classList.add("hidden");
     }
 
     function openCopyCompetitionModal(payload) {
@@ -675,6 +684,8 @@
       byId("copyCompetitionFormArea").classList.remove("hidden");
       byId("copyWithQuestions").checked = false;
       byId("copyWithOrganizers").checked = false;
+      byId("copyWithOverlay").checked = false;
+      byId("copyWithOverlayRow").classList.toggle("hidden", String(payload.hasOverlay || "N").toUpperCase() !== "Y");
       byId("copyCompetitionBackdrop").style.display = "flex";
     }
 
@@ -806,6 +817,7 @@
           openCopyCompetitionModal({
             competitionId: Number(btn.getAttribute("data-competition-id") || 0),
             competitionName: btn.getAttribute("data-competition-name") || "",
+            hasOverlay: btn.getAttribute("data-has-overlay") || "N",
           });
         }
       });
@@ -842,6 +854,7 @@
             source_competition_id: pendingCompetitionCopy.competitionId,
             copy_questions: byId("copyWithQuestions").checked ? "Y" : "N",
             copy_organizers: byId("copyWithOrganizers").checked ? "Y" : "N",
+            copy_overlay: byId("copyWithOverlay").checked ? "Y" : "N",
           });
           closeCopyCompetitionModal();
           openCreateResultModal(res.competition_id, res.organizer_code);

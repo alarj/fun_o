@@ -42,7 +42,14 @@ class Settings:
     session_cookie_secure: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
     lang_default: str = os.getenv("LANG_DEFAULT", "et").strip() or "et"
-    promo100_max_total_competitions: int = int(os.getenv("PROMO100_MAX_TOTAL_COMPETITIONS", "100"))
+    add_empty_competition_to_new_admin: bool = (
+        os.getenv(
+            "ADD_EMPTY_COMPETITION_TO_NEW_ADMIN",
+            os.getenv("ADD_EMPTY_COMETITION_TO_NEW_ADMIN", "false"),
+        ).strip().lower() in ("1", "true", "y", "yes")
+    )
+    max_new_competitions: int = int(os.getenv("MAX_NEW_COMPETITIONS", "100"))
+    max_competition_admin: int = int(os.getenv("MAX_COMPETITION_ADMIN", "10"))
     overlay_storage_dir: str = os.getenv("OVERLAY_STORAGE_DIR", "/app/storage/competition_overlays").strip() or "/app/storage/competition_overlays"
     overlay_max_upload_bytes: int = int(os.getenv("OVERLAY_MAX_UPLOAD_BYTES", "104857600"))
     overlay_max_dimension_px: int = int(os.getenv("OVERLAY_MAX_DIMENSION_PX", "12000"))
@@ -132,6 +139,7 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
+    (("ORA-20210",), ("COMPETITION_ADMIN_LIMIT_REACHED", "api.error.competition_admin_limit_reached")),
     (("ORA-20080",), ("INVALID_REQUEST", "api.error.invalid_submission")),
     (("ORA-20110", "ORA-20115"), ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
@@ -658,16 +666,22 @@ class SuperAdminCreateCompetitionResponse(BaseModel):
     organizer_code: str
 
 
-class AdminPromoBootstrapResponse(BaseModel):
-    attempted: bool
-    created: bool
-    competition_id: int | None = None
+class AdminOnboardingOptionsResponse(BaseModel):
+    can_create_empty_competition: bool = False
+
+
+class AdminCopyCompetitionRequest(BaseModel):
+    source_competition_id: int
+    copy_questions: str = "N"
+    copy_organizers: str = "N"
+    copy_overlay: str = "N"
 
 
 class SuperAdminCopyCompetitionRequest(BaseModel):
     source_competition_id: int
     copy_questions: str = "N"
     copy_organizers: str = "N"
+    copy_overlay: str = "N"
 
 
 class SuperAdminRemoveOrganizerRequest(BaseModel):
@@ -924,6 +938,40 @@ async def _ensure_default_terms_for_competition(competition_id: int) -> None:
             continue
 
 
+async def _get_admin_competition_items(user_id: int) -> list[dict[str, Any]]:
+    data = await _get_from_ords("admin/competitions", {"user_id": user_id})
+    items = data.get("items") if isinstance(data, dict) else []
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+
+async def _assert_admin_competition_limit(user_id: int) -> None:
+    if settings.max_competition_admin <= 0:
+        return
+    if await _user_has_system_owner_role(user_id):
+        return
+    admin_items = await _get_admin_competition_items(user_id)
+    if len(admin_items) >= settings.max_competition_admin:
+        _raise_api_error(
+            status.HTTP_409_CONFLICT,
+            "COMPETITION_ADMIN_LIMIT_REACHED",
+            "api.error.competition_admin_limit_reached",
+        )
+
+
+async def _get_total_active_competitions_count() -> int:
+    data = await _get_from_ords("superadmin/competitions", {})
+    items = data.get("items") if isinstance(data, dict) else []
+    return len(items) if isinstance(items, list) else 0
+
+
+def _default_new_admin_competition_name(email: str | None) -> str:
+    if isinstance(email, str) and "@" in email:
+        local_part = email.split("@", 1)[0].strip()
+        if local_part:
+            return local_part[:200]
+    return "admin"
+
+
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
@@ -1081,14 +1129,18 @@ def _resolve_ui_lang(lang_code: str | None) -> str:
 
 async def _require_system_owner_session_user(request: Request, x_user_id: int | None = None) -> int:
     user_id = _require_google_session_user(request, x_user_id)
+    if not await _user_has_system_owner_role(user_id):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+    return user_id
+
+
+async def _user_has_system_owner_role(user_id: int) -> bool:
     role_resp = await _get_from_ords(
         "auth/has-role",
         {"user_id": user_id, "role_code": "SYSTEM_OWNER"},
     )
     has_role = role_resp.get("has_role") if isinstance(role_resp, dict) else None
-    if str(has_role).upper() != "Y":
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
-    return user_id
+    return str(has_role).upper() == "Y"
 
 
 async def _request_ords(method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:  # NOSONAR
@@ -2655,6 +2707,7 @@ async def register_organizer(
     x_user_id: int | None = Header(default=None),
 ) -> RegisterOrganizerResponse:
     user_id = _require_google_session_user(request, x_user_id)
+    await _assert_admin_competition_limit(user_id)
     ords_response = await _post_to_ords(
         "organizers/register",
         {
@@ -3534,31 +3587,24 @@ async def admin_competitions(request: Request, x_user_id: int | None = Header(de
     return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
 
 
-@app.post("/api/admin/promo100/bootstrap", response_model=AdminPromoBootstrapResponse)
-async def admin_promo100_bootstrap(request: Request, x_user_id: int | None = Header(default=None)) -> AdminPromoBootstrapResponse:
+@app.get("/api/admin/onboarding-options", response_model=AdminOnboardingOptionsResponse)
+async def admin_onboarding_options(request: Request, x_user_id: int | None = Header(default=None)) -> AdminOnboardingOptionsResponse:
     user_id = _require_google_session_user(request, x_user_id)
-    if settings.promo100_max_total_competitions <= 0:
-        return AdminPromoBootstrapResponse(attempted=False, created=False)
+    if await _user_has_system_owner_role(user_id):
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
 
-    mine_data = await _get_from_ords("admin/competitions", {"user_id": user_id})
-    mine_items = mine_data.get("items") if isinstance(mine_data, dict) else []
-    if isinstance(mine_items, list) and len(mine_items) > 0:
-        return AdminPromoBootstrapResponse(attempted=True, created=False)
+    if not settings.add_empty_competition_to_new_admin or settings.max_new_competitions <= 0:
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
+    if await _get_admin_competition_items(user_id):
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
+    total_competitions = await _get_total_active_competitions_count()
+    return AdminOnboardingOptionsResponse(
+        can_create_empty_competition=total_competitions < settings.max_new_competitions
+    )
 
-    all_data = await _get_from_ords("superadmin/competitions", {})
-    all_items = all_data.get("items") if isinstance(all_data, dict) else []
-    total_competitions = len(all_items) if isinstance(all_items, list) else 0
-    if total_competitions >= settings.promo100_max_total_competitions:
-        return AdminPromoBootstrapResponse(attempted=True, created=False)
+    
 
-    profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
-    email = profile.get("email") if isinstance(profile, dict) else None
-    if not isinstance(email, str) or "@" not in email:
-        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
-    local_part = email.split("@", 1)[0].strip()
-    if not local_part:
-        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
-
+    """
     create_data = await _post_to_ords(
         "superadmin/competitions",
         {
@@ -3588,7 +3634,48 @@ async def admin_promo100_bootstrap(request: Request, x_user_id: int | None = Hea
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
 
     await _ensure_default_terms_for_competition(competition_id)
-    return AdminPromoBootstrapResponse(attempted=True, created=True, competition_id=competition_id)
+    return AdminOnboardingOptionsResponse(can_create_empty_competition=True)
+    """
+
+
+@app.post("/api/admin/competitions/create-empty", response_model=SuperAdminCreateCompetitionResponse)
+async def admin_create_empty_competition(
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    if await _user_has_system_owner_role(user_id):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+    if not settings.add_empty_competition_to_new_admin or settings.max_new_competitions <= 0:
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
+    if await _get_admin_competition_items(user_id):
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
+    total_competitions = await _get_total_active_competitions_count()
+    if total_competitions >= settings.max_new_competitions:
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
+    await _assert_admin_competition_limit(user_id)
+
+    profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+    email = profile.get("email") if isinstance(profile, dict) else None
+    data = await _post_to_ords(
+        "admin/competitions/create-empty",
+        {
+            "name": _default_new_admin_competition_name(email),
+            "description": None,
+            "created_by": user_id,
+            "add_creator_as_organizer": "Y",
+            "max_admin_competitions": settings.max_competition_admin,
+        },
+    )
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str) or not organizer_code.strip():
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    await _ensure_default_terms_for_competition(competition_id)
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
 
 
 @app.get("/api/admin/competitions/map-layers", response_model=AdminCompetitionMapLayersResponse)
@@ -3875,6 +3962,40 @@ async def competitor_competition_overlay_tile(
     return FileResponse(file_path, media_type="image/png")
 
 
+@app.post("/api/admin/competitions/copy", response_model=SuperAdminCreateCompetitionResponse)
+async def admin_copy_competition(
+    req: AdminCopyCompetitionRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    admin_items = await _get_admin_competition_items(user_id)
+    if not any(int(item.get("competition_id") or 0) == req.source_competition_id for item in admin_items):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+    await _assert_admin_competition_limit(user_id)
+    data = await _post_to_ords(
+        "admin/competitions/copy",
+        {
+            "source_competition_id": req.source_competition_id,
+            "copy_questions": req.copy_questions,
+            "copy_organizers": req.copy_organizers,
+            "copy_overlay": req.copy_overlay,
+            "created_by": user_id,
+            "add_creator_as_organizer": "Y",
+            "max_admin_competitions": settings.max_competition_admin,
+        },
+    )
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    await _ensure_default_terms_for_competition(competition_id)
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
+
+
 @app.get("/api/superadmin/session", response_model=SuperAdminSessionResponse)
 async def superadmin_session(request: Request, x_user_id: int | None = Header(default=None)) -> SuperAdminSessionResponse:
     user_id = await _require_system_owner_session_user(request, x_user_id)
@@ -3928,6 +4049,7 @@ async def superadmin_copy_competition(
             "source_competition_id": req.source_competition_id,
             "copy_questions": req.copy_questions,
             "copy_organizers": req.copy_organizers,
+            "copy_overlay": req.copy_overlay,
             "created_by": user_id,
         },
     )

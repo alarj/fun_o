@@ -26,6 +26,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/organizer/submission-detail?competition_id=...&user_id=...&submission_id=...` - tagastab korraldajale ühe vastuse detaili.
 - GET `/i18n/translations?lang=...&default_lang=...` - tagastab UI tõlked valitud keele jaoks.
 - GET `/admin/competitions?user_id=...` - tagastab admini hallatavate võistluste loendi.
+- GET `/admin/onboarding-options` - tagastab, kas uuele adminile võib pakkuda tühja uue võistluse loomist.
 - GET `/admin/competition-overview?competition_id=...` - tagastab valitud võistluse admin ülevaateandmed.
 - GET `/admin/questions-overview?competition_id=...` - tagastab küsimuste/KP-de ülevaate admin halduses.
 - GET `/admin/checkpoints?competition_id=...` - tagastab valitud võistluse KP-de loendi.
@@ -42,6 +43,8 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/admin/question-options` - lisab valikvastuse küsimusele.
 - POST `/admin/question-answers` - lisab tekstvastuse/õige vastuse reegli küsimusele.
 - POST `/admin/access-codes` - loob või uuendab ligipääsukoodi.
+- POST `/admin/competitions/create-empty` - loob adminile uue tühja võistluse ja lisab ta kohe korraldajaks.
+- POST `/admin/competitions/copy` - kopeerib admini hallatava võistluse ning lisab kopeerija uuele võistlusele korraldajaks.
 - POST `/admin/competitions/map-layers` - salvestab võistluse aktiivsed kaardikihid.
 - POST `/admin/competitions/overlay` - salvestab või asendab võistluse aktiivse oma kaardi metadata.
 - POST `/admin/competitions/overlay/meta` - uuendab olemasoleva oma kaardi nime ja attributioni ilma faili ega tile-state'i muutmata.
@@ -96,6 +99,7 @@ Expected ORDS JSON responses:
 - `organizer/submission-detail` -> `{ "access_granted":"Y|N", ... }`
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 - `admin/competitions` -> `{ "items": [...] }`
+- `admin/onboarding-options` -> `{ "can_create_empty_competition": true|false }`
 - `admin/competition-overview` -> `{ ..., "type": "R|S" }`
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
@@ -109,6 +113,8 @@ Expected ORDS JSON responses:
 - `admin/question-options` -> `{ "option_id": 789 }`
 - `admin/question-answers` -> `{ "answer_id": 321 }`
 - `admin/access-codes` -> `{ "access_code_id": 654, "code": "123456" }`
+- `admin/competitions/create-empty` -> `{ "competition_id":..., "organizer_code":"..." }`
+- `admin/competitions/copy` -> `{ "competition_id":..., "organizer_code":"..." }`
 - `admin/competitions/overlay` (POST) -> `{ "overlay_id":..., "display_name":"...", "attribution":"&copy; ...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }`
 - `admin/competitions/overlay/meta` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/competitions/overlay/processing` -> `{ "ok": true }` või tühi 200 JSON
@@ -133,11 +139,16 @@ Session cookie flow:
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `PROMO100_MAX_TOTAL_COMPETITIONS`
+- Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
+- Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
+- `MAX_COMPETITION_ADMIN` kehtib ainult kasutajatele, kellel puudub aktiivne `SYSTEM_OWNER` roll.
+- Admini limiidi arvestusse lähevad ainult need võistlused, kus kasutajal on aktiivne korraldaja-seos ja võistlus ise ei ole soft-delete'itud.
+- `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN` + `MAX_NEW_COMPETITIONS` juhivad ainult uue admini onboarding'u valikus kuvatavat "loo tühi võistlus" pakkumist.
 - Overlay upload voog salvestab source-failid `OVERLAY_STORAGE_DIR` alla ning käivitab taustatöö, mis lõikab rasteri tile'ideks ja uuendab staatust `UPLOADED -> PROCESSING -> READY|FAILED`.
 - Backend startup proovib uuesti käivitada aktiivsed overlay'd, mille staatus on jäänud `UPLOADED` või `PROCESSING`.
+- Võistluse kopeerimisel saab overlay kirje kaasa võtta ilma serveri kettal olevaid faile dubleerimata: uus `competition_map_overlays` rida viitab samale `storage_rel_path` / `tile_storage_rel_path` väärtusele.
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)

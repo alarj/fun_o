@@ -49,7 +49,9 @@ Süsteem loob väärtust kolmes rollis.
 ### Korraldaja väärtus
 
 - võistluse, KP-de, küsimuste, vastuste ja koodide haldus ühest kohast;
+- uuele korraldajale võimalus alustada korraldaja koodiga liitumisest või luua kohe tühi uus võistlus, kui vastav seadistus on lubatud;
 - võimalus lisada võistlusele oma georeferentseeritud kaart overlayna ning kasutada seda admini kaardivaadetes pärast taustatöötluse valmimist;
+- võimalus kopeerida olemasolev võistlus ning soovi korral võtta kaasa KP-d, küsimused, teised korraldajad ja olemasolev oma kaart;
 - jooksev leaderboard ning detailne vaade vastustele/KP-de läbimisele;
 - võistluse lõpus automaatne tulemuste tabel (punktid + ajakriteerium);
 - vähem käsitsi arvutamist, vähem inimlikke vigu, parem läbipaistvus osalejatele.

@@ -179,6 +179,7 @@ create or replace package pkg_common as
   c_checkpoint_finish_order constant number := 9999;
   c_competition_type_random constant varchar2(1) := 'R';
   c_competition_type_sequential constant varchar2(1) := 'S';
+  c_role_system_owner constant varchar2(30) := 'SYSTEM_OWNER';
 
   -- normalize_checkpoint_type: normalizes null/blank values to NORMAL and uppercases supported special types.
   function normalize_checkpoint_type(
@@ -189,6 +190,22 @@ create or replace package pkg_common as
   function normalize_competition_type(
     p_competition_type in varchar2
   ) return varchar2 deterministic;
+
+  -- is_system_owner: Returns Y when the user has an active SYSTEM_OWNER role.
+  function is_system_owner(
+    p_user_id in number
+  ) return varchar2;
+
+  -- count_active_organized_competitions: Counts active organizer relations on non-soft-deleted competitions.
+  function count_active_organized_competitions(
+    p_user_id in number
+  ) return number;
+
+  -- assert_admin_competition_limit: Raises when the configured organizer competition limit is already full.
+  procedure assert_admin_competition_limit(
+    p_user_id in number,
+    p_max_competitions in number
+  );
 
   -- get_next_ordered_checkpoint_id: Returns the next unanswered NORMAL checkpoint for an S-type competition.
   function get_next_ordered_checkpoint_id(
@@ -219,6 +236,65 @@ create or replace package body pkg_common as
       return c_competition_type_sequential;
     end if;
     return c_competition_type_random;
+  end;
+
+  function is_system_owner(
+    p_user_id in number
+  ) return varchar2 is
+    l_cnt number := 0;
+  begin
+    if p_user_id is null then
+      return 'N';
+    end if;
+
+    select count(*)
+      into l_cnt
+      from user_roles ur
+      join roles r
+        on r.role_id = ur.role_id
+     where ur.user_id = p_user_id
+       and upper(r.role_code) = c_role_system_owner
+       and (r.end_date is null or r.end_date > sysdate)
+       and (ur.end_date is null or ur.end_date > sysdate);
+
+    return case when l_cnt > 0 then 'Y' else 'N' end;
+  end;
+
+  function count_active_organized_competitions(
+    p_user_id in number
+  ) return number is
+    l_cnt number := 0;
+  begin
+    if p_user_id is null then
+      return 0;
+    end if;
+
+    select count(distinct co.competition_id)
+      into l_cnt
+      from competition_organizers co
+      join competitions c
+        on c.competition_id = co.competition_id
+     where co.user_id = p_user_id
+       and (co.end_date is null or co.end_date > sysdate)
+       and (c.end_date is null or c.end_date > sysdate);
+
+    return l_cnt;
+  end;
+
+  procedure assert_admin_competition_limit(
+    p_user_id in number,
+    p_max_competitions in number
+  ) is
+  begin
+    if p_user_id is null or p_max_competitions is null or p_max_competitions <= 0 then
+      return;
+    end if;
+    if is_system_owner(p_user_id) = 'Y' then
+      return;
+    end if;
+    if count_active_organized_competitions(p_user_id) >= p_max_competitions then
+      raise_application_error(-20210, 'competition admin limit reached');
+    end if;
   end;
 
   function get_next_ordered_checkpoint_id(
@@ -3346,6 +3422,8 @@ create or replace package pkg_admin_content as
     p_name in varchar2,
     p_description in varchar2,
     p_created_by in number,
+    p_add_creator_as_organizer in varchar2 default 'N',
+    p_max_admin_competitions in number default null,
     o_competition_id out number,
     o_organizer_code out varchar2
   );
@@ -3354,7 +3432,10 @@ create or replace package pkg_admin_content as
     p_source_competition_id in number,
     p_copy_questions in varchar2,
     p_copy_organizers in varchar2,
+    p_copy_overlay in varchar2 default 'N',
     p_created_by in number,
+    p_add_creator_as_organizer in varchar2 default 'N',
+    p_max_admin_competitions in number default null,
     o_competition_id out number,
     o_organizer_code out varchar2
   );
@@ -3706,14 +3787,27 @@ create or replace package body pkg_admin_content as
     p_name in varchar2,
     p_description in varchar2,
     p_created_by in number,
+    p_add_creator_as_organizer in varchar2 default 'N',
+    p_max_admin_competitions in number default null,
     o_competition_id out number,
     o_organizer_code out varchar2
   ) is
     l_name varchar2(200);
+    l_add_creator_as_organizer varchar2(1) := upper(trim(nvl(p_add_creator_as_organizer, 'N')));
   begin
     l_name := trim(p_name);
     if l_name is null then
       raise_application_error(-20170, 'competition name is required');
+    end if;
+    if l_add_creator_as_organizer not in ('Y', 'N') then
+      raise_application_error(-20172, 'invalid add_creator_as_organizer');
+    end if;
+
+    if l_add_creator_as_organizer = 'Y' then
+      pkg_common.assert_admin_competition_limit(
+        p_user_id => p_created_by,
+        p_max_competitions => p_max_admin_competitions
+      );
     end if;
 
     pkg_competitions.create_competition(
@@ -3740,6 +3834,20 @@ create or replace package body pkg_admin_content as
       'ORGANIZER'
     );
 
+    if l_add_creator_as_organizer = 'Y' and p_created_by is not null then
+      insert into competition_organizers (
+        competition_organizer_id, competition_id, user_id, start_date, end_date, assigned_by, assigned_at
+      ) values (
+        seq_competition_organizers.nextval,
+        o_competition_id,
+        p_created_by,
+        trunc(sysdate),
+        null,
+        p_created_by,
+        systimestamp
+      );
+    end if;
+
     add_audit(
       'COMPETITION', -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       o_competition_id,
@@ -3761,12 +3869,17 @@ create or replace package body pkg_admin_content as
     p_source_competition_id in number,
     p_copy_questions in varchar2,
     p_copy_organizers in varchar2,
+    p_copy_overlay in varchar2 default 'N',
     p_created_by in number,
+    p_add_creator_as_organizer in varchar2 default 'N',
+    p_max_admin_competitions in number default null,
     o_competition_id out number,
     o_organizer_code out varchar2
   ) is
     l_copy_questions varchar2(1) := upper(trim(nvl(p_copy_questions, 'N')));
     l_copy_organizers varchar2(1) := upper(trim(nvl(p_copy_organizers, 'N')));
+    l_copy_overlay varchar2(1) := upper(trim(nvl(p_copy_overlay, 'N')));
+    l_add_creator_as_organizer varchar2(1) := upper(trim(nvl(p_add_creator_as_organizer, 'N')));
     l_name competitions.name%type;
     l_description competitions.description%type;
     l_type competitions.type%type;
@@ -3782,6 +3895,18 @@ create or replace package body pkg_admin_content as
     end if;
     if l_copy_organizers not in ('Y', 'N') then
       raise_application_error(-20175, 'invalid copy_organizers');
+    end if;
+    if l_copy_overlay not in ('Y', 'N') then
+      raise_application_error(-20177, 'invalid copy_overlay');
+    end if;
+    if l_add_creator_as_organizer not in ('Y', 'N') then
+      raise_application_error(-20178, 'invalid add_creator_as_organizer');
+    end if;
+    if l_add_creator_as_organizer = 'Y' then
+      pkg_common.assert_admin_competition_limit(
+        p_user_id => p_created_by,
+        p_max_competitions => p_max_admin_competitions
+      );
     end if;
 
     begin
@@ -3853,7 +3978,88 @@ create or replace package body pkg_admin_content as
              systimestamp
         from competition_organizers co
        where co.competition_id = p_source_competition_id
-         and (co.end_date is null or co.end_date > sysdate);
+         and (co.end_date is null or co.end_date > sysdate)
+         and (l_add_creator_as_organizer <> 'Y' or co.user_id <> p_created_by);
+    end if;
+
+    if l_add_creator_as_organizer = 'Y' and p_created_by is not null then
+      insert into competition_organizers (
+        competition_organizer_id, competition_id, user_id, start_date, end_date, assigned_by, assigned_at
+      ) values (
+        seq_competition_organizers.nextval,
+        o_competition_id,
+        p_created_by,
+        trunc(sysdate),
+        null,
+        p_created_by,
+        systimestamp
+      );
+    end if;
+
+    if l_copy_overlay = 'Y' then
+      insert into competition_map_overlays (
+        overlay_id,
+        competition_id,
+        display_name,
+        attribution,
+        image_file_name,
+        world_file_name,
+        image_mime_type,
+        image_size_bytes,
+        storage_rel_path,
+        processing_status,
+        processing_error,
+        tile_storage_rel_path,
+        tile_min_zoom,
+        tile_max_zoom,
+        tiles_generated_at,
+        crs_code,
+        width_px,
+        height_px,
+        pixel_size_x,
+        pixel_size_y,
+        top_left_x,
+        top_left_y,
+        min_x,
+        min_y,
+        max_x,
+        max_y,
+        start_date,
+        created_by,
+        created_at
+      )
+      select seq_competition_map_overlays.nextval,
+             o_competition_id,
+             ovr.display_name,
+             ovr.attribution,
+             ovr.image_file_name,
+             ovr.world_file_name,
+             ovr.image_mime_type,
+             ovr.image_size_bytes,
+             ovr.storage_rel_path,
+             ovr.processing_status,
+             ovr.processing_error,
+             ovr.tile_storage_rel_path,
+             ovr.tile_min_zoom,
+             ovr.tile_max_zoom,
+             ovr.tiles_generated_at,
+             ovr.crs_code,
+             ovr.width_px,
+             ovr.height_px,
+             ovr.pixel_size_x,
+             ovr.pixel_size_y,
+             ovr.top_left_x,
+             ovr.top_left_y,
+             ovr.min_x,
+             ovr.min_y,
+             ovr.max_x,
+             ovr.max_y,
+             trunc(sysdate),
+             p_created_by,
+             systimestamp
+        from competition_map_overlays ovr
+       where ovr.competition_id = p_source_competition_id
+         and (ovr.end_date is null or ovr.end_date > sysdate);
     end if;
 
     if l_copy_questions = 'Y' then
@@ -3988,6 +4194,8 @@ create or replace package body pkg_admin_content as
           'source_competition_id' value p_source_competition_id,
           'copy_questions' value l_copy_questions,
           'copy_organizers' value l_copy_organizers,
+          'copy_overlay' value l_copy_overlay,
+          'add_creator_as_organizer' value l_add_creator_as_organizer,
           'organizer_code' value o_organizer_code
         )
       )

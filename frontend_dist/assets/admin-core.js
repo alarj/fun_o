@@ -183,6 +183,7 @@ const humanizeError = (raw, details = null) => {
   if (msg.startsWith("admin.")) return tr(msg);
   if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code");
   if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer");
+  if (msg === "api.error.competition_admin_limit_reached") return tr("admin.msg.max_competitions_reached");
   if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated");
   const ordsBody = (details && typeof details.ords_body === "string") ? details.ords_body : "";
   const detailsText = `${ordsBody}`.toLowerCase();
@@ -198,13 +199,13 @@ const humanizeError = (raw, details = null) => {
     }
     return `${tr("admin.msg.error_generic")} ${msg}`;
   }
+  if (msg === "api.error.ords_request_failed") return tr(msg);
   return msg;
 };
 
 const qTextId = (lang) => `qText_${lang}`;
 const langLabel = (code) => (code || "").toLowerCase() === "en" ? "EN" : "ET";
 const uiLangCookieName = "funo_admin_ui_lang";
-const isPromo100Mode = new URLSearchParams(window.location.search).get("mode") === "promo100";
 const lastCompCookieName = () => currentUserId ? `funo_last_competition_u${currentUserId}` : null;
 
 const setCookie = (name, value, days = 365) => {

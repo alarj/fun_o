@@ -1,3 +1,6 @@
+let currentCompetitionOrganizers = [];
+let pendingCompetitionCopySourceId = null;
+
 function cpDialogStateSnapshot() {
   return JSON.stringify({
     checkpointType: byId("cpType").value,
@@ -173,17 +176,50 @@ function renderOrganizers(org) {
   target.innerHTML = `<div class="organizers-list">${html}</div>`;
 }
 
+function setEmptyCompetitionCreateVisible(isVisible) {
+  const row = byId("createEmptyCompetitionNoCompRow");
+  const hint = byId("noOrgChoiceHint");
+  if (row) row.classList.toggle("hidden", !isVisible);
+  if (hint) hint.classList.toggle("hidden", !isVisible);
+}
+
+async function refreshAdminOnboardingOptions() {
+  try {
+    const res = await get("/api/admin/onboarding-options");
+    setEmptyCompetitionCreateVisible(!!res?.can_create_empty_competition);
+  } catch (_e) {
+    setEmptyCompetitionCreateVisible(false);
+  }
+}
+
+function resetCompetitionCopyDialog() {
+  pendingCompetitionCopySourceId = null;
+  byId("copyCompetitionWithQuestions").checked = false;
+  byId("copyCompetitionWithOrganizers").checked = false;
+  byId("copyCompetitionWithOverlay").checked = false;
+  byId("copyCompetitionWithOrganizersRow").classList.add("hidden");
+  byId("copyCompetitionWithOverlayRow").classList.add("hidden");
+  showMsg("copyCompetitionMsg", false, "");
+}
+
+function openCompetitionCopyDialog() {
+  const sourceCompetitionId = compId();
+  if (!sourceCompetitionId) return;
+  resetCompetitionCopyDialog();
+  pendingCompetitionCopySourceId = sourceCompetitionId;
+  const currentName = byId("cName").textContent || `#${sourceCompetitionId}`;
+  byId("copyCompetitionText").textContent = `${tr("admin.copy.confirm_prefix")} ${currentName} ${tr("admin.copy.confirm_suffix")}`;
+  const hasOtherOrganizers = currentCompetitionOrganizers.length > 1;
+  byId("copyCompetitionWithOrganizersRow").classList.toggle("hidden", !hasOtherOrganizers);
+  byId("copyCompetitionWithOverlayRow").classList.toggle("hidden", !currentCompetitionOverlay?.exists);
+  showMsg("copyCompetitionMsg", false, "");
+  byId("copyCompetitionDialog").showModal();
+}
+
 async function finishAdminLogin() {
   byId("loginCard").classList.add("hidden");
   byId("appArea").classList.remove("hidden");
   await refreshSuperadminNavButton();
-  if (isPromo100Mode) {
-    try {
-      await post("/api/admin/promo100/bootstrap", {});
-    } catch (e) {
-      console.warn("promo100 bootstrap failed", e);
-    }
-  }
   const hasCompetitions = await loadCompetitions();
   if (hasCompetitions) await loadView();
 }
@@ -278,11 +314,14 @@ async function loadCompetitions() {
     byId("organizers").textContent = "-";
     currentCompetitionUseLocation = "N";
     currentCompetitionType = "R";
+    currentCompetitionOrganizers = [];
     checkpointsData = [];
     renderRows();
     setEditModeByCompetition(false);
+    await refreshAdminOnboardingOptions();
     return false;
   }
+  setEmptyCompetitionCreateVisible(false);
   byId("noOrgCard").classList.add("hidden");
   byId("competitionOverviewCard").classList.remove("hidden");
   byId("checkpointsCard").classList.remove("hidden");
@@ -391,6 +430,7 @@ async function loadView() {
   byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
   byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
   const org = Array.isArray(v.organizers) ? v.organizers : [];
+  currentCompetitionOrganizers = org;
   renderOrganizers(org);
 
   const q = await get(`/api/admin/questions-overview?competition_id=${compId()}`);
@@ -1266,6 +1306,7 @@ byId("organizers").addEventListener("click", async (e) => {
 });
 
 byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
+byId("copyCompetitionBtn").onclick = () => openCompetitionCopyDialog();
 byId("openResultsBtn").onclick = () => {
   const cid = compId();
   if (!cid) return;
@@ -1280,6 +1321,11 @@ byId("competitionPickerApply").onclick = async () => {
   byId("competitionPickerDialog").close();
   await loadView().catch((e) => showMsg("topMsg", false, e.message));
 };
+byId("copyCompetitionCancel").onclick = () => {
+  resetCompetitionCopyDialog();
+  byId("copyCompetitionDialog").close();
+};
+byId("copyCompetitionDialog").addEventListener("close", resetCompetitionCopyDialog);
 byId("goSuperadminBtn").onclick = () => {
   window.location.href = "/superadmin.html";
 };
@@ -1306,7 +1352,28 @@ byId("competitionPickerJoinSave").onclick = async () => {
       showMsg("competitionPickerJoinMsg", false, tr("admin.msg.organizer_competitions_not_found_join_dialog"));
     }
   } catch (e) {
-    showMsg("competitionPickerJoinMsg", false, humanizeError(e.message));
+    showMsg("competitionPickerJoinMsg", false, humanizeError(e.message, e.details));
+  }
+};
+byId("copyCompetitionSave").onclick = async () => {
+  try {
+    if (!pendingCompetitionCopySourceId) return;
+    const res = await post("/api/admin/competitions/copy", {
+      source_competition_id: pendingCompetitionCopySourceId,
+      copy_questions: byId("copyCompetitionWithQuestions").checked ? "Y" : "N",
+      copy_organizers: byId("copyCompetitionWithOrganizers").checked ? "Y" : "N",
+      copy_overlay: byId("copyCompetitionWithOverlay").checked ? "Y" : "N",
+    });
+    resetCompetitionCopyDialog();
+    byId("copyCompetitionDialog").close();
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions && res?.competition_id) {
+      byId("competitionSelect").value = String(res.competition_id);
+      await loadView();
+    }
+    showMsg("topMsg", true, tr("admin.copy.created_msg"));
+  } catch (e) {
+    showMsg("copyCompetitionMsg", false, humanizeError(e.message, e.details));
   }
 };
 
@@ -1535,6 +1602,19 @@ byId("organizerJoinCancelNoComp").onclick = () => {
   byId("noOrgMsg").textContent = "";
   byId("noOrgMsg").className = "";
 };
+byId("createEmptyCompetitionNoComp").onclick = async () => {
+  try {
+    const res = await post("/api/admin/competitions/create-empty", {});
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions && res?.competition_id) {
+      byId("competitionSelect").value = String(res.competition_id);
+      await loadView();
+    }
+    showMsg("topMsg", true, tr("admin.no_org.empty_create_success_msg"));
+  } catch (e) {
+    showMsg("noOrgMsg", false, humanizeError(e.message, e.details));
+  }
+};
 byId("organizerJoinSaveNoComp").onclick = async () => {
   try {
     const code = byId("organizerJoinCodeNoComp").value.trim();
@@ -1550,7 +1630,7 @@ byId("organizerJoinSaveNoComp").onclick = async () => {
       showMsg("topMsg", true, tr("admin.msg.organizer_code_accepted_top"));
     }
   } catch (e) {
-    showMsg("noOrgMsg", false, humanizeError(e.message));
+    showMsg("noOrgMsg", false, humanizeError(e.message, e.details));
   }
 };
 
