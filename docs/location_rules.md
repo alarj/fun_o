@@ -4,6 +4,13 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 ## 1. Võistluse taseme parameetrid
 
+### 1a. Aja autoriteetsus
+
+- Andmebaasi autoriteetne aeg on selles süsteemis UTC.
+- ORDS/DB kiht võib kasutada ajalistes kontrollides Oracle serveri hetkeaega eeldusel, et see keskkond töötab UTC ajas.
+- Brauser kuvab kuupäevi ja kellaaegu kasutaja lokaalses ajas.
+- Vahekiht ja frontend peavad selle erinevusega arvestama nii, et ärireeglid lähtuvad DB/UTC ajateljest, kuid kasutajale näidatakse aega tema lokaalses ajas.
+
 - `competitions.use_location` (`Y`/`N`)
   - Määrab, kas võistlus kasutab asukohaloogikat üldse.
 - `competitions.radius_m` (number, meetrites)
@@ -240,6 +247,18 @@ Koodiga liituda saab ainult võistlusega, mis on:
 - mitte soft-deleted (`end_date IS NULL`).
 
 Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sama üldise teate (detaili ei avaldata).
+
+## 10a. Tulemuste vaate automaatvärskendus
+
+- `results.html` automaatvärskendus on lubatud ainult siis, kui lehe avamisel laaditud võistluse overview järgi:
+  - `status='ACTIVE'`;
+  - `starts_at <= now`;
+  - `ends_at IS NULL` või `now < ends_at`.
+- Kui need tingimused on lehe avamisel täidetud, kestab automaatvärskendus maksimaalselt 1 tund alates lehe avamisest.
+- Lehe käsitsi refresh alustab uue 1 tunni akna.
+- Teadlik ärireegel:
+  - kui tulemuste leht avatakse enne võistluse algust, siis automaatvärskendus ei aktiveeru ise hiljem võistluse algushetkel;
+  - kasutaja peab sellisel juhul lehe käsitsi värskendama.
 
 ## 11. Soft delete põhimõte API vastustes
 
