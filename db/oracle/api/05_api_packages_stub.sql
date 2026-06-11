@@ -28,7 +28,9 @@ create or replace package pkg_auth as
   procedure get_user_profile(
     p_user_id in number,
     o_email out varchar2,
-    o_full_name out varchar2
+    o_full_name out varchar2,
+    o_auth_type out varchar2,
+    o_google_sub out varchar2
   );
 end pkg_auth;
 /
@@ -57,15 +59,16 @@ create or replace package body pkg_auth as
       update users
          set email = p_email,
              full_name = p_full_name,
+             auth_type = 'GOOGLE',
              updated_at = systimestamp
        where user_id = o_user_id;
     exception
       when no_data_found then
         o_user_id := seq_users.nextval;
         insert into users (
-          user_id, email, full_name, google_sub, start_date, created_at
+          user_id, email, full_name, google_sub, auth_type, start_date, created_at
         ) values (
-          o_user_id, p_email, p_full_name, p_google_sub, trunc(sysdate), systimestamp
+          o_user_id, p_email, p_full_name, p_google_sub, 'GOOGLE', trunc(sysdate), systimestamp
         );
     end;
   end;
@@ -146,18 +149,22 @@ create or replace package body pkg_auth as
   procedure get_user_profile(
     p_user_id in number,
     o_email out varchar2,
-    o_full_name out varchar2
+    o_full_name out varchar2,
+    o_auth_type out varchar2,
+    o_google_sub out varchar2
   ) is
   begin
     o_email := null;
     o_full_name := null;
+    o_auth_type := null;
+    o_google_sub := null;
     if p_user_id is null then
       return;
     end if;
 
     begin
-      select u.email, u.full_name
-        into o_email, o_full_name
+      select u.email, u.full_name, u.auth_type, u.google_sub
+        into o_email, o_full_name, o_auth_type, o_google_sub
         from users u
        where u.user_id = p_user_id
          and (u.end_date is null or u.end_date > sysdate)
@@ -205,6 +212,11 @@ create or replace package pkg_common as
   procedure assert_admin_competition_limit(
     p_user_id in number,
     p_max_competitions in number
+  );
+
+  -- assert_google_authenticated_user: Raises when user is not an active Google-authenticated user.
+  procedure assert_google_authenticated_user(
+    p_user_id in number
   );
 
   -- get_next_ordered_checkpoint_id: Returns the next unanswered NORMAL checkpoint for an S-type competition.
@@ -297,6 +309,30 @@ create or replace package body pkg_common as
     end if;
   end;
 
+  procedure assert_google_authenticated_user(
+    p_user_id in number
+  ) is
+    l_dummy number;
+  begin
+    if p_user_id is null then
+      raise_application_error(-20211, 'google authenticated user required');
+    end if;
+
+    begin
+      select 1
+        into l_dummy
+        from users u
+       where u.user_id = p_user_id
+         and upper(nvl(u.auth_type, 'ANON')) = 'GOOGLE'
+         and u.google_sub is not null
+         and (u.end_date is null or u.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20211, 'google authenticated user required');
+    end;
+  end;
+
   function get_next_ordered_checkpoint_id(
     p_user_id in number,
     p_competition_id in number
@@ -356,6 +392,14 @@ create or replace package pkg_competitions as
   );
 
   -- register_organizer_by_code: Performs this business operation according to package rules.
+  procedure register_organizer_by_code(
+    p_user_id in number,
+    p_access_code in varchar2,
+    p_max_admin_competitions in number,
+    o_competition_id out number
+  );
+
+  -- register_organizer_by_code: Backward-compatible overload without admin limit argument.
   procedure register_organizer_by_code(
     p_user_id in number,
     p_access_code in varchar2,
@@ -628,6 +672,27 @@ create or replace package body pkg_competitions as
   procedure register_organizer_by_code(
     p_user_id in number,
     p_access_code in varchar2,
+    p_max_admin_competitions in number,
+    o_competition_id out number
+  ) is
+  begin
+    pkg_common.assert_google_authenticated_user(p_user_id);
+    pkg_common.assert_admin_competition_limit(
+      p_user_id => p_user_id,
+      p_max_competitions => p_max_admin_competitions
+    );
+
+    register_organizer_by_code(
+      p_user_id => p_user_id,
+      p_access_code => p_access_code,
+      o_competition_id => o_competition_id
+    );
+  end;
+
+  -- register_organizer_by_code: Backward-compatible overload without admin limit argument.
+  procedure register_organizer_by_code(
+    p_user_id in number,
+    p_access_code in varchar2,
     o_competition_id out number
   ) is
     l_access_code_id competition_access_codes.access_code_id%type;
@@ -639,6 +704,8 @@ create or replace package body pkg_competitions as
     if p_user_id is null or p_access_code is null then
       raise_application_error(-20080, 'user_id and access_code are required');
     end if;
+
+    pkg_common.assert_google_authenticated_user(p_user_id);
 
     begin
       select c.access_code_id, c.competition_id
@@ -3804,6 +3871,7 @@ create or replace package body pkg_admin_content as
     end if;
 
     if l_add_creator_as_organizer = 'Y' then
+      pkg_common.assert_google_authenticated_user(p_created_by);
       pkg_common.assert_admin_competition_limit(
         p_user_id => p_created_by,
         p_max_competitions => p_max_admin_competitions
@@ -3903,6 +3971,7 @@ create or replace package body pkg_admin_content as
       raise_application_error(-20178, 'invalid add_creator_as_organizer');
     end if;
     if l_add_creator_as_organizer = 'Y' then
+      pkg_common.assert_google_authenticated_user(p_created_by);
       pkg_common.assert_admin_competition_limit(
         p_user_id => p_created_by,
         p_max_competitions => p_max_admin_competitions

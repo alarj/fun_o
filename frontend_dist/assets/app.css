@@ -216,6 +216,114 @@ html, body { max-width: 100%; overflow-x: hidden; }
     .card { border-radius: 12px; padding: 16px; margin-bottom: 14px; }
     h1, h2, h3 { margin: 0 0 10px; font-size: 24px; font-weight: 700; line-height: 1.2; }
     .row { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; }
+    .no-org-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .no-org-topline h3 {
+      margin: 0;
+      flex: 1 1 auto;
+    }
+    .no-org-lang-select {
+      width: 100px;
+      min-width: 100px;
+      max-width: 100px;
+      flex: 0 0 auto;
+    }
+    .no-org-choice-hint {
+      margin-bottom: 14px;
+      font-size: 16px;
+      line-height: 1.4;
+      color: var(--funo-ink);
+    }
+    .no-org-join-row {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 180px) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .no-org-join-row label {
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .no-org-join-row input {
+      width: 180px;
+      min-width: 180px;
+      max-width: 180px;
+    }
+    .no-org-join-row button {
+      width: auto;
+      min-width: 140px;
+      justify-self: start;
+    }
+    .no-org-create-row,
+    .no-org-logout-row {
+      margin-bottom: 12px;
+    }
+    .login-intro-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .no-org-intro-row {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0 12px;
+    }
+    .no-org-intro-link {
+      color: var(--funo-accent);
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .no-org-intro-link:hover,
+    .no-org-intro-link:focus {
+      color: #215e64;
+    }
+    #introDialog {
+      width: min(960px, 96vw);
+      max-width: 96vw;
+    }
+    .intro-dialog-body {
+      max-height: min(70vh, 760px);
+      overflow: auto;
+      font-size: 18px;
+      line-height: 1.45;
+      color: #1d2830;
+      padding-right: 6px;
+    }
+    .intro-dialog-body img {
+      max-width: 100%;
+      height: auto;
+    }
+    .intro-dialog-body h3 {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .intro-dialog-body h3:first-child {
+      margin-top: 0;
+    }
+    .intro-dialog-body p,
+    .intro-dialog-body ul,
+    .intro-dialog-body ol {
+      margin: 0 0 14px;
+    }
+    .intro-dialog-body li + li {
+      margin-top: 6px;
+    }
+    .intro-dialog-body a {
+      color: #145a8a;
+      font-weight: 600;
+    }
+    .intro-dialog-body a:hover,
+    .intro-dialog-body a:focus {
+      color: #0f476b;
+    }
     .meta-readonly-row {
       display: flex;
       flex-wrap: nowrap;
@@ -549,6 +657,60 @@ html, body { max-width: 100%; overflow-x: hidden; }
   z-index: 1200;
   padding: 16px;
 }
+.busyBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(242, 242, 237, 1);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1400;
+}
+.busyCard {
+  min-width: min(320px, 92vw);
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #d4ddd2;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+.busySpinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 4px solid #d4ddd2;
+  border-top-color: var(--funo-accent);
+  animation: busySpin 0.9s linear infinite;
+}
+.busyText {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #253238;
+  text-align: center;
+}
+@keyframes busySpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.admin-boot-backdrop-visible {
+  display: flex;
+}
+body.admin-booting .wrap {
+  visibility: hidden;
+}
+.admin-boot-text-pending {
+  visibility: hidden;
+}
+.admin-boot-text-ready {
+  visibility: visible;
+}
 .modalCard {
   width: min(560px, 96vw);
   background: #fff;
@@ -710,6 +872,25 @@ html, body { max-width: 100%; overflow-x: hidden; }
       .card { padding: 12px; }
       .cols { grid-template-columns: 1fr; gap: 10px; }
       .row { grid-template-columns: 1fr; gap: 6px; }
+      .no-org-topline {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .no-org-lang-select {
+        width: 100%;
+        max-width: 140px;
+      }
+      .no-org-join-row {
+        grid-template-columns: 1fr;
+      }
+      .no-org-join-row input {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .no-org-join-row button {
+        width: auto;
+      }
       .meta-readonly-row { flex-wrap: wrap; gap: 6px 16px; }
       #loginCard .row .tools { grid-template-columns: 1fr 90px !important; }
       .tools { gap: 6px; }

@@ -224,10 +224,24 @@ const getCookie = (name) => {
   return null;
 };
 
+const isAuthFailureResponse = (statusCode, detail) => {
+  const code = String(detail?.code || "").trim().toUpperCase();
+  const message = String(detail?.message || "").trim();
+  if (statusCode !== 401) return false;
+  return code === "UNAUTHENTICATED" || code === "GOOGLE_AUTH_REQUIRED" || message === "api.error.unauthenticated";
+};
+
+const notifyAdminAuthInvalidated = (detail = {}) => {
+  window.dispatchEvent(new CustomEvent("admin-auth-invalidated", { detail }));
+};
+
 async function get(url) {
   const r = await fetch(url);
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -240,6 +254,9 @@ async function post(url, body) {
   const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -252,6 +269,9 @@ async function postFormData(url, formData) {
   const r = await fetch(url, { method: "POST", body: formData });
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -338,7 +358,7 @@ async function loadI18nMeta() {
 }
 
 function renderLangSelector() {
-  ["uiLang", "uiLangApp"].forEach((id) => {
+  ["uiLang", "uiLangApp", "uiLangNoOrg"].forEach((id) => {
     const sel = byId(id);
     if (!sel) return;
     sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");

@@ -35,6 +35,9 @@ class Settings:
     declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
+    session_refresh_cookie_name: str = os.getenv("SESSION_REFRESH_COOKIE_NAME", "funo_session_refresh")
+    session_access_ttl_minutes: int = int(os.getenv("SESSION_ACCESS_TTL_MINUTES", "15"))
+    session_refresh_ttl_days: int = int(os.getenv("SESSION_REFRESH_TTL_DAYS", "14"))
     competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
     competitor_participation_cookie_name: str = os.getenv("COMPETITOR_PARTICIPATION_COOKIE_NAME", "funo_participation")
     competitor_participation_cookie_ttl_hours: int = int(os.getenv("COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS", "360"))
@@ -45,7 +48,7 @@ class Settings:
     add_empty_competition_to_new_admin: bool = (
         os.getenv(
             "ADD_EMPTY_COMPETITION_TO_NEW_ADMIN",
-            os.getenv("ADD_EMPTY_COMETITION_TO_NEW_ADMIN", "false"),
+            os.getenv("ADD_EMPTY_COMPETITION_TO_NEW_ADMIN", "false"),
         ).strip().lower() in ("1", "true", "y", "yes")
     )
     max_new_competitions: int = int(os.getenv("MAX_NEW_COMPETITIONS", "100"))
@@ -139,7 +142,9 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
+    (("ORA-20071",), ("USER_NOT_FOUND", "api.error.unauthenticated")),
     (("ORA-20210",), ("COMPETITION_ADMIN_LIMIT_REACHED", "api.error.competition_admin_limit_reached")),
+    (("ORA-20211",), ("GOOGLE_AUTH_REQUIRED", "api.error.unauthenticated")),
     (("ORA-20080",), ("INVALID_REQUEST", "api.error.invalid_submission")),
     (("ORA-20110", "ORA-20115"), ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
@@ -943,21 +948,6 @@ async def _get_admin_competition_items(user_id: int) -> list[dict[str, Any]]:
     items = data.get("items") if isinstance(data, dict) else []
     return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
-
-async def _assert_admin_competition_limit(user_id: int) -> None:
-    if settings.max_competition_admin <= 0:
-        return
-    if await _user_has_system_owner_role(user_id):
-        return
-    admin_items = await _get_admin_competition_items(user_id)
-    if len(admin_items) >= settings.max_competition_admin:
-        _raise_api_error(
-            status.HTTP_409_CONFLICT,
-            "COMPETITION_ADMIN_LIMIT_REACHED",
-            "api.error.competition_admin_limit_reached",
-        )
-
-
 async def _get_total_active_competitions_count() -> int:
     data = await _get_from_ords("superadmin/competitions", {})
     items = data.get("items") if isinstance(data, dict) else []
@@ -1002,6 +992,29 @@ def _make_session_token_for_provider(user_id: int, auth_provider: str) -> str:
     return _make_signed_token({"user_id": user_id, "auth_provider": auth_provider})
 
 
+def _make_admin_access_token(user_id: int, auth_provider: str) -> str:
+    ttl_seconds = max(60, int(settings.session_access_ttl_minutes) * 60)
+    return _make_signed_token(
+        {
+            "user_id": user_id,
+            "auth_provider": auth_provider,
+            "exp": int(time.time()) + ttl_seconds,
+        }
+    )
+
+
+def _make_admin_refresh_token(user_id: int, auth_provider: str) -> str:
+    ttl_seconds = max(3600, int(settings.session_refresh_ttl_days) * 24 * 60 * 60)
+    return _make_signed_token(
+        {
+            "user_id": user_id,
+            "auth_provider": auth_provider,
+            "token_kind": "refresh",
+            "exp": int(time.time()) + ttl_seconds,
+        }
+    )
+
+
 def _make_competitor_participation_token(competition_participant_id: int) -> str:
     return _make_signed_token({"competition_participant_id": competition_participant_id})
 
@@ -1038,6 +1051,9 @@ def _signed_payload_is_expired(payload: dict[str, Any] | None) -> bool:
 
 
 def _read_session_payload(request: Request) -> dict[str, Any] | None:
+    state_payload = getattr(request.state, "admin_session_payload", None)
+    if isinstance(state_payload, dict):
+        return state_payload
     return _read_session_payload_from_cookie(request, settings.session_cookie_name)
 
 
@@ -1049,8 +1065,15 @@ def _read_competitor_participation_payload(request: Request) -> dict[str, Any] |
     return _read_session_payload_from_cookie(request, settings.competitor_participation_cookie_name)
 
 
+def _read_admin_refresh_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.session_refresh_cookie_name)
+
+
 def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
-    return _read_signed_token(request.cookies.get(cookie_name))
+    payload = _read_signed_token(request.cookies.get(cookie_name))
+    if _signed_payload_is_expired(payload):
+        return None
+    return payload
 
 
 def _read_session_user_id(request: Request) -> int | None:
@@ -1118,6 +1141,92 @@ def _require_google_session_user(request: Request, x_user_id: int | None = None)
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
 
     return session_user_id
+
+
+def _mark_admin_session_for_clear(request: Request) -> None:
+    request.state.clear_admin_session = True
+    request.state.admin_session_payload = None
+    request.state.admin_session_refresh = None
+
+
+def _mark_admin_session_for_refresh(request: Request, user_id: int, auth_provider: str) -> None:
+    request.state.admin_session_payload = {"user_id": user_id, "auth_provider": auth_provider}
+    request.state.admin_session_refresh = {"user_id": user_id, "auth_provider": auth_provider}
+
+
+def _set_admin_session_cookies(response: Response, user_id: int, auth_provider: str) -> None:
+    response.set_cookie(
+        key=settings.session_cookie_name,
+        value=_make_admin_access_token(user_id, auth_provider),
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        key=settings.session_refresh_cookie_name,
+        value=_make_admin_refresh_token(user_id, auth_provider),
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_admin_session_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.session_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=settings.session_refresh_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+
+
+def _is_active_google_profile(profile: dict[str, Any] | None) -> bool:
+    if not isinstance(profile, dict):
+        return False
+    email = profile.get("email")
+    auth_type = str(profile.get("auth_type") or "").upper()
+    google_sub = profile.get("google_sub")
+    return isinstance(email, str) and bool(email.strip()) and auth_type == "GOOGLE" and isinstance(google_sub, str) and bool(google_sub.strip())
+
+
+async def _restore_admin_session_from_refresh_cookie(request: Request) -> None:
+    access_payload = _read_signed_token(request.cookies.get(settings.session_cookie_name))
+    if isinstance(access_payload, dict) and not _signed_payload_is_expired(access_payload):
+        request.state.admin_session_payload = access_payload
+        return
+
+    refresh_payload = _read_signed_token(request.cookies.get(settings.session_refresh_cookie_name))
+    if not isinstance(refresh_payload, dict) or _signed_payload_is_expired(refresh_payload):
+        if access_payload is not None or refresh_payload is not None:
+            _mark_admin_session_for_clear(request)
+        return
+
+    user_id = refresh_payload.get("user_id")
+    auth_provider = refresh_payload.get("auth_provider")
+    if not isinstance(user_id, int) or auth_provider != "google":
+        _mark_admin_session_for_clear(request)
+        return
+
+    try:
+        profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+    except Exception:
+        _mark_admin_session_for_clear(request)
+        return
+
+    if not _is_active_google_profile(profile):
+        _mark_admin_session_for_clear(request)
+        return
+
+    request.state.admin_session_profile = profile
+    _mark_admin_session_for_refresh(request, user_id, "google")
 
 
 def _resolve_ui_lang(lang_code: str | None) -> str:
@@ -2231,6 +2340,31 @@ async def startup_event() -> None:
     await _resume_pending_overlay_processing()
 
 
+@app.middleware("http")
+async def admin_session_refresh_middleware(request: Request, call_next):
+    request.state.admin_session_payload = None
+    request.state.admin_session_profile = None
+    request.state.admin_session_refresh = None
+    request.state.clear_admin_session = False
+
+    if request.url.path.startswith("/api/") and request.url.path not in ("/api/auth/google", "/api/auth/logout"):
+        await _restore_admin_session_from_refresh_cookie(request)
+
+    response = await call_next(request)
+
+    refresh_payload = getattr(request.state, "admin_session_refresh", None)
+    if isinstance(refresh_payload, dict):
+        user_id = refresh_payload.get("user_id")
+        auth_provider = refresh_payload.get("auth_provider")
+        if isinstance(user_id, int) and isinstance(auth_provider, str) and auth_provider:
+            _set_admin_session_cookies(response, user_id, auth_provider)
+
+    if bool(getattr(request.state, "clear_admin_session", False)):
+        _clear_admin_session_cookies(response)
+
+    return response
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -2374,15 +2508,7 @@ async def auth_google(req: GoogleAuthRequest, response: Response) -> GoogleAuthR
             {"ords_response": ords_response},
         )
 
-    session_token = _make_session_token_for_provider(user_id, "google")
-    response.set_cookie(
-        key=settings.session_cookie_name,
-        value=session_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-        path="/",
-    )
+    _set_admin_session_cookies(response, user_id, "google")
 
     return GoogleAuthResponse(user_id=user_id, email=email, full_name=full_name, google_sub=google_sub)
 
@@ -2441,12 +2567,7 @@ async def auth_google_config() -> GoogleClientConfigResponse:
 
 @app.post("/api/auth/logout")
 async def auth_logout(response: Response) -> dict[str, bool]:
-    response.delete_cookie(
-        key=settings.session_cookie_name,
-        path="/",
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-    )
+    _clear_admin_session_cookies(response)
     return {"ok": True}
 
 
@@ -2455,17 +2576,21 @@ async def auth_session(request: Request) -> SessionInfoResponse:
     payload = _read_session_payload(request)
     if payload is None:
         return SessionInfoResponse(authenticated=False)
+    if payload.get("auth_provider") != "google":
+        _mark_admin_session_for_clear(request)
+        return SessionInfoResponse(authenticated=False)
     user_id = payload.get("user_id") if isinstance(payload.get("user_id"), int) else None
-    email: str | None = None
-    full_name: str | None = None
-    if user_id is not None:
+    profile = getattr(request.state, "admin_session_profile", None)
+    if not isinstance(profile, dict) and user_id is not None:
         try:
-            prof = await _get_from_ords("auth/user-profile", {"user_id": user_id})
-            if isinstance(prof, dict):
-                email = prof.get("email") if isinstance(prof.get("email"), str) else None
-                full_name = prof.get("full_name") if isinstance(prof.get("full_name"), str) else None
+            profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
         except Exception:
-            pass
+            profile = None
+    if not _is_active_google_profile(profile):
+        _mark_admin_session_for_clear(request)
+        return SessionInfoResponse(authenticated=False)
+    email = profile.get("email") if isinstance(profile.get("email"), str) else None
+    full_name = profile.get("full_name") if isinstance(profile.get("full_name"), str) else None
     return SessionInfoResponse(
         authenticated=True,
         user_id=user_id,
@@ -2707,12 +2832,12 @@ async def register_organizer(
     x_user_id: int | None = Header(default=None),
 ) -> RegisterOrganizerResponse:
     user_id = _require_google_session_user(request, x_user_id)
-    await _assert_admin_competition_limit(user_id)
     ords_response = await _post_to_ords(
         "organizers/register",
         {
             "user_id": user_id,
             "access_code": req.access_code,
+            "max_admin_competitions": settings.max_competition_admin,
         },
     )
     competition_id = ords_response.get("competition_id")
@@ -3653,7 +3778,6 @@ async def admin_create_empty_competition(
     total_competitions = await _get_total_active_competitions_count()
     if total_competitions >= settings.max_new_competitions:
         _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
-    await _assert_admin_competition_limit(user_id)
 
     profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
     email = profile.get("email") if isinstance(profile, dict) else None
@@ -3972,7 +4096,6 @@ async def admin_copy_competition(
     admin_items = await _get_admin_competition_items(user_id)
     if not any(int(item.get("competition_id") or 0) == req.source_competition_id for item in admin_items):
         _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
-    await _assert_admin_competition_limit(user_id)
     data = await _post_to_ords(
         "admin/competitions/copy",
         {

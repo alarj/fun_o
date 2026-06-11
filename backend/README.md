@@ -4,7 +4,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/auth/google/upsert` - loob/uuendab Google kasutaja kirje ja tagastab `user_id`.
 - POST `/auth/dev/resolve-user` (dev-only login helper) - leiab või loob dev-kasutaja (`user_id`/`email`) testlogini jaoks.
 - GET `/auth/has-role?user_id=...&role_code=...` - kontrollib, kas kasutajal on nõutud roll (nt superadmin).
-- GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`) sessiooni rikastamiseks.
+- GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`, `auth_type`, `google_sub`) sessiooni rikastamiseks ja admin refresh-session valideerimiseks.
 - POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
 - POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
 - POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse koos competitor popupi jaoks vajalike lisaväljadega (õiged vastused, koguaeg, hetke koht ja tingimuslikult kumulatiivne linnulennuline vahemaa).
@@ -65,7 +65,7 @@ Expected ORDS JSON responses:
 - `auth/google/upsert` -> `{ "user_id": 123 }`
 - `auth/dev/resolve-user` -> `{ "user_id": 123 }`
 - `auth/has-role` -> `{ "has_role":"Y|N" }`
-- `auth/user-profile` -> `{ "email":"...", "full_name":"..." }`
+- `auth/user-profile` -> `{ "email":"...", "full_name":"...", "auth_type":"GOOGLE|ANON|...", "google_sub":"..." }`
 - `competitions/register` -> `{ "competition_id": 456 }`
 - `organizers/register` -> `{ "competition_id": 456 }`
 - `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42, "correct_answer_texts": ["..."], "other_correct_answer_texts": ["..."], "total_elapsed_seconds": 2975, "total_distance_m": 2460, "distance_display_allowed": "Y|N", "current_rank": 2 }`
@@ -126,26 +126,39 @@ Expected ORDS JSON responses:
 - `superadmin/translations/upsert|delete` -> `{ "ok": true }` or empty 200 JSON
 
 Session cookie flow:
-- `POST /api/auth/google` now sets an HttpOnly session cookie (`SESSION_COOKIE_NAME`, default `funo_session`).
+- `POST /api/auth/google` now sets two HttpOnly admin cookies:
+  - `SESSION_COOKIE_NAME` (short-lived access cookie, default `funo_session`)
+  - `SESSION_REFRESH_COOKIE_NAME` (longer-lived refresh cookie, default `funo_session_refresh`)
+- When the access cookie has expired but refresh cookie is still valid, backend restores the admin session without forcing a fresh Google login.
+- Refresh restore validates the user only when the short-lived access cookie has expired, so ORDS load does not grow to one check per request.
+- `GET /api/auth/session` is the lightweight admin bootstrap/session endpoint for frontend reload flow: it restores `user_id`, `email` and `full_name` from current session context so admin UI can decide the first visible state without showing placeholder user text.
+- If a protected admin/superadmin request later hits ORDS/DB with a deleted or soft-deleted admin user, backend treats that as session/auth failure (`401`) instead of surfacing a business error. Frontend returns the user to Google re-auth instead of showing a red technical error.
+- Anonymous competitor join/session flows are not changed by this rule; the re-auth handling is limited to admin/superadmin Google-session paths.
 - `POST /api/dev/login` sets competitor session cookie (`COMPETITOR_SESSION_COOKIE_NAME`, default `funo_competitor_session`) in dev mode (`APP_ENV=dev`).
 - `POST /api/competitor/join-complete` sets both competitor cookies:
   - `COMPETITOR_SESSION_COOKIE_NAME` (signed session payload incl. user/participant)
   - `COMPETITOR_PARTICIPATION_COOKIE_NAME` (active participant id token)
 - `GET /api/competitor/session` validates competitor cookies against ORDS (`competitor/session-by-participant`) and refreshes cookie TTL.
-- `POST /api/auth/logout` currently clears only `SESSION_COOKIE_NAME` (Google/admin session).
+- `POST /api/auth/logout` clears both admin cookies (`SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`).
 - Protected admin/superadmin endpoints resolve user from `SESSION_COOKIE_NAME`; competitor endpoints resolve user from competitor cookies.
 - `user_id` in payload and `x-user-id` header are optional guards; if sent, they must match session user.
 
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
+- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
 - Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
 - `MAX_COMPETITION_ADMIN` kehtib ainult kasutajatele, kellel puudub aktiivne `SYSTEM_OWNER` roll.
 - Admini limiidi arvestusse lähevad ainult need võistlused, kus kasutajal on aktiivne korraldaja-seos ja võistlus ise ei ole soft-delete'itud.
 - `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN` + `MAX_NEW_COMPETITIONS` juhivad ainult uue admini onboarding'u valikus kuvatavat "loo tühi võistlus" pakkumist.
+- Kui adminil ei ole ühtegi aktiivset korraldaja-võistlust, näitab admin frontend eraldi onboarding-kaarti:
+  - pealkiri kasutab sisselogitud kasutaja `full_name` väärtust, kui see on sessioonist olemas;
+  - "Mis on fun-o?" avatakse adminis modalis, mitte eraldi brauseritab'is;
+  - sama intro link on olemas nii sisselogimise kaardil kui ka võistluseta admini onboarding-vaates;
+  - enne esimese vaate otsust ei näidata tühja admin UI-d, vaid blokeerivat laadimisvaadet tekstiga "Laen andmeid...".
+- Admini ORDS vood, mis loovad korraldaja-seose (`organizers/register`, admin create/copy with organizer add), aktsepteerivad ainult aktiivset Google-auth kasutajat; `ANON` või kustutatud kasutaja ID ei läbi enam kontrolli.
 - Overlay upload voog salvestab source-failid `OVERLAY_STORAGE_DIR` alla ning käivitab taustatöö, mis lõikab rasteri tile'ideks ja uuendab staatust `UPLOADED -> PROCESSING -> READY|FAILED`.
 - Backend startup proovib uuesti käivitada aktiivsed overlay'd, mille staatus on jäänud `UPLOADED` või `PROCESSING`.
 - Võistluse kopeerimisel saab overlay kirje kaasa võtta ilma serveri kettal olevaid faile dubleerimata: uus `competition_map_overlays` rida viitab samale `storage_rel_path` / `tile_storage_rel_path` väärtusele.

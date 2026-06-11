@@ -113,16 +113,20 @@ begin
       declare
         l_email varchar2(320);
         l_full_name varchar2(200);
+        l_auth_type varchar2(20);
+        l_google_sub varchar2(320);
       begin
         FUNO_APP.pkg_auth.get_user_profile(
           p_user_id   => to_number(:user_id),
           o_email     => l_email,
-          o_full_name => l_full_name
+          o_full_name => l_full_name,
+          o_auth_type => l_auth_type,
+          o_google_sub => l_google_sub
         );
 
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(json_object('email' value l_email, 'full_name' value l_full_name));
+        htp.p(json_object('email' value l_email, 'full_name' value l_full_name, 'auth_type' value l_auth_type, 'google_sub' value l_google_sub));
       end;
     ~'
   );
@@ -604,6 +608,7 @@ begin
         FUNO_APP.pkg_competitions.register_organizer_by_code(
           p_user_id        => l_body.get_number('user_id'),
           p_access_code    => l_body.get_string('access_code'),
+          p_max_admin_competitions => case when l_body.has('max_admin_competitions') then l_body.get_number('max_admin_competitions') else null end,
           o_competition_id => l_competition_id
         );
 

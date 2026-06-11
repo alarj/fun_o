@@ -84,6 +84,8 @@ Admin UI (`frontend_dist/admin.html`) kasutab samuti eraldi staatilisi asset-fai
 - üldine UI/API/i18n loogika: `frontend_dist/assets/admin-core.js`
 - admini kaartide ja kaardikihtide loogika: `frontend_dist/assets/admin-map.js`
 - admini workflow'd, dialoogid, renderdus ja bootstrap: `frontend_dist/assets/admin-main.js`
+- admini alglaadimisel hoitakse ekraan blokeeriva laadimisvaate all, kuni sessioon ja esimene vaateotsus on tehtud; tühi admin-vaade ei tohi hetkekski läbi vilksatada
+- kui sisselogitud admin ei ole ühegi võistluse korraldaja, näidatakse eraldi onboarding-vaadet, kus intro "Mis on fun-o?" avaneb samal lehel modalis nii eesti kui inglise keeles
 
 See arhitektuur toetab eesmärki hoida ärireeglid stabiilsena, vähendada UI-poolset “nutikust” ning tagada, et sama reegel kehtib kõigile klientidele ühtemoodi.
 

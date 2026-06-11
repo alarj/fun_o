@@ -733,6 +733,13 @@
       await loadCompetitions();
     }
 
+    async function handleAdminAuthInvalidated() {
+      byId("loginCard").classList.remove("hidden");
+      byId("appArea").classList.add("hidden");
+      setMsg("loginMsg", false, "");
+      await initGoogleLogin().catch(() => {});
+    }
+
     async function initGoogleLogin() {
       const cfg = await get("/api/auth/google/config");
       if (!cfg || !cfg.enabled || !cfg.client_id) {
@@ -902,6 +909,10 @@
       byId("trSaveBtn").addEventListener("click", () => saveTranslationDiff().catch((e) => setMsg("trEditMsg", false, e.message || tr("superadmin.translations.save_failed"))));
       byId("trEditBackdrop").addEventListener("click", (e) => {
         if (e.target === byId("trEditBackdrop")) closeTranslationEditorModal();
+      });
+
+      window.addEventListener("admin-auth-invalidated", () => {
+        handleAdminAuthInvalidated().catch(() => {});
       });
 
       try {

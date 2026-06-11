@@ -178,9 +178,104 @@ function renderOrganizers(org) {
 
 function setEmptyCompetitionCreateVisible(isVisible) {
   const row = byId("createEmptyCompetitionNoCompRow");
-  const hint = byId("noOrgChoiceHint");
   if (row) row.classList.toggle("hidden", !isVisible);
-  if (hint) hint.classList.toggle("hidden", !isVisible);
+}
+
+function getCurrentAdminDisplayName() {
+  const fullName = String(currentUserName || "").trim();
+  if (fullName) return fullName;
+  const email = String(currentUserEmail || "").trim();
+  if (email) return email;
+  return "";
+}
+
+function getIntroContentHref() {
+  return currentUiLang === "en" ? "./content/intro_en.html" : "./content/intro_et.html";
+}
+
+function sanitizeIntroHtml(html) {
+  const dirty = String(html || "");
+  if (!globalThis.DOMPurify?.sanitize) {
+    return esc(dirty);
+  }
+  return globalThis.DOMPurify.sanitize(dirty, {
+    USE_PROFILES: { html: true },
+  });
+}
+
+async function loadIntroDialogContent() {
+  const body = byId("introDialogBody");
+  if (!body) return;
+  const response = await fetch(getIntroContentHref(), { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("admin.intro.load_failed");
+  }
+  const html = (await response.text()).trim();
+  body.innerHTML = sanitizeIntroHtml(html || `<p>${esc(tr("admin.intro.load_failed"))}</p>`);
+}
+
+async function openIntroDialog() {
+  const dialog = byId("introDialog");
+  const title = byId("introDialogTitle");
+  const body = byId("introDialogBody");
+  if (!dialog || !title || !body) return;
+  title.textContent = tr("admin.intro.modal_title");
+  body.innerHTML = `<p>${esc(tr("admin.intro.load_failed"))}</p>`;
+  await loadIntroDialogContent();
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+}
+
+async function refreshIntroDialogIfOpen() {
+  const dialog = byId("introDialog");
+  const title = byId("introDialogTitle");
+  if (title) {
+    title.textContent = tr("admin.intro.modal_title");
+  }
+  if (!dialog || !dialog.open) return;
+  try {
+    await loadIntroDialogContent();
+  } catch (_e) {
+    const body = byId("introDialogBody");
+    if (body) {
+      body.innerHTML = `<p>${esc(tr("admin.intro.load_failed"))}</p>`;
+    }
+  }
+}
+
+function closeIntroDialog() {
+  const dialog = byId("introDialog");
+  if (dialog?.open) dialog.close();
+}
+
+function showAdminBootLoading() {
+  const backdrop = byId("adminBootBackdrop");
+  if (backdrop) backdrop.classList.add("admin-boot-backdrop-visible");
+  document.body?.classList.add("admin-booting");
+}
+
+function hideAdminBootLoading() {
+  const backdrop = byId("adminBootBackdrop");
+  if (backdrop) backdrop.classList.remove("admin-boot-backdrop-visible");
+  document.body?.classList.remove("admin-booting");
+}
+
+function markAdminBootTextReady() {
+  const text = byId("adminBootText");
+  if (!text) return;
+  text.classList.remove("admin-boot-text-pending");
+  text.classList.add("admin-boot-text-ready");
+}
+
+function renderNoOrgCardCopy() {
+  const heading = byId("noOrgHeading");
+  if (heading) {
+    const displayName = getCurrentAdminDisplayName();
+    heading.textContent = displayName
+      ? formatTr("admin.no_org.heading_named", { user_name: displayName })
+      : tr("admin.no_org.heading");
+  }
 }
 
 async function refreshAdminOnboardingOptions() {
@@ -219,9 +314,25 @@ function openCompetitionCopyDialog() {
 async function finishAdminLogin() {
   byId("loginCard").classList.add("hidden");
   byId("appArea").classList.remove("hidden");
+  renderNoOrgCardCopy();
   await refreshSuperadminNavButton();
   const hasCompetitions = await loadCompetitions();
   if (hasCompetitions) await loadView();
+}
+
+async function handleAdminAuthInvalidated() {
+  closeIntroDialog();
+  currentUserId = null;
+  currentUserName = "";
+  currentUserEmail = "";
+  competitionsData = [];
+  checkpointsData = [];
+  byId("loginCard").classList.remove("hidden");
+  byId("appArea").classList.add("hidden");
+  showMsg("topMsg", false, "");
+  showMsg("noOrgMsg", false, "");
+  showMsg("loginMsg", false, "");
+  await initGoogleLogin().catch(() => {});
 }
 
 async function refreshSuperadminNavButton() {
@@ -284,6 +395,8 @@ async function hydrateSessionUser() {
     const s = await get("/api/auth/session");
     if (s && s.authenticated && Number.isFinite(Number(s.user_id))) {
       currentUserId = Number(s.user_id);
+      currentUserName = String(s.full_name || "").trim();
+      currentUserEmail = String(s.email || "").trim();
     }
   } catch (_e) {
     // ignore; unauthenticated is handled by admin API calls
@@ -1274,6 +1387,8 @@ byId("uiLang").onchange = async () => {
   currentUiLang = byId("uiLang").value || defaultLang;
   setCookie(uiLangCookieName, currentUiLang);
   await loadTranslations(currentUiLang);
+  renderNoOrgCardCopy();
+  await refreshIntroDialogIfOpen();
   refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
   renderRows();
@@ -1283,16 +1398,50 @@ byId("uiLangApp").onchange = async () => {
   currentUiLang = byId("uiLangApp").value || defaultLang;
   setCookie(uiLangCookieName, currentUiLang);
   await loadTranslations(currentUiLang);
+  renderNoOrgCardCopy();
+  await refreshIntroDialogIfOpen();
   refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
   renderRows();
 };
+
+byId("uiLangNoOrg").onchange = async () => {
+  currentUiLang = byId("uiLangNoOrg").value || defaultLang;
+  setCookie(uiLangCookieName, currentUiLang);
+  await loadTranslations(currentUiLang);
+  renderNoOrgCardCopy();
+  await refreshIntroDialogIfOpen();
+  refreshAdminMapLayerOptions();
+  refreshCompetitionTypeDisplay();
+  renderRows();
+};
+
+byId("loginIntroLink").onclick = async (e) => {
+  e.preventDefault();
+  try {
+    await openIntroDialog();
+  } catch (_e) {
+    showMsg("loginMsg", false, tr("admin.intro.load_failed"));
+  }
+};
+
+byId("noOrgIntroLink").onclick = async (e) => {
+  e.preventDefault();
+  try {
+    await openIntroDialog();
+  } catch (_e) {
+    showMsg("noOrgMsg", false, tr("admin.intro.load_failed"));
+  }
+};
+
+byId("introDialogClose").onclick = () => closeIntroDialog();
 
 byId("organizers").addEventListener("click", async (e) => {
   const btn = e.target.closest(".logout-btn-inline");
   if (!btn) return;
   try {
     await post("/api/auth/logout", {});
+    closeIntroDialog();
     currentUserId = null;
     currentUserName = "";
     currentUserEmail = "";
@@ -1597,10 +1746,22 @@ byId("codeConfirmYes").onclick = async () => {
 
 byId("codeResultOk").onclick = () => byId("codeResultDialog").close();
 byId("fieldInfoClose").onclick = () => closeFieldInfoDialog();
-byId("organizerJoinCancelNoComp").onclick = () => {
-  byId("organizerJoinCodeNoComp").value = "";
-  byId("noOrgMsg").textContent = "";
-  byId("noOrgMsg").className = "";
+byId("organizerJoinLogoutNoComp").onclick = async () => {
+  try {
+    await post("/api/auth/logout", {});
+    closeIntroDialog();
+    currentUserId = null;
+    currentUserName = "";
+    currentUserEmail = "";
+    byId("organizerJoinCodeNoComp").value = "";
+    byId("loginCard").classList.remove("hidden");
+    byId("appArea").classList.add("hidden");
+    showMsg("noOrgMsg", false, "");
+    showMsg("loginMsg", true, tr("admin.msg.logout_ok"));
+    await initGoogleLogin();
+  } catch (e) {
+    showMsg("noOrgMsg", false, humanizeError(e.message, e.details));
+  }
 };
 byId("createEmptyCompetitionNoComp").onclick = async () => {
   try {
@@ -1648,14 +1809,29 @@ document.addEventListener("click", (e) => {
   openFieldInfoDialog(trigger.getAttribute("data-info-key"));
 });
 
+window.addEventListener("admin-auth-invalidated", () => {
+  handleAdminAuthInvalidated().catch(() => {});
+});
+
 (async () => {
-  await loadI18nMeta().catch(() => {});
-  await hydrateSessionUser();
   try {
-    await finishAdminLogin();
-  } catch (_) {
-    byId("loginCard").classList.remove("hidden");
-    byId("appArea").classList.add("hidden");
+    showAdminBootLoading();
+    await loadI18nMeta().catch(() => {});
+    markAdminBootTextReady();
+    await hydrateSessionUser();
+    if (currentUserId) {
+      try {
+        await finishAdminLogin();
+      } catch (_) {
+        byId("loginCard").classList.remove("hidden");
+        byId("appArea").classList.add("hidden");
+      }
+    } else {
+      byId("loginCard").classList.remove("hidden");
+      byId("appArea").classList.add("hidden");
+    }
+    await initGoogleLogin();
+  } finally {
+    hideAdminBootLoading();
   }
-  await initGoogleLogin();
 })();
