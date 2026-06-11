@@ -23,27 +23,46 @@
     crossorigin="anonymous"
   ></script>
 </head>
-<body>
+<body class="admin-booting">
+  <div id="adminBootBackdrop" class="busyBackdrop admin-boot-backdrop-visible" aria-live="polite" aria-busy="true">
+    <div class="busyCard">
+      <div class="busySpinner" aria-hidden="true"></div>
+      <div id="adminBootText" class="busyText admin-boot-text-pending" data-i18n="admin.boot.loading_msg"></div>
+    </div>
+  </div>
   <div class="wrap">
-    <div class="card" id="loginCard">
+    <div class="card hidden" id="loginCard">
       <h2 data-i18n="admin.login.heading">admin.login.heading</h2>
       <div class="tools" style="justify-content:space-between; align-items:center;">
         <div id="googleLoginMount"></div>
         <select id="uiLang" style="width:100px;"></select>
+      </div>
+      <div class="login-intro-row">
+        <a id="loginIntroLink" class="no-org-intro-link" href="#" data-i18n="admin.login.intro_link">admin.login.intro_link</a>
       </div>
       <div id="loginMsg"></div>
     </div>
 
     <div id="appArea" class="hidden">
       <div class="card hidden" id="noOrgCard">
-        <h3 data-i18n="admin.no_org.heading">admin.no_org.heading</h3>
-        <div class="row">
-          <label for="organizerJoinCodeNoComp" data-i18n="admin.no_org.code_label">admin.no_org.code_label</label>
-          <input id="organizerJoinCodeNoComp" />
+        <div class="no-org-topline">
+          <h3 id="noOrgHeading">admin.no_org.heading</h3>
+          <select id="uiLangNoOrg" class="superLangSelect no-org-lang-select"></select>
         </div>
-        <div class="tools">
-          <button id="organizerJoinCancelNoComp" class="secondary" data-i18n="admin.no_org.cancel_btn">admin.no_org.cancel_btn</button>
-          <button id="organizerJoinSaveNoComp" data-i18n="admin.no_org.save_btn">admin.no_org.save_btn</button>
+        <div class="no-org-choice-hint" id="noOrgChoiceHint" data-i18n="admin.no_org.choice_hint">admin.no_org.choice_hint</div>
+        <div class="no-org-join-row">
+          <label for="organizerJoinCodeNoComp" data-i18n="admin.no_org.code_label">admin.no_org.code_label</label>
+          <input id="organizerJoinCodeNoComp" maxlength="20" />
+          <button id="organizerJoinSaveNoComp" type="button" data-i18n="admin.no_org.save_btn">admin.no_org.save_btn</button>
+        </div>
+        <div class="tools hidden no-org-create-row" id="createEmptyCompetitionNoCompRow">
+          <button id="createEmptyCompetitionNoComp" type="button" data-i18n="admin.no_org.create_empty_btn">admin.no_org.create_empty_btn</button>
+        </div>
+        <div class="tools no-org-logout-row">
+          <button id="organizerJoinLogoutNoComp" class="secondary" type="button" data-i18n="admin.no_org.logout_btn">admin.no_org.logout_btn</button>
+        </div>
+        <div class="no-org-intro-row">
+          <a id="noOrgIntroLink" class="no-org-intro-link" href="#" data-i18n="admin.no_org.intro_link">admin.no_org.intro_link</a>
         </div>
         <div id="noOrgMsg"></div>
       </div>
@@ -68,6 +87,7 @@
             </svg>
           </span>
           <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
+          <button id="copyCompetitionBtn" class="secondary" data-i18n="admin.comp.copy_comp_btn">admin.comp.copy_comp_btn</button>
           <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
           <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
           <span class="adminTopLineSpacer"></span>
@@ -292,6 +312,41 @@
     </div>
   </dialog>
 
+  <dialog id="copyCompetitionDialog">
+    <h3 data-i18n="admin.copy.heading">admin.copy.heading</h3>
+    <div id="copyCompetitionText" class="muted" style="margin-bottom:10px;"></div>
+    <div class="yn-inline">
+      <div class="yn-switch">
+        <input id="copyCompetitionWithQuestions" type="checkbox" />
+        <span class="yn-slider"></span>
+      </div>
+      <label for="copyCompetitionWithQuestions" data-i18n="admin.copy.with_questions_label">admin.copy.with_questions_label</label>
+    </div>
+    <div class="yn-inline hidden" id="copyCompetitionWithOrganizersRow">
+      <div class="yn-switch">
+        <input id="copyCompetitionWithOrganizers" type="checkbox" />
+        <span class="yn-slider"></span>
+      </div>
+      <label for="copyCompetitionWithOrganizers" data-i18n="admin.copy.with_other_organizers_label">admin.copy.with_other_organizers_label</label>
+    </div>
+    <div class="yn-inline hidden" id="copyCompetitionWithOverlayRow">
+      <div class="yn-switch">
+        <input id="copyCompetitionWithOverlay" type="checkbox" />
+        <span class="yn-slider"></span>
+      </div>
+      <label for="copyCompetitionWithOverlay" data-i18n="admin.copy.with_overlay_label">admin.copy.with_overlay_label</label>
+    </div>
+    <div class="muted" data-i18n="admin.copy.help_text">admin.copy.help_text</div>
+    <div id="copyCompetitionMsg"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="copyCompetitionCancel" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        <button id="copyCompetitionSave" type="button" data-i18n="admin.copy.copy_btn">admin.copy.copy_btn</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="metaDialog">
     <h3 id="metaDialogTitle" data-i18n="admin.meta.edit_comp_title">admin.meta.edit_comp_title</h3>
     <div class="row"><div class="field-label-with-info"><label for="metaNameInput" data-i18n="admin.meta.name_label">admin.meta.name_label</label><button class="info-icon-btn" type="button" data-info-key="admin.meta.name_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaNameInput" /></div>
@@ -464,6 +519,17 @@
       <div></div>
       <div class="dialog-right">
         <button id="fieldInfoClose" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="introDialog">
+    <h3 id="introDialogTitle" data-i18n="admin.intro.modal_title">admin.intro.modal_title</h3>
+    <div id="introDialogBody" class="intro-dialog-body"></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="introDialogClose" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
       </div>
     </div>
   </dialog>

@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 from PIL import Image
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="fun_o API", version="0.3.0")
@@ -35,6 +35,9 @@ class Settings:
     declination_refresh_days: int = int(os.getenv("DECLINATION_REFRESH_DAYS", "30"))
     http_timeout_seconds: float = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "funo_session")
+    session_refresh_cookie_name: str = os.getenv("SESSION_REFRESH_COOKIE_NAME", "funo_session_refresh")
+    session_access_ttl_minutes: int = int(os.getenv("SESSION_ACCESS_TTL_MINUTES", "15"))
+    session_refresh_ttl_days: int = int(os.getenv("SESSION_REFRESH_TTL_DAYS", "14"))
     competitor_session_cookie_name: str = os.getenv("COMPETITOR_SESSION_COOKIE_NAME", "funo_competitor_session")
     competitor_participation_cookie_name: str = os.getenv("COMPETITOR_PARTICIPATION_COOKIE_NAME", "funo_participation")
     competitor_participation_cookie_ttl_hours: int = int(os.getenv("COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS", "360"))
@@ -42,7 +45,11 @@ class Settings:
     session_cookie_secure: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
     lang_default: str = os.getenv("LANG_DEFAULT", "et").strip() or "et"
-    promo100_max_total_competitions: int = int(os.getenv("PROMO100_MAX_TOTAL_COMPETITIONS", "100"))
+    add_empty_competition_to_new_admin: bool = (
+        os.getenv("ADD_EMPTY_COMPETITION_TO_NEW_ADMIN", "false").strip().lower() in ("1", "true", "y", "yes")
+    )
+    max_new_competitions: int = int(os.getenv("MAX_NEW_COMPETITIONS", "100"))
+    max_competition_admin: int = int(os.getenv("MAX_COMPETITION_ADMIN", "10"))
     overlay_storage_dir: str = os.getenv("OVERLAY_STORAGE_DIR", "/app/storage/competition_overlays").strip() or "/app/storage/competition_overlays"
     overlay_max_upload_bytes: int = int(os.getenv("OVERLAY_MAX_UPLOAD_BYTES", "104857600"))
     overlay_max_dimension_px: int = int(os.getenv("OVERLAY_MAX_DIMENSION_PX", "12000"))
@@ -108,11 +115,14 @@ UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 ADMIN_COMPETITIONS_TERMS_PATH = "admin/competitions/terms"
 ADMIN_CHECKPOINTS_PATH = "admin/checkpoints"
 API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
+API_ERROR_UNAUTHENTICATED = "api.error.unauthenticated"
 ADMIN_OVERLAY_INVALID_IMAGE_FILE_MSG = "admin.overlay.invalid_image_file_msg"
 ADMIN_OVERLAY_INVALID_WORLD_FILE_MSG = "admin.overlay.invalid_world_file_msg"
 ADMIN_OVERLAY_INVALID_LEST97_BOUNDS_MSG = "admin.overlay.invalid_lest97_bounds_msg"
 ADMIN_OVERLAY_IMAGE_FILE_SIZE_TOO_LARGE_MSG = "admin.overlay.image_file_size_too_large_msg"
 ADMIN_OVERLAY_IMAGE_DIMENSIONS_TOO_LARGE_MSG = "admin.overlay.image_dimensions_too_large_msg"
+ORDS_AUTH_USER_PROFILE_PATH = "auth/user-profile"
+TOKEN_KIND_REFRESH = "refresh"
 L_EST97_MIN_X = 300000.0
 L_EST97_MAX_X = 800000.0
 L_EST97_MIN_Y = 6300000.0
@@ -132,6 +142,9 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
+    (("ORA-20071",), ("USER_NOT_FOUND", API_ERROR_UNAUTHENTICATED)),
+    (("ORA-20210",), ("COMPETITION_ADMIN_LIMIT_REACHED", "api.error.competition_admin_limit_reached")),
+    (("ORA-20211",), ("GOOGLE_AUTH_REQUIRED", API_ERROR_UNAUTHENTICATED)),
     (("ORA-20080",), ("INVALID_REQUEST", "api.error.invalid_submission")),
     (("ORA-20110", "ORA-20115"), ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
@@ -658,16 +671,22 @@ class SuperAdminCreateCompetitionResponse(BaseModel):
     organizer_code: str
 
 
-class AdminPromoBootstrapResponse(BaseModel):
-    attempted: bool
-    created: bool
-    competition_id: int | None = None
+class AdminOnboardingOptionsResponse(BaseModel):
+    can_create_empty_competition: bool = False
+
+
+class AdminCopyCompetitionRequest(BaseModel):
+    source_competition_id: int
+    copy_questions: str = "N"
+    copy_organizers: str = "N"
+    copy_overlay: str = "N"
 
 
 class SuperAdminCopyCompetitionRequest(BaseModel):
     source_competition_id: int
     copy_questions: str = "N"
     copy_organizers: str = "N"
+    copy_overlay: str = "N"
 
 
 class SuperAdminRemoveOrganizerRequest(BaseModel):
@@ -924,6 +943,25 @@ async def _ensure_default_terms_for_competition(competition_id: int) -> None:
             continue
 
 
+async def _get_admin_competition_items(user_id: int) -> list[dict[str, Any]]:
+    data = await _get_from_ords("admin/competitions", {"user_id": user_id})
+    items = data.get("items") if isinstance(data, dict) else []
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+async def _get_total_active_competitions_count() -> int:
+    data = await _get_from_ords("superadmin/competitions", {})
+    items = data.get("items") if isinstance(data, dict) else []
+    return len(items) if isinstance(items, list) else 0
+
+
+def _default_new_admin_competition_name(email: str | None) -> str:
+    if isinstance(email, str) and "@" in email:
+        local_part = email.split("@", 1)[0].strip()
+        if local_part:
+            return local_part[:200]
+    return "admin"
+
+
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
@@ -952,6 +990,29 @@ def _make_session_token(user_id: int) -> str:
 
 def _make_session_token_for_provider(user_id: int, auth_provider: str) -> str:
     return _make_signed_token({"user_id": user_id, "auth_provider": auth_provider})
+
+
+def _make_admin_access_token(user_id: int, auth_provider: str) -> str:
+    ttl_seconds = max(60, int(settings.session_access_ttl_minutes) * 60)
+    return _make_signed_token(
+        {
+            "user_id": user_id,
+            "auth_provider": auth_provider,
+            "exp": int(time.time()) + ttl_seconds,
+        }
+    )
+
+
+def _make_admin_refresh_token(user_id: int, auth_provider: str) -> str:
+    ttl_seconds = max(3600, int(settings.session_refresh_ttl_days) * 24 * 60 * 60)
+    return _make_signed_token(
+        {
+            "user_id": user_id,
+            "auth_provider": auth_provider,
+            "token_kind": TOKEN_KIND_REFRESH,
+            "exp": int(time.time()) + ttl_seconds,
+        }
+    )
 
 
 def _make_competitor_participation_token(competition_participant_id: int) -> str:
@@ -990,6 +1051,9 @@ def _signed_payload_is_expired(payload: dict[str, Any] | None) -> bool:
 
 
 def _read_session_payload(request: Request) -> dict[str, Any] | None:
+    state_payload = getattr(request.state, "admin_session_payload", None)
+    if isinstance(state_payload, dict):
+        return state_payload
     return _read_session_payload_from_cookie(request, settings.session_cookie_name)
 
 
@@ -1001,8 +1065,15 @@ def _read_competitor_participation_payload(request: Request) -> dict[str, Any] |
     return _read_session_payload_from_cookie(request, settings.competitor_participation_cookie_name)
 
 
+def _read_admin_refresh_payload(request: Request) -> dict[str, Any] | None:
+    return _read_session_payload_from_cookie(request, settings.session_refresh_cookie_name)
+
+
 def _read_session_payload_from_cookie(request: Request, cookie_name: str) -> dict[str, Any] | None:
-    return _read_signed_token(request.cookies.get(cookie_name))
+    payload = _read_signed_token(request.cookies.get(cookie_name))
+    if _signed_payload_is_expired(payload):
+        return None
+    return payload
 
 
 def _read_session_user_id(request: Request) -> int | None:
@@ -1048,7 +1119,7 @@ def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: i
         return session_user_id
 
     if payload_user_id is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
     if x_user_id is not None and x_user_id != payload_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
     return payload_user_id
@@ -1057,19 +1128,116 @@ def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: i
 def _require_google_session_user(request: Request, x_user_id: int | None = None) -> int:
     payload = _read_session_payload(request)
     if payload is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
 
     session_user_id = payload.get("user_id")
     if not isinstance(session_user_id, int):
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
 
     if payload.get("auth_provider") != "google":
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "GOOGLE_AUTH_REQUIRED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "GOOGLE_AUTH_REQUIRED", API_ERROR_UNAUTHENTICATED)
 
     if x_user_id is not None and x_user_id != session_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
 
     return session_user_id
+
+
+def _mark_admin_session_for_clear(request: Request) -> None:
+    request.state.clear_admin_session = True
+    request.state.admin_session_payload = None
+    request.state.admin_session_refresh = None
+
+
+def _mark_admin_session_for_refresh(request: Request, user_id: int, auth_provider: str) -> None:
+    request.state.admin_session_payload = {"user_id": user_id, "auth_provider": auth_provider}
+    request.state.admin_session_refresh = {"user_id": user_id, "auth_provider": auth_provider}
+
+
+def _set_admin_session_cookies(response: Response, user_id: int, auth_provider: str) -> None:
+    response.set_cookie(
+        key=settings.session_cookie_name,
+        value=_make_admin_access_token(user_id, auth_provider),
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        key=settings.session_refresh_cookie_name,
+        value=_make_admin_refresh_token(user_id, auth_provider),
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_admin_session_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.session_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=settings.session_refresh_cookie_name,
+        path="/",
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+
+
+def _is_active_google_profile(profile: dict[str, Any] | None) -> bool:
+    if not isinstance(profile, dict):
+        return False
+    email = profile.get("email")
+    auth_type = str(profile.get("auth_type") or "").upper()
+    google_sub = profile.get("google_sub")
+    return isinstance(email, str) and bool(email.strip()) and auth_type == "GOOGLE" and isinstance(google_sub, str) and bool(google_sub.strip())
+
+
+async def _restore_admin_session_from_refresh_cookie(request: Request) -> None:
+    access_payload = _read_signed_token(request.cookies.get(settings.session_cookie_name))
+    if isinstance(access_payload, dict) and not _signed_payload_is_expired(access_payload):
+        request.state.admin_session_payload = access_payload
+        return
+
+    refresh_payload = _read_signed_token(request.cookies.get(settings.session_refresh_cookie_name))
+    if not isinstance(refresh_payload, dict) or _signed_payload_is_expired(refresh_payload):
+        if access_payload is not None or refresh_payload is not None:
+            _mark_admin_session_for_clear(request)
+        return
+
+    if refresh_payload.get("token_kind") != TOKEN_KIND_REFRESH:
+        _mark_admin_session_for_clear(request)
+        return
+
+    user_id = refresh_payload.get("user_id")
+    auth_provider = refresh_payload.get("auth_provider")
+    if not isinstance(user_id, int) or auth_provider != "google":
+        _mark_admin_session_for_clear(request)
+        return
+
+    try:
+        profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
+    except HTTPException as exc:
+        if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+            request.state.admin_session_refresh_error = ApiError(
+                code="SESSION_REFRESH_TEMPORARILY_UNAVAILABLE",
+                message="api.error.ords_unreachable",
+                details=exc.detail.get("details") if isinstance(exc.detail, dict) else None,
+            ).model_dump()
+            return
+        _mark_admin_session_for_clear(request)
+        return
+
+    if not _is_active_google_profile(profile):
+        _mark_admin_session_for_clear(request)
+        return
+
+    request.state.admin_session_profile = profile
+    _mark_admin_session_for_refresh(request, user_id, "google")
 
 
 def _resolve_ui_lang(lang_code: str | None) -> str:
@@ -1081,14 +1249,18 @@ def _resolve_ui_lang(lang_code: str | None) -> str:
 
 async def _require_system_owner_session_user(request: Request, x_user_id: int | None = None) -> int:
     user_id = _require_google_session_user(request, x_user_id)
+    if not await _user_has_system_owner_role(user_id):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
+    return user_id
+
+
+async def _user_has_system_owner_role(user_id: int) -> bool:
     role_resp = await _get_from_ords(
         "auth/has-role",
         {"user_id": user_id, "role_code": "SYSTEM_OWNER"},
     )
     has_role = role_resp.get("has_role") if isinstance(role_resp, dict) else None
-    if str(has_role).upper() != "Y":
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
-    return user_id
+    return str(has_role).upper() == "Y"
 
 
 async def _request_ords(method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:  # NOSONAR
@@ -2179,6 +2351,48 @@ async def startup_event() -> None:
     await _resume_pending_overlay_processing()
 
 
+@app.middleware("http")
+async def admin_session_refresh_middleware(request: Request, call_next):
+    request.state.admin_session_payload = None
+    request.state.admin_session_profile = None
+    request.state.admin_session_refresh = None
+    request.state.admin_session_refresh_error = None
+    request.state.clear_admin_session = False
+
+    path = request.url.path
+    if (
+        path.startswith("/api/admin/")
+        or path.startswith("/api/superadmin/")
+        or path == "/api/auth/session"
+    ):
+        await _restore_admin_session_from_refresh_cookie(request)
+
+    response = await call_next(request)
+
+    refresh_error = getattr(request.state, "admin_session_refresh_error", None)
+    if (
+        isinstance(refresh_error, dict)
+        and not bool(getattr(request.state, "clear_admin_session", False))
+        and response.status_code == status.HTTP_401_UNAUTHORIZED
+    ):
+        response = JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": refresh_error},
+        )
+
+    refresh_payload = getattr(request.state, "admin_session_refresh", None)
+    if isinstance(refresh_payload, dict):
+        user_id = refresh_payload.get("user_id")
+        auth_provider = refresh_payload.get("auth_provider")
+        if isinstance(user_id, int) and isinstance(auth_provider, str) and auth_provider:
+            _set_admin_session_cookies(response, user_id, auth_provider)
+
+    if bool(getattr(request.state, "clear_admin_session", False)):
+        _clear_admin_session_cookies(response)
+
+    return response
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -2322,15 +2536,7 @@ async def auth_google(req: GoogleAuthRequest, response: Response) -> GoogleAuthR
             {"ords_response": ords_response},
         )
 
-    session_token = _make_session_token_for_provider(user_id, "google")
-    response.set_cookie(
-        key=settings.session_cookie_name,
-        value=session_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-        path="/",
-    )
+    _set_admin_session_cookies(response, user_id, "google")
 
     return GoogleAuthResponse(user_id=user_id, email=email, full_name=full_name, google_sub=google_sub)
 
@@ -2389,31 +2595,42 @@ async def auth_google_config() -> GoogleClientConfigResponse:
 
 @app.post("/api/auth/logout")
 async def auth_logout(response: Response) -> dict[str, bool]:
-    response.delete_cookie(
-        key=settings.session_cookie_name,
-        path="/",
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-    )
+    _clear_admin_session_cookies(response)
     return {"ok": True}
 
 
 @app.get("/api/auth/session", response_model=SessionInfoResponse)
 async def auth_session(request: Request) -> SessionInfoResponse:
     payload = _read_session_payload(request)
+    refresh_error = getattr(request.state, "admin_session_refresh_error", None)
     if payload is None:
+        if isinstance(refresh_error, dict):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=refresh_error)
+        return SessionInfoResponse(authenticated=False)
+    if payload.get("auth_provider") != "google":
+        _mark_admin_session_for_clear(request)
         return SessionInfoResponse(authenticated=False)
     user_id = payload.get("user_id") if isinstance(payload.get("user_id"), int) else None
-    email: str | None = None
-    full_name: str | None = None
-    if user_id is not None:
+    profile = getattr(request.state, "admin_session_profile", None)
+    if not isinstance(profile, dict) and user_id is not None:
         try:
-            prof = await _get_from_ords("auth/user-profile", {"user_id": user_id})
-            if isinstance(prof, dict):
-                email = prof.get("email") if isinstance(prof.get("email"), str) else None
-                full_name = prof.get("full_name") if isinstance(prof.get("full_name"), str) else None
-        except Exception:
-            pass
+            profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
+        except HTTPException as exc:
+            if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=ApiError(
+                        code="SESSION_PROFILE_TEMPORARILY_UNAVAILABLE",
+                        message="api.error.ords_unreachable",
+                        details=exc.detail.get("details") if isinstance(exc.detail, dict) else None,
+                    ).model_dump(),
+                ) from exc
+            profile = None
+    if not _is_active_google_profile(profile):
+        _mark_admin_session_for_clear(request)
+        return SessionInfoResponse(authenticated=False)
+    email = profile.get("email") if isinstance(profile.get("email"), str) else None
+    full_name = profile.get("full_name") if isinstance(profile.get("full_name"), str) else None
     return SessionInfoResponse(
         authenticated=True,
         user_id=user_id,
@@ -2660,6 +2877,7 @@ async def register_organizer(
         {
             "user_id": user_id,
             "access_code": req.access_code,
+            "max_admin_competitions": settings.max_competition_admin,
         },
     )
     competition_id = ords_response.get("competition_id")
@@ -3534,61 +3752,58 @@ async def admin_competitions(request: Request, x_user_id: int | None = Header(de
     return AdminCompetitionsResponse(items=items if isinstance(items, list) else [])
 
 
-@app.post("/api/admin/promo100/bootstrap", response_model=AdminPromoBootstrapResponse)
-async def admin_promo100_bootstrap(request: Request, x_user_id: int | None = Header(default=None)) -> AdminPromoBootstrapResponse:
+@app.get("/api/admin/onboarding-options", response_model=AdminOnboardingOptionsResponse)
+async def admin_onboarding_options(request: Request, x_user_id: int | None = Header(default=None)) -> AdminOnboardingOptionsResponse:
     user_id = _require_google_session_user(request, x_user_id)
-    if settings.promo100_max_total_competitions <= 0:
-        return AdminPromoBootstrapResponse(attempted=False, created=False)
+    if await _user_has_system_owner_role(user_id):
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
 
-    mine_data = await _get_from_ords("admin/competitions", {"user_id": user_id})
-    mine_items = mine_data.get("items") if isinstance(mine_data, dict) else []
-    if isinstance(mine_items, list) and len(mine_items) > 0:
-        return AdminPromoBootstrapResponse(attempted=True, created=False)
+    if not settings.add_empty_competition_to_new_admin or settings.max_new_competitions <= 0:
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
+    if await _get_admin_competition_items(user_id):
+        return AdminOnboardingOptionsResponse(can_create_empty_competition=False)
+    total_competitions = await _get_total_active_competitions_count()
+    return AdminOnboardingOptionsResponse(
+        can_create_empty_competition=total_competitions < settings.max_new_competitions
+    )
 
-    all_data = await _get_from_ords("superadmin/competitions", {})
-    all_items = all_data.get("items") if isinstance(all_data, dict) else []
-    total_competitions = len(all_items) if isinstance(all_items, list) else 0
-    if total_competitions >= settings.promo100_max_total_competitions:
-        return AdminPromoBootstrapResponse(attempted=True, created=False)
+@app.post("/api/admin/competitions/create-empty", response_model=SuperAdminCreateCompetitionResponse)
+async def admin_create_empty_competition(
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    if await _user_has_system_owner_role(user_id):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
+    if not settings.add_empty_competition_to_new_admin or settings.max_new_competitions <= 0:
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
+    if await _get_admin_competition_items(user_id):
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
+    total_competitions = await _get_total_active_competitions_count()
+    if total_competitions >= settings.max_new_competitions:
+        _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
 
-    profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+    profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
     email = profile.get("email") if isinstance(profile, dict) else None
-    if not isinstance(email, str) or "@" not in email:
-        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
-    local_part = email.split("@", 1)[0].strip()
-    if not local_part:
-        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_REQUEST", "api.error.invalid_request")
-
-    create_data = await _post_to_ords(
-        "superadmin/competitions",
+    data = await _post_to_ords(
+        "admin/competitions/create-empty",
         {
-            "name": f"{local_part} võistlus",
-            "description": "Sinu esimene võistlus siin -- muuda see endale sobivaks ja kutsu sõbrad osalema!",
+            "name": _default_new_admin_competition_name(email),
+            "description": None,
             "created_by": user_id,
+            "add_creator_as_organizer": "Y",
+            "max_admin_competitions": settings.max_competition_admin,
         },
     )
-    competition_id = create_data.get("competition_id") if isinstance(create_data, dict) else None
-    organizer_code = create_data.get("organizer_code") if isinstance(create_data, dict) else None
-    if not isinstance(competition_id, int):
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str) or not organizer_code.strip():
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    if not isinstance(organizer_code, str) or not organizer_code.strip():
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-
-    # Ensure the newly created competition is immediately linked to the logged-in
-    # user as organizer (same mechanism as organizer access-code join flow).
-    join_data = await _post_to_ords(
-        "organizers/register",
-        {
-            "user_id": user_id,
-            "access_code": organizer_code.strip(),
-        },
-    )
-    joined_competition_id = join_data.get("competition_id") if isinstance(join_data, dict) else None
-    if not isinstance(joined_competition_id, int) or joined_competition_id != competition_id:
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-
     await _ensure_default_terms_for_competition(competition_id)
-    return AdminPromoBootstrapResponse(attempted=True, created=True, competition_id=competition_id)
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
 
 
 @app.get("/api/admin/competitions/map-layers", response_model=AdminCompetitionMapLayersResponse)
@@ -3875,6 +4090,39 @@ async def competitor_competition_overlay_tile(
     return FileResponse(file_path, media_type="image/png")
 
 
+@app.post("/api/admin/competitions/copy", response_model=SuperAdminCreateCompetitionResponse)
+async def admin_copy_competition(
+    req: AdminCopyCompetitionRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> SuperAdminCreateCompetitionResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    admin_items = await _get_admin_competition_items(user_id)
+    if not any(int(item.get("competition_id") or 0) == req.source_competition_id for item in admin_items):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
+    data = await _post_to_ords(
+        "admin/competitions/copy",
+        {
+            "source_competition_id": req.source_competition_id,
+            "copy_questions": req.copy_questions,
+            "copy_organizers": req.copy_organizers,
+            "copy_overlay": req.copy_overlay,
+            "created_by": user_id,
+            "add_creator_as_organizer": "Y",
+            "max_admin_competitions": settings.max_competition_admin,
+        },
+    )
+    competition_id = data.get("competition_id") if isinstance(data, dict) else None
+    organizer_code = data.get("organizer_code") if isinstance(data, dict) else None
+    if not isinstance(competition_id, int) or not isinstance(organizer_code, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    await _ensure_default_terms_for_competition(competition_id)
+    return SuperAdminCreateCompetitionResponse(
+        competition_id=competition_id,
+        organizer_code=organizer_code,
+    )
+
+
 @app.get("/api/superadmin/session", response_model=SuperAdminSessionResponse)
 async def superadmin_session(request: Request, x_user_id: int | None = Header(default=None)) -> SuperAdminSessionResponse:
     user_id = await _require_system_owner_session_user(request, x_user_id)
@@ -3928,6 +4176,7 @@ async def superadmin_copy_competition(
             "source_competition_id": req.source_competition_id,
             "copy_questions": req.copy_questions,
             "copy_organizers": req.copy_organizers,
+            "copy_overlay": req.copy_overlay,
             "created_by": user_id,
         },
     )

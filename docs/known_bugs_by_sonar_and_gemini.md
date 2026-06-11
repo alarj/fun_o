@@ -330,6 +330,50 @@ Millal uuesti hinnata:
 - kui tokeni TTL-i soovitakse turvakaalutlustel lühendada;
 - enne pikemate või mitmepäevaste võistluste laiemat kasutust.
 
+### 2a.6 Access code genereerimise race condition `generate_unique_access_code(...)` kasutamisel
+
+Mõjutatud failid:
+- `db/oracle/api/05_api_packages_stub.sql`
+- `db/oracle/schema/11_access_code_global_unique.sql`
+
+Mõjutatud ala:
+- `generate_unique_access_code`
+- korraldaja-/võistlejakoodide loomise insert-vood
+
+Miks ei parandatud kohe:
+- praegune andmemudel kaitseb terviklust, sest `competition_access_codes(code)` peal on globaalne unikaalsusindeks;
+- see tähendab, et duplikaatkood ei pääse tabelisse isegi siis, kui kaks paralleelset sessiooni näevad sama koodi korraks “vabana”;
+- samas jääb alles töökindluse/concurrency risk: praegune loogika kasutab enne inserti `select count(*)` kontrolli ning suure koormuse või samaaegse loomise korral võib insert saada `dup_val_on_index`;
+- korrektne tugevam lahendus oleks retry-loop `dup_val_on_index` käsitlusega nendes voogudes, kus uut access code'i luuakse.
+
+Staatus:
+- teadlikult edasi lükatud töökindluse / concurrency parandus / backlog
+
+Millal uuesti hinnata:
+- kui access-code loomise koormus kasvab;
+- kui tekib päris `dup_val_on_index` viga tootmises või testides;
+- järgmises DB töökindluse paranduspassis.
+
+### ~~2a.7 Admin session refresh middleware käivitub ka `/api/health` päringul~~
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `admin_session_refresh_middleware`
+- `GET /api/health`
+
+Miks ei parandatud kohe:
+- ~~praegune middleware filtreerib õigesti välja staatilised failid ja töötab sessiooniloogika mõttes korrektselt;~~
+- ~~samas jääb `/api/health` endiselt `/api/` filtri alla ning võib monitooringu või load balanceri tihedate health-checkide korral teha tarbetut refresh-cookie taastamise tööd;~~
+- punkt on nüüd parandatud: refresh-cookie taastamise middleware käivitub ainult `/api/admin/*`, `/api/superadmin/*` ja `/api/auth/session` otspunktidel.
+
+Staatus:
+- tehtud 2026-06-11, backlogist eemaldatud
+
+Millal uuesti hinnata:
+- ainult siis, kui admin-session refresh scope tulevikus uuesti laieneb.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

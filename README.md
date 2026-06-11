@@ -49,7 +49,9 @@ Süsteem loob väärtust kolmes rollis.
 ### Korraldaja väärtus
 
 - võistluse, KP-de, küsimuste, vastuste ja koodide haldus ühest kohast;
+- uuele korraldajale võimalus alustada korraldaja koodiga liitumisest või luua kohe tühi uus võistlus, kui vastav seadistus on lubatud;
 - võimalus lisada võistlusele oma georeferentseeritud kaart overlayna ning kasutada seda admini kaardivaadetes pärast taustatöötluse valmimist;
+- võimalus kopeerida olemasolev võistlus ning soovi korral võtta kaasa KP-d, küsimused, teised korraldajad ja olemasolev oma kaart;
 - jooksev leaderboard ning detailne vaade vastustele/KP-de läbimisele;
 - võistluse lõpus automaatne tulemuste tabel (punktid + ajakriteerium);
 - vähem käsitsi arvutamist, vähem inimlikke vigu, parem läbipaistvus osalejatele.
@@ -82,6 +84,8 @@ Admin UI (`frontend_dist/admin.html`) kasutab samuti eraldi staatilisi asset-fai
 - üldine UI/API/i18n loogika: `frontend_dist/assets/admin-core.js`
 - admini kaartide ja kaardikihtide loogika: `frontend_dist/assets/admin-map.js`
 - admini workflow'd, dialoogid, renderdus ja bootstrap: `frontend_dist/assets/admin-main.js`
+- admini alglaadimisel hoitakse ekraan blokeeriva laadimisvaate all, kuni sessioon ja esimene vaateotsus on tehtud; tühi admin-vaade ei tohi hetkekski läbi vilksatada
+- kui sisselogitud admin ei ole ühegi võistluse korraldaja, näidatakse eraldi onboarding-vaadet, kus intro "Mis on fun-o?" avaneb samal lehel modalis nii eesti kui inglise keeles
 
 See arhitektuur toetab eesmärki hoida ärireeglid stabiilsena, vähendada UI-poolset “nutikust” ning tagada, et sama reegel kehtib kõigile klientidele ühtemoodi.
 

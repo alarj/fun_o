@@ -183,6 +183,7 @@ const humanizeError = (raw, details = null) => {
   if (msg.startsWith("admin.")) return tr(msg);
   if (msg === "api.error.invalid_access_code") return tr("admin.msg.invalid_access_code");
   if (msg === "api.error.already_registered") return tr("admin.msg.already_registered_organizer");
+  if (msg === "api.error.competition_admin_limit_reached") return tr("admin.msg.max_competitions_reached");
   if (msg === "api.error.unauthenticated") return tr("admin.msg.unauthenticated");
   const ordsBody = (details && typeof details.ords_body === "string") ? details.ords_body : "";
   const detailsText = `${ordsBody}`.toLowerCase();
@@ -198,13 +199,13 @@ const humanizeError = (raw, details = null) => {
     }
     return `${tr("admin.msg.error_generic")} ${msg}`;
   }
+  if (msg === "api.error.ords_request_failed") return tr(msg);
   return msg;
 };
 
 const qTextId = (lang) => `qText_${lang}`;
 const langLabel = (code) => (code || "").toLowerCase() === "en" ? "EN" : "ET";
 const uiLangCookieName = "funo_admin_ui_lang";
-const isPromo100Mode = new URLSearchParams(window.location.search).get("mode") === "promo100";
 const lastCompCookieName = () => currentUserId ? `funo_last_competition_u${currentUserId}` : null;
 
 const setCookie = (name, value, days = 365) => {
@@ -223,10 +224,24 @@ const getCookie = (name) => {
   return null;
 };
 
+const isAuthFailureResponse = (statusCode, detail) => {
+  const code = String(detail?.code || "").trim().toUpperCase();
+  const message = String(detail?.message || "").trim();
+  if (statusCode !== 401) return false;
+  return code === "UNAUTHENTICATED" || code === "GOOGLE_AUTH_REQUIRED" || message === "api.error.unauthenticated";
+};
+
+const notifyAdminAuthInvalidated = (detail = {}) => {
+  window.dispatchEvent(new CustomEvent("admin-auth-invalidated", { detail }));
+};
+
 async function get(url) {
   const r = await fetch(url);
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -239,6 +254,9 @@ async function post(url, body) {
   const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -251,6 +269,9 @@ async function postFormData(url, formData) {
   const r = await fetch(url, { method: "POST", body: formData });
   const d = await readApiResponse(r);
   if (!r.ok) {
+    if (isAuthFailureResponse(r.status, d?.detail)) {
+      notifyAdminAuthInvalidated({ status: r.status, url, detail: d?.detail || null });
+    }
     const err = new Error(d?.detail?.message || d?.detail?.code || tr("admin.msg.error_short"));
     err.details = d?.detail?.details || null;
     err.code = d?.detail?.code || null;
@@ -337,7 +358,7 @@ async function loadI18nMeta() {
 }
 
 function renderLangSelector() {
-  ["uiLang", "uiLangApp"].forEach((id) => {
+  ["uiLang", "uiLangApp", "uiLangNoOrg"].forEach((id) => {
     const sel = byId(id);
     if (!sel) return;
     sel.innerHTML = availableLangs.map((l) => `<option value="${esc(l)}">${langLabel(l)}</option>`).join("");
