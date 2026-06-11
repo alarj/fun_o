@@ -2359,7 +2359,12 @@ async def admin_session_refresh_middleware(request: Request, call_next):
     request.state.admin_session_refresh_error = None
     request.state.clear_admin_session = False
 
-    if request.url.path.startswith("/api/") and request.url.path not in ("/api/auth/google", "/api/auth/logout"):
+    path = request.url.path
+    if (
+        path.startswith("/api/admin/")
+        or path.startswith("/api/superadmin/")
+        or path == "/api/auth/session"
+    ):
         await _restore_admin_session_from_refresh_cookie(request)
 
     response = await call_next(request)
