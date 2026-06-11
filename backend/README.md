@@ -131,7 +131,9 @@ Session cookie flow:
   - `SESSION_REFRESH_COOKIE_NAME` (longer-lived refresh cookie, default `funo_session_refresh`)
 - When the access cookie has expired but refresh cookie is still valid, backend restores the admin session without forcing a fresh Google login.
 - Refresh restore validates the user only when the short-lived access cookie has expired, so ORDS load does not grow to one check per request.
+- Refresh-cookie taastamine kontrollib ka `token_kind = refresh`, et access-tokenit ei saaks kasutada refresh-cookie asemel.
 - `GET /api/auth/session` is the lightweight admin bootstrap/session endpoint for frontend reload flow: it restores `user_id`, `email` and `full_name` from current session context so admin UI can decide the first visible state without showing placeholder user text.
+- Kui refresh-cookie taastamise ajal tekib ORDS-i 5xx / unreachable tüüpi ajutine tõrge, backend ei kustuta admin küpsiseid; kaitstud admin API vastab sellisel juhul 503-ga, mitte ei sunni kasutajat kohe uuesti Google kaudu autentima.
 - If a protected admin/superadmin request later hits ORDS/DB with a deleted or soft-deleted admin user, backend treats that as session/auth failure (`401`) instead of surfacing a business error. Frontend returns the user to Google re-auth instead of showing a red technical error.
 - Anonymous competitor join/session flows are not changed by this rule; the re-auth handling is limited to admin/superadmin Google-session paths.
 - `POST /api/dev/login` sets competitor session cookie (`COMPETITOR_SESSION_COOKIE_NAME`, default `funo_competitor_session`) in dev mode (`APP_ENV=dev`).

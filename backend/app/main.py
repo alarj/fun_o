@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 from PIL import Image
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="fun_o API", version="0.3.0")
@@ -46,10 +46,7 @@ class Settings:
     lang_available: list[str] = [x.strip() for x in os.getenv("LANG_AVAILABLE", "et,en").split(",") if x.strip()]
     lang_default: str = os.getenv("LANG_DEFAULT", "et").strip() or "et"
     add_empty_competition_to_new_admin: bool = (
-        os.getenv(
-            "ADD_EMPTY_COMPETITION_TO_NEW_ADMIN",
-            os.getenv("ADD_EMPTY_COMPETITION_TO_NEW_ADMIN", "false"),
-        ).strip().lower() in ("1", "true", "y", "yes")
+        os.getenv("ADD_EMPTY_COMPETITION_TO_NEW_ADMIN", "false").strip().lower() in ("1", "true", "y", "yes")
     )
     max_new_competitions: int = int(os.getenv("MAX_NEW_COMPETITIONS", "100"))
     max_competition_admin: int = int(os.getenv("MAX_COMPETITION_ADMIN", "10"))
@@ -118,11 +115,14 @@ UTC_TS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 ADMIN_COMPETITIONS_TERMS_PATH = "admin/competitions/terms"
 ADMIN_CHECKPOINTS_PATH = "admin/checkpoints"
 API_ERROR_INVALID_ORDS_RESPONSE = "api.error.invalid_ords_response"
+API_ERROR_UNAUTHENTICATED = "api.error.unauthenticated"
 ADMIN_OVERLAY_INVALID_IMAGE_FILE_MSG = "admin.overlay.invalid_image_file_msg"
 ADMIN_OVERLAY_INVALID_WORLD_FILE_MSG = "admin.overlay.invalid_world_file_msg"
 ADMIN_OVERLAY_INVALID_LEST97_BOUNDS_MSG = "admin.overlay.invalid_lest97_bounds_msg"
 ADMIN_OVERLAY_IMAGE_FILE_SIZE_TOO_LARGE_MSG = "admin.overlay.image_file_size_too_large_msg"
 ADMIN_OVERLAY_IMAGE_DIMENSIONS_TOO_LARGE_MSG = "admin.overlay.image_dimensions_too_large_msg"
+ORDS_AUTH_USER_PROFILE_PATH = "auth/user-profile"
+TOKEN_KIND_REFRESH = "refresh"
 L_EST97_MIN_X = 300000.0
 L_EST97_MAX_X = 800000.0
 L_EST97_MIN_Y = 6300000.0
@@ -142,9 +142,9 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20010",), ("INVALID_GOOGLE_PROFILE", "api.error.invalid_google_profile")),
     (("ORA-20081",), ("INVALID_ORGANIZER_ACCESS_CODE", "api.error.invalid_access_code")),
     (("ORA-20082",), ("ALREADY_ORGANIZER", "api.error.already_registered")),
-    (("ORA-20071",), ("USER_NOT_FOUND", "api.error.unauthenticated")),
+    (("ORA-20071",), ("USER_NOT_FOUND", API_ERROR_UNAUTHENTICATED)),
     (("ORA-20210",), ("COMPETITION_ADMIN_LIMIT_REACHED", "api.error.competition_admin_limit_reached")),
-    (("ORA-20211",), ("GOOGLE_AUTH_REQUIRED", "api.error.unauthenticated")),
+    (("ORA-20211",), ("GOOGLE_AUTH_REQUIRED", API_ERROR_UNAUTHENTICATED)),
     (("ORA-20080",), ("INVALID_REQUEST", "api.error.invalid_submission")),
     (("ORA-20110", "ORA-20115"), ("INVALID_QUESTION_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-20113",), ("CHECKPOINT_HAS_QUESTION", "api.error.invalid_submission")),
@@ -1009,7 +1009,7 @@ def _make_admin_refresh_token(user_id: int, auth_provider: str) -> str:
         {
             "user_id": user_id,
             "auth_provider": auth_provider,
-            "token_kind": "refresh",
+            "token_kind": TOKEN_KIND_REFRESH,
             "exp": int(time.time()) + ttl_seconds,
         }
     )
@@ -1119,7 +1119,7 @@ def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: i
         return session_user_id
 
     if payload_user_id is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
     if x_user_id is not None and x_user_id != payload_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
     return payload_user_id
@@ -1128,14 +1128,14 @@ def _resolve_user_id(request: Request, payload_user_id: int | None, x_user_id: i
 def _require_google_session_user(request: Request, x_user_id: int | None = None) -> int:
     payload = _read_session_payload(request)
     if payload is None:
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
 
     session_user_id = payload.get("user_id")
     if not isinstance(session_user_id, int):
-        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_401_UNAUTHORIZED, "UNAUTHENTICATED", API_ERROR_UNAUTHENTICATED)
 
     if payload.get("auth_provider") != "google":
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "GOOGLE_AUTH_REQUIRED", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "GOOGLE_AUTH_REQUIRED", API_ERROR_UNAUTHENTICATED)
 
     if x_user_id is not None and x_user_id != session_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "USER_MISMATCH", "api.error.user_mismatch")
@@ -1209,6 +1209,10 @@ async def _restore_admin_session_from_refresh_cookie(request: Request) -> None:
             _mark_admin_session_for_clear(request)
         return
 
+    if refresh_payload.get("token_kind") != TOKEN_KIND_REFRESH:
+        _mark_admin_session_for_clear(request)
+        return
+
     user_id = refresh_payload.get("user_id")
     auth_provider = refresh_payload.get("auth_provider")
     if not isinstance(user_id, int) or auth_provider != "google":
@@ -1216,8 +1220,15 @@ async def _restore_admin_session_from_refresh_cookie(request: Request) -> None:
         return
 
     try:
-        profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
-    except Exception:
+        profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
+    except HTTPException as exc:
+        if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+            request.state.admin_session_refresh_error = ApiError(
+                code="SESSION_REFRESH_TEMPORARILY_UNAVAILABLE",
+                message="api.error.ords_unreachable",
+                details=exc.detail.get("details") if isinstance(exc.detail, dict) else None,
+            ).model_dump()
+            return
         _mark_admin_session_for_clear(request)
         return
 
@@ -1239,7 +1250,7 @@ def _resolve_ui_lang(lang_code: str | None) -> str:
 async def _require_system_owner_session_user(request: Request, x_user_id: int | None = None) -> int:
     user_id = _require_google_session_user(request, x_user_id)
     if not await _user_has_system_owner_role(user_id):
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
     return user_id
 
 
@@ -2345,12 +2356,24 @@ async def admin_session_refresh_middleware(request: Request, call_next):
     request.state.admin_session_payload = None
     request.state.admin_session_profile = None
     request.state.admin_session_refresh = None
+    request.state.admin_session_refresh_error = None
     request.state.clear_admin_session = False
 
     if request.url.path.startswith("/api/") and request.url.path not in ("/api/auth/google", "/api/auth/logout"):
         await _restore_admin_session_from_refresh_cookie(request)
 
     response = await call_next(request)
+
+    refresh_error = getattr(request.state, "admin_session_refresh_error", None)
+    if (
+        isinstance(refresh_error, dict)
+        and not bool(getattr(request.state, "clear_admin_session", False))
+        and response.status_code == status.HTTP_401_UNAUTHORIZED
+    ):
+        response = JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": refresh_error},
+        )
 
     refresh_payload = getattr(request.state, "admin_session_refresh", None)
     if isinstance(refresh_payload, dict):
@@ -2574,7 +2597,10 @@ async def auth_logout(response: Response) -> dict[str, bool]:
 @app.get("/api/auth/session", response_model=SessionInfoResponse)
 async def auth_session(request: Request) -> SessionInfoResponse:
     payload = _read_session_payload(request)
+    refresh_error = getattr(request.state, "admin_session_refresh_error", None)
     if payload is None:
+        if isinstance(refresh_error, dict):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=refresh_error)
         return SessionInfoResponse(authenticated=False)
     if payload.get("auth_provider") != "google":
         _mark_admin_session_for_clear(request)
@@ -2583,8 +2609,17 @@ async def auth_session(request: Request) -> SessionInfoResponse:
     profile = getattr(request.state, "admin_session_profile", None)
     if not isinstance(profile, dict) and user_id is not None:
         try:
-            profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
-        except Exception:
+            profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
+        except HTTPException as exc:
+            if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=ApiError(
+                        code="SESSION_PROFILE_TEMPORARILY_UNAVAILABLE",
+                        message="api.error.ords_unreachable",
+                        details=exc.detail.get("details") if isinstance(exc.detail, dict) else None,
+                    ).model_dump(),
+                ) from exc
             profile = None
     if not _is_active_google_profile(profile):
         _mark_admin_session_for_clear(request)
@@ -3770,7 +3805,7 @@ async def admin_create_empty_competition(
 ) -> SuperAdminCreateCompetitionResponse:
     user_id = _require_google_session_user(request, x_user_id)
     if await _user_has_system_owner_role(user_id):
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
     if not settings.add_empty_competition_to_new_admin or settings.max_new_competitions <= 0:
         _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
     if await _get_admin_competition_items(user_id):
@@ -3779,7 +3814,7 @@ async def admin_create_empty_competition(
     if total_competitions >= settings.max_new_competitions:
         _raise_api_error(status.HTTP_409_CONFLICT, "EMPTY_CREATE_DISABLED", "admin.no_org.empty_create_unavailable_msg")
 
-    profile = await _get_from_ords("auth/user-profile", {"user_id": user_id})
+    profile = await _get_from_ords(ORDS_AUTH_USER_PROFILE_PATH, {"user_id": user_id})
     email = profile.get("email") if isinstance(profile, dict) else None
     data = await _post_to_ords(
         "admin/competitions/create-empty",
@@ -4095,7 +4130,7 @@ async def admin_copy_competition(
     user_id = _require_google_session_user(request, x_user_id)
     admin_items = await _get_admin_competition_items(user_id)
     if not any(int(item.get("competition_id") or 0) == req.source_competition_id for item in admin_items):
-        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", "api.error.unauthenticated")
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "FORBIDDEN", API_ERROR_UNAUTHENTICATED)
     data = await _post_to_ords(
         "admin/competitions/copy",
         {

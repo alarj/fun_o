@@ -330,6 +330,27 @@ Millal uuesti hinnata:
 - kui tokeni TTL-i soovitakse turvakaalutlustel lühendada;
 - enne pikemate või mitmepäevaste võistluste laiemat kasutust.
 
+### 2a.6 Admin session refresh middleware käivitub ka `/api/health` päringul
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `admin_session_refresh_middleware`
+- `GET /api/health`
+
+Miks ei parandatud kohe:
+- praegune middleware filtreerib õigesti välja staatilised failid ja töötab sessiooniloogika mõttes korrektselt;
+- samas jääb `/api/health` endiselt `/api/` filtri alla ning võib monitooringu või load balanceri tihedate health-checkide korral teha tarbetut refresh-cookie taastamise tööd;
+- see ei ole praegu funktsionaalne bug ega turvarisk, kuid on mõistlik väike optimeerimine järgmises backend cleanup passis.
+
+Staatus:
+- teadlikult edasi lükatud jõudluse / hooldusvõla parandus / backlog
+
+Millal uuesti hinnata:
+- kui health-checkide sagedus suureneb;
+- kui tehakse järgmine FastAPI middleware või ORDS koormuse optimeerimise ring.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
