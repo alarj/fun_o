@@ -3767,42 +3767,6 @@ async def admin_onboarding_options(request: Request, x_user_id: int | None = Hea
         can_create_empty_competition=total_competitions < settings.max_new_competitions
     )
 
-    
-
-    """
-    create_data = await _post_to_ords(
-        "superadmin/competitions",
-        {
-            "name": f"{local_part} võistlus",
-            "description": "Sinu esimene võistlus siin -- muuda see endale sobivaks ja kutsu sõbrad osalema!",
-            "created_by": user_id,
-        },
-    )
-    competition_id = create_data.get("competition_id") if isinstance(create_data, dict) else None
-    organizer_code = create_data.get("organizer_code") if isinstance(create_data, dict) else None
-    if not isinstance(competition_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    if not isinstance(organizer_code, str) or not organizer_code.strip():
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-
-    # Ensure the newly created competition is immediately linked to the logged-in
-    # user as organizer (same mechanism as organizer access-code join flow).
-    join_data = await _post_to_ords(
-        "organizers/register",
-        {
-            "user_id": user_id,
-            "access_code": organizer_code.strip(),
-        },
-    )
-    joined_competition_id = join_data.get("competition_id") if isinstance(join_data, dict) else None
-    if not isinstance(joined_competition_id, int) or joined_competition_id != competition_id:
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-
-    await _ensure_default_terms_for_competition(competition_id)
-    return AdminOnboardingOptionsResponse(can_create_empty_competition=True)
-    """
-
-
 @app.post("/api/admin/competitions/create-empty", response_model=SuperAdminCreateCompetitionResponse)
 async def admin_create_empty_competition(
     request: Request,
