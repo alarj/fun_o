@@ -611,7 +611,7 @@ function selectedCompetitionUsesLocation() {
   return String(c?.use_location || "N").toUpperCase() === "Y";
 }
 
-function selectedCompetitionShowsUserLocation() {
+function selectedCompetitionShowsUserLocationMarker() {
   const c = getSelectedCompetition();
   const usesLocation = String(c?.use_location || "N").toUpperCase() === "Y";
   if (!usesLocation) return false;

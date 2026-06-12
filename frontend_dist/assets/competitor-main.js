@@ -429,10 +429,7 @@ async function init() {
   el("mapBtn").addEventListener("click", openCompMapModal);
   el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
   el("compMapHelpBtn").addEventListener("click", () => {
-    openHelpModal().catch(() => {
-      el("helpBody").innerHTML = `<p>${esc(tr("competitor.msg.help_load_failed"))}</p>`;
-      el("helpBackdrop").style.display = "flex";
-    });
+    openHelpModal();
   });
   el("compMapInfoBtn").addEventListener("click", () => {
     if (anyMapPopupOpen()) {

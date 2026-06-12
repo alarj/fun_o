@@ -220,23 +220,22 @@ Parandatud Gemini leiud, mida siia ei käsitleta avatud punktidena:
 
 ## 2a. Gemini backlog / UX täpsustused
 
-### 2a.1 Competitor map popupi üldsõnaline teade `Küsimusi ei ole..`
+### ~~2a.1 Competitor map popupi üldsõnaline teade `Küsimusi ei ole..`~~
 
 Mõjutatud fail:
 - `frontend_dist/assets/competitor-map.js`
 
 Miks ei parandatud kohe:
-- praegune popupi loogika eristab ainult kahte olekut: vastamise nupp või üldine “küsimusi ei ole” teade;
-- tehniliselt ei ole see funktsionaalne viga, sest küsimuse avamise lõplik kontroll toimub endiselt alles nupu vajutusel;
-- samas on Gemini tähelepanek sisuliselt õige: kasutajale võib olla eksitav näidata sama teksti nii juhul, kui KP-l tõesti küsimust ei ole, kui ka juhul, kui küsimus on olemas, kuid tingimused (kaugus, GPS, järjekord, START/FINISH reeglid) ei ole täidetud;
-- täpsemaks paranduseks tuleks boolean-tagastuse asemel viia popupi eelotsus staatusekoodidele (`TOO_FAR`, `NO_GPS`, `WRONG_SEQUENCE`, `START_REQUIRED`, `NO_QUESTION` jne) ja lisada vastavad tõlked.
+- ~~praegune popupi loogika eristab ainult kahte olekut: vastamise nupp või üldine “küsimusi ei ole” teade;~~
+- ~~tehniliselt ei ole see funktsionaalne viga, sest küsimuse avamise lõplik kontroll toimub endiselt alles nupu vajutusel;~~
+- ~~samas on Gemini tähelepanek sisuliselt õige: kasutajale võib olla eksitav näidata sama teksti nii juhul, kui KP-l tõesti küsimust ei ole, kui ka juhul, kui küsimus on olemas, kuid tingimused (kaugus, GPS, järjekord, START/FINISH reeglid) ei ole täidetud;~~
+- ~~täpsemaks paranduseks tuleks boolean-tagastuse asemel viia popupi eelotsus staatusekoodidele (`TOO_FAR`, `NO_GPS`, `WRONG_SEQUENCE`, `START_REQUIRED`, `NO_QUESTION` jne) ja lisada vastavad tõlked.~~
 
 Staatus:
-- teadlikult edasi lükatud UX-parandus / backlog
+- tehtud 2026-06-12, backlogist eemaldatud
 
 Millal uuesti hinnata:
-- kui tehakse järgmine competitor map popupi UX täpsustamise ring;
-- kui soovitakse vähendada kasutajate segadust olukorras, kus küsimus on olemas, aga pole veel vastatav.
+- ainult siis, kui popupi põhjusetekste soovitakse veel lühemaks või detailsemaks muuta.
 
 ### 2a.2 Admin info-modali HTML struktuurikontrolli valepositiivid toorete `<` / `>` märkide korral
 
@@ -353,6 +352,28 @@ Millal uuesti hinnata:
 - kui access-code loomise koormus kasvab;
 - kui tekib päris `dup_val_on_index` viga tootmises või testides;
 - järgmises DB töökindluse paranduspassis.
+
+### 2a.8 Admin onboarding "liitu koodiga" rea mobiilioverflow kitsastel ekraanidel
+
+Mõjutatud fail:
+- `frontend_dist/assets/app.css`
+
+Mõjutatud ala:
+- `.no-org-join-row`
+- sama rea `label`, `input` ja `button` laiuse/flex reeglid
+
+Miks ei parandatud kohe:
+- praegune paigutus kasutab `flex-wrap: nowrap` koos fikseeritud sisendlaiusega `20ch` ja nupu `min-width: 140px`;
+- väga kitsastel mobiiliekraanidel võib see põhjustada horisontaalse ülevoolu või ebamugava kokkusurumise;
+- tegemist on UX/responsiivsuse probleemiga admin onboarding vaates, mitte andmekao või äriloogika veaga;
+- käesoleva töö fookus oli kasutaja UI help-modal ja sellega otseselt seotud parandused.
+
+Staatus:
+- teadlikult edasi lükatud mobiili-UX parandus / backlog
+
+Millal uuesti hinnata:
+- kui tehakse järgmine admin onboarding UX pass;
+- kui tuleb päris seadmetest tagasiside kitsaste ekraanide horisontaalse kerimise kohta.
 
 ### ~~2a.7 Admin session refresh middleware käivitub ka `/api/health` päringul~~
 
