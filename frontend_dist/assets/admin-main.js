@@ -316,8 +316,12 @@ async function finishAdminLogin() {
   byId("appArea").classList.remove("hidden");
   renderNoOrgCardCopy();
   await refreshSuperadminNavButton();
-  const hasCompetitions = await loadCompetitions();
-  if (hasCompetitions) await loadView();
+  try {
+    const hasCompetitions = await loadCompetitions();
+    if (hasCompetitions) await loadView();
+  } catch (e) {
+    showMsg("topMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));
+  }
 }
 
 async function handleAdminAuthInvalidated() {

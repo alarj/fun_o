@@ -16,7 +16,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `competitions.radius_m` (number, meetrites)
   - Vaikimisi kauguslävi, mida kasutatakse KP-de puhul, kui KP-l eraldi raadiust pole määratud.
 - `competitions.show_competitor_location` (`Y`/`N`)
-  - Määrab, kas võistleja asukohta kuvatakse kaardil ja kas kaardivaates kasutatakse jälgimisrežiimi.
+  - Määrab ainult selle, kas võistleja sinist asukohamarkerit kuvatakse kaardil.
+  - See ei tohi välja lülitada kaardi pööramist, `follow`-režiimi ega asukohapõhist KP avatavuse kontrolli, kui `use_location='Y'`.
 
 ## 2. Kontrollpunkti taseme parameetrid
 
@@ -98,7 +99,16 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - kui kasutaja asukoha markerit selle võistluse jaoks kuvatakse ja viimane teadaolev asukoht on olemas, jääb marker viimasesse teadaolevasse punkti, kuid muutub halliks;
   - järgmise eduka GPS uuenduse järel staatustekst kaob ja marker taastub tavavärvi.
 
-### 5a. Võistleja võistluspõhine oma kaart
+### 5a. Võistleja asukohamarker vs kaardi käitumine
+
+- Kui `competition.use_location='Y'`, siis kaardivaade töötab ühtemoodi sõltumata sellest, kas `show_competitor_location='Y'` või `N`:
+  - KP popupid avanevad markerile klikkides;
+  - `follow`-režiim on kasutatav;
+  - `Heading-up` on kasutatav;
+  - asukohapõhiste KP-de avatavuse kontroll kasutab GPS-i samadel reeglitel.
+- Kui `show_competitor_location='N'`, siis ainus erinevus on see, et sinist kasutaja asukohamarkerit kaardile ei joonistata.
+
+### 5b. Võistleja võistluspõhine oma kaart
 
 - Uploadi valideerimise eeltingimus:
   - world file põhjal arvutatud overlay boundid peavad jääma Eesti L-EST97 mõistlikku piirkonda (X `300000..800000`, Y `6300000..7000000`);
@@ -129,7 +139,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - vastamata: `Y p`;
   - vastatud: `Y p Läbitud!`.
 - Popupi teine rida:
-  - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimust ei saa praeguses seisus veel vastata, kuvatakse tõlgetest tekst `Küsimusi ei ole..` / `No questions..`;
+  - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimust ei saa praeguses seisus veel vastata, kuvatakse põhjuspõhine lühisõnum tõlgetest (näiteks puuduv asukoht, liiga kaugel, START enne vajalik, vale järjekord, finish juba läbitud või küsimus puudub);
   - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimus võib olla vastatav, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
 - Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
 - `is_answered` on kasutajapõhine cache-andmestik.
@@ -168,7 +178,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 
 ## 7a. Kaardi suuna (`Heading-up`) reeglid
 
-- `Heading-up` nupp kuvatakse ainult siis, kui `show_competitor_location='Y'`.
+- `Heading-up` nupp kuvatakse siis, kui `use_location='Y'`.
 - Kui `Heading-up` on välja lülitatud, kaart jääb `north-up` režiimi (põhi üleval).
 - Kui `Heading-up` on sisse lülitatud, kaardi pööramine kasutab hübriidset allikaloogikat:
   - `COMPASS_ONLY`: kasutatakse kompassi suunda (koos jooksva bias-korrektsiooniga).

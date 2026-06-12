@@ -260,7 +260,7 @@ function ensureCompMapInit() {
 function updateFollowButton() {
   const btn = el("compMapFollowBtn");
   if (!btn) return;
-  if (!selectedCompetitionShowsUserLocation()) {
+  if (!selectedCompetitionUsesLocation()) {
     btn.style.display = "none";
     return;
   }
@@ -305,7 +305,7 @@ function applyGpsSignalLossState() {
 }
 
 function canUseHeadingMode() {
-  return selectedCompetitionShowsUserLocation();
+  return selectedCompetitionUsesLocation();
 }
 
 function formatHeadingDebugNum(value) {
@@ -326,6 +326,19 @@ function updateHeadingDebugBox() {
   if (!show) return;
   box.textContent =
     `${formatHeadingDebugState()}  bias=${formatHeadingDebugNum(mapHeadingBiasDeg)}  decl=${formatHeadingDebugNum(state.mapDeclination)}`;
+}
+
+function updateNorthIndicator() {
+  const indicator = el("compMapNorthIndicator");
+  if (!indicator) return;
+  const show = mapHeadingMode;
+  indicator.style.display = show ? "block" : "none";
+  if (!show) {
+    indicator.style.transform = "rotate(0deg)";
+    return;
+  }
+  const rotation = Number.isFinite(Number(mapHeadingCurrent)) ? -Number(mapHeadingCurrent) : 0;
+  indicator.style.transform = `rotate(${rotation}deg)`;
 }
 
 function resetMapHeadingRotation() {
@@ -558,6 +571,7 @@ function updateHeadingButton() {
   btn.classList.toggle("is-off", !(mapHeadingMode && visible));
   btn.classList.toggle("is-waiting", mapHeadingMode && visible && !mapHeadingHasSignal);
   updateHeadingDebugBox();
+  updateNorthIndicator();
 }
 
 function setHeadingMode(enabled) {
@@ -599,6 +613,7 @@ function setHeadingMode(enabled) {
   }
   updateHeadingButton();
   updateHeadingDebugBox();
+  updateNorthIndicator();
 }
 
 function applyHeadingFromGps(headingValue) {
@@ -656,10 +671,10 @@ function checkpointPopupLabel(cp) {
     ? ` ${tr("competitor.map.checkpoint_passed_suffix")}`
     : "";
   const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
-  const hasAnswerAction = canShowCheckpointAnswerAction(cp);
-  const secondLine = hasAnswerAction
+  const popupState = getCheckpointPopupState(cp);
+  const secondLine = popupState.canAnswer
     ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
-    : `<div class="cpPopupNoQuestion">${esc(tr("competitor.map.no_question_msg"))}</div>`;
+    : `<div class="cpPopupNoQuestion">${esc(tr(popupState.messageKey))}</div>`;
   return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
 }
 
@@ -691,11 +706,15 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
 }
 
-function canShowCheckpointAnswerAction(cp) {
+function getCheckpointPopupState(cp) {
   const checkpointId = Number(cp?.checkpoint_id || 0);
   const questionId = Number(cp?.question_id || 0);
-  if (checkpointId <= 0 || questionId <= 0) return false;
-  if (String(cp?.is_answered || "N").toUpperCase() === "Y") return false;
+  if (checkpointId <= 0 || questionId <= 0) {
+    return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
+  }
+  if (String(cp?.is_answered || "N").toUpperCase() === "Y") {
+    return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
+  }
 
   const rows = mapCheckpointRows();
   const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
@@ -703,40 +722,51 @@ function canShowCheckpointAnswerAction(cp) {
     normalizeCheckpointType(row?.checkpoint_type) === "FINISH"
     && String(row?.is_answered || "N").toUpperCase() === "Y"
   ));
-  if (finishAnswered) return false;
+  if (finishAnswered) {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_finished" };
+  }
 
   const startExists = rows.some((row) => normalizeCheckpointType(row?.checkpoint_type) === "START");
   const startAnswered = rows.some((row) => (
     normalizeCheckpointType(row?.checkpoint_type) === "START"
     && String(row?.is_answered || "N").toUpperCase() === "Y"
   ));
-  if (startExists && !startAnswered && checkpointType !== "START") return false;
+  if (startExists && !startAnswered && checkpointType !== "START") {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_start_required" };
+  }
 
   if (selectedCompetitionType() === "S") {
     if (!(startExists && !startAnswered && checkpointType === "START")) {
       const nextSequentialId = currentSequentialCheckpointId();
       if (nextSequentialId != null) {
-        if (checkpointType !== "NORMAL" || checkpointId !== nextSequentialId) return false;
+        if (checkpointType !== "NORMAL" || checkpointId !== nextSequentialId) {
+          return { canAnswer: false, messageKey: "competitor.map.access_reason_wrong_order" };
+        }
       } else if (checkpointType !== "FINISH") {
-        return false;
+        return { canAnswer: false, messageKey: "competitor.map.access_reason_wrong_order" };
       }
     }
   }
 
   const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
-  if (!locationRequired) return true;
+  if (!locationRequired) {
+    return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
+  }
   if (!(state.geo.enabled && Number.isFinite(Number(state.geo.latitude)) && Number.isFinite(Number(state.geo.longitude)))) {
-    return false;
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_missing_location" };
   }
 
   const lat = Number(cp?.latitude);
   const lon = Number(cp?.longitude);
   const effectiveRadius = Number(cp?.radius_m);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(effectiveRadius) || effectiveRadius <= 0) {
-    return false;
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_not_open" };
   }
   const distanceM = haversineMeters(Number(state.geo.latitude), Number(state.geo.longitude), lat, lon);
-  return Number.isFinite(distanceM) && distanceM <= effectiveRadius;
+  if (!(Number.isFinite(distanceM) && distanceM <= effectiveRadius)) {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_too_far" };
+  }
+  return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
 }
 
 function buildCompetitionMapPoints(items) {
@@ -1268,8 +1298,9 @@ function renderCompMap(items, opts = {}) {
     mapRings.push({ ring: marker, cp: point.rawCp, point });
     checkpointBounds.push([point.lat, point.lon]);
   });
-  const hasUserGeo = selectedCompetitionShowsUserLocation() && state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
-  if (hasUserGeo) {
+  const hasUserGeo = state.geo.enabled && state.geo.latitude != null && state.geo.longitude != null;
+  const showUserMarker = selectedCompetitionShowsUserLocationMarker() && hasUserGeo;
+  if (showUserMarker) {
     userPosMarker = L.marker([state.geo.latitude, state.geo.longitude], {
       icon: buildUserLocationMarkerIcon(mapGpsSignalLost),
       pane: "markerPane",
@@ -1325,9 +1356,12 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
   syncMapGpsSignalState(true);
   applyHeadingFromGps(gpsHeading);
   refreshCompMapPopupContents();
-  if (!selectedCompetitionShowsUserLocation()) return;
+  if (userPosMarker && !selectedCompetitionShowsUserLocationMarker()) {
+    compMap?.removeLayer(userPosMarker);
+    userPosMarker = null;
+  }
   if (!compMap) return;
-  if (!userPosMarker) {
+  if (selectedCompetitionShowsUserLocationMarker() && !userPosMarker) {
     userPosMarker = L.marker([lat, lon], {
       icon: buildUserLocationMarkerIcon(mapGpsSignalLost),
       pane: "markerPane",
@@ -1335,7 +1369,7 @@ function updateUserPositionMarker(lat, lon, accuracy, gpsHeading, gpsSpeed) {
     }).addTo(compMap);
     userPosMarker.bindPopup(tr("competitor.map.user_location_popup"));
     applyUserMarkerVisualState();
-  } else {
+  } else if (userPosMarker) {
     userPosMarker.setLatLng([lat, lon]);
     applyUserMarkerVisualState();
   }
@@ -1374,6 +1408,9 @@ async function openCompMapModal() {
   mapViewPersistenceEnabled = false;
   mapGpsSignalLost = false;
   mapHeadingPermissionAsked = false;
+  if (!selectedCompetitionShowsUserLocationMarker()) {
+    mapFollowUser = false;
+  }
   updateFollowButton();
   updateHeadingButton();
   await requestFreshGeolocationForMapOpen();
