@@ -319,12 +319,12 @@ function introLangCandidates() {
   return unique;
 }
 
-async function loadIntroHtml() {
-  const target = el("introBody");
+async function loadContentHtml(prefix, targetId) {
+  const target = el(targetId);
   target.innerHTML = "";
   const langs = introLangCandidates();
   const preferred = langs[0] || (i18nMeta.default_lang || "et");
-  const res = await apiGet(`/api/content/intro?lang=${encodeURIComponent(preferred)}`);
+  const res = await apiGet(`/api/content/${encodeURIComponent(prefix)}?lang=${encodeURIComponent(preferred)}`);
   if (!res.ok) return;
   const html = String(res.data?.html || "").trim();
   if (!html) return;
@@ -335,10 +335,24 @@ async function openIntroModal() {
   if (introLoading) return;
   introLoading = true;
   try {
-    await loadIntroHtml();
+    await loadContentHtml("intro", "introBody");
     el("introBackdrop").style.display = "flex";
   } finally {
     introLoading = false;
+  }
+}
+
+async function openHelpModal() {
+  if (helpLoading) return;
+  helpLoading = true;
+  try {
+    await loadContentHtml("help", "helpBody");
+    if (!String(el("helpBody").innerHTML || "").trim()) {
+      el("helpBody").innerHTML = `<p>${esc(tr("competitor.msg.help_load_failed"))}</p>`;
+    }
+    el("helpBackdrop").style.display = "flex";
+  } finally {
+    helpLoading = false;
   }
 }
 
@@ -406,8 +420,20 @@ async function init() {
   el("introBackdrop").addEventListener("click", (e) => {
     if (e.target === el("introBackdrop")) el("introBackdrop").style.display = "none";
   });
+  el("closeHelpBtn").addEventListener("click", () => {
+    el("helpBackdrop").style.display = "none";
+  });
+  el("helpBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("helpBackdrop")) el("helpBackdrop").style.display = "none";
+  });
   el("mapBtn").addEventListener("click", openCompMapModal);
   el("compMapCloseBtn").addEventListener("click", closeCompMapModal);
+  el("compMapHelpBtn").addEventListener("click", () => {
+    openHelpModal().catch(() => {
+      el("helpBody").innerHTML = `<p>${esc(tr("competitor.msg.help_load_failed"))}</p>`;
+      el("helpBackdrop").style.display = "flex";
+    });
+  });
   el("compMapInfoBtn").addEventListener("click", () => {
     if (anyMapPopupOpen()) {
       setMapInfoVisibility(false);
@@ -471,16 +497,6 @@ async function init() {
       return;
     }
     setHeadingMode(false);
-  });
-  el("compMapShowKpBtn").addEventListener("click", async () => {
-    closeCompMapModal();
-    const selectedCompetition = getSelectedCompetition();
-    const useLocation = String(selectedCompetition?.use_location || "N").toUpperCase() === "Y";
-    if (useLocation) {
-      await requestGeolocation();
-      if (state.geo.error) setMsg("answerMsg", state.geo.error, false);
-    }
-    if (state.selectedCompetitionId) await loadOpenCheckpoints();
   });
   el("showKpBtn").addEventListener("click", async () => {
     const selectedCompetition = getSelectedCompetition();

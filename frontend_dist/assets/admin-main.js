@@ -312,11 +312,11 @@ function openCompetitionCopyDialog() {
 }
 
 async function finishAdminLogin() {
+  const hasCompetitions = await loadCompetitions();
   byId("loginCard").classList.add("hidden");
   byId("appArea").classList.remove("hidden");
   renderNoOrgCardCopy();
   await refreshSuperadminNavButton();
-  const hasCompetitions = await loadCompetitions();
   if (hasCompetitions) await loadView();
 }
 

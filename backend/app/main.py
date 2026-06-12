@@ -2428,6 +2428,12 @@ async def get_intro_content(lang: str | None = None) -> IntroContentResponse:
     return IntroContentResponse(lang_code=resolved_lang, html=html or "")
 
 
+@app.get("/api/content/help", response_model=IntroContentResponse)
+async def get_help_content(lang: str | None = None) -> IntroContentResponse:
+    resolved_lang, html = _read_content_html_with_fallback("help", lang)
+    return IntroContentResponse(lang_code=resolved_lang, html=html or "")
+
+
 @app.get("/api/map-layers", response_model=MapLayersResponse)
 async def get_map_layers() -> MapLayersResponse:
     return MapLayersResponse(items=_load_map_layers_config())
