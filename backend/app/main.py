@@ -9,6 +9,7 @@ import shutil
 import re
 import time
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -2112,7 +2113,22 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
 
 
 def _format_route_hash_number(value: Any) -> str:
-    return f"{float(value):.6f}"
+    decimal_value = Decimal(str(value)).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    if decimal_value == 0:
+        decimal_value = Decimal("0.000000")
+    return format(decimal_value, "f")
+
+
+def _update_adler32(text: str, a: int, b: int) -> tuple[int, int]:
+    mod = 65521
+    for ch in text:
+        a = (a + ord(ch)) % mod
+        b = (b + a) % mod
+    return a, b
+
+
+def _adler32_hex(a: int, b: int) -> str:
+    return f"{((b << 16) + a):08X}"
 
 
 def _compute_route_source_hash_from_items(competition_type: str | None, items: list[dict[str, Any]]) -> str:
@@ -2141,11 +2157,15 @@ def _compute_route_source_hash_from_items(competition_type: str | None, items: l
             )
         )
     sortable.sort(key=lambda x: x[0])
-    payload = normalized_type + "|" + "|".join(
-        f"{checkpoint_id}:{checkpoint_type}:{order_value}:{latitude}:{longitude}"
-        for checkpoint_id, checkpoint_type, order_value, latitude, longitude in sortable
-    )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
+    states = [(1, 0), (1, 0), (1, 0), (1, 0)]
+    prefixes = ("A", "B", "C", "D")
+    for idx, prefix in enumerate(prefixes):
+        states[idx] = _update_adler32(f"{prefix}|{normalized_type}|", states[idx][0], states[idx][1])
+    for checkpoint_id, checkpoint_type, order_value, latitude, longitude in sortable:
+        row_text = f"{checkpoint_id}:{checkpoint_type}:{order_value}:{latitude}:{longitude}|"
+        for idx in range(4):
+            states[idx] = _update_adler32(row_text, states[idx][0], states[idx][1])
+    return "".join(_adler32_hex(a, b) for a, b in states)
 
 
 def _normalize_route_payload(route_raw: Any) -> dict[str, Any] | None:

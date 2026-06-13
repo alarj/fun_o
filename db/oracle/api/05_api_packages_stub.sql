@@ -3816,7 +3816,6 @@ create or replace package body pkg_competition_routes as
   c_status_processing constant varchar2(20) := 'PROCESSING';
   c_status_ready constant varchar2(20) := 'READY';
   c_status_failed constant varchar2(20) := 'FAILED';
-  c_hash_algo constant varchar2(10) := 'SHA256';
 
   type route_point_rec is record (
     checkpoint_id checkpoints.checkpoint_id%type,
@@ -3864,7 +3863,44 @@ create or replace package body pkg_competition_routes as
   begin
     l_a := power(sin(l_lat_diff_rad / 2), 2)
       + cos(l_lat1_rad) * cos(l_lat2_rad) * power(sin(l_lon_diff_rad / 2), 2);
-    return l_earth_radius_m * 2 * asin(sqrt(l_a));
+    return l_earth_radius_m * 2 * asin(sqrt(least(1.0, greatest(0.0, l_a))));
+  end;
+
+  function format_hash_number(
+    p_value in number
+  ) return varchar2 is
+    l_abs varchar2(64);
+    l_rounded number := round(p_value, 6);
+  begin
+    l_abs := to_char(abs(l_rounded), 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,');
+    if l_rounded < 0 then
+      return '-' || l_abs;
+    end if;
+    return l_abs;
+  end;
+
+  procedure update_adler32(
+    p_text in varchar2,
+    io_a in out number,
+    io_b in out number
+  ) is
+    c_mod constant number := 65521;
+  begin
+    if p_text is null then
+      return;
+    end if;
+    for i in 1 .. length(p_text) loop
+      io_a := mod(io_a + ascii(substr(p_text, i, 1)), c_mod);
+      io_b := mod(io_b + io_a, c_mod);
+    end loop;
+  end;
+
+  function adler32_hex(
+    p_a in number,
+    p_b in number
+  ) return varchar2 is
+  begin
+    return lpad(upper(to_char(p_b * 65536 + p_a, 'FMXXXXXXXX')), 8, '0');
   end;
 
   function distance_of(
@@ -3879,6 +3915,14 @@ create or replace package body pkg_competition_routes as
   exception
     when no_data_found then
       return 0;
+  end;
+
+  function flag_is_set(
+    p_flags in number_tab,
+    p_idx in pls_integer
+  ) return boolean is
+  begin
+    return p_flags.exists(p_idx) and nvl(p_flags(p_idx), 0) <> 0;
   end;
 
   function get_competition_type(
@@ -3901,47 +3945,87 @@ create or replace package body pkg_competition_routes as
     p_competition_id in number
   ) return varchar2 is
     l_hash varchar2(64);
+    l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
+    l_a1 number := 1;
+    l_b1 number := 0;
+    l_a2 number := 1;
+    l_b2 number := 0;
+    l_a3 number := 1;
+    l_b3 number := 0;
+    l_a4 number := 1;
+    l_b4 number := 0;
+    l_row_text varchar2(4000);
   begin
-    select standard_hash(
-             pkg_common.normalize_competition_type(c.type)
-             || '|'
-             || coalesce(
-                  listagg(
-                    to_char(cp.checkpoint_id)
-                    || ':'
-                    || pkg_common.normalize_checkpoint_type(cp.checkpoint_type)
-                    || ':'
-                    || nvl(to_char(cp.order_no), '')
-                    || ':'
-                    || to_char(cp.latitude, 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,')
-                    || ':'
-                    || to_char(cp.longitude, 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,'),
-                    '|'
-                  ) within group (order by cp.checkpoint_id),
-                  ''
-                ),
-             c_hash_algo
-           )
-      into l_hash
+    select pkg_common.normalize_competition_type(c.type)
+      into l_comp_type
       from competitions c
-      left join checkpoints cp
-        on cp.competition_id = c.competition_id
-       and (cp.end_date is null or cp.end_date > sysdate)
-       and cp.latitude is not null
-       and cp.longitude is not null
-       and exists (
-         select 1
-           from questions q
-          where q.checkpoint_id = cp.checkpoint_id
-            and (q.end_date is null or q.end_date > sysdate)
-       )
      where c.competition_id = p_competition_id
-       and (c.end_date is null or c.end_date > sysdate)
-     group by pkg_common.normalize_competition_type(c.type);
+       and (c.end_date is null or c.end_date > sysdate);
+
+    update_adler32('A|' || l_comp_type || '|', l_a1, l_b1);
+    update_adler32('B|' || l_comp_type || '|', l_a2, l_b2);
+    update_adler32('C|' || l_comp_type || '|', l_a3, l_b3);
+    update_adler32('D|' || l_comp_type || '|', l_a4, l_b4);
+
+    for rec in (
+      select cp.checkpoint_id,
+             pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
+             cp.order_no,
+             cp.latitude,
+             cp.longitude
+        from checkpoints cp
+       where cp.competition_id = p_competition_id
+         and (cp.end_date is null or cp.end_date > sysdate)
+         and cp.latitude is not null
+         and cp.longitude is not null
+         and exists (
+           select 1
+             from questions q
+            where q.checkpoint_id = cp.checkpoint_id
+              and (q.end_date is null or q.end_date > sysdate)
+         )
+       order by cp.checkpoint_id
+    ) loop
+      l_row_text :=
+        to_char(rec.checkpoint_id)
+        || ':'
+        || rec.checkpoint_type
+        || ':'
+        || nvl(to_char(rec.order_no), '')
+        || ':'
+        || format_hash_number(rec.latitude)
+        || ':'
+        || format_hash_number(rec.longitude)
+        || '|';
+      update_adler32(l_row_text, l_a1, l_b1);
+      update_adler32(l_row_text, l_a2, l_b2);
+      update_adler32(l_row_text, l_a3, l_b3);
+      update_adler32(l_row_text, l_a4, l_b4);
+    end loop;
+
+    l_hash := adler32_hex(l_a1, l_b1)
+      || adler32_hex(l_a2, l_b2)
+      || adler32_hex(l_a3, l_b3)
+      || adler32_hex(l_a4, l_b4);
     return l_hash;
   exception
     when no_data_found then
-      return standard_hash(pkg_common.c_competition_type_random || '|', c_hash_algo);
+      l_a1 := 1;
+      l_b1 := 0;
+      l_a2 := 1;
+      l_b2 := 0;
+      l_a3 := 1;
+      l_b3 := 0;
+      l_a4 := 1;
+      l_b4 := 0;
+      update_adler32('A|' || pkg_common.c_competition_type_random || '|', l_a1, l_b1);
+      update_adler32('B|' || pkg_common.c_competition_type_random || '|', l_a2, l_b2);
+      update_adler32('C|' || pkg_common.c_competition_type_random || '|', l_a3, l_b3);
+      update_adler32('D|' || pkg_common.c_competition_type_random || '|', l_a4, l_b4);
+      return adler32_hex(l_a1, l_b1)
+        || adler32_hex(l_a2, l_b2)
+        || adler32_hex(l_a3, l_b3)
+        || adler32_hex(l_a4, l_b4);
   end;
 
   procedure load_route_points(
@@ -4181,7 +4265,7 @@ create or replace package body pkg_competition_routes as
       end if;
 
       for i in 1 .. p_point_count loop
-        if nvl(l_visited(i), 0) = 0 and (p_finish_idx = 0 or i <> p_finish_idx) then
+        if not flag_is_set(l_visited, i) and (p_finish_idx = 0 or i <> p_finish_idx) then
           l_visited(i) := 1;
           l_current_order(p_order_len + 1) := i;
           dfs(
@@ -4326,7 +4410,7 @@ create or replace package body pkg_competition_routes as
         l_next_idx := 0;
         l_next_distance := null;
         for candidate in 1 .. p_point_count loop
-          if nvl(l_visited(candidate), 0) = 0 and (p_finish_idx = 0 or candidate <> p_finish_idx) then
+          if not flag_is_set(l_visited, candidate) and (p_finish_idx = 0 or candidate <> p_finish_idx) then
             if l_next_distance is null or distance_of(p_matrix, l_current_idx, candidate) < l_next_distance then
               l_next_distance := distance_of(p_matrix, l_current_idx, candidate);
               l_next_idx := candidate;
@@ -4439,7 +4523,7 @@ create or replace package body pkg_competition_routes as
     l_route_json clob;
     l_hash varchar2(64);
     l_exact_threshold number := nvl(pkg_app_settings.get_number('ROUTE_R_EXACT_THRESHOLD', 10), 10);
-    l_started_at timestamp := systimestamp;
+    l_started_at timestamp with time zone := systimestamp;
     l_duration_ms number := 0;
   begin
     l_hash := get_current_source_hash(p_competition_id);
@@ -4502,7 +4586,14 @@ create or replace package body pkg_competition_routes as
       end if;
     end if;
 
-    l_duration_ms := round((cast(systimestamp as date) - cast(l_started_at as date)) * 86400000);
+    l_duration_ms := round(
+      (
+        extract(day from (systimestamp - l_started_at)) * 86400
+        + extract(hour from (systimestamp - l_started_at)) * 3600
+        + extract(minute from (systimestamp - l_started_at)) * 60
+        + extract(second from (systimestamp - l_started_at))
+      ) * 1000
+    );
     save_route_result(
       p_competition_id => p_competition_id,
       p_calc_status => c_status_ready,
@@ -4515,7 +4606,14 @@ create or replace package body pkg_competition_routes as
     );
   exception
     when others then
-      l_duration_ms := round((cast(systimestamp as date) - cast(l_started_at as date)) * 86400000);
+      l_duration_ms := round(
+        (
+          extract(day from (systimestamp - l_started_at)) * 86400
+          + extract(hour from (systimestamp - l_started_at)) * 3600
+          + extract(minute from (systimestamp - l_started_at)) * 60
+          + extract(second from (systimestamp - l_started_at))
+        ) * 1000
+      );
       save_route_result(
         p_competition_id => p_competition_id,
         p_calc_status => c_status_failed,
@@ -4663,8 +4761,15 @@ create or replace package body pkg_competition_routes as
       );
     commit;
 
-    execute_route_calculation(p_competition_id);
-    commit;
+    begin
+      execute_route_calculation(p_competition_id);
+      commit;
+    exception
+      when others then
+        commit;
+        raise;
+    end;
+
     get_route_snapshot_json(p_competition_id => p_competition_id, o_item_json => o_item_json);
   end;
 
