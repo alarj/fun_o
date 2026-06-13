@@ -311,8 +311,11 @@ class CompetitorCompetitionsResponse(BaseModel):
 
 
 class CompetitorOpenCheckpointsResponse(BaseModel):
+    competition_type: str | None = None
+    current_source_hash: str | None = None
     declination: float = 0.0
     declination_last_updated: str | None = None
+    route: dict[str, Any] | None = None
     items: list[dict[str, Any]]
 
 class CompetitorCheckpointAccessRequest(BaseModel):
@@ -635,6 +638,23 @@ class AdminCreateQuestionAnswerResponse(BaseModel):
 
 
 class AdminCompetitionOverviewResponse(BaseModel):
+    data: dict[str, Any]
+
+
+class AdminCompetitionRouteRequest(BaseModel):
+    competition_id: int
+
+
+class AdminCompetitionRouteActionRequest(BaseModel):
+    competition_id: int
+    requested_by: int | None = None
+
+
+class AdminCompetitionRouteProcessPendingRequest(BaseModel):
+    limit: int | None = None
+
+
+class AdminCompetitionRouteResponse(BaseModel):
     data: dict[str, Any]
 
 
@@ -2091,6 +2111,63 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     return 2.0 * earth_radius_m * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
 
 
+def _format_route_hash_number(value: Any) -> str:
+    return f"{float(value):.6f}"
+
+
+def _compute_route_source_hash_from_items(competition_type: str | None, items: list[dict[str, Any]]) -> str:
+    normalized_type = str(competition_type or "R").strip().upper() or "R"
+    sortable: list[tuple[int, str, str, str, str]] = []
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        checkpoint_id = row.get("checkpoint_id")
+        latitude = row.get("latitude")
+        longitude = row.get("longitude")
+        if not isinstance(checkpoint_id, int):
+            continue
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            continue
+        checkpoint_type = str(row.get("checkpoint_type") or "NORMAL").strip().upper() or "NORMAL"
+        order_no = row.get("checkpoint_order_no")
+        order_value = str(int(order_no)) if isinstance(order_no, int) else ""
+        sortable.append(
+            (
+                checkpoint_id,
+                checkpoint_type,
+                order_value,
+                _format_route_hash_number(latitude),
+                _format_route_hash_number(longitude),
+            )
+        )
+    sortable.sort(key=lambda x: x[0])
+    payload = normalized_type + "|" + "|".join(
+        f"{checkpoint_id}:{checkpoint_type}:{order_value}:{latitude}:{longitude}"
+        for checkpoint_id, checkpoint_type, order_value, latitude, longitude in sortable
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
+
+
+def _normalize_route_payload(route_raw: Any) -> dict[str, Any] | None:
+    if isinstance(route_raw, str):
+        try:
+            route_raw = json.loads(route_raw)
+        except Exception:
+            return None
+    if not isinstance(route_raw, dict):
+        return None
+    route = dict(route_raw)
+    route_order_raw = route.get("route_order_json")
+    if isinstance(route_order_raw, str):
+        try:
+            route["route_order_json"] = json.loads(route_order_raw)
+        except Exception:
+            route["route_order_json"] = None
+    elif route_order_raw is not None and not isinstance(route_order_raw, list):
+        route["route_order_json"] = None
+    return route
+
+
 def _normalize_competition_type(raw: Any) -> str:
     value = str(raw or "R").strip().upper()
     return "S" if value == "S" else "R"
@@ -2319,9 +2396,12 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
         cached_items = cached.get("items")
         if isinstance(cached_items, list):
             return {
+                "competition_type": cached.get("competition_type"),
+                "current_source_hash": cached.get("current_source_hash"),
                 "items": cached_items,
                 "declination": cached.get("declination", 0.0),
                 "declination_last_updated": cached.get("declination_last_updated"),
+                "route": cached.get("route"),
             }
 
     ords_response = await _get_from_ords(
@@ -2333,13 +2413,27 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
     items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
+    competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
+    current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
+    current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
     declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
     declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
     declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
+    route = _normalize_route_payload(ords_response.get("route") if isinstance(ords_response, dict) else None)
+    locally_computed_hash = _compute_route_source_hash_from_items(competition_type, items)
+    route_valid = False
+    if current_source_hash and current_source_hash == locally_computed_hash and isinstance(route, dict):
+        calculated_source_hash = route.get("calculated_source_hash")
+        route_valid = isinstance(calculated_source_hash, str) and calculated_source_hash == current_source_hash
+    if not route_valid:
+        route = None
     payload = {
+        "competition_type": competition_type,
+        "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
         "items": items,
         "declination": declination,
         "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
+        "route": route,
     }
     map_checkpoints_cache[key] = {"cached_at": now, **payload}
     return payload
@@ -3068,9 +3162,12 @@ async def competitor_map_checkpoints(
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
     payload = await _get_map_checkpoints_payload(competition_id=competition_id, user_id=resolved_user_id)
     return CompetitorOpenCheckpointsResponse(
+        competition_type=payload.get("competition_type") if isinstance(payload.get("competition_type"), str) else None,
+        current_source_hash=payload.get("current_source_hash") if isinstance(payload.get("current_source_hash"), str) else None,
         items=payload.get("items") if isinstance(payload.get("items"), list) else [],
         declination=float(payload.get("declination", 0.0)) if isinstance(payload.get("declination"), (int, float)) else 0.0,
         declination_last_updated=payload.get("declination_last_updated") if isinstance(payload.get("declination_last_updated"), str) else None,
+        route=payload.get("route") if isinstance(payload.get("route"), dict) else None,
     )
 
 
@@ -3695,6 +3792,53 @@ async def admin_competition_overview(competition_id: int, request: Request, x_us
     _ = _require_google_session_user(request, x_user_id)
     data = await _get_from_ords("admin/competition-overview", {"competition_id": competition_id})
     return AdminCompetitionOverviewResponse(data=data if isinstance(data, dict) else {})
+
+
+@app.get("/api/admin/competitions/route", response_model=AdminCompetitionRouteResponse)
+async def admin_competition_route(competition_id: int, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCompetitionRouteResponse:
+    _ = _require_google_session_user(request, x_user_id)
+    data = await _get_from_ords("admin/competitions/route", {"competition_id": competition_id})
+    return AdminCompetitionRouteResponse(data=data if isinstance(data, dict) else {})
+
+
+@app.post("/api/admin/competitions/route/request")
+async def admin_request_competition_route(req: AdminCompetitionRouteActionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    await _post_to_ords(
+        "admin/competitions/route/request",
+        {
+            "competition_id": req.competition_id,
+            "requested_by": req.requested_by if isinstance(req.requested_by, int) else user_id,
+        },
+    )
+    return {"ok": True}
+
+
+@app.post("/api/admin/competitions/route/calculate-now", response_model=AdminCompetitionRouteResponse)
+async def admin_calculate_competition_route_now(req: AdminCompetitionRouteActionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> AdminCompetitionRouteResponse:
+    user_id = _require_google_session_user(request, x_user_id)
+    data = await _post_to_ords(
+        "admin/competitions/route/calculate-now",
+        {
+            "competition_id": req.competition_id,
+            "requested_by": req.requested_by if isinstance(req.requested_by, int) else user_id,
+        },
+    )
+    _invalidate_competition_cache(req.competition_id)
+    return AdminCompetitionRouteResponse(data=data if isinstance(data, dict) else {})
+
+
+@app.post("/api/admin/competitions/routes/process-pending")
+async def admin_process_pending_competition_routes(req: AdminCompetitionRouteProcessPendingRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, int]:
+    _ = _require_google_session_user(request, x_user_id)
+    data = await _post_to_ords(
+        "admin/competitions/routes/process-pending",
+        {"limit": req.limit} if isinstance(req.limit, int) else {},
+    )
+    map_checkpoints_cache.clear()
+    open_checkpoints_last_response.clear()
+    processed_count = data.get("processed_count") if isinstance(data, dict) else 0
+    return {"processed_count": processed_count if isinstance(processed_count, int) else 0}
 
 
 @app.get("/api/admin/questions-overview", response_model=AdminQuestionsOverviewResponse)

@@ -95,6 +95,39 @@ create table competition_declinations (
   constraint fk_comp_declinations_comp foreign key (competition_id) references competitions(competition_id)
 );
 
+create table app_settings (
+  setting_key varchar2(100) primary key,
+  setting_value varchar2(4000),
+  setting_type varchar2(20),
+  description varchar2(1000),
+  updated_at timestamp,
+  updated_by number,
+  constraint chk_app_settings_type check (setting_type in ('STRING', 'NUMBER', 'BOOLEAN', 'JSON'))
+);
+
+create table competition_routes (
+  competition_id number primary key,
+  calc_status varchar2(20),
+  route_length_m number,
+  algorithm_code varchar2(30),
+  included_checkpoint_count number,
+  route_order_json clob,
+  calculated_source_hash varchar2(64),
+  requested_at timestamp,
+  started_at timestamp,
+  calculated_at timestamp,
+  calculation_duration_ms number,
+  attempt_count number default 0,
+  error_message varchar2(2000),
+  created_at timestamp default systimestamp,
+  updated_at timestamp default systimestamp,
+  constraint fk_comp_routes_comp foreign key (competition_id) references competitions(competition_id),
+  constraint chk_comp_routes_status check (calc_status in ('PENDING', 'PROCESSING', 'READY', 'FAILED')),
+  constraint chk_comp_routes_attempt_count check (attempt_count >= 0),
+  constraint chk_comp_routes_duration check (calculation_duration_ms is null or calculation_duration_ms >= 0),
+  constraint chk_comp_routes_json check (route_order_json is json)
+);
+
 create table competition_access_codes (
   access_code_id number primary key,
   competition_id number not null,
@@ -460,6 +493,11 @@ create unique index ux_active_cmo_comp on competition_map_overlays (
   case when end_date is null then competition_id end
 );
 
+create index ix_comp_routes_status_requested on competition_routes (
+  calc_status,
+  requested_at
+);
+
 create unique index ux_active_cp_alias_ci on competition_participants (
   case when end_date is null then competition_id end,
   case when end_date is null then nlssort(trim(alias_display), 'NLS_SORT=BINARY_CI') end
@@ -532,5 +570,42 @@ insert into roles(role_id, role_code, role_name, start_date)
 values (seq_roles.nextval, 'ORGANIZER', 'Organizer', trunc(sysdate));
 insert into roles(role_id, role_code, role_name, start_date)
 values (seq_roles.nextval, 'COMPETITOR', 'Competitor', trunc(sysdate));
+
+insert into app_settings(setting_key, setting_value, setting_type, description, updated_at)
+values ('ROUTE_R_EXACT_THRESHOLD', '10', 'NUMBER', 'Maximum included checkpoint count for exact R route calculation.', systimestamp);
+
+insert into app_settings(setting_key, setting_value, setting_type, description, updated_at)
+values ('ROUTE_JOB_BATCH_SIZE', '10', 'NUMBER', 'Maximum number of pending route calculations processed per scheduler run.', systimestamp);
+
+insert into app_settings(setting_key, setting_value, setting_type, description, updated_at)
+values ('ROUTE_HEURISTIC_SEED_COUNT', '6', 'NUMBER', 'Maximum number of seed starts for heuristic R route calculation.', systimestamp);
+
+insert into app_settings(setting_key, setting_value, setting_type, description, updated_at)
+values ('ROUTE_PROCESSING_TIMEOUT_MINUTES', '180', 'NUMBER', 'Timeout after which stuck PROCESSING route calculations are marked FAILED.', systimestamp);
+
+begin
+  dbms_scheduler.create_job(
+    job_name        => 'FUNO_ROUTE_CALC_HOURLY',
+    job_type        => 'PLSQL_BLOCK',
+    job_action      => 'declare l_processed_count number; begin l_processed_count := FUNO_APP.pkg_competition_routes.process_pending_routes; end;',
+    start_date      => systimestamp,
+    repeat_interval => 'FREQ=HOURLY;INTERVAL=1',
+    enabled         => true,
+    comments        => 'Processes pending competition route calculations once per hour.'
+  );
+exception
+  when others then
+    if sqlcode = -27477 then
+      dbms_scheduler.set_attribute(
+        name      => 'FUNO_ROUTE_CALC_HOURLY',
+        attribute => 'repeat_interval',
+        value     => 'FREQ=HOURLY;INTERVAL=1'
+      );
+      dbms_scheduler.enable('FUNO_ROUTE_CALC_HOURLY');
+    else
+      raise;
+    end if;
+end;
+/
 
 commit;

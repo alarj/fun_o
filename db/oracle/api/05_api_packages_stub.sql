@@ -3732,6 +3732,1000 @@ create or replace package pkg_admin_content as
 end pkg_admin_content;
 /
 
+create or replace package pkg_app_settings as
+  function get_string(
+    p_setting_key in varchar2,
+    p_default_value in varchar2 default null
+  ) return varchar2;
+
+  function get_number(
+    p_setting_key in varchar2,
+    p_default_value in number default null
+  ) return number;
+end pkg_app_settings;
+/
+
+create or replace package body pkg_app_settings as
+  function get_string(
+    p_setting_key in varchar2,
+    p_default_value in varchar2 default null
+  ) return varchar2 is
+    l_value app_settings.setting_value%type;
+  begin
+    select s.setting_value
+      into l_value
+      from app_settings s
+     where upper(s.setting_key) = upper(trim(p_setting_key));
+    return l_value;
+  exception
+    when no_data_found then
+      return p_default_value;
+  end;
+
+  function get_number(
+    p_setting_key in varchar2,
+    p_default_value in number default null
+  ) return number is
+    l_value app_settings.setting_value%type;
+  begin
+    l_value := get_string(p_setting_key => p_setting_key, p_default_value => null);
+    if trim(l_value) is null then
+      return p_default_value;
+    end if;
+    return to_number(trim(l_value));
+  exception
+    when value_error then
+      return p_default_value;
+  end;
+end pkg_app_settings;
+/
+
+create or replace package pkg_competition_routes as
+  function get_competition_type(
+    p_competition_id in number
+  ) return varchar2;
+
+  function get_current_source_hash(
+    p_competition_id in number
+  ) return varchar2;
+
+  procedure get_route_snapshot_json(
+    p_competition_id in number,
+    o_item_json out clob
+  );
+
+  procedure request_route_recalc(
+    p_competition_id in number,
+    p_requested_by in number default null
+  );
+
+  procedure calculate_route_now(
+    p_competition_id in number,
+    p_requested_by in number default null,
+    o_item_json out clob
+  );
+
+  function process_pending_routes(
+    p_limit in number default null
+  ) return number;
+end pkg_competition_routes;
+/
+
+create or replace package body pkg_competition_routes as
+  c_status_pending constant varchar2(20) := 'PENDING';
+  c_status_processing constant varchar2(20) := 'PROCESSING';
+  c_status_ready constant varchar2(20) := 'READY';
+  c_status_failed constant varchar2(20) := 'FAILED';
+  c_hash_algo constant varchar2(10) := 'SHA256';
+
+  type route_point_rec is record (
+    checkpoint_id checkpoints.checkpoint_id%type,
+    checkpoint_type varchar2(10),
+    order_no checkpoints.order_no%type,
+    latitude checkpoints.latitude%type,
+    longitude checkpoints.longitude%type
+  );
+  type route_point_tab is table of route_point_rec index by pls_integer;
+  type number_tab is table of number index by pls_integer;
+  type matrix_tab is table of number index by varchar2(64);
+
+  function matrix_key(p_i in pls_integer, p_j in pls_integer) return varchar2 is
+  begin
+    return to_char(p_i) || ':' || to_char(p_j);
+  end;
+
+  function route_mode_suffix(
+    p_start_idx in pls_integer,
+    p_finish_idx in pls_integer
+  ) return varchar2 is
+  begin
+    if p_start_idx > 0 and p_finish_idx > 0 then
+      return 'START_FINISH';
+    elsif p_start_idx > 0 then
+      return 'START';
+    elsif p_finish_idx > 0 then
+      return 'FINISH';
+    end if;
+    return 'OPEN';
+  end;
+
+  function haversine_meters(
+    p_lat1 in number,
+    p_lon1 in number,
+    p_lat2 in number,
+    p_lon2 in number
+  ) return number is
+    l_earth_radius_m constant number := 6371000;
+    l_lat1_rad number := p_lat1 * 0.017453292519943295;
+    l_lat2_rad number := p_lat2 * 0.017453292519943295;
+    l_lat_diff_rad number := (p_lat2 - p_lat1) * 0.017453292519943295;
+    l_lon_diff_rad number := (p_lon2 - p_lon1) * 0.017453292519943295;
+    l_a number;
+  begin
+    l_a := power(sin(l_lat_diff_rad / 2), 2)
+      + cos(l_lat1_rad) * cos(l_lat2_rad) * power(sin(l_lon_diff_rad / 2), 2);
+    return l_earth_radius_m * 2 * asin(sqrt(l_a));
+  end;
+
+  function distance_of(
+    p_matrix in matrix_tab,
+    p_i in pls_integer,
+    p_j in pls_integer
+  ) return number is
+    l_key varchar2(64);
+  begin
+    l_key := matrix_key(p_i, p_j);
+    return nvl(p_matrix(l_key), 0);
+  exception
+    when no_data_found then
+      return 0;
+  end;
+
+  function get_competition_type(
+    p_competition_id in number
+  ) return varchar2 is
+    l_type competitions.type%type;
+  begin
+    select pkg_common.normalize_competition_type(c.type)
+      into l_type
+      from competitions c
+     where c.competition_id = p_competition_id
+       and (c.end_date is null or c.end_date > sysdate);
+    return l_type;
+  exception
+    when no_data_found then
+      return pkg_common.c_competition_type_random;
+  end;
+
+  function get_current_source_hash(
+    p_competition_id in number
+  ) return varchar2 is
+    l_hash varchar2(64);
+  begin
+    select standard_hash(
+             pkg_common.normalize_competition_type(c.type)
+             || '|'
+             || coalesce(
+                  listagg(
+                    to_char(cp.checkpoint_id)
+                    || ':'
+                    || pkg_common.normalize_checkpoint_type(cp.checkpoint_type)
+                    || ':'
+                    || nvl(to_char(cp.order_no), '')
+                    || ':'
+                    || to_char(cp.latitude, 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,')
+                    || ':'
+                    || to_char(cp.longitude, 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,'),
+                    '|'
+                  ) within group (order by cp.checkpoint_id),
+                  ''
+                ),
+             c_hash_algo
+           )
+      into l_hash
+      from competitions c
+      left join checkpoints cp
+        on cp.competition_id = c.competition_id
+       and (cp.end_date is null or cp.end_date > sysdate)
+       and cp.latitude is not null
+       and cp.longitude is not null
+       and exists (
+         select 1
+           from questions q
+          where q.checkpoint_id = cp.checkpoint_id
+            and (q.end_date is null or q.end_date > sysdate)
+       )
+     where c.competition_id = p_competition_id
+       and (c.end_date is null or c.end_date > sysdate)
+     group by pkg_common.normalize_competition_type(c.type);
+    return l_hash;
+  exception
+    when no_data_found then
+      return standard_hash(pkg_common.c_competition_type_random || '|', c_hash_algo);
+  end;
+
+  procedure load_route_points(
+    p_competition_id in number,
+    o_competition_type out varchar2,
+    o_points out route_point_tab,
+    o_point_count out pls_integer,
+    o_start_idx out pls_integer,
+    o_finish_idx out pls_integer
+  ) is
+    l_idx pls_integer := 0;
+  begin
+    o_competition_type := get_competition_type(p_competition_id);
+    o_points.delete;
+    o_start_idx := 0;
+    o_finish_idx := 0;
+
+    for rec in (
+      select cp.checkpoint_id,
+             pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
+             cp.order_no,
+             cp.latitude,
+             cp.longitude
+        from checkpoints cp
+       where cp.competition_id = p_competition_id
+         and (cp.end_date is null or cp.end_date > sysdate)
+         and cp.latitude is not null
+         and cp.longitude is not null
+         and exists (
+           select 1
+             from questions q
+            where q.checkpoint_id = cp.checkpoint_id
+              and (q.end_date is null or q.end_date > sysdate)
+         )
+       order by cp.checkpoint_id
+    ) loop
+      l_idx := l_idx + 1;
+      o_points(l_idx).checkpoint_id := rec.checkpoint_id;
+      o_points(l_idx).checkpoint_type := rec.checkpoint_type;
+      o_points(l_idx).order_no := rec.order_no;
+      o_points(l_idx).latitude := rec.latitude;
+      o_points(l_idx).longitude := rec.longitude;
+      if rec.checkpoint_type = pkg_common.c_checkpoint_type_start then
+        o_start_idx := l_idx;
+      elsif rec.checkpoint_type = pkg_common.c_checkpoint_type_finish then
+        o_finish_idx := l_idx;
+      end if;
+    end loop;
+
+    o_point_count := l_idx;
+  end;
+
+  procedure build_distance_matrix(
+    p_points in route_point_tab,
+    p_point_count in pls_integer,
+    o_matrix out matrix_tab
+  ) is
+    l_distance number;
+  begin
+    o_matrix.delete;
+    for i in 1 .. p_point_count loop
+      o_matrix(matrix_key(i, i)) := 0;
+      for j in i + 1 .. p_point_count loop
+        l_distance := haversine_meters(
+          p_points(i).latitude,
+          p_points(i).longitude,
+          p_points(j).latitude,
+          p_points(j).longitude
+        );
+        o_matrix(matrix_key(i, j)) := l_distance;
+        o_matrix(matrix_key(j, i)) := l_distance;
+      end loop;
+    end loop;
+  end;
+
+  function build_route_json(
+    p_points in route_point_tab,
+    p_order in number_tab,
+    p_route_count in pls_integer
+  ) return clob is
+    l_json clob;
+  begin
+    dbms_lob.createtemporary(l_json, true);
+    dbms_lob.append(l_json, '[');
+    for i in 1 .. p_route_count loop
+      if i > 1 then
+        dbms_lob.append(l_json, ',');
+      end if;
+      dbms_lob.append(
+        l_json,
+        json_object(
+          'seq' value i,
+          'checkpoint_id' value p_points(p_order(i)).checkpoint_id,
+          'checkpoint_type' value p_points(p_order(i)).checkpoint_type,
+          'order_no' value p_points(p_order(i)).order_no
+        )
+      );
+    end loop;
+    dbms_lob.append(l_json, ']');
+    return l_json;
+  end;
+
+  procedure solve_sequential_route(
+    p_points in route_point_tab,
+    p_point_count in pls_integer,
+    p_matrix in matrix_tab,
+    o_order out number_tab,
+    o_route_count out pls_integer,
+    o_length_m out number
+  ) is
+    l_tmp number;
+  begin
+    o_order.delete;
+    o_route_count := p_point_count;
+    o_length_m := 0;
+    for i in 1 .. p_point_count loop
+      o_order(i) := i;
+    end loop;
+
+    if p_point_count > 1 then
+      for i in 1 .. p_point_count - 1 loop
+        for j in i + 1 .. p_point_count loop
+          if nvl(p_points(o_order(i)).order_no, 0) > nvl(p_points(o_order(j)).order_no, 0)
+             or (
+               nvl(p_points(o_order(i)).order_no, 0) = nvl(p_points(o_order(j)).order_no, 0)
+               and p_points(o_order(i)).checkpoint_id > p_points(o_order(j)).checkpoint_id
+             ) then
+            l_tmp := o_order(i);
+            o_order(i) := o_order(j);
+            o_order(j) := l_tmp;
+          end if;
+        end loop;
+      end loop;
+    end if;
+
+    for i in 2 .. p_point_count loop
+      o_length_m := o_length_m + distance_of(p_matrix, o_order(i - 1), o_order(i));
+    end loop;
+  end;
+
+  procedure apply_two_opt(
+    p_order in out nocopy number_tab,
+    p_route_count in pls_integer,
+    p_matrix in matrix_tab
+  ) is
+    l_improved boolean := true;
+    l_swap number;
+    l_delta number;
+    l_left pls_integer;
+    l_right pls_integer;
+  begin
+    if p_route_count < 4 then
+      return;
+    end if;
+
+    while l_improved loop
+      l_improved := false;
+      for i in 2 .. p_route_count - 2 loop
+        for k in i + 1 .. p_route_count - 1 loop
+          l_delta :=
+            distance_of(p_matrix, p_order(i - 1), p_order(k))
+            + distance_of(p_matrix, p_order(i), p_order(k + 1))
+            - distance_of(p_matrix, p_order(i - 1), p_order(i))
+            - distance_of(p_matrix, p_order(k), p_order(k + 1));
+          if l_delta < -0.0001 then
+            l_left := i;
+            l_right := k;
+            while l_left < l_right loop
+              l_swap := p_order(l_left);
+              p_order(l_left) := p_order(l_right);
+              p_order(l_right) := l_swap;
+              l_left := l_left + 1;
+              l_right := l_right - 1;
+            end loop;
+            l_improved := true;
+          end if;
+        end loop;
+      end loop;
+    end loop;
+  end;
+
+  function route_length_from_order(
+    p_order in number_tab,
+    p_route_count in pls_integer,
+    p_matrix in matrix_tab
+  ) return number is
+    l_length number := 0;
+  begin
+    for i in 2 .. p_route_count loop
+      l_length := l_length + distance_of(p_matrix, p_order(i - 1), p_order(i));
+    end loop;
+    return l_length;
+  end;
+
+  procedure solve_random_exact_route(
+    p_points in route_point_tab,
+    p_point_count in pls_integer,
+    p_matrix in matrix_tab,
+    p_start_idx in pls_integer,
+    p_finish_idx in pls_integer,
+    o_algorithm_code out varchar2,
+    o_order out number_tab,
+    o_route_count out pls_integer,
+    o_length_m out number
+  ) is
+    l_best_order number_tab;
+    l_current_order number_tab;
+    l_visited number_tab;
+    l_best_length number := null;
+    l_seed_count pls_integer := 0;
+    l_target_len pls_integer := case when p_finish_idx > 0 then p_point_count - 1 else p_point_count end;
+
+    procedure dfs(
+      p_order_len in pls_integer,
+      p_current_idx in pls_integer,
+      p_cost in number
+    ) is
+      l_total_cost number;
+    begin
+      if p_cost >= nvl(l_best_length, 1e99) then
+        return;
+      end if;
+
+      if p_order_len = l_target_len then
+        l_total_cost := p_cost;
+        if p_finish_idx > 0 then
+          l_total_cost := l_total_cost + distance_of(p_matrix, p_current_idx, p_finish_idx);
+          l_current_order(p_point_count) := p_finish_idx;
+        end if;
+        if l_best_length is null or l_total_cost < l_best_length then
+          l_best_length := l_total_cost;
+          for x in 1 .. case when p_finish_idx > 0 then p_point_count else p_order_len end loop
+            l_best_order(x) := l_current_order(x);
+          end loop;
+        end if;
+        return;
+      end if;
+
+      for i in 1 .. p_point_count loop
+        if nvl(l_visited(i), 0) = 0 and (p_finish_idx = 0 or i <> p_finish_idx) then
+          l_visited(i) := 1;
+          l_current_order(p_order_len + 1) := i;
+          dfs(
+            p_order_len => p_order_len + 1,
+            p_current_idx => i,
+            p_cost => p_cost + distance_of(p_matrix, p_current_idx, i)
+          );
+          l_visited(i) := 0;
+        end if;
+      end loop;
+    end;
+  begin
+    l_visited.delete;
+    l_best_order.delete;
+    l_current_order.delete;
+
+    if p_point_count = 0 then
+      o_order.delete;
+      o_route_count := 0;
+      o_length_m := 0;
+      o_algorithm_code := 'EMPTY';
+      return;
+    elsif p_point_count = 1 then
+      o_order(1) := 1;
+      o_route_count := 1;
+      o_length_m := 0;
+      o_algorithm_code := 'SINGLE';
+      return;
+    end if;
+
+    if p_start_idx > 0 then
+      l_seed_count := 1;
+      l_visited(p_start_idx) := 1;
+      l_current_order(1) := p_start_idx;
+      dfs(1, p_start_idx, 0);
+      l_visited(p_start_idx) := 0;
+    else
+      for seed in 1 .. p_point_count loop
+        if p_finish_idx = 0 or seed <> p_finish_idx then
+          l_seed_count := l_seed_count + 1;
+          l_visited(seed) := 1;
+          l_current_order(1) := seed;
+          dfs(1, seed, 0);
+          l_visited(seed) := 0;
+        end if;
+      end loop;
+    end if;
+
+    o_route_count := case when p_finish_idx > 0 then p_point_count else p_point_count end;
+    for i in 1 .. o_route_count loop
+      o_order(i) := l_best_order(i);
+    end loop;
+    o_length_m := nvl(l_best_length, 0);
+    o_algorithm_code := 'R_EXACT_' || route_mode_suffix(p_start_idx, p_finish_idx);
+  end;
+
+  procedure solve_random_heuristic_route(
+    p_points in route_point_tab,
+    p_point_count in pls_integer,
+    p_matrix in matrix_tab,
+    p_start_idx in pls_integer,
+    p_finish_idx in pls_integer,
+    o_algorithm_code out varchar2,
+    o_order out number_tab,
+    o_route_count out pls_integer,
+    o_length_m out number
+  ) is
+    l_best_order number_tab;
+    l_work_order number_tab;
+    l_visited number_tab;
+    l_best_length number := null;
+    l_route_length number;
+    l_seed_limit pls_integer := greatest(1, least(p_point_count, nvl(pkg_app_settings.get_number('ROUTE_HEURISTIC_SEED_COUNT', 6), 6)));
+    l_seed_candidates number_tab;
+    l_seed_count pls_integer := 0;
+    l_current_idx pls_integer;
+    l_next_idx pls_integer;
+    l_next_distance number;
+    l_last_pos pls_integer;
+
+    procedure add_seed(p_idx in pls_integer) is
+      l_exists number := 0;
+    begin
+      if p_idx <= 0 or p_idx > p_point_count then
+        return;
+      end if;
+      if p_finish_idx > 0 and p_idx = p_finish_idx then
+        return;
+      end if;
+      for i in 1 .. l_seed_count loop
+        if l_seed_candidates(i) = p_idx then
+          l_exists := 1;
+          exit;
+        end if;
+      end loop;
+      if l_exists = 0 and l_seed_count < l_seed_limit then
+        l_seed_count := l_seed_count + 1;
+        l_seed_candidates(l_seed_count) := p_idx;
+      end if;
+    end;
+  begin
+    if p_point_count = 0 then
+      o_order.delete;
+      o_route_count := 0;
+      o_length_m := 0;
+      o_algorithm_code := 'EMPTY';
+      return;
+    elsif p_point_count = 1 then
+      o_order(1) := 1;
+      o_route_count := 1;
+      o_length_m := 0;
+      o_algorithm_code := 'SINGLE';
+      return;
+    end if;
+
+    if p_start_idx > 0 then
+      add_seed(p_start_idx);
+    else
+      add_seed(1);
+      add_seed(p_point_count);
+      for i in 1 .. p_point_count loop
+        if l_seed_count >= l_seed_limit then
+          exit;
+        end if;
+        add_seed(i);
+      end loop;
+    end if;
+
+    for seed_pos in 1 .. greatest(l_seed_count, 1) loop
+      l_work_order.delete;
+      l_visited.delete;
+      if p_start_idx > 0 then
+        l_work_order(1) := p_start_idx;
+      else
+        l_work_order(1) := l_seed_candidates(seed_pos);
+      end if;
+      l_visited(l_work_order(1)) := 1;
+      l_current_idx := l_work_order(1);
+      l_last_pos := 1;
+
+      while l_last_pos < p_point_count - case when p_finish_idx > 0 then 1 else 0 end loop
+        l_next_idx := 0;
+        l_next_distance := null;
+        for candidate in 1 .. p_point_count loop
+          if nvl(l_visited(candidate), 0) = 0 and (p_finish_idx = 0 or candidate <> p_finish_idx) then
+            if l_next_distance is null or distance_of(p_matrix, l_current_idx, candidate) < l_next_distance then
+              l_next_distance := distance_of(p_matrix, l_current_idx, candidate);
+              l_next_idx := candidate;
+            end if;
+          end if;
+        end loop;
+        exit when l_next_idx = 0;
+        l_last_pos := l_last_pos + 1;
+        l_work_order(l_last_pos) := l_next_idx;
+        l_visited(l_next_idx) := 1;
+        l_current_idx := l_next_idx;
+      end loop;
+
+      if p_finish_idx > 0 then
+        l_work_order(p_point_count) := p_finish_idx;
+      end if;
+
+      apply_two_opt(l_work_order, p_point_count, p_matrix);
+      l_route_length := route_length_from_order(l_work_order, p_point_count, p_matrix);
+      if l_best_length is null or l_route_length < l_best_length then
+        l_best_length := l_route_length;
+        for i in 1 .. p_point_count loop
+          l_best_order(i) := l_work_order(i);
+        end loop;
+      end if;
+    end loop;
+
+    o_route_count := p_point_count;
+    for i in 1 .. p_point_count loop
+      o_order(i) := l_best_order(i);
+    end loop;
+    o_length_m := nvl(l_best_length, 0);
+    o_algorithm_code := 'R_HEUR_' || route_mode_suffix(p_start_idx, p_finish_idx);
+  end;
+
+  procedure save_route_result(
+    p_competition_id in number,
+    p_calc_status in varchar2,
+    p_route_length_m in number,
+    p_algorithm_code in varchar2,
+    p_included_checkpoint_count in number,
+    p_route_order_json in clob,
+    p_calculated_source_hash in varchar2,
+    p_calculation_duration_ms in number,
+    p_error_message in varchar2 default null
+  ) is
+  begin
+    merge into competition_routes cr
+    using (
+      select p_competition_id as competition_id from dual
+    ) src
+    on (cr.competition_id = src.competition_id)
+    when matched then
+      update set cr.calc_status = p_calc_status,
+                 cr.route_length_m = p_route_length_m,
+                 cr.algorithm_code = p_algorithm_code,
+                 cr.included_checkpoint_count = p_included_checkpoint_count,
+                 cr.route_order_json = p_route_order_json,
+                 cr.calculated_source_hash = p_calculated_source_hash,
+                 cr.calculated_at = case when p_calc_status in (c_status_ready, c_status_failed) then systimestamp else cr.calculated_at end,
+                 cr.calculation_duration_ms = p_calculation_duration_ms,
+                 cr.error_message = p_error_message,
+                 cr.updated_at = systimestamp
+    when not matched then
+      insert (
+        competition_id,
+        calc_status,
+        route_length_m,
+        algorithm_code,
+        included_checkpoint_count,
+        route_order_json,
+        calculated_source_hash,
+        calculated_at,
+        calculation_duration_ms,
+        attempt_count,
+        error_message,
+        created_at,
+        updated_at
+      )
+      values (
+        p_competition_id,
+        p_calc_status,
+        p_route_length_m,
+        p_algorithm_code,
+        p_included_checkpoint_count,
+        p_route_order_json,
+        p_calculated_source_hash,
+        case when p_calc_status in (c_status_ready, c_status_failed) then systimestamp else null end,
+        p_calculation_duration_ms,
+        0,
+        p_error_message,
+        systimestamp,
+        systimestamp
+      );
+  end;
+
+  procedure execute_route_calculation(
+    p_competition_id in number
+  ) is
+    l_competition_type varchar2(1);
+    l_points route_point_tab;
+    l_point_count pls_integer := 0;
+    l_start_idx pls_integer := 0;
+    l_finish_idx pls_integer := 0;
+    l_matrix matrix_tab;
+    l_order number_tab;
+    l_route_count pls_integer := 0;
+    l_length_m number := 0;
+    l_algorithm_code varchar2(30);
+    l_route_json clob;
+    l_hash varchar2(64);
+    l_exact_threshold number := nvl(pkg_app_settings.get_number('ROUTE_R_EXACT_THRESHOLD', 10), 10);
+    l_started_at timestamp := systimestamp;
+    l_duration_ms number := 0;
+  begin
+    l_hash := get_current_source_hash(p_competition_id);
+    load_route_points(
+      p_competition_id => p_competition_id,
+      o_competition_type => l_competition_type,
+      o_points => l_points,
+      o_point_count => l_point_count,
+      o_start_idx => l_start_idx,
+      o_finish_idx => l_finish_idx
+    );
+
+    if l_point_count = 0 then
+      l_algorithm_code := 'EMPTY';
+      l_route_count := 0;
+      l_length_m := 0;
+      l_route_json := '[]';
+    else
+      build_distance_matrix(l_points, l_point_count, l_matrix);
+      if l_competition_type = pkg_common.c_competition_type_sequential then
+        solve_sequential_route(
+          p_points => l_points,
+          p_point_count => l_point_count,
+          p_matrix => l_matrix,
+          o_order => l_order,
+          o_route_count => l_route_count,
+          o_length_m => l_length_m
+        );
+        l_algorithm_code := 'S_EXACT';
+      elsif l_point_count <= l_exact_threshold then
+        solve_random_exact_route(
+          p_points => l_points,
+          p_point_count => l_point_count,
+          p_matrix => l_matrix,
+          p_start_idx => l_start_idx,
+          p_finish_idx => l_finish_idx,
+          o_algorithm_code => l_algorithm_code,
+          o_order => l_order,
+          o_route_count => l_route_count,
+          o_length_m => l_length_m
+        );
+      else
+        solve_random_heuristic_route(
+          p_points => l_points,
+          p_point_count => l_point_count,
+          p_matrix => l_matrix,
+          p_start_idx => l_start_idx,
+          p_finish_idx => l_finish_idx,
+          o_algorithm_code => l_algorithm_code,
+          o_order => l_order,
+          o_route_count => l_route_count,
+          o_length_m => l_length_m
+        );
+      end if;
+
+      if l_route_count > 0 then
+        l_route_json := build_route_json(l_points, l_order, l_route_count);
+      else
+        l_route_json := '[]';
+      end if;
+    end if;
+
+    l_duration_ms := round((cast(systimestamp as date) - cast(l_started_at as date)) * 86400000);
+    save_route_result(
+      p_competition_id => p_competition_id,
+      p_calc_status => c_status_ready,
+      p_route_length_m => round(nvl(l_length_m, 0)),
+      p_algorithm_code => l_algorithm_code,
+      p_included_checkpoint_count => l_point_count,
+      p_route_order_json => l_route_json,
+      p_calculated_source_hash => l_hash,
+      p_calculation_duration_ms => l_duration_ms
+    );
+  exception
+    when others then
+      l_duration_ms := round((cast(systimestamp as date) - cast(l_started_at as date)) * 86400000);
+      save_route_result(
+        p_competition_id => p_competition_id,
+        p_calc_status => c_status_failed,
+        p_route_length_m => null,
+        p_algorithm_code => null,
+        p_included_checkpoint_count => null,
+        p_route_order_json => null,
+        p_calculated_source_hash => null,
+        p_calculation_duration_ms => l_duration_ms,
+        p_error_message => substr(sqlerrm, 1, 2000)
+      );
+      raise;
+  end;
+
+  procedure get_route_snapshot_json(
+    p_competition_id in number,
+    o_item_json out clob
+  ) is
+  begin
+    begin
+      select json_object(
+               'competition_id' value cr.competition_id,
+               'calc_status' value cr.calc_status,
+               'route_length_m' value cr.route_length_m,
+               'algorithm_code' value cr.algorithm_code,
+               'included_checkpoint_count' value cr.included_checkpoint_count,
+               'route_order_json' value nvl(cr.route_order_json, '[]') format json,
+               'calculated_source_hash' value cr.calculated_source_hash,
+               'requested_at' value case when cr.requested_at is not null then to_char(cr.requested_at, pkg_common.c_iso_ts_format) else null end,
+               'started_at' value case when cr.started_at is not null then to_char(cr.started_at, pkg_common.c_iso_ts_format) else null end,
+               'calculated_at' value case when cr.calculated_at is not null then to_char(cr.calculated_at, pkg_common.c_iso_ts_format) else null end,
+               'calculation_duration_ms' value cr.calculation_duration_ms,
+               'attempt_count' value cr.attempt_count,
+               'error_message' value cr.error_message
+               returning clob
+             )
+        into o_item_json
+        from competition_routes cr
+       where cr.competition_id = p_competition_id;
+    exception
+      when no_data_found then
+        o_item_json := null;
+    end;
+  end;
+
+  procedure request_route_recalc(
+    p_competition_id in number,
+    p_requested_by in number default null
+  ) is
+    l_calc_status competition_routes.calc_status%type;
+    l_current_hash varchar2(64);
+    l_calculated_hash competition_routes.calculated_source_hash%type;
+    l_comp_type varchar2(1);
+  begin
+    l_comp_type := get_competition_type(p_competition_id);
+    if l_comp_type <> pkg_common.c_competition_type_random then
+      raise_application_error(-20250, 'route request queue is supported only for R competitions');
+    end if;
+
+    l_current_hash := get_current_source_hash(p_competition_id);
+    begin
+      select cr.calc_status, cr.calculated_source_hash
+        into l_calc_status, l_calculated_hash
+        from competition_routes cr
+       where cr.competition_id = p_competition_id;
+      if l_calc_status = c_status_processing then
+        raise_application_error(-20251, 'route calculation is already processing');
+      end if;
+      if l_calc_status = c_status_ready and l_calculated_hash = l_current_hash then
+        raise_application_error(-20252, 'route calculation is already current');
+      end if;
+
+      update competition_routes
+         set calc_status = c_status_pending,
+             requested_at = systimestamp,
+             error_message = null,
+             updated_at = systimestamp
+       where competition_id = p_competition_id;
+    exception
+      when no_data_found then
+        insert into competition_routes(
+          competition_id,
+          calc_status,
+          requested_at,
+          attempt_count,
+          created_at,
+          updated_at
+        )
+        values (
+          p_competition_id,
+          c_status_pending,
+          systimestamp,
+          0,
+          systimestamp,
+          systimestamp
+        );
+    end;
+    commit;
+  end;
+
+  procedure calculate_route_now(
+    p_competition_id in number,
+    p_requested_by in number default null,
+    o_item_json out clob
+  ) is
+    l_processing_count number := 0;
+  begin
+    select count(*)
+      into l_processing_count
+      from competition_routes cr
+     where cr.calc_status = c_status_processing;
+
+    if l_processing_count > 0 then
+      raise_application_error(-20253, 'another route calculation is already processing');
+    end if;
+
+    merge into competition_routes cr
+    using (select p_competition_id as competition_id from dual) src
+    on (cr.competition_id = src.competition_id)
+    when matched then
+      update set cr.calc_status = c_status_processing,
+                 cr.started_at = systimestamp,
+                 cr.requested_at = systimestamp,
+                 cr.attempt_count = nvl(cr.attempt_count, 0) + 1,
+                 cr.error_message = null,
+                 cr.updated_at = systimestamp
+    when not matched then
+      insert (
+        competition_id,
+        calc_status,
+        requested_at,
+        started_at,
+        attempt_count,
+        created_at,
+        updated_at
+      )
+      values (
+        p_competition_id,
+        c_status_processing,
+        systimestamp,
+        systimestamp,
+        1,
+        systimestamp,
+        systimestamp
+      );
+    commit;
+
+    execute_route_calculation(p_competition_id);
+    commit;
+    get_route_snapshot_json(p_competition_id => p_competition_id, o_item_json => o_item_json);
+  end;
+
+  function process_pending_routes(
+    p_limit in number default null
+  ) return number is
+    l_limit number := greatest(1, least(100, nvl(p_limit, pkg_app_settings.get_number('ROUTE_JOB_BATCH_SIZE', 10))));
+    l_timeout_minutes number := greatest(1, nvl(pkg_app_settings.get_number('ROUTE_PROCESSING_TIMEOUT_MINUTES', 180), 180));
+    l_processing_count number := 0;
+    l_processed_count number := 0;
+  begin
+    update competition_routes cr
+       set cr.calc_status = c_status_failed,
+           cr.error_message = 'Route calculation timed out.',
+           cr.updated_at = systimestamp
+     where cr.calc_status = c_status_processing
+       and cr.started_at is not null
+       and cr.started_at < systimestamp - numtodsinterval(l_timeout_minutes, 'MINUTE');
+
+    commit;
+
+    select count(*)
+      into l_processing_count
+      from competition_routes cr
+     where cr.calc_status = c_status_processing;
+
+    if l_processing_count > 0 then
+      return 0;
+    end if;
+
+    for rec in (
+      select cr.competition_id
+        from competition_routes cr
+       where cr.calc_status = c_status_pending
+       order by cr.requested_at nulls first, cr.competition_id
+       fetch first l_limit rows only
+    ) loop
+      update competition_routes
+         set calc_status = c_status_processing,
+             started_at = systimestamp,
+             attempt_count = nvl(attempt_count, 0) + 1,
+             error_message = null,
+             updated_at = systimestamp
+       where competition_id = rec.competition_id;
+      commit;
+
+      begin
+        execute_route_calculation(rec.competition_id);
+      exception
+        when others then
+          null;
+      end;
+      commit;
+      l_processed_count := l_processed_count + 1;
+    end loop;
+
+    return l_processed_count;
+  end;
+end pkg_competition_routes;
+/
+
 create or replace package body pkg_admin_content as
   c_json_question_text constant varchar2(30) := 'question_text';
   c_json_updated_at constant varchar2(30) := 'updated_at';
