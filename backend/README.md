@@ -106,8 +106,9 @@ Expected ORDS JSON responses:
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 - `admin/competitions` -> `{ "items": [...] }`
 - `admin/onboarding-options` -> `{ "can_create_empty_competition": true|false }`
-- `admin/competition-overview` -> `{ ..., "type": "R|S" }`
+- `admin/competition-overview` -> `{ ..., "type": "R|S", "route": { ... } }`
 - `admin/competitions/route` -> `{ "competition_id":..., "calc_status":"PENDING|PROCESSING|READY|FAILED", "route_length_m":..., "algorithm_code":"...", "included_checkpoint_count":..., "route_order_json":[...], "calculated_source_hash":"...", "requested_at":"...", "started_at":"...", "calculated_at":"...", "calculation_duration_ms":..., "attempt_count":..., "error_message":"..." }`
+  - route payload may also contain `current_source_hash` and `is_current` for admin UI state rendering.
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
@@ -568,6 +569,7 @@ Important persisted fields in `competition_routes`:
 - Only active checkpoints of the target competition are considered.
 - Checkpoint must have both `latitude` and `longitude`.
 - Checkpoint must have an active question.
+- This is an intentional business rule: a checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
 - Checkpoints without coordinates are excluded from both the calculation and the source hash.
 - Competition type is part of the source hash, so changing `R <-> S` invalidates the old snapshot even if checkpoints themselves did not change.
 
@@ -604,6 +606,27 @@ Important persisted fields in `competition_routes`:
 - `POST /api/admin/competitions/routes/process-pending`
   - manually starts queued batch processing
 - DB scheduler job may call the same package function periodically.
+
+### Admin UI usage rules
+
+- Admin “Näita kaardil” uses the persisted route snapshot; it does not recompute route length on modal open.
+- When the modal is opened, frontend reloads the latest persisted route snapshot from backend before drawing the modal content.
+  - already open modal is not live-updated;
+  - close + reopen must reflect the latest DB state without full page reload.
+- The overview payload may include `route.current_source_hash` and `route.is_current` so frontend can show whether the stored snapshot is still valid.
+- Manual action split:
+  - `R` competitions use `POST /api/admin/competitions/route/request` from UI, which only queues the recalculation.
+  - `S` competitions use `POST /api/admin/competitions/route/calculate-now` from UI, because the calculation is immediate and cheap.
+- When snapshot hash no longer matches the current source hash:
+  - admin UI may still show the last known stored length and route order;
+  - competitor UI must not show stale route data.
+- Admin route-order lines in “Näita kaardil” are drawn from persisted data, not from a live solver call:
+  - `S` competitions draw the line directly from checkpoint `order_no` order and show it immediately on modal open;
+  - `R` competitions draw the line from persisted `route_order_json` and expose separate show/hide control only when snapshot order exists.
+- In admin “Näita kaardil”, route status indicators are UI-only snapshot-state markers:
+  - `PENDING` = static dot indicator;
+  - `PROCESSING` = spinner indicator;
+  - both are rendered on the same line after route text and before the route-length help (`i`) icon.
 
 ### Concurrency and recovery rules
 

@@ -1,5 +1,8 @@
 let currentCompetitionOrganizers = [];
 let pendingCompetitionCopySourceId = null;
+let currentCompetitionRoute = null;
+let currentCompetitionIdLoaded = null;
+let cpOverviewLabelsOpen = false;
 
 function cpDialogStateSnapshot() {
   return JSON.stringify({
@@ -129,6 +132,170 @@ function logoutIconSvg() {
 
 function copyIconSvg() {
   return `<svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="11" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="8" width="11" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+}
+
+function normalizeCompetitionRouteData(route) {
+  if (!route || typeof route !== "object") return null;
+  const normalized = { ...route };
+  if (typeof route.route_order_json === "string") {
+    try {
+      normalized.route_order_json = JSON.parse(route.route_order_json);
+    } catch (_e) {
+      normalized.route_order_json = [];
+    }
+  } else {
+    normalized.route_order_json = Array.isArray(route.route_order_json) ? route.route_order_json : [];
+  }
+  return normalized;
+}
+
+function setCurrentCompetitionRoute(route) {
+  currentCompetitionRoute = normalizeCompetitionRouteData(route);
+  window.__lastCompetitionRoute = currentCompetitionRoute;
+}
+
+function getCurrentCompetitionRouteStatus(route = currentCompetitionRoute) {
+  return String(route?.calc_status || "").trim().toUpperCase();
+}
+
+function competitionRouteSnapshotExists(route = currentCompetitionRoute) {
+  if (!route || typeof route !== "object") return false;
+  if (Number.isFinite(Number(route.route_length_m))) return true;
+  if (Array.isArray(route.route_order_json) && route.route_order_json.length > 0) return true;
+  if (String(route.algorithm_code || "").trim()) return true;
+  if (String(route.calculated_at || "").trim()) return true;
+  return false;
+}
+
+function competitionRouteIsCurrent(route = currentCompetitionRoute) {
+  return String(route?.is_current || "N").toUpperCase() === "Y";
+}
+
+function competitionRouteHasOrder(route = currentCompetitionRoute) {
+  return competitionRouteSnapshotExists(route)
+    && Array.isArray(route?.route_order_json)
+    && route.route_order_json.length >= 2;
+}
+
+function competitionRouteCanRequest(route = currentCompetitionRoute) {
+  const status = getCurrentCompetitionRouteStatus(route);
+  if (status === "PENDING" || status === "PROCESSING") return false;
+  return !competitionRouteIsCurrent(route);
+}
+
+function formatCompetitionRouteDistanceKm(routeLengthM) {
+  const meters = Number(routeLengthM);
+  if (!Number.isFinite(meters) || meters < 0) return null;
+  return (meters / 1000).toFixed(2);
+}
+
+function buildCompetitionRouteTextHtml(routeLabelKey, distanceKm, isStale) {
+  const template = tr(routeLabelKey);
+  const parts = String(template).split("{distance_km}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{distance_km}") || "");
+  const distanceMarkup = `<span class="cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</span>`;
+  const staleMarkup = isStale
+    ? `<span class="cp-overview-route-stale-note"> ${esc(tr("admin.cp_overview.route_stale_suffix"))}</span>`
+    : "";
+  return `${prefix}${distanceMarkup}${suffix}${staleMarkup}`;
+}
+
+function routeActionButtonHtml(labelKey) {
+  return `<span>${esc(tr(labelKey))}</span>`;
+}
+
+function renderCheckpointOverviewRouteControls() {
+  const routeTextInlineEl = byId("cpOverviewRouteTextInline");
+  const calcBtn = byId("cpOverviewRouteCalcBtn");
+  const toggleBtn = byId("cpOverviewRouteToggleBtn");
+  const toggleInfoBtn = byId("cpOverviewRouteToggleInfoBtn");
+  const toggleWrap = byId("cpOverviewRouteToggleWrap");
+  const stateIcon = byId("cpOverviewRouteStateIcon");
+  const routeInfoBtn = document.querySelector('[data-info-key="admin.cp_overview.route_length_text"]');
+  if (!routeTextInlineEl || !calcBtn || !toggleBtn || !toggleInfoBtn || !toggleWrap || !stateIcon) return;
+
+  if (routeInfoBtn?.parentElement && stateIcon.previousElementSibling !== routeTextInlineEl) {
+    routeInfoBtn.parentElement.insertBefore(stateIcon, routeInfoBtn);
+  }
+
+  const route = currentCompetitionRoute;
+  const isSType = String(currentCompetitionType || "R").toUpperCase() === "S";
+  const snapshotExists = competitionRouteSnapshotExists(route);
+  const isCurrent = competitionRouteIsCurrent(route);
+  const hasOrder = competitionRouteHasOrder(route);
+  const status = getCurrentCompetitionRouteStatus(route);
+  const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
+  const routeLabelKey = currentCompetitionType === "S"
+    ? "admin.cp_overview.route_length_text_s"
+    : "admin.cp_overview.route_length_text_r";
+  const displayDistanceKm = distanceKm != null ? distanceKm : "-";
+  routeTextInlineEl.innerHTML = buildCompetitionRouteTextHtml(
+    routeLabelKey,
+    displayDistanceKm,
+    snapshotExists && !isCurrent
+  );
+  routeTextInlineEl.classList.remove("is-stale");
+
+  calcBtn.className = "secondary cp-overview-route-btn route-calc-btn";
+  calcBtn.innerHTML = routeActionButtonHtml("admin.cp_overview.route_calculate_btn");
+  calcBtn.disabled = !competitionRouteCanRequest(route);
+
+  const routeVisible = isCheckpointOverviewRouteVisible();
+  toggleBtn.className = "secondary cp-overview-route-btn route-toggle-btn";
+  toggleBtn.innerHTML = routeActionButtonHtml(
+    routeVisible ? "admin.cp_overview.route_toggle_hide_btn" : "admin.cp_overview.route_toggle_show_btn"
+  );
+  toggleWrap.classList.toggle("hidden", isSType || !hasOrder);
+
+  stateIcon.className = "cp-overview-route-state-icon hidden";
+  stateIcon.removeAttribute("title");
+  stateIcon.removeAttribute("aria-label");
+  if (status === "PENDING") {
+    stateIcon.className = "cp-overview-route-state-icon route-state-pending";
+    stateIcon.title = tr("admin.cp_overview.route_pending_state_title");
+    stateIcon.setAttribute("aria-label", tr("admin.cp_overview.route_pending_state_title"));
+  } else if (status === "PROCESSING") {
+    stateIcon.className = "cp-overview-route-state-icon route-state-processing";
+    stateIcon.title = tr("admin.cp_overview.route_processing_state_title");
+    stateIcon.setAttribute("aria-label", tr("admin.cp_overview.route_processing_state_title"));
+  } else if (status === "FAILED") {
+    const failedTitle = String(route?.error_message || "").trim() || tr("admin.cp_overview.route_failed_state_title");
+    stateIcon.className = "cp-overview-route-state-icon route-state-failed";
+    stateIcon.title = failedTitle;
+    stateIcon.setAttribute("aria-label", failedTitle);
+  }
+}
+
+function renderCheckpointOverviewLabelsToggle() {
+  const btn = byId("cpOverviewLabelsToggleBtn");
+  if (!btn) return;
+  const key = cpOverviewLabelsOpen ? "admin.cp_overview.close_labels_btn" : "admin.cp_overview.open_labels_btn";
+  btn.textContent = tr(key);
+  btn.setAttribute("data-i18n", key);
+}
+
+async function refreshCurrentCompetitionRoute() {
+  const payload = await get(`/api/admin/competitions/route?competition_id=${compId()}`);
+  setCurrentCompetitionRoute(payload?.data || null);
+  renderCheckpointOverviewRouteControls();
+  refreshCheckpointOverviewRouteDisplay();
+}
+
+async function requestCheckpointOverviewRouteCalculation() {
+  showMsg("cpOverviewRouteMsg", false, "");
+  const requestPayload = { competition_id: compId() };
+  if (currentCompetitionType === "S") {
+    await post("/api/admin/competitions/route/calculate-now", requestPayload);
+    await refreshCurrentCompetitionRoute();
+    showMsg("cpOverviewRouteMsg", true, tr("admin.cp_overview.route_calculated_msg"));
+  } else {
+    await post("/api/admin/competitions/route/request", requestPayload);
+    await refreshCurrentCompetitionRoute();
+    showMsg("cpOverviewRouteMsg", true, tr("admin.cp_overview.route_requested_msg"));
+  }
+  renderCheckpointOverviewRouteControls();
+  refreshCheckpointOverviewRouteDisplay();
 }
 
 async function copyTextToClipboard(text) {
@@ -495,6 +662,11 @@ async function loadView() {
   if (rememberedName) setCookie(rememberedName, byId("competitionSelect").value);
   const ov = await get(`/api/admin/competition-overview?competition_id=${compId()}`);
   const v = ov.data || {};
+  const nextCompetitionId = Number(v.competition_id || compId() || 0);
+  if (currentCompetitionIdLoaded !== nextCompetitionId) {
+    setCheckpointOverviewRouteVisible(false);
+    currentCompetitionIdLoaded = nextCompetitionId;
+  }
   byId("cName").textContent = `${v.name || "-"} (id=${v.competition_id || "-"})`;
   const locBadge = byId("cLocationBadge");
   const compLocBadge = byId("cCompetitorLocationBadge");
@@ -528,6 +700,8 @@ async function loadView() {
   window.__lastCompetitionDeclinationUpdatedAt = v.declination_last_updated || null;
   currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
   currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
+  setCurrentCompetitionRoute(v.route);
+  renderCheckpointOverviewRouteControls();
   if (currentCompetitionUseLocation === "Y") {
     await loadMapLayersConfig();
     await loadCompetitionOverlay();
@@ -1563,9 +1737,31 @@ byId("regenOrganizer").onclick = () => {
 
 byId("newCheckpointBtn").onclick = () => openCheckpointDialog();
 byId("cpMapToggleSizeBtn").onclick = () => setCheckpointDialogSize(!cpDialogFullscreen);
-byId("showCheckpointMapBtn").onclick = () => openCheckpointOverviewMap().catch((e) => showMsg("topMsg", false, humanizeError(e.message, e.details)));
-byId("cpOverviewOpenLabelsBtn").onclick = () => openAllCheckpointLabels();
-byId("cpOverviewCloseLabelsBtn").onclick = () => closeAllCheckpointLabels();
+byId("showCheckpointMapBtn").onclick = async () => {
+  showMsg("cpOverviewRouteMsg", false, "");
+  cpOverviewLabelsOpen = false;
+  try {
+    await refreshCurrentCompetitionRoute();
+    setCheckpointOverviewRouteVisible(String(currentCompetitionType || "R").toUpperCase() === "S");
+    renderCheckpointOverviewLabelsToggle();
+    renderCheckpointOverviewRouteControls();
+    await openCheckpointOverviewMap();
+  } catch (e) {
+    showMsg("topMsg", false, humanizeError(e.message, e.details));
+  }
+};
+byId("cpOverviewRouteCalcBtn").onclick = () => requestCheckpointOverviewRouteCalculation().catch((e) => showMsg("cpOverviewRouteMsg", false, humanizeError(e.message, e.details)));
+byId("cpOverviewRouteToggleBtn").onclick = () => {
+  setCheckpointOverviewRouteVisible(!isCheckpointOverviewRouteVisible());
+  renderCheckpointOverviewRouteControls();
+  refreshCheckpointOverviewRouteDisplay();
+};
+byId("cpOverviewLabelsToggleBtn").onclick = () => {
+  cpOverviewLabelsOpen = !cpOverviewLabelsOpen;
+  if (cpOverviewLabelsOpen) openAllCheckpointLabels();
+  else closeAllCheckpointLabels();
+  renderCheckpointOverviewLabelsToggle();
+};
 byId("cpOverviewMapLayerSelect").onchange = () => {
   const selected = selectedMapLayerCode();
   if (selected) localStorage.setItem(lastCpOverviewMapLayerKey, selected);
@@ -1587,9 +1783,16 @@ byId("cpDialogMapLayerSelect").onchange = () => {
 
 byId("cpOverviewMapToggleSizeBtn").onclick = () => setCheckpointOverviewSize(!cpOverviewFullscreen);
 byId("cpOverviewMapCloseBtn").onclick = () => {
+  showMsg("cpOverviewRouteMsg", false, "");
   setCheckpointOverviewSize(false);
   byId("cpOverviewMapDialog").close();
 };
+byId("cpOverviewMapDialog").addEventListener("close", () => {
+  showMsg("cpOverviewRouteMsg", false, "");
+  cpOverviewLabelsOpen = false;
+  renderCheckpointOverviewLabelsToggle();
+  if (cpOverviewFullscreen) setCheckpointOverviewSize(false);
+});
 
 byId("newQuestionBtn").onclick = () => {
   const first = checkpointsData.find((x) => !x.question_id);

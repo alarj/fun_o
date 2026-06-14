@@ -10,6 +10,7 @@ function cpDialogViewStorageKey(crs = null) {
 
 let cpOverlayLayer = null;
 let cpOverviewOverlayLayer = null;
+let cpOverviewRouteVisible = false;
 
 function ensureCompetitionOverlayPane(mapRef, target = "dialog") {
   if (!mapRef?.createPane) return null;
@@ -143,6 +144,29 @@ function buildEffectiveMapLayers() {
   return base;
 }
 
+function sizeSelectToLongestOption(selectEl) {
+  if (!selectEl || !selectEl.options?.length) return;
+  try {
+    const style = window.getComputedStyle(selectEl);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.font = style.font || `${style.fontSize} ${style.fontFamily}`;
+    let longestPx = 0;
+    Array.from(selectEl.options).forEach((option) => {
+      const label = String(option?.text || "").trim();
+      if (!label) return;
+      longestPx = Math.max(longestPx, ctx.measureText(label).width);
+    });
+    const extraPx = 48;
+    const targetPx = Math.ceil(longestPx + extraPx);
+    selectEl.style.width = `${targetPx}px`;
+    selectEl.style.maxWidth = "100%";
+  } catch (_e) {
+    // Ignore width measurement failures and let CSS fallback take over.
+  }
+}
+
 function refreshAdminMapLayerOptions() {
   availableMapLayers = buildEffectiveMapLayers();
   if (!availableMapLayers.length) return availableMapLayers;
@@ -153,12 +177,14 @@ function refreshAdminMapLayerOptions() {
   if (sel) {
     sel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
     sel.value = availableMapLayers.some((x) => x.code === remembered) ? remembered : availableMapLayers[0].code;
+    sizeSelectToLongestOption(sel);
   }
   if (cpSel) {
     cpSel.innerHTML = availableMapLayers.map((x) => `<option value="${esc(x.code)}">${esc(x.label)}</option>`).join("");
     cpSel.value = availableMapLayers.some((x) => x.code === rememberedCp)
       ? rememberedCp
       : ((sel?.value && availableMapLayers.some((x) => x.code === sel.value)) ? sel.value : availableMapLayers[0].code);
+    sizeSelectToLongestOption(cpSel);
   }
   return availableMapLayers;
 }
@@ -759,12 +785,11 @@ function drawRouteSegment(layerRef, mapRef, seg, t0, t1) {
   }).addTo(layerRef);
 }
 
-function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
+function drawRouteForOrderedPoints(mapRef, layerRef, orderedPoints) {
   if (!mapRef || !layerRef) return;
   layerRef.clearLayers();
-  if (String(currentCompetitionType || "R").toUpperCase() !== "S") return;
-  const ordered = (points || [])
-    .filter((p) => Number.isFinite(Number(p.orderNo)))
+  const ordered = (orderedPoints || [])
+    .filter((p) => Number.isFinite(Number(p.orderNo)) && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
     .sort((a, b) => Number(a.orderNo) - Number(b.orderNo) || Number(a.checkpointId) - Number(b.checkpointId));
   if (ordered.length < 2) return;
 
@@ -772,21 +797,6 @@ function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
     const ringRadiusPx = Number.isFinite(Number(p.markerRadiusPx)) ? Number(p.markerRadiusPx) : 15;
     return { ...p, ringRadiusPx };
   });
-
-  let overlapDetected = false;
-  for (let i = 0; i < withPixels.length; i += 1) {
-    for (let j = i + 1; j < withPixels.length; j += 1) {
-      const a = mapRef.latLngToLayerPoint([withPixels[i].lat, withPixels[i].lon]);
-      const b = mapRef.latLngToLayerPoint([withPixels[j].lat, withPixels[j].lon]);
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d <= (withPixels[i].ringRadiusPx + withPixels[j].ringRadiusPx)) {
-        overlapDetected = true;
-        break;
-      }
-    }
-    if (overlapDetected) break;
-  }
-  if (overlapDetected) return;
 
   const markerGapPx = 10;
   const breakHalfPx = 10;
@@ -885,6 +895,62 @@ function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
     });
     drawRouteSegment(layerRef, mapRef, seg, cur, 1);
   });
+}
+
+function drawOrderedRoutesForPoints(mapRef, layerRef, points) {
+  if (String(currentCompetitionType || "R").toUpperCase() !== "S") {
+    if (layerRef?.clearLayers) layerRef.clearLayers();
+    return;
+  }
+  const ordered = (points || [])
+    .filter((p) => Number.isFinite(Number(p.orderNo)));
+  drawRouteForOrderedPoints(mapRef, layerRef, ordered);
+}
+
+function buildCalculatedRoutePoints(points, routeSnapshot) {
+  const orderItems = Array.isArray(routeSnapshot?.route_order_json) ? routeSnapshot.route_order_json : [];
+  if (!orderItems.length) return [];
+  const byCheckpointId = new Map((points || []).map((point) => [Number(point.checkpointId), point]));
+  return orderItems.map((item, index) => {
+    const cpId = Number(item?.checkpoint_id);
+    const base = byCheckpointId.get(cpId);
+    if (!base) return null;
+    const seq = Number(item?.seq);
+    return {
+      ...base,
+      orderNo: Number.isFinite(seq) ? seq : index + 1,
+    };
+  }).filter(Boolean);
+}
+
+function renderCheckpointOverviewRoute(points) {
+  if (!cpOverviewRoutesLayer) return;
+  if (!cpOverviewRouteVisible) {
+    cpOverviewRoutesLayer.clearLayers();
+    return;
+  }
+  if (String(currentCompetitionType || "R").toUpperCase() === "S") {
+    drawOrderedRoutesForPoints(cpOverviewMap, cpOverviewRoutesLayer, points);
+    return;
+  }
+  const routeSnapshot = window.__lastCompetitionRoute;
+  const ordered = buildCalculatedRoutePoints(points, routeSnapshot);
+  drawRouteForOrderedPoints(cpOverviewMap, cpOverviewRoutesLayer, ordered);
+}
+
+function setCheckpointOverviewRouteVisible(visible) {
+  cpOverviewRouteVisible = !!visible;
+  return cpOverviewRouteVisible;
+}
+
+function isCheckpointOverviewRouteVisible() {
+  return !!cpOverviewRouteVisible;
+}
+
+function refreshCheckpointOverviewRouteDisplay() {
+  if (!cpOverviewMap || !cpOverviewRoutesLayer) return;
+  const points = buildCheckpointMapPoints();
+  renderCheckpointOverviewRoute(points);
 }
 
 function buildOrderLabelPlacement(mapRef, points) {
@@ -1018,10 +1084,10 @@ async function openCheckpointOverviewMap() {
         className: p.markerColor === "#c0392b" ? "cp-order-tooltip cp-order-red" : "cp-order-tooltip cp-order-purple"
       });
     });
-    drawOrderedRoutesForPoints(cpOverviewMap, cpOverviewRoutesLayer, points);
+    renderCheckpointOverviewRoute(points);
     if (cpOverviewZoomHandler) cpOverviewMap.off("zoomend", cpOverviewZoomHandler);
     cpOverviewZoomHandler = () => {
-      drawOrderedRoutesForPoints(cpOverviewMap, cpOverviewRoutesLayer, points);
+      renderCheckpointOverviewRoute(points);
       const nextPlacement = buildOrderLabelPlacement(cpOverviewMap, points);
       cpOverviewMarkers.forEach((m) => {
         const cpIdRaw = m?.__checkpointId;
