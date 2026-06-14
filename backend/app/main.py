@@ -9,7 +9,7 @@ import shutil
 import re
 import time
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -2113,10 +2113,8 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
 
 
 def _format_route_hash_number(value: Any) -> str:
-    decimal_value = Decimal(str(value)).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
-    if decimal_value == 0:
-        decimal_value = Decimal("0.000000")
-    return format(decimal_value, "f")
+    scaled = int(Decimal(str(value)) * Decimal("1000000"))
+    return str(scaled)
 
 
 def _update_adler32(text: str, a: int, b: int) -> tuple[int, int]:
@@ -2146,7 +2144,7 @@ def _compute_route_source_hash_from_items(competition_type: str | None, items: l
             continue
         checkpoint_type = str(row.get("checkpoint_type") or "NORMAL").strip().upper() or "NORMAL"
         order_no = row.get("checkpoint_order_no")
-        order_value = str(int(order_no)) if isinstance(order_no, int) else ""
+        order_value = str(int(order_no)) if isinstance(order_no, (int, float)) else ""
         sortable.append(
             (
                 checkpoint_id,

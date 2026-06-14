@@ -3781,6 +3781,8 @@ end pkg_app_settings;
 /
 
 create or replace package pkg_competition_routes as
+  c_route_exact_threshold_hard_limit constant pls_integer := 12;
+
   function get_competition_type(
     p_competition_id in number
   ) return varchar2;
@@ -3869,14 +3871,9 @@ create or replace package body pkg_competition_routes as
   function format_hash_number(
     p_value in number
   ) return varchar2 is
-    l_abs varchar2(64);
-    l_rounded number := round(p_value, 6);
+    l_scaled number := trunc(p_value * 1000000);
   begin
-    l_abs := to_char(abs(l_rounded), 'FM9999999990D000000', 'NLS_NUMERIC_CHARACTERS=.,');
-    if l_rounded < 0 then
-      return '-' || l_abs;
-    end if;
-    return l_abs;
+    return to_char(l_scaled, 'FM9999999999999990');
   end;
 
   procedure update_adler32(
@@ -4060,7 +4057,13 @@ create or replace package body pkg_competition_routes as
             where q.checkpoint_id = cp.checkpoint_id
               and (q.end_date is null or q.end_date > sysdate)
          )
-       order by cp.checkpoint_id
+       order by
+         case
+           when o_competition_type = pkg_common.c_competition_type_sequential
+           then nvl(cp.order_no, 0)
+           else cp.checkpoint_id
+         end asc,
+         cp.checkpoint_id asc
     ) loop
       l_idx := l_idx + 1;
       o_points(l_idx).checkpoint_id := rec.checkpoint_id;
@@ -4136,7 +4139,6 @@ create or replace package body pkg_competition_routes as
     o_route_count out pls_integer,
     o_length_m out number
   ) is
-    l_tmp number;
   begin
     o_order.delete;
     o_route_count := p_point_count;
@@ -4144,22 +4146,6 @@ create or replace package body pkg_competition_routes as
     for i in 1 .. p_point_count loop
       o_order(i) := i;
     end loop;
-
-    if p_point_count > 1 then
-      for i in 1 .. p_point_count - 1 loop
-        for j in i + 1 .. p_point_count loop
-          if nvl(p_points(o_order(i)).order_no, 0) > nvl(p_points(o_order(j)).order_no, 0)
-             or (
-               nvl(p_points(o_order(i)).order_no, 0) = nvl(p_points(o_order(j)).order_no, 0)
-               and p_points(o_order(i)).checkpoint_id > p_points(o_order(j)).checkpoint_id
-             ) then
-            l_tmp := o_order(i);
-            o_order(i) := o_order(j);
-            o_order(j) := l_tmp;
-          end if;
-        end loop;
-      end loop;
-    end if;
 
     for i in 2 .. p_point_count loop
       o_length_m := o_length_m + distance_of(p_matrix, o_order(i - 1), o_order(i));
@@ -4526,6 +4512,7 @@ create or replace package body pkg_competition_routes as
     l_started_at timestamp with time zone := systimestamp;
     l_duration_ms number := 0;
   begin
+    l_exact_threshold := greatest(1, least(c_route_exact_threshold_hard_limit, l_exact_threshold));
     l_hash := get_current_source_hash(p_competition_id);
     load_route_points(
       p_competition_id => p_competition_id,
@@ -4780,6 +4767,7 @@ create or replace package body pkg_competition_routes as
     l_timeout_minutes number := greatest(1, nvl(pkg_app_settings.get_number('ROUTE_PROCESSING_TIMEOUT_MINUTES', 180), 180));
     l_processing_count number := 0;
     l_processed_count number := 0;
+    l_competition_ids number_tab;
   begin
     update competition_routes cr
        set cr.calc_status = c_status_failed,
@@ -4800,31 +4788,41 @@ create or replace package body pkg_competition_routes as
       return 0;
     end if;
 
-    for rec in (
-      select cr.competition_id
+    select cr.competition_id
+      bulk collect into l_competition_ids
         from competition_routes cr
        where cr.calc_status = c_status_pending
        order by cr.requested_at nulls first, cr.competition_id
-       fetch first l_limit rows only
-    ) loop
+       fetch first l_limit rows only;
+
+    if l_competition_ids.count = 0 then
+      return 0;
+    end if;
+
+    forall i in indices of l_competition_ids
       update competition_routes
          set calc_status = c_status_processing,
              started_at = systimestamp,
              attempt_count = nvl(attempt_count, 0) + 1,
              error_message = null,
              updated_at = systimestamp
-       where competition_id = rec.competition_id;
-      commit;
+       where competition_id = l_competition_ids(i);
 
+    commit;
+
+    for i in 1 .. l_competition_ids.count loop
       begin
-        execute_route_calculation(rec.competition_id);
+        execute_route_calculation(l_competition_ids(i));
       exception
         when others then
+          -- execute_route_calculation already persisted FAILED status for this competition
+          -- before re-raising; batch processing continues with the next queued competition.
           null;
       end;
-      commit;
       l_processed_count := l_processed_count + 1;
     end loop;
+
+    commit;
 
     return l_processed_count;
   end;

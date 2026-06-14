@@ -95,6 +95,13 @@ erDiagram
         timestamp last_updated
     }
 
+    APP_SETTINGS {
+        varchar2 setting_key PK
+        varchar2 setting_value
+        varchar2 description
+        timestamp updated_at
+    }
+
     COMPETITION_TERMS {
         number terms_id PK
         number competition_id FK
@@ -180,6 +187,24 @@ erDiagram
         date end_date
         number created_by
         number updated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    COMPETITION_ROUTES {
+        number competition_id PK
+        varchar2 calc_status
+        number route_length_m
+        varchar2 algorithm_code
+        number included_checkpoint_count
+        clob route_order_json
+        varchar2 calculated_source_hash
+        timestamp requested_at
+        timestamp started_at
+        timestamp calculated_at
+        number calculation_duration_ms
+        number attempt_count
+        varchar2 error_message
         timestamp created_at
         timestamp updated_at
     }
@@ -337,6 +362,7 @@ erDiagram
 
     COMPETITIONS ||--o{ COMPETITION_ACCESS_CODES : has
     COMPETITIONS ||--o{ COMPETITION_ORGANIZERS : has
+    COMPETITIONS ||--o| COMPETITION_ROUTES : has_optional_route_snapshot
     USERS ||--o{ COMPETITION_ORGANIZERS : organizes
 
     COMPETITIONS ||--o{ COMPETITION_TERMS : has
@@ -382,3 +408,12 @@ erDiagram
 - MVP-s on ühe võistluse kohta lubatud maksimaalselt üks aktiivne overlay.
 - Tiled-versioonis salvestub lähtematerjal `storage_rel_path` alla ja valmis tile-püramiid `tile_storage_rel_path` alla.
 - `processing_status` juhib seda, kas admini kaardivalikusse võib ilmuda dünaamiline `* {display_name}` overlay valik.
+
+## Raja pikkuse arvutuse märkused
+
+- `competition_routes` hoiab ühe võistluse kohta viimast salvestatud raja pikkuse snapshoti.
+- `competition_routes.route_order_json` salvestab selle arvutuse käigus kasutatud KP järjekorra.
+- `competition_routes.calculated_source_hash` võimaldab kontrollida, kas snapshot klapib praeguse raja sisendiga.
+- `competition_routes.calc_status` lubatud äriväärtused on `PENDING`, `PROCESSING`, `READY`, `FAILED`.
+- `competition_routes.calculation_duration_ms` salvestab ühe arvutuse kestuse millisekundites.
+- `app_settings` hoiab DB-poolseid route-arvutuse seadistusi, näiteks exact-läve ja batch-protsessi piiranguid.
