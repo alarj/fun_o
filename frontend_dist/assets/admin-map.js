@@ -11,6 +11,8 @@ function cpDialogViewStorageKey(crs = null) {
 let cpOverlayLayer = null;
 let cpOverviewOverlayLayer = null;
 let cpOverviewRouteVisible = false;
+let selectMeasureCanvas = null;
+let selectMeasureContext = null;
 
 function ensureCompetitionOverlayPane(mapRef, target = "dialog") {
   if (!mapRef?.createPane) return null;
@@ -148,22 +150,24 @@ function sizeSelectToLongestOption(selectEl) {
   if (!selectEl || !selectEl.options?.length) return;
   try {
     const style = window.getComputedStyle(selectEl);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.font = style.font || `${style.fontSize} ${style.fontFamily}`;
+    if (!selectMeasureCanvas) {
+      selectMeasureCanvas = document.createElement("canvas");
+      selectMeasureContext = selectMeasureCanvas.getContext("2d");
+    }
+    if (!selectMeasureContext) return;
+    selectMeasureContext.font = style.font || `${style.fontSize} ${style.fontFamily}`;
     let longestPx = 0;
     Array.from(selectEl.options).forEach((option) => {
       const label = String(option?.text || "").trim();
       if (!label) return;
-      longestPx = Math.max(longestPx, ctx.measureText(label).width);
+      longestPx = Math.max(longestPx, selectMeasureContext.measureText(label).width);
     });
     const extraPx = 48;
     const targetPx = Math.ceil(longestPx + extraPx);
     selectEl.style.width = `${targetPx}px`;
     selectEl.style.maxWidth = "100%";
-  } catch (_e) {
-    // Ignore width measurement failures and let CSS fallback take over.
+  } catch (err) {
+    console.warn("Failed to measure map layer select width", err);
   }
 }
 

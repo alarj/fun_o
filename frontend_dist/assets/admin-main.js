@@ -140,7 +140,8 @@ function normalizeCompetitionRouteData(route) {
   if (typeof route.route_order_json === "string") {
     try {
       normalized.route_order_json = JSON.parse(route.route_order_json);
-    } catch (_e) {
+    } catch (err) {
+      console.warn("Failed to parse competition route order JSON", err);
       normalized.route_order_json = [];
     }
   } else {
@@ -189,16 +190,34 @@ function formatCompetitionRouteDistanceKm(routeLengthM) {
   return (meters / 1000).toFixed(2);
 }
 
-function buildCompetitionRouteTextHtml(routeLabelKey, distanceKm, isStale) {
+function buildCompetitionRouteTextHtml(routeLabelKey, staleLabelKey, distanceKm, isStale) {
   const template = tr(routeLabelKey);
   const parts = String(template).split("{distance_km}");
   const prefix = esc(parts[0] || "");
   const suffix = esc(parts.slice(1).join("{distance_km}") || "");
   const distanceMarkup = `<span class="cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</span>`;
   const staleMarkup = isStale
-    ? `<span class="cp-overview-route-stale-note"> ${esc(tr("admin.cp_overview.route_stale_suffix"))}</span>`
+    ? `<span class="cp-overview-route-stale-note"> ${esc(tr(staleLabelKey))}</span>`
     : "";
   return `${prefix}${distanceMarkup}${suffix}${staleMarkup}`;
+}
+
+function renderCompetitionRouteSummary() {
+  const routeSummaryTextEl = byId("checkpointsRouteSummaryText");
+  if (!routeSummaryTextEl) return;
+  const route = currentCompetitionRoute;
+  const snapshotExists = competitionRouteSnapshotExists(route);
+  const isCurrent = competitionRouteIsCurrent(route);
+  const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
+  const routeLabelKey = currentCompetitionType === "S"
+    ? "admin.cp_table.route_length_text_s"
+    : "admin.cp_table.route_length_text_r";
+  routeSummaryTextEl.innerHTML = buildCompetitionRouteTextHtml(
+    routeLabelKey,
+    "admin.cp_table.route_stale_suffix",
+    distanceKm != null ? distanceKm : "-",
+    snapshotExists && !isCurrent
+  );
 }
 
 function routeActionButtonHtml(labelKey) {
@@ -232,6 +251,7 @@ function renderCheckpointOverviewRouteControls() {
   const displayDistanceKm = distanceKm != null ? distanceKm : "-";
   routeTextInlineEl.innerHTML = buildCompetitionRouteTextHtml(
     routeLabelKey,
+    "admin.cp_overview.route_stale_suffix",
     displayDistanceKm,
     snapshotExists && !isCurrent
   );
@@ -265,6 +285,7 @@ function renderCheckpointOverviewRouteControls() {
     stateIcon.title = failedTitle;
     stateIcon.setAttribute("aria-label", failedTitle);
   }
+  renderCompetitionRouteSummary();
 }
 
 function renderCheckpointOverviewLabelsToggle() {
@@ -1221,6 +1242,7 @@ async function persistQuestionTranslations(questionId, payload, textsByLang, opt
     const text = textsByLang[lang];
     if (!text && lang !== defaultLang) continue;
     await post("/api/admin/questions/update", {
+      competition_id: compId(),
       question_id: Number(questionId),
       checkpoint_id: payload.checkpoint_id,
       question_type: payload.question_type,
@@ -1245,6 +1267,7 @@ async function saveQuestion() {
   const qType = byId("qType").value;
   const qId = byId("qId").value;
   const payload = {
+    competition_id: compId(),
     checkpoint_id: Number(byId("qCheckpoint").value),
     question_type: qType,
     input_type: qType === "SINGLE_CHOICE" ? null : (byId("qInputType").value || null),
@@ -1897,7 +1920,7 @@ byId("qDeleteNo").onclick = () => {
 byId("qDeleteYes").onclick = async () => {
   try {
     if (!pendingDeleteQuestionId) return;
-    await post("/api/admin/questions/delete", { question_id: pendingDeleteQuestionId });
+    await post("/api/admin/questions/delete", { competition_id: compId(), question_id: pendingDeleteQuestionId });
     pendingDeleteQuestionId = null;
     byId("qDeleteDialog").close();
     byId("qDialog").close();

@@ -3871,33 +3871,9 @@ create or replace package body pkg_competition_routes as
   function format_hash_number(
     p_value in number
   ) return varchar2 is
-    l_scaled number := trunc(p_value * 1000000);
+    l_scaled number := trunc(round(p_value, 6) * 1000000);
   begin
     return to_char(l_scaled, 'FM9999999999999990');
-  end;
-
-  procedure update_adler32(
-    p_text in varchar2,
-    io_a in out number,
-    io_b in out number
-  ) is
-    c_mod constant number := 65521;
-  begin
-    if p_text is null then
-      return;
-    end if;
-    for i in 1 .. length(p_text) loop
-      io_a := mod(io_a + ascii(substr(p_text, i, 1)), c_mod);
-      io_b := mod(io_b + io_a, c_mod);
-    end loop;
-  end;
-
-  function adler32_hex(
-    p_a in number,
-    p_b in number
-  ) return varchar2 is
-  begin
-    return lpad(upper(to_char(p_b * 65536 + p_a, 'FMXXXXXXXX')), 8, '0');
   end;
 
   function distance_of(
@@ -3943,26 +3919,20 @@ create or replace package body pkg_competition_routes as
   ) return varchar2 is
     l_hash varchar2(64);
     l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
-    l_a1 number := 1;
-    l_b1 number := 0;
-    l_a2 number := 1;
-    l_b2 number := 0;
-    l_a3 number := 1;
-    l_b3 number := 0;
-    l_a4 number := 1;
-    l_b4 number := 0;
-    l_row_text varchar2(4000);
+    l_payload varchar2(32767);
   begin
-    select pkg_common.normalize_competition_type(c.type)
-      into l_comp_type
-      from competitions c
-     where c.competition_id = p_competition_id
-       and (c.end_date is null or c.end_date > sysdate);
+    begin
+      select pkg_common.normalize_competition_type(c.type)
+        into l_comp_type
+        from competitions c
+       where c.competition_id = p_competition_id
+         and (c.end_date is null or c.end_date > sysdate);
+    exception
+      when no_data_found then
+        l_comp_type := pkg_common.c_competition_type_random;
+    end;
 
-    update_adler32('A|' || l_comp_type || '|', l_a1, l_b1);
-    update_adler32('B|' || l_comp_type || '|', l_a2, l_b2);
-    update_adler32('C|' || l_comp_type || '|', l_a3, l_b3);
-    update_adler32('D|' || l_comp_type || '|', l_a4, l_b4);
+    l_payload := 'T|' || l_comp_type || '|';
 
     for rec in (
       select cp.checkpoint_id,
@@ -3981,10 +3951,10 @@ create or replace package body pkg_competition_routes as
             where q.checkpoint_id = cp.checkpoint_id
               and (q.end_date is null or q.end_date > sysdate)
          )
-       order by cp.checkpoint_id
+       order by cp.checkpoint_id asc
     ) loop
-      l_row_text :=
-        to_char(rec.checkpoint_id)
+      l_payload := l_payload
+        || to_char(rec.checkpoint_id)
         || ':'
         || rec.checkpoint_type
         || ':'
@@ -3994,35 +3964,12 @@ create or replace package body pkg_competition_routes as
         || ':'
         || format_hash_number(rec.longitude)
         || '|';
-      update_adler32(l_row_text, l_a1, l_b1);
-      update_adler32(l_row_text, l_a2, l_b2);
-      update_adler32(l_row_text, l_a3, l_b3);
-      update_adler32(l_row_text, l_a4, l_b4);
     end loop;
 
-    l_hash := adler32_hex(l_a1, l_b1)
-      || adler32_hex(l_a2, l_b2)
-      || adler32_hex(l_a3, l_b3)
-      || adler32_hex(l_a4, l_b4);
+    select standard_hash(l_payload, 'SHA256')
+      into l_hash
+      from dual;
     return l_hash;
-  exception
-    when no_data_found then
-      l_a1 := 1;
-      l_b1 := 0;
-      l_a2 := 1;
-      l_b2 := 0;
-      l_a3 := 1;
-      l_b3 := 0;
-      l_a4 := 1;
-      l_b4 := 0;
-      update_adler32('A|' || pkg_common.c_competition_type_random || '|', l_a1, l_b1);
-      update_adler32('B|' || pkg_common.c_competition_type_random || '|', l_a2, l_b2);
-      update_adler32('C|' || pkg_common.c_competition_type_random || '|', l_a3, l_b3);
-      update_adler32('D|' || pkg_common.c_competition_type_random || '|', l_a4, l_b4);
-      return adler32_hex(l_a1, l_b1)
-        || adler32_hex(l_a2, l_b2)
-        || adler32_hex(l_a3, l_b3)
-        || adler32_hex(l_a4, l_b4);
   end;
 
   procedure load_route_points(
@@ -4155,13 +4102,31 @@ create or replace package body pkg_competition_routes as
   procedure apply_two_opt(
     p_order in out nocopy number_tab,
     p_route_count in pls_integer,
-    p_matrix in matrix_tab
+    p_matrix in matrix_tab,
+    p_fix_start in boolean,
+    p_fix_finish in boolean
   ) is
     l_improved boolean := true;
     l_swap number;
     l_delta number;
     l_left pls_integer;
     l_right pls_integer;
+
+    procedure reverse_segment(
+      p_left in pls_integer,
+      p_right in pls_integer
+    ) is
+      l_local_left pls_integer := p_left;
+      l_local_right pls_integer := p_right;
+    begin
+      while l_local_left < l_local_right loop
+        l_swap := p_order(l_local_left);
+        p_order(l_local_left) := p_order(l_local_right);
+        p_order(l_local_right) := l_swap;
+        l_local_left := l_local_left + 1;
+        l_local_right := l_local_right - 1;
+      end loop;
+    end;
   begin
     if p_route_count < 4 then
       return;
@@ -4169,6 +4134,28 @@ create or replace package body pkg_competition_routes as
 
     while l_improved loop
       l_improved := false;
+      if not p_fix_start then
+        for k in 2 .. p_route_count - 1 loop
+          l_delta :=
+            distance_of(p_matrix, p_order(1), p_order(k + 1))
+            - distance_of(p_matrix, p_order(k), p_order(k + 1));
+          if l_delta < -0.0001 then
+            reverse_segment(1, k);
+            l_improved := true;
+          end if;
+        end loop;
+      end if;
+      if not p_fix_finish then
+        for i in 2 .. p_route_count - 1 loop
+          l_delta :=
+            distance_of(p_matrix, p_order(i - 1), p_order(p_route_count))
+            - distance_of(p_matrix, p_order(i - 1), p_order(i));
+          if l_delta < -0.0001 then
+            reverse_segment(i, p_route_count);
+            l_improved := true;
+          end if;
+        end loop;
+      end if;
       for i in 2 .. p_route_count - 2 loop
         for k in i + 1 .. p_route_count - 1 loop
           l_delta :=
@@ -4177,15 +4164,7 @@ create or replace package body pkg_competition_routes as
             - distance_of(p_matrix, p_order(i - 1), p_order(i))
             - distance_of(p_matrix, p_order(k), p_order(k + 1));
           if l_delta < -0.0001 then
-            l_left := i;
-            l_right := k;
-            while l_left < l_right loop
-              l_swap := p_order(l_left);
-              p_order(l_left) := p_order(l_right);
-              p_order(l_right) := l_swap;
-              l_left := l_left + 1;
-              l_right := l_right - 1;
-            end loop;
+            reverse_segment(i, k);
             l_improved := true;
           end if;
         end loop;
@@ -4414,7 +4393,13 @@ create or replace package body pkg_competition_routes as
         l_work_order(p_point_count) := p_finish_idx;
       end if;
 
-      apply_two_opt(l_work_order, p_point_count, p_matrix);
+      apply_two_opt(
+        l_work_order,
+        p_point_count,
+        p_matrix,
+        p_start_idx > 0,
+        p_finish_idx > 0
+      );
       l_route_length := route_length_from_order(l_work_order, p_point_count, p_matrix);
       if l_best_length is null or l_route_length < l_best_length then
         l_best_length := l_route_length;

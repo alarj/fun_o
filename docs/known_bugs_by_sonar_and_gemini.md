@@ -213,6 +213,30 @@ Millal uuesti hinnata:
 - kui tehakse eraldi DB/ORDS jõudluse paranduspass;
 - kui otsustatakse lisada function-based index või asendada normaliseerimisfunktsioon eksplitsiitse tingimusloogikaga.
 
+### 2.2 Raja arvutuse queue-package commit-piirid ja `AUTONOMOUS_TRANSACTION` arutelu
+
+Mõjutatud fail:
+- `db/oracle/api/05_api_packages_stub.sql`
+
+Mõjutatud ala:
+- `pkg_competition_routes.request_route_recalc`
+- `pkg_competition_routes.calculate_route_now`
+- `pkg_competition_routes.process_pending_routes`
+
+Miks ei parandatud:
+- Gemini tähelepanek üldise PL/SQL best practice vaates on arusaadav, kuid nende entrypointide roll ei ole tavaline ärilise põhioperatsiooni alamprotseduur, vaid queue/control-plane loogika;
+- siin on teadlik nõue, et `PENDING`, `PROCESSING`, `READY` ja `FAILED` staatused muutuksid teistele sessioonidele nähtavaks kohe, mitte alles mõne välise kutsuja suurema transaktsiooni lõpus;
+- just see nähtavus väldib topeltkäivitusi ja võimaldab scheduleril ning admin UI-l näha protsessi tegelikku seisu;
+- kogu protseduuri viimine `AUTONOMOUS_TRANSACTION` alla ei oleks siin parem vaikimisi lahendus, sest see lahutaks route-state'i liiga jõuliselt kutsuja transaktsioonist ja muudaks veaolukordade põhjuse-tagajärje ahela raskemini jälgitavaks;
+- praegune commit-piir on seega teadlik arhitektuurne kompromiss, mitte juhuslik transaktsiooniviga.
+
+Staatus:
+- teadlikult dokumenteeritud tradeoff, mitte praeguse töövoo bugfixi kandidaat
+
+Millal uuesti hinnata:
+- kui neid protseduure hakatakse kasutama üldotstarbeliste alamprotseduuridena mõne suurema transaktsiooni sees;
+- kui route queue viiakse tulevikus eraldi tööjärjekorra või teenusepõhise orkestreerimise peale.
+
 Parandatud Gemini leiud, mida siia ei käsitleta avatud punktidena:
 - `sanitizeTermsHtml` home-brew sanitizer -> asendatud DOMPurifyga
 - `deviceorientation` + `deviceorientationabsolute` dubleeritud listener -> korrigeeritud ühe aktiivse allika peale

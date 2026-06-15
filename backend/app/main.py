@@ -3,13 +3,14 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import math
 import os
 import shutil
 import re
 import time
 import uuid
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="fun_o API", version="0.3.0")
+logger = logging.getLogger(__name__)
 
 
 class Settings:
@@ -79,6 +81,8 @@ EPK_OVERLAY_LAYER_CODE = "maaamet_pohikaart_overlay"
 SUPPORTED_OVERLAY_IMAGE_EXTENSIONS = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 SUPPORTED_OVERLAY_WORLD_EXTENSIONS = {".png": {".pgw"}, ".jpg": {".jgw"}, ".jpeg": {".jgw"}}
 OVERLAY_TILE_SIZE_PX = 256
+ROUTE_HASH_COORD_PRECISION = Decimal("0.000001")
+ROUTE_HASH_COORD_SCALE = Decimal("1000000")
 EPSG3301_ORIGIN_X = 40500.0
 EPSG3301_ORIGIN_Y = 7017000.0
 EPSG3301_RESOLUTIONS = (
@@ -596,6 +600,7 @@ class AdminCreateCheckpointResponse(BaseModel):
 
 
 class AdminCreateQuestionRequest(BaseModel):
+    competition_id: int | None = None
     checkpoint_id: int
     question_type: str
     input_type: str | None = None
@@ -613,6 +618,7 @@ class AdminCreateQuestionResponse(BaseModel):
 
 
 class AdminCreateQuestionOptionRequest(BaseModel):
+    competition_id: int | None = None
     question_id: int
     option_code: str
     order_no: int
@@ -627,6 +633,7 @@ class AdminCreateQuestionOptionResponse(BaseModel):
 
 
 class AdminCreateQuestionAnswerRequest(BaseModel):
+    competition_id: int | None = None
     question_id: int
     answer_value: str
     normalize_mode: str = "EXACT"
@@ -763,6 +770,7 @@ class AdminDeleteCheckpointRequest(BaseModel):
 
 
 class AdminUpdateQuestionRequest(BaseModel):
+    competition_id: int | None = None
     question_id: int
     checkpoint_id: int
     question_type: str
@@ -779,6 +787,7 @@ class AdminUpdateQuestionRequest(BaseModel):
 
 
 class AdminDeleteQuestionRequest(BaseModel):
+    competition_id: int | None = None
     question_id: int
     deleted_by: int | None = None
 
@@ -2113,23 +2122,12 @@ def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
 
 
 def _format_route_hash_number(value: Any) -> str:
-    scaled = int(Decimal(str(value)) * Decimal("1000000"))
+    rounded = Decimal(str(value)).quantize(ROUTE_HASH_COORD_PRECISION, rounding=ROUND_HALF_UP)
+    scaled = int((rounded * ROUTE_HASH_COORD_SCALE).to_integral_value(rounding=ROUND_HALF_UP))
     return str(scaled)
 
 
-def _update_adler32(text: str, a: int, b: int) -> tuple[int, int]:
-    mod = 65521
-    for ch in text:
-        a = (a + ord(ch)) % mod
-        b = (b + a) % mod
-    return a, b
-
-
-def _adler32_hex(a: int, b: int) -> str:
-    return f"{((b << 16) + a):08X}"
-
-
-def _compute_route_source_hash_from_items(competition_type: str | None, items: list[dict[str, Any]]) -> str:
+def _build_route_source_hash_payload(competition_type: str | None, items: list[dict[str, Any]]) -> str:
     normalized_type = str(competition_type or "R").strip().upper() or "R"
     sortable: list[tuple[int, str, str, str, str]] = []
     for row in items:
@@ -2155,22 +2153,21 @@ def _compute_route_source_hash_from_items(competition_type: str | None, items: l
             )
         )
     sortable.sort(key=lambda x: x[0])
-    states = [(1, 0), (1, 0), (1, 0), (1, 0)]
-    prefixes = ("A", "B", "C", "D")
-    for idx, prefix in enumerate(prefixes):
-        states[idx] = _update_adler32(f"{prefix}|{normalized_type}|", states[idx][0], states[idx][1])
-    for checkpoint_id, checkpoint_type, order_value, latitude, longitude in sortable:
-        row_text = f"{checkpoint_id}:{checkpoint_type}:{order_value}:{latitude}:{longitude}|"
-        for idx in range(4):
-            states[idx] = _update_adler32(row_text, states[idx][0], states[idx][1])
-    return "".join(_adler32_hex(a, b) for a, b in states)
+    rows = [f"{checkpoint_id}:{checkpoint_type}:{order_value}:{latitude}:{longitude}" for checkpoint_id, checkpoint_type, order_value, latitude, longitude in sortable]
+    return f"T|{normalized_type}|" + "|".join(rows) + ("|" if rows else "")
+
+
+def _compute_route_source_hash_from_items(competition_type: str | None, items: list[dict[str, Any]]) -> str:
+    payload = _build_route_source_hash_payload(competition_type, items)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
 
 
 def _normalize_route_payload(route_raw: Any) -> dict[str, Any] | None:
     if isinstance(route_raw, str):
         try:
             route_raw = json.loads(route_raw)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to parse route payload JSON: %s", exc)
             return None
     if not isinstance(route_raw, dict):
         return None
@@ -2179,7 +2176,8 @@ def _normalize_route_payload(route_raw: Any) -> dict[str, Any] | None:
     if isinstance(route_order_raw, str):
         try:
             route["route_order_json"] = json.loads(route_order_raw)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to parse route_order_json: %s", exc)
             route["route_order_json"] = None
     elif route_order_raw is not None and not isinstance(route_order_raw, list):
         route["route_order_json"] = None
@@ -3741,6 +3739,7 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
     ords_response = await _post_to_ords(
         "admin/questions",
         {
+            "competition_id": req.competition_id,
             "checkpoint_id": req.checkpoint_id,
             "question_type": req.question_type,
             "input_type": req.input_type,
@@ -3756,8 +3755,11 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
     question_id = ords_response.get("question_id")
     if not isinstance(question_id, int):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    if req.competition_id is not None:
+        _invalidate_competition_cache(req.competition_id)
+    else:
+        map_checkpoints_cache.clear()
+        open_checkpoints_last_response.clear()
     return AdminCreateQuestionResponse(question_id=question_id)
 
 
@@ -3767,6 +3769,7 @@ async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, re
     ords_response = await _post_to_ords(
         "admin/question-options",
         {
+            "competition_id": req.competition_id,
             "question_id": req.question_id,
             "option_code": req.option_code,
             "order_no": req.order_no,
@@ -3779,8 +3782,11 @@ async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, re
     option_id = ords_response.get("option_id")
     if not isinstance(option_id, int):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    if req.competition_id is not None:
+        _invalidate_competition_cache(req.competition_id)
+    else:
+        map_checkpoints_cache.clear()
+        open_checkpoints_last_response.clear()
     return AdminCreateQuestionOptionResponse(option_id=option_id)
 
 
@@ -3790,6 +3796,7 @@ async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, re
     ords_response = await _post_to_ords(
         "admin/question-answers",
         {
+            "competition_id": req.competition_id,
             "question_id": req.question_id,
             "answer_value": req.answer_value,
             "normalize_mode": req.normalize_mode,
@@ -3800,8 +3807,11 @@ async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, re
     answer_id = ords_response.get("answer_id")
     if not isinstance(answer_id, int):
         _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    if req.competition_id is not None:
+        _invalidate_competition_cache(req.competition_id)
+    else:
+        map_checkpoints_cache.clear()
+        open_checkpoints_last_response.clear()
     return AdminCreateQuestionAnswerResponse(answer_id=answer_id)
 
 
@@ -4474,8 +4484,7 @@ async def admin_delete_checkpoint(req: AdminDeleteCheckpointRequest, request: Re
             "deleted_by": user_id,
         },
     )
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    _invalidate_competition_cache(req.competition_id)
     _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
@@ -4484,6 +4493,7 @@ async def admin_delete_checkpoint(req: AdminDeleteCheckpointRequest, request: Re
 async def admin_update_question(req: AdminUpdateQuestionRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
     user_id = _require_google_session_user(request, x_user_id)
     payload: dict[str, Any] = {
+        "competition_id": req.competition_id,
         "question_id": req.question_id,
         "checkpoint_id": req.checkpoint_id,
         "question_type": req.question_type,
@@ -4508,8 +4518,11 @@ async def admin_update_question(req: AdminUpdateQuestionRequest, request: Reques
         "admin/questions/update",
         payload,
     )
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    if req.competition_id is not None:
+        _invalidate_competition_cache(req.competition_id)
+    else:
+        map_checkpoints_cache.clear()
+        open_checkpoints_last_response.clear()
     return {"ok": True}
 
 
@@ -4519,12 +4532,16 @@ async def admin_delete_question(req: AdminDeleteQuestionRequest, request: Reques
     await _post_to_ords(
         "admin/questions/delete",
         {
+            "competition_id": req.competition_id,
             "question_id": req.question_id,
             "deleted_by": user_id,
         },
     )
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    if req.competition_id is not None:
+        _invalidate_competition_cache(req.competition_id)
+    else:
+        map_checkpoints_cache.clear()
+        open_checkpoints_last_response.clear()
     return {"ok": True}
 
 

@@ -849,10 +849,19 @@ body.admin-booting .wrap {
       gap: 6px;
       margin-bottom: 6px;
     }
+    .admin-route-summary {
+      margin: 4px 0 10px;
+      min-width: 0;
+    }
     .cp-overview-route-text {
+      display: inline;
       font-weight: 600;
       color: #1f2937;
       white-space: normal;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.35;
     }
     .cp-overview-footer {
       display: grid;
@@ -890,13 +899,6 @@ body.admin-booting .wrap {
       display: inline;
       min-width: 0;
       max-width: 100%;
-    }
-    .cp-overview-route-text {
-      display: inline;
-      min-width: 0;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      line-height: 1.35;
     }
     .cp-overview-route-distance.is-stale {
       text-decoration: line-through;

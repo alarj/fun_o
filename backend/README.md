@@ -610,6 +610,7 @@ Important persisted fields in `competition_routes`:
 ### Admin UI usage rules
 
 - Admin “Näita kaardil” uses the persisted route snapshot; it does not recompute route length on modal open.
+- Admin competition overview also shows the same persisted route snapshot as a read-only summary line above the checkpoint table.
 - When the modal is opened, frontend reloads the latest persisted route snapshot from backend before drawing the modal content.
   - already open modal is not live-updated;
   - close + reopen must reflect the latest DB state without full page reload.
@@ -646,6 +647,7 @@ Important persisted fields in `competition_routes`:
   - checkpoint type
   - `order_no`
   - latitude/longitude rounded to 6 decimals
+  - canonical row serialization hashed with `SHA-256`
 - FastAPI recomputes the same hash from `competitor/map-checkpoints` payload.
 - Competitor-facing route data is considered valid only when:
   - ORDS `current_source_hash` matches FastAPI-recomputed hash
@@ -760,8 +762,8 @@ Important:
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.
-  - full clear on admin content mutations (checkpoint/question/option/answer create-update-delete).
-  - competition-scoped clear via `_invalidate_competition_cache(...)` on competition meta/date updates and some competition-level mutations.
+  - competition-scoped clear via `_invalidate_competition_cache(...)` on checkpoint mutations, competition meta/date updates and question mutations when `competition_id` is present in the admin request.
+  - fallback full clear for legacy question/option/answer admin requests that do not carry `competition_id`.
   - process restart clears all.
   - cached `route` is treated as display-only snapshot data; FastAPI removes it from payload when source-hash validation no longer matches current checkpoints.
 
