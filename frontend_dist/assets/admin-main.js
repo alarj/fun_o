@@ -677,6 +677,12 @@ function refreshCompetitionTypeDisplay() {
   target.textContent = tr(`admin.competition.type.${compType.toLowerCase()}`);
 }
 
+function rerenderCompetitionRouteTexts() {
+  renderCompetitionRouteSummary();
+  renderCheckpointOverviewRouteControls();
+  refreshCheckpointOverviewRouteDisplay();
+}
+
 async function loadView() {
   if (!byId("competitionSelect").value) return;
   const rememberedName = lastCompCookieName();
@@ -1592,6 +1598,7 @@ byId("uiLang").onchange = async () => {
   await refreshIntroDialogIfOpen();
   refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
+  rerenderCompetitionRouteTexts();
   renderRows();
 };
 
@@ -1603,6 +1610,7 @@ byId("uiLangApp").onchange = async () => {
   await refreshIntroDialogIfOpen();
   refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
+  rerenderCompetitionRouteTexts();
   renderRows();
 };
 
@@ -1614,6 +1622,7 @@ byId("uiLangNoOrg").onchange = async () => {
   await refreshIntroDialogIfOpen();
   refreshAdminMapLayerOptions();
   refreshCompetitionTypeDisplay();
+  rerenderCompetitionRouteTexts();
   renderRows();
 };
 
