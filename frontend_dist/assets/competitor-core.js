@@ -16,6 +16,7 @@ const state = {
     error: null,
   },
   mapItems: [],
+  mapRoute: null,
   mapDeclination: 0,
   mapDeclinationUpdatedAt: null,
 };
@@ -154,6 +155,7 @@ function applyUiTranslations() {
   el("myAnswerDetailTitle").textContent = tr("competitor.answer_detail.title");
   el("myAnswerDetailCloseBtn").textContent = tr("competitor.common.close_btn");
   el("termsAndLicenseLine").innerHTML = `${tr("competitor.main.terms_prefix")} <a id="openCompetitionTermsLink" href="#">${tr("competitor.main.terms_link")}</a> | ${tr("competitor.main.license_line")}`;
+  renderCompetitionRouteSummary();
   refreshCompetitorBusyText();
 }
 
@@ -602,6 +604,48 @@ function renderCompetitionText() {
   el("userLine").textContent = aliasOrName;
 }
 
+function normalizeCompetitionRouteSnapshot(route) {
+  if (!route || typeof route !== "object") return null;
+  const routeLengthM = Number(route.route_length_m);
+  if (!Number.isFinite(routeLengthM) || routeLengthM < 0) return null;
+  return {
+    ...route,
+    route_length_m: routeLengthM,
+  };
+}
+
+function formatCompetitionRouteDistanceKm(routeLengthM) {
+  const meters = Number(routeLengthM);
+  if (!Number.isFinite(meters) || meters < 0) return null;
+  return (meters / 1000).toFixed(2);
+}
+
+function buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm) {
+  const template = tr(routeLabelKey);
+  const parts = String(template).split("{distance_km}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{distance_km}") || "");
+  return `${prefix}<span class="competitorRouteSummaryDistance">${esc(distanceKm || "-")}</span>${suffix}`;
+}
+
+function renderCompetitionRouteSummary() {
+  const card = el("competitionRouteCard");
+  const summary = el("competitionRouteSummary");
+  if (!card || !summary) return;
+  const route = state.mapRoute;
+  const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
+  const show = selectedCompetitionUsesLocation() && distanceKm != null;
+  card.style.display = show ? "block" : "none";
+  if (!show) {
+    summary.textContent = "";
+    return;
+  }
+  const routeLabelKey = selectedCompetitionType() === "S"
+    ? "competitor.route_summary.text_s"
+    : "competitor.route_summary.text_r";
+  summary.innerHTML = buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm);
+}
+
 function getSelectedCompetition() {
   return state.activeCompetition;
 }
@@ -935,15 +979,24 @@ async function refreshQuestionsOnLanguageChange(langCode) {
 }
 
 async function loadMapCheckpoints() {
-  if (!state.selectedCompetitionId) return [];
+  if (!state.selectedCompetitionId) {
+    state.mapRoute = null;
+    renderCompetitionRouteSummary();
+    return [];
+  }
   const res = await apiGet(`/api/competitor/map-checkpoints?competition_id=${state.selectedCompetitionId}`);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    renderCompetitionRouteSummary();
+    return [];
+  }
   const items = Array.isArray(res.data.items) ? res.data.items : [];
   if (state.activeCompetition && items[0]?.competition_type) {
     state.activeCompetition.type = String(items[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
   }
+  state.mapRoute = normalizeCompetitionRouteSnapshot(res.data?.route);
   const declination = Number(res.data?.declination);
   state.mapDeclination = Number.isFinite(declination) ? declination : 0;
   state.mapDeclinationUpdatedAt = typeof res.data?.declination_last_updated === "string" ? res.data.declination_last_updated : null;
+  renderCompetitionRouteSummary();
   return items.filter((x) => x && x.latitude != null && x.longitude != null);
 }

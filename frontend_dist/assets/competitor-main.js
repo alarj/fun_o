@@ -113,11 +113,13 @@ function setActiveCompetitionFromSession(sessionData) {
   if (!sessionData || !sessionData.participant) {
     state.activeCompetition = null;
     state.selectedCompetitionId = null;
+    state.mapRoute = null;
     return;
   }
   const p = sessionData.participant;
   state.userId = Number(sessionData.user_id || 0) || null;
   state.selectedCompetitionId = Number(p.competition_id || 0) || null;
+  state.mapRoute = normalizeCompetitionRouteSnapshot(p.route);
   state.activeCompetition = {
     competition_id: state.selectedCompetitionId,
     name: p.competition_name || "-",
@@ -147,8 +149,10 @@ async function loadSessionState() {
     state.hasAuthenticatedCompetitionSession = false;
     setActiveCompetitionFromSession(null);
     el("mainCard").style.display = "none";
+    el("competitionRouteCard").style.display = "none";
     el("answerCard").style.display = "none";
     el("myResultsCard").style.display = "none";
+    renderCompetitionRouteSummary();
     return false;
   }
   state.hasAuthenticatedCompetitionSession = true;
@@ -160,6 +164,7 @@ async function loadSessionState() {
   el("mainCard").style.display = "block";
   el("answerCard").style.display = "block";
   el("myResultsCard").style.display = "block";
+  renderCompetitionRouteSummary();
   setMyResultsOpen(false);
   try {
     await applyCheckpointLoadingMode();

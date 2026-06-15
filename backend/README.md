@@ -33,6 +33,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/admin/competitions/map-layers?competition_id=...` - tagastab võistlusele lubatud kaardikihtide sidumise.
 - GET `/admin/competitions/overlay?competition_id=...` - tagastab võistluse aktiivse oma kaardi metadata, kui see on olemas.
 - GET `/admin/competitions/overlays/pending-processing` - tagastab aktiivsed oma kaardid, mille töötlus tuleb käivitada või taastada.
+- GET `/admin/competitions/route?competition_id=...` - tagastab salvestatud raja pikkuse snapshoti koos staatuse, algoritmi, hashi ja KP järjekorraga.
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
@@ -52,6 +53,9 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/admin/competitions/overlay/delete` - teeb võistluse oma kaardi soft-delete.
 - POST `/admin/competitions/dates` - uuendab võistluse algus/lõpp kuupäevi.
 - POST `/admin/competitions/meta` - uuendab võistluse metaandmeid (nimi, tüüp, staatus, location lipud jne).
+- POST `/admin/competitions/route/request` - märgib võistluse raja pikkuse taustaarvutuseks ootel olevaks.
+- POST `/admin/competitions/route/calculate-now` - arvutab valitud võistluse raja pikkuse kohe välja ja tagastab snapshoti.
+- POST `/admin/competitions/routes/process-pending` - käivitab ootel raja-arvutuste batch-protsessi käsitsi.
 - POST `/admin/competitions/terms` - salvestab võistluse tingimuste teksti.
 - GET `/superadmin/competitions` - tagastab kõik võistlused superadmin vaates.
 - GET `/superadmin/translations` - tagastab tõlgete halduse andmed (filtrid + kirjed).
@@ -85,11 +89,14 @@ Expected ORDS JSON responses:
     - `checkpoints.radius_m`, kui see on määratud;
     - muidu `competitions.radius_m`;
     - kui kumbki puudub, tagastatakse `0`.
+  - payload võib lisaks sisaldada `competition_type`, `current_source_hash` ja `route`.
+  - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
   - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.
+  - location competitions may also include a ready/current `route` snapshot so competitor landing view can show route length without a separate ORDS call.
 - `competitor/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `results/score` -> `{ "score": 42 }`
 - `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
@@ -100,7 +107,9 @@ Expected ORDS JSON responses:
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 - `admin/competitions` -> `{ "items": [...] }`
 - `admin/onboarding-options` -> `{ "can_create_empty_competition": true|false }`
-- `admin/competition-overview` -> `{ ..., "type": "R|S" }`
+- `admin/competition-overview` -> `{ ..., "type": "R|S", "route": { ... } }`
+- `admin/competitions/route` -> `{ "competition_id":..., "calc_status":"PENDING|PROCESSING|READY|FAILED", "route_length_m":..., "algorithm_code":"...", "included_checkpoint_count":..., "route_order_json":[...], "calculated_source_hash":"...", "requested_at":"...", "started_at":"...", "calculated_at":"...", "calculation_duration_ms":..., "attempt_count":..., "error_message":"..." }`
+  - route payload may also contain `current_source_hash` and `is_current` for admin UI state rendering.
 - `admin/questions-overview` -> `{ "items": [...] }`
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
@@ -522,6 +531,135 @@ Important Oracle JSON note:
   - checkpoint `order_no` per competition (only when `order_no` is not null)
   - question/question-option language and option uniqueness indexes
 
+## Competition Route Length Runtime Flow
+
+This section documents the persisted route-length calculation used for competition overview and competitor map payloads.
+
+### Purpose
+
+- The system stores route length as a DB-side snapshot instead of recalculating it on every read.
+- The same storage model is used for both competition types:
+  - `S` = sequential route in defined checkpoint order
+  - `R` = shortest known route through all included checkpoints
+- Snapshot includes both the total length and the checkpoint order used for the calculation.
+
+### Data model and settings
+
+- Main table: `competition_routes`
+- Supporting settings table: `app_settings`
+- Important settings currently read from DB:
+  - `ROUTE_R_EXACT_THRESHOLD`
+  - `ROUTE_JOB_BATCH_SIZE`
+  - `ROUTE_HEURISTIC_SEED_COUNT`
+  - `ROUTE_PROCESSING_TIMEOUT_MINUTES`
+
+Important persisted fields in `competition_routes`:
+- `calc_status` = `PENDING | PROCESSING | READY | FAILED`
+- `route_length_m`
+- `algorithm_code`
+- `included_checkpoint_count`
+- `route_order_json`
+- `calculated_source_hash`
+- `requested_at`, `started_at`, `calculated_at`
+- `calculation_duration_ms`
+- `attempt_count`
+- `error_message`
+
+### Which checkpoints are included
+
+- Only active checkpoints of the target competition are considered.
+- Checkpoint must have both `latitude` and `longitude`.
+- Checkpoint must have an active question.
+- This is an intentional business rule: a checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
+- Checkpoints without coordinates are excluded from both the calculation and the source hash.
+- Competition type is part of the source hash, so changing `R <-> S` invalidates the old snapshot even if checkpoints themselves did not change.
+
+### Algorithms
+
+`S` type:
+- Route is calculated in traversal order.
+- Ordering rule is `order_no asc, checkpoint_id asc`.
+- `START` and `FINISH` are treated like normal route points if they have coordinates and an active question.
+- Stored `algorithm_code` is currently `S_EXACT`.
+
+`R` type:
+- If included checkpoint count is `<= ROUTE_R_EXACT_THRESHOLD`, DB uses exact search.
+- If included checkpoint count is above the threshold, DB uses heuristic search.
+- Route mode variants:
+  - open route: no `START`, no `FINISH`
+  - start-fixed route: `START` exists, `FINISH` missing
+  - finish-fixed route: `FINISH` exists, `START` missing
+  - start-finish route: both special points exist
+- Stored `algorithm_code` reflects both solver family and mode, for example:
+  - `R_EXACT_OPEN`
+  - `R_EXACT_START_FINISH`
+  - `R_HEUR_OPEN`
+  - `R_HEUR_START_FINISH`
+
+### Request and processing flow
+
+- `POST /api/admin/competitions/route/request`
+  - intended for queued/background route calculation
+  - creates or updates `competition_routes` row to `PENDING`
+- `POST /api/admin/competitions/route/calculate-now`
+  - calculates immediately and returns the resulting snapshot
+  - useful for testing and for immediate recalculation
+- `POST /api/admin/competitions/routes/process-pending`
+  - manually starts queued batch processing
+- DB scheduler job may call the same package function periodically.
+
+### Admin UI usage rules
+
+- Admin “Näita kaardil” uses the persisted route snapshot; it does not recompute route length on modal open.
+- Admin competition overview also shows the same persisted route snapshot as a read-only summary line above the checkpoint table.
+- When the modal is opened, frontend reloads the latest persisted route snapshot from backend before drawing the modal content.
+  - already open modal is not live-updated;
+  - close + reopen must reflect the latest DB state without full page reload.
+- The overview payload may include `route.current_source_hash` and `route.is_current` so frontend can show whether the stored snapshot is still valid.
+- Manual action split:
+  - `R` competitions use `POST /api/admin/competitions/route/request` from UI, which only queues the recalculation.
+  - `S` competitions use `POST /api/admin/competitions/route/calculate-now` from UI, because the calculation is immediate and cheap.
+- When snapshot hash no longer matches the current source hash:
+  - admin UI may still show the last known stored length and route order;
+  - competitor UI must not show stale route data.
+- Admin route-order lines in “Näita kaardil” are drawn from persisted data, not from a live solver call:
+  - `S` competitions draw the line directly from checkpoint `order_no` order and show it immediately on modal open;
+  - `R` competitions draw the line from persisted `route_order_json` and expose separate show/hide control only when snapshot order exists.
+- In admin “Näita kaardil”, route status indicators are UI-only snapshot-state markers:
+  - `PENDING` = static dot indicator;
+  - `PROCESSING` = spinner indicator;
+  - both are rendered on the same line after route text and before the route-length help (`i`) icon.
+
+### Concurrency and recovery rules
+
+- If any `competition_routes` row is already in `PROCESSING`, a new batch run exits immediately without taking more work.
+- Before processing, timed-out `PROCESSING` rows older than `ROUTE_PROCESSING_TIMEOUT_MINUTES` are marked `FAILED`.
+- Package commits per competition on purpose:
+  - first when a row is claimed as `PROCESSING`
+  - again after that competition finishes as `READY` or `FAILED`
+- This is a deliberate isolation choice so that one failed long-running competition does not roll back the whole batch and so the current status is visible to the next scheduler run.
+- Tradeoff: `process_pending_routes` commits inside the processing loop. This is acceptable here because the queue is small and the strict single-processing rule prevents overlapping workers, but it is still a conscious compromise rather than a generic PL/SQL best practice.
+
+### Hash and FastAPI visibility rules
+
+- Oracle computes `calculated_source_hash` from:
+  - normalized competition type
+  - included checkpoint IDs
+  - checkpoint type
+  - `order_no`
+  - latitude/longitude rounded to 6 decimals
+  - canonical row serialization hashed with `SHA-256`
+- FastAPI recomputes the same hash from `competitor/map-checkpoints` payload.
+- Competitor-facing route data is considered valid only when:
+  - ORDS `current_source_hash` matches FastAPI-recomputed hash
+  - route snapshot exists
+  - snapshot `calculated_source_hash` equals current hash
+- If hashes do not match, FastAPI drops `route` from the competitor response instead of exposing stale length data.
+- Competitor landing view may show a read-only route-length summary only when:
+  - competition uses location (`competitions.use_location = 'Y'`)
+  - FastAPI still includes a valid `route` object in cached `map-checkpoints` payload
+- Competitor route summary must not trigger an extra ORDS request; frontend reads it from the same cached `map-checkpoints` response as checkpoint map data.
+
 
 ## Server-side caching (authoritative)
 
@@ -615,6 +753,8 @@ Important:
   - `checkpoint_type`
   - `competition_type` (`R|S`)
   - `checkpoint_map_label` (competitor map tooltip text preformatted for the current competition type)
+  - `current_source_hash`
+  - `route`
 - `checkpoint_map_label` formatting:
   - applies only to `NORMAL` checkpoints; `START`/`FINISH` stay symbol-only on map.
   - `R` type:
@@ -627,9 +767,10 @@ Important:
 - Invalidated/reset:
   - user+competition scoped invalidation after successful `POST /api/submissions`.
   - automatic expiry purge on reads.
-  - full clear on admin content mutations (checkpoint/question/option/answer create-update-delete).
-  - competition-scoped clear via `_invalidate_competition_cache(...)` on competition meta/date updates and some competition-level mutations.
+  - competition-scoped clear via `_invalidate_competition_cache(...)` on checkpoint mutations, competition meta/date updates and question mutations when `competition_id` is present in the admin request.
+  - fallback full clear for legacy question/option/answer admin requests that do not carry `competition_id`.
   - process restart clears all.
+  - cached `route` is treated as display-only snapshot data; FastAPI removes it from payload when source-hash validation no longer matches current checkpoints.
 
 ### 5) `open_checkpoints_last_response`
 - Purpose: short throttle cache for `GET /api/competitor/open-checkpoints`.

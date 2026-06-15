@@ -52,6 +52,7 @@ Süsteem loob väärtust kolmes rollis.
 - uuele korraldajale võimalus alustada korraldaja koodiga liitumisest või luua kohe tühi uus võistlus, kui vastav seadistus on lubatud;
 - võimalus lisada võistlusele oma georeferentseeritud kaart overlayna ning kasutada seda admini kaardivaadetes pärast taustatöötluse valmimist;
 - võimalus kopeerida olemasolev võistlus ning soovi korral võtta kaasa KP-d, küsimused, teised korraldajad ja olemasolev oma kaart;
+- süsteem arvutab ja salvestab raja linnulennulise pikkuse nii `S`- kui `R`-tüübi võistlustele koos kasutatud KP järjekorraga ning admin saab seda “Näita kaardil” vaates kontrollida, tellida ja kaardil joonena kuvada;
 - jooksev leaderboard ning detailne vaade vastustele/KP-de läbimisele;
 - võistluse lõpus automaatne tulemuste tabel (punktid + ajakriteerium);
 - vähem käsitsi arvutamist, vähem inimlikke vigu, parem läbipaistvus osalejatele.
@@ -69,6 +70,7 @@ Lahendus on veebipõhine mitmekihiline süsteem:
 - frontendid rollipõhiselt: võistleja, admin, superadmin, tulemuste vaade;
 - FastAPI backend ühtse API, sessiooni, valideerimise ja cache’iga;
 - Oracle andmemudel + ORDS REST-kiht, kus paiknevad andmete ja reeglite kesksemad kontrollid;
+- Oracle taustaloogika, mis arvutab raja pikkuse ja salvestab selle snapshotina koos sisend-hashiga;
 - kaardikiht avalikest kaardiallikatest (nt Maa-ameti kaardid, OpenStreetMap, Mapy.cz), mida saab kasutada võistluse loogika osana või taustakaardina;
 - võistluspõhised oma kaardid, mis salvestatakse eraldi failistorage'isse, töödeldakse taustas tile'ideks ning kuvatakse nii adminis kui võistleja vaates EPK aluskaardi peal eraldi overlay-kihina;
 - Docker Compose’iga käivitatav tervik (nginx + backend + testiprofiil).
@@ -99,7 +101,7 @@ Tehnilised detailid on kirjeldatud olemasolevates dokumentides:
 - liitumise ja osaluse reeglid: [docs/competitor_join_rules.md](docs/competitor_join_rules.md)
 - teadlikult parandamata Sonar/Gemini leiud: [docs/known_bugs_by_sonar_and_gemini.md](docs/known_bugs_by_sonar_and_gemini.md)
 - backendi API/integreerimisdetailid: [backend/README.md](backend/README.md)
-  - sisaldab ka eraldi jaotist geograafilise kauguse arvutusest (KP avatavus + `total_distance_m`)
+  - sisaldab ka eraldi jaotisi geograafilise kauguse arvutusest (KP avatavus + `total_distance_m`) ning raja linnulennulise pikkuse arvutusest
 - juurutus (HTTPS): [docs/deploy/https-letsencrypt.md](docs/deploy/https-letsencrypt.md)
 - koormustestid: [testing/load/README.md](testing/load/README.md)
 

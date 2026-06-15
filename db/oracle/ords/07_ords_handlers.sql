@@ -1,4 +1,4 @@
-﻿-- 07_ords_handlers.sql
+-- 07_ords_handlers.sql
 -- Run as FUNO_API (schema already enabled in ORDS)
 -- Assumes grants from FUNO_APP to FUNO_API are in place.
 
@@ -152,14 +152,57 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
+        l_route_json clob;
+        l_output_json clob;
+        l_current_hash varchar2(64);
+        l_overview_obj json_object_t;
+        l_route_obj json_object_t;
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_admin_content.get_competition_overview_json(
           p_competition_id => to_number(:competition_id),
           o_overview_json => l_json
         );
+        l_output_json := nvl(l_json, '{}');
+        begin
+          FUNO_APP.pkg_competition_routes.get_route_snapshot_json(
+            p_competition_id => to_number(:competition_id),
+            o_item_json => l_route_json
+          );
+          l_current_hash := FUNO_APP.pkg_competition_routes.get_current_source_hash(
+            p_competition_id => to_number(:competition_id)
+          );
+          l_overview_obj := json_object_t.parse(nvl(l_json, '{}'));
+          if l_route_json is not null then
+            l_route_obj := json_object_t.parse(l_route_json);
+          else
+            l_route_obj := json_object_t();
+          end if;
+          l_route_obj.put('current_source_hash', l_current_hash);
+          l_route_obj.put(
+            'is_current',
+            case
+              when l_route_obj.has('calculated_source_hash')
+               and l_route_obj.get_string('calculated_source_hash') = l_current_hash
+              then 'Y'
+              else 'N'
+            end
+          );
+          l_overview_obj.put('route', l_route_obj);
+          l_output_json := l_overview_obj.to_clob();
+        exception
+          when others then
+            l_output_json := nvl(l_json, '{}');
+        end;
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(nvl(l_json, '{}'));
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -957,6 +1000,14 @@ begin
         l_json clob;
         l_declination number;
         l_declination_last_updated varchar2(30);
+        l_route_json clob;
+        l_output_json clob;
+        l_route_obj json_object_t;
+        l_current_hash varchar2(64);
+        l_competition_type varchar2(1);
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_competitor.list_map_checkpoints_json(
           p_user_id => to_number(:user_id),
@@ -965,15 +1016,53 @@ begin
           o_declination => l_declination,
           o_declination_last_updated => l_declination_last_updated
         );
+        l_competition_type := 'R';
+        l_output_json :=
+          '{'
+          || '"competition_type":"R"'
+          || ',"current_source_hash":null'
+          || ',"declination":' || to_char(nvl(l_declination, 0))
+          || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
+          || ',"route":{}'
+          || ',"items":' || nvl(l_json, '[]')
+          || '}';
+        begin
+          FUNO_APP.pkg_competition_routes.get_route_snapshot_json(
+            p_competition_id => to_number(:competition_id),
+            o_item_json => l_route_json
+          );
+          l_current_hash := FUNO_APP.pkg_competition_routes.get_current_source_hash(
+            p_competition_id => to_number(:competition_id)
+          );
+          l_competition_type := FUNO_APP.pkg_competition_routes.get_competition_type(
+            p_competition_id => to_number(:competition_id)
+          );
+          if l_route_json is not null then
+            l_route_obj := json_object_t.parse(l_route_json);
+          else
+            l_route_obj := json_object_t();
+          end if;
+          l_route_obj.put('current_source_hash', l_current_hash);
+          l_output_json :=
+            '{'
+            || '"competition_type":"' || replace(nvl(l_competition_type, 'R'), '"', '\"') || '"'
+            || ',"current_source_hash":' || case when l_current_hash is null then 'null' else '"' || replace(l_current_hash, '"', '\"') || '"' end
+            || ',"declination":' || to_char(nvl(l_declination, 0))
+            || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
+            || ',"route":' || case when l_route_json is null then '{}' else l_route_obj.to_clob() end
+            || ',"items":' || nvl(l_json, '[]')
+            || '}';
+        exception
+          when others then
+            null;
+        end;
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(
-          '{'
-          || '"declination":' || to_char(nvl(l_declination, 0))
-          || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
-          || ',"items":' || nvl(l_json, '[]')
-          || '}'
-        );
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -1970,6 +2059,148 @@ begin
         htp.p('{"ok":true}');
       end;
     ]'
+  );
+
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/route');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/route',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~
+      declare
+        l_json clob;
+        l_output_json clob;
+        l_route_obj json_object_t;
+        l_current_hash varchar2(64);
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
+      begin
+        FUNO_APP.pkg_competition_routes.get_route_snapshot_json(
+          p_competition_id => to_number(:competition_id),
+          o_item_json => l_json
+        );
+        l_current_hash := FUNO_APP.pkg_competition_routes.get_current_source_hash(
+          p_competition_id => to_number(:competition_id)
+        );
+        if l_json is not null then
+          l_route_obj := json_object_t.parse(l_json);
+        else
+          l_route_obj := json_object_t();
+        end if;
+        l_route_obj.put('current_source_hash', l_current_hash);
+        l_route_obj.put(
+          'is_current',
+          case
+            when l_route_obj.has('calculated_source_hash')
+             and l_route_obj.get_string('calculated_source_hash') = l_current_hash
+            then 'Y'
+            else 'N'
+          end
+        );
+        l_output_json := l_route_obj.to_clob();
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'admin/competitions/route',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/route/request');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/route/request',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_competition_routes.request_route_recalc(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_requested_by => case when l_body.has('requested_by') then l_body.get_number('requested_by') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ~'
+  );
+
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/route/calculate-now');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/route/calculate-now',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~
+      declare
+        l_body json_object_t;
+        l_json clob;
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_competition_routes.calculate_route_now(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_requested_by => case when l_body.has('requested_by') then l_body.get_number('requested_by') else null end,
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        if l_json is null then
+          htp.prn('{}');
+        else
+          l_len := dbms_lob.getlength(l_json);
+          while l_pos <= l_len loop
+            htp.prn(dbms_lob.substr(l_json, l_step, l_pos));
+            l_pos := l_pos + l_step;
+          end loop;
+        end if;
+      end;
+    ~'
+  );
+
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/competitions/routes/process-pending');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/competitions/routes/process-pending',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'~
+      declare
+        l_body json_object_t;
+        l_processed_count number := 0;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        l_processed_count := FUNO_APP.pkg_competition_routes.process_pending_routes(
+          p_limit => case when l_body.has('limit') then l_body.get_number('limit') else null end
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(json_object('processed_count' value nvl(l_processed_count, 0)));
+      end;
+    ~'
   );
 
   -- GET /funo/admin/competitions/terms?competition_id=..&lang_code=..

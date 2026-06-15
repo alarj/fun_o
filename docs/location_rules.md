@@ -293,9 +293,37 @@ Rakendub kahele kaardile:
 Reeglid:
 - Kui `competition.type='S'`:
   - KP järjekorranumber kuvatakse kaardil iga KP tähise juures.
-  - KP-d ühendatakse `order_no ASC` järgi.
-  - Ühendusjoone värv võetakse segmendi siht-KP tähise värvist (punane/lilla).
-  - Joone paksus võrdub KP tähise joone paksusega.
+  - KP lisamise/muutmise modali “Olemasolevad KP-d” kaardikihis ühendatakse KP-d `order_no ASC` järgi.
+  - “Näita kaardil” modalis joonistatakse `S` tüübi ühendusjoon automaatselt `order_no ASC` järgi kohe modali avamisel.
+  - `S` tüübi “Näita kaardil” modalis eraldi “Kuva järjekord” / “Peida järjekord” nuppu ei kuvata.
+  - Mõlemas vaates võetakse ühendusjoone värv segmendi siht-KP tähise värvist (punane/lilla).
+  - Mõlemas vaates võrdub joone paksus KP tähise joone paksusega.
+  - “Näita kaardil” modali route-järjekorra joon kasutab sama visuaalset loogikat nagu võistleja `S`-tüübi rajal:
+    - õhuke valge halo;
+    - joon lõpeb enne KP tähist;
+    - lõikuvate segmentide katkestused.
+
+### 12aa. Admin “Näita kaardil” route snapshoti reeglid
+
+- Modali allservas kuvatakse salvestatud raja linnulennuline pikkus:
+  - `S` puhul tekst kujul `Raja linnulennuline pikkus xx.xx km`;
+  - `R` puhul tekst kujul `Raja linnulennuline pikkus (optimaalne tee läbi kõikide KP-de) xx.xx km`.
+- Kui route snapshot puudub, kuvatakse sama tekst edasi, kuid pikkuse väärtuse asemel kuvatakse `-`.
+- Kui route snapshoti `calculated_source_hash` ei klapi jooksva hashiga:
+  - viimane teadaolev pikkus jääb adminis nähtavaks;
+  - läbikriipsutatuna kuvatakse ainult pikkuse arvuline väärtus, mitte kogu tekst;
+  - sama rea lõppu lisatakse märkus `rada on muutunud`.
+- Admin võib route arvutuse käsitsi tellida ainult sellest modali vaatest:
+  - `R` võistlusel tekitab nupp tellimuse (`PENDING`);
+  - `S` võistlusel arvutatakse tulemus kohe välja.
+- Kui route staatus on `PENDING` või `PROCESSING`, ei saa admin uut arvutust samast vaatest tellida.
+- Route staatuseikoon kuvatakse route-teksti samal real enne abiinfot (`i`):
+  - `PENDING` = punktikujuline indikaator;
+  - `PROCESSING` = spinner-tüüpi indikaator.
+- `R` tüübil kuvatakse “Kuva järjekord” / “Peida järjekord” nupp ainult siis, kui route snapshotis on salvestatud KP järjekord.
+- “Kuva järjekord” võib olla adminis nähtav ka siis, kui snapshot on aegunud; sel juhul näitab kaart viimast teadaolevat arvutusjärjekorda.
+- Modali sulgemine ja uuesti avamine peab route snapshoti backendist värskelt uuesti laadima.
+  - juba avatud modal ei pea ennast jooksvalt ise värskendama.
 
 ### 12b. Võistleja kaardireeglid S-tüübi korral
 
@@ -343,9 +371,15 @@ Esmarenderduse reegel (“Näita kaardil”):
   - `FINISH` kuvatakse topeltringina;
   - `NORMAL` KP kuvatakse rõngana.
 - Kõigile admini kaardivaadete KP sümbolitele lisatakse õhuke valge halo parema loetavuse jaoks.
-- `S` tüüpi võistluse ühendusjoontele lisatakse admini kaardivaadetes õhuke valge halo.
+- Kui admin vaates joonistatakse ühendusjooni (`S` järjekorrakiht KP-dialoogis või route snapshot “Näita kaardil” modalis), lisatakse neile õhuke valge halo.
 - Admini kaart ei kuva KP `title`-eid otse markerite kõrval täiendavate kaardilabelitena; detailsem KP-info kuvatakse popupis.
 - Admini KP popup jääb tahtlikult kitsaks ning kasutab maksimaalselt kompaktset kolme rea loogikat:
   - esimene rida: senine KP pealkiri ja võimalik raadius;
   - teine rida: küsimuse tekst koos küsimusetüübi lühivormiga ja punktidega kujul `(... T/SC x / y)`;
   - kolmas rida: `TEXT` küsimusel õiged vastused, `SINGLE_CHOICE` küsimusel variandid ning õiged variandid boldis.
+- Võistleja raja pikkuse kokkuvõtte lisareegel:
+  - avalehel võib eraldi raja pikkuse plokki kuvada ainult kaardiga võistlusel (`competitions.use_location = 'Y'`) ja ainult siis, kui FastAPI jätab `competitor/map-checkpoints` cache-vastuses `route` objekti alles;
+  - `S` tüübil kuvatakse tekst kujul `Raja linnulennuline pikkus xx.xx km`;
+  - `R` tüübil kuvatakse tekst kujul `Raja linnulennuline pikkus (optimaalne tee läbi kõikide KP-de) xx.xx km`;
+  - võistlejale ei kuvata aegunud snapshoti ega hash-mismatch infot: kui hash ei klapi, eemaldab FastAPI `route` välja payloadist ja frontend peidab kogu ploki;
+  - selle info kuvamine ei tohi lisada täiendavaid ORDS päringuid, vaid peab kasutama sama `map-checkpoints` cache-payloadi.

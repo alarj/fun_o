@@ -14,12 +14,14 @@ Allikad:
 
 Mida teeb:
 - Hoidab põhiandmeid: kasutajad, rollid, võistlused, osalused, kontrollpunktid, küsimused, valikud/õiged vastused, tulemused, audit.
+- Hoiab ka raja pikkuse snapshotte ja taustaarvutuse seadistusi (`competition_routes`, `app_settings`).
 - Hoiab liitumise, küsimuste ja tulemuste jaoks vajalikke ärireeglitega seotud välju (sh ajaraamid, staatused, asukohareeglid, tingimuste versioonid).
 - Kasutab pehme kustutamise mudelit (`start_date`, `end_date`) enamikus äritabelites; `submissions` tabel on dokumentatsiooni järgi erand.
 
 - Ärireeglid ja andmekonsistents on tsentraalselt DB-s (FK-d, kontrollid, aktiivse kirje mõiste).
 - Audit ja soft-delete võimaldavad ajaloolist jälgitavust.
 - Ajalised ja staatusekontrollid toetavad võistluse elutsüklit (DRAFT/INACTIVE/ACTIVE + ajavahemik).
+- DB-s toimub ka raja linnulennulise pikkuse arvutus ning selle tulemuse salvestamine koos sisend-hashiga.
 
 Tehnoloogia:
 - Oracle Autonomous Database
@@ -42,6 +44,7 @@ Miks nii on tehtud:
 - DB äriloogika jääb DB pakettidesse; ORDS toimib standardse REST-kihina.
 - Backendile tekib stabiilne HTTP-leping (`/auth/google/upsert`, `/competitions/register`, `/submissions`, jne).
 - Errorite kaardistus on võimalik teha ühtselt backendi tasemel ORA-koodide põhjal.
+- Sama kiht avaldab ka raja snapshoti lugemise ning arvutuse tellimise endpointid (`/admin/competitions/route*`).
 
 Tehnoloogia:
 - Oracle REST Data Services (ORDS)
@@ -62,12 +65,14 @@ Mida teeb:
 - Laeb i18n tõlked mällu ning pakub reload endpointi.
 - Pakub ka kaardikihtide konfiguratsiooni endpointi (`/api/map-layers`) README kirjelduse järgi.
 - Haldab võistluspõhiste oma kaartide uploadi, metadata salvestust, taustatöötluse käivitamist ning valmis tile'ide serveerimist admin vaadetele.
+- Kontrollib võistleja vaates, kas salvestatud raja snapshot on endiselt kehtiv, võrreldes ORDS-ist saadud `current_source_hash` väärtust FastAPI enda arvutatud hashiga.
 
 Miks nii on tehtud:
 - Frontend ei pea teadma ORDS/Oracle detaili.
 - Autentimine, sessioon ja veakäsitlus on ühes kontrollitavas kihis.
 - Ühtne API leping lihtsustab frontend arendust.
 - Suured võistluspõhised kaardifailid saab töödelda taustas tile'ideks ilma ORDS-i või brauserit ühe suure rasteri renderdamisega koormamata.
+- Raja pikkust ei arvutata frontendis ega igal lugemisel uuesti, vaid FastAPI kasutab DB-s salvestatud snapshoti ainult siis, kui hash kinnitab selle värskuse.
 
 Tehnoloogia:
 - Python + FastAPI

@@ -48,6 +48,17 @@ button:disabled { opacity: 0.5; }
 .mainCompName { font-size: 30px; font-weight: 800; line-height: 1.15; margin-bottom: 4px; }
 .mainCompDesc { font-size: 16px; color: #4f5a61; margin-bottom: 6px; }
 .mainAlias { font-size: 24px; font-weight: 700; }
+.competitorRouteCard {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.competitorRouteSummary {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
 .mainHeadRight {
   display: flex;
   flex-direction: column;
@@ -97,6 +108,7 @@ button:disabled { opacity: 0.5; }
   .mainHeadLeft { padding-right: 94px; }
   .mainHeadRight { padding-top: 38px; }
   .smallActionBtn { font-size: 17px; }
+  .competitorRouteSummary { font-size: 20px; }
 }
 .progressBox {
   margin-top: 10px;

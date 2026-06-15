@@ -149,6 +149,9 @@
             <button id="newQuestionBtn" data-i18n="admin.cp_table.new_q_btn">admin.cp_table.new_q_btn</button>
           </div>
         </div>
+        <div id="checkpointsRouteSummary" class="admin-route-summary">
+          <span id="checkpointsRouteSummaryText" class="cp-overview-route-text">-</span>
+        </div>
         <table class="table">
           <thead>
             <tr>
@@ -268,17 +271,41 @@
   <dialog id="cpOverviewMapDialog">
     <div class="tools" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
       <h3 style="margin:0;" data-i18n="admin.cp_overview.heading">admin.cp_overview.heading</h3>
-      <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_overview.expand_btn">admin.cp_overview.expand_btn</button>
+      <div class="tools">
+        <button id="cpOverviewMapToggleSizeBtn" class="secondary" type="button" data-i18n="admin.cp_overview.expand_btn">admin.cp_overview.expand_btn</button>
+      </div>
     </div>
     <div id="cpOverviewMap"></div>
-    <div class="dialog-actions">
-      <div class="dialog-right">
-        <button id="cpOverviewOpenLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.open_labels_btn">admin.cp_overview.open_labels_btn</button>
-        <button id="cpOverviewCloseLabelsBtn" class="secondary" type="button" data-i18n="admin.cp_overview.close_labels_btn">admin.cp_overview.close_labels_btn</button>
-        <select id="cpOverviewMapLayerSelect" style="min-width:210px;"></select>
+    <div class="cp-overview-route-panel">
+      <div id="cpOverviewRouteMsg"></div>
+    </div>
+    <div class="cp-overview-footer">
+      <div class="cp-overview-footer-left">
+        <button id="cpOverviewLabelsToggleBtn" class="secondary" type="button" data-i18n="admin.cp_overview.open_labels_btn">admin.cp_overview.open_labels_btn</button>
+        <div class="cp-overview-layer-wrap">
+          <select id="cpOverviewMapLayerSelect" class="cp-overview-layer-select"></select>
+          <button class="info-icon-btn" type="button" data-info-key="admin.cp_overview.map_layer_select_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+        </div>
       </div>
-      <div class="dialog-right">
-        <button id="cpOverviewMapCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+      <div class="cp-overview-footer-center">
+        <span class="field-label-with-info">
+          <span id="cpOverviewRouteTextInline" class="cp-overview-route-text">-</span>
+          <span id="cpOverviewRouteStateIcon" class="cp-overview-route-state-icon hidden" aria-hidden="true"></span>
+          <button class="info-icon-btn" type="button" data-info-key="admin.cp_overview.route_length_text" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+        </span>
+      </div>
+      <div class="cp-overview-route-actions">
+        <div class="cp-overview-action-with-info">
+          <button id="cpOverviewRouteCalcBtn" class="secondary" type="button"></button>
+          <button class="info-icon-btn" type="button" data-info-key="admin.cp_overview.route_calculate_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+        </div>
+        <div id="cpOverviewRouteToggleWrap" class="cp-overview-action-with-info hidden">
+          <button id="cpOverviewRouteToggleBtn" class="secondary" type="button"></button>
+          <button id="cpOverviewRouteToggleInfoBtn" class="info-icon-btn" type="button" data-info-key="admin.cp_overview.route_toggle_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+        </div>
+        <div class="cp-overview-close-wrap">
+          <button id="cpOverviewMapCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+        </div>
       </div>
     </div>
   </dialog>
