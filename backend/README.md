@@ -96,6 +96,7 @@ Expected ORDS JSON responses:
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
   - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.
+  - location competitions may also include a ready/current `route` snapshot so competitor landing view can show route length without a separate ORDS call.
 - `competitor/terms` -> `{ "competition_id":1, "terms": {...} }`
 - `results/score` -> `{ "score": 42 }`
 - `organizer/leaderboard` -> `{ "access_granted":"Y|N", "items":[...] }`
@@ -654,6 +655,10 @@ Important persisted fields in `competition_routes`:
   - route snapshot exists
   - snapshot `calculated_source_hash` equals current hash
 - If hashes do not match, FastAPI drops `route` from the competitor response instead of exposing stale length data.
+- Competitor landing view may show a read-only route-length summary only when:
+  - competition uses location (`competitions.use_location = 'Y'`)
+  - FastAPI still includes a valid `route` object in cached `map-checkpoints` payload
+- Competitor route summary must not trigger an extra ORDS request; frontend reads it from the same cached `map-checkpoints` response as checkpoint map data.
 
 
 ## Server-side caching (authoritative)

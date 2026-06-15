@@ -377,3 +377,9 @@ Esmarenderduse reegel (“Näita kaardil”):
   - esimene rida: senine KP pealkiri ja võimalik raadius;
   - teine rida: küsimuse tekst koos küsimusetüübi lühivormiga ja punktidega kujul `(... T/SC x / y)`;
   - kolmas rida: `TEXT` küsimusel õiged vastused, `SINGLE_CHOICE` küsimusel variandid ning õiged variandid boldis.
+- Võistleja raja pikkuse kokkuvõtte lisareegel:
+  - avalehel võib eraldi raja pikkuse plokki kuvada ainult kaardiga võistlusel (`competitions.use_location = 'Y'`) ja ainult siis, kui FastAPI jätab `competitor/map-checkpoints` cache-vastuses `route` objekti alles;
+  - `S` tüübil kuvatakse tekst kujul `Raja linnulennuline pikkus xx.xx km`;
+  - `R` tüübil kuvatakse tekst kujul `Raja linnulennuline pikkus (optimaalne tee läbi kõikide KP-de) xx.xx km`;
+  - võistlejale ei kuvata aegunud snapshoti ega hash-mismatch infot: kui hash ei klapi, eemaldab FastAPI `route` välja payloadist ja frontend peidab kogu ploki;
+  - selle info kuvamine ei tohi lisada täiendavaid ORDS päringuid, vaid peab kasutama sama `map-checkpoints` cache-payloadi.

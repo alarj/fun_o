@@ -209,6 +209,7 @@ class CompetitorSessionParticipant(BaseModel):
     competitor_name: str | None = None
     use_location: str | None = None
     show_competitor_location: str | None = None
+    route: dict[str, Any] | None = None
 
 
 class CompetitorSessionResponse(BaseModel):
@@ -2827,6 +2828,7 @@ async def competitor_session(request: Request, response: Response) -> Competitor
             competitor_name=participant.get("competitor_name") if isinstance(participant.get("competitor_name"), str) else None,
             use_location=participant.get("use_location") if isinstance(participant.get("use_location"), str) else None,
             show_competitor_location=participant.get("show_competitor_location") if isinstance(participant.get("show_competitor_location"), str) else None,
+            route=participant.get("route") if isinstance(participant.get("route"), dict) else None,
         ),
     )
 

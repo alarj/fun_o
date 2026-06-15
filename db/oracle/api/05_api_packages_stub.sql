@@ -2365,6 +2365,20 @@ create or replace package body pkg_competitor as
     p_competition_participant_id in number,
     o_item_json out clob
   ) is
+    l_competition_participant_id number;
+    l_competition_id number;
+    l_competition_name competitions.name%type;
+    l_competition_description competitions.description%type;
+    l_competition_type varchar2(1);
+    l_alias_display competition_participants.alias_display%type;
+    l_competitor_name varchar2(4000);
+    l_use_location varchar2(1);
+    l_show_competitor_location varchar2(1);
+    l_participant_json json_object_t;
+    l_route_json clob;
+    l_route_obj json_object_t;
+    l_current_source_hash varchar2(64);
+    l_calculated_source_hash varchar2(64);
   begin
     o_item_json := null;
     if p_user_id is null or p_competition_participant_id is null then
@@ -2372,18 +2386,24 @@ create or replace package body pkg_competitor as
     end if;
 
     begin
-      select json_object(
-               'competition_participant_id' value cp.competition_participant_id,
-               'competition_id' value c.competition_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-               'competition_name' value c.name,
-               'competition_description' value c.description,
-               'competition_type' value pkg_common.normalize_competition_type(c.type),
-               'alias_display' value cp.alias_display,
-               'competitor_name' value nvl(nullif(trim(cp.alias_display), ''), nvl(nullif(trim(u.full_name), ''), '---')),
-               'use_location' value nvl(c.use_location, 'N'), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-               'show_competitor_location' value nvl(c.show_competitor_location, 'Y') -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-             )
-        into o_item_json
+      select cp.competition_participant_id,
+             c.competition_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+             c.name,
+             c.description,
+             pkg_common.normalize_competition_type(c.type),
+             cp.alias_display,
+             nvl(nullif(trim(cp.alias_display), ''), nvl(nullif(trim(u.full_name), ''), '---')),
+             nvl(c.use_location, 'N'), -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+             nvl(c.show_competitor_location, 'Y') -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+        into l_competition_participant_id,
+             l_competition_id,
+             l_competition_name,
+             l_competition_description,
+             l_competition_type,
+             l_alias_display,
+             l_competitor_name,
+             l_use_location,
+             l_show_competitor_location
         from competition_participants cp
         join competitions c
           on c.competition_id = cp.competition_id
@@ -2398,7 +2418,43 @@ create or replace package body pkg_competitor as
     exception
       when no_data_found then
         o_item_json := null;
+        return;
     end;
+
+    l_participant_json := json_object_t();
+    l_participant_json.put('competition_participant_id', l_competition_participant_id);
+    l_participant_json.put('competition_id', l_competition_id);
+    l_participant_json.put('competition_name', l_competition_name);
+    l_participant_json.put('competition_description', l_competition_description);
+    l_participant_json.put('competition_type', l_competition_type);
+    l_participant_json.put('alias_display', l_alias_display);
+    l_participant_json.put('competitor_name', l_competitor_name);
+    l_participant_json.put('use_location', l_use_location);
+    l_participant_json.put('show_competitor_location', l_show_competitor_location);
+
+    if l_use_location = 'Y' then
+      l_current_source_hash := pkg_competition_routes.get_current_source_hash(l_competition_id);
+      pkg_competition_routes.get_route_snapshot_json(
+        p_competition_id => l_competition_id,
+        o_item_json => l_route_json
+      );
+      if l_route_json is not null then
+        l_route_obj := json_object_t.parse(l_route_json);
+        if l_route_obj.has('calculated_source_hash') then
+          l_calculated_source_hash := l_route_obj.get_string('calculated_source_hash');
+        else
+          l_calculated_source_hash := null;
+        end if;
+        if l_calculated_source_hash = l_current_source_hash then
+          l_participant_json.put('route', l_route_obj);
+        end if;
+      end if;
+    end if;
+
+    o_item_json := l_participant_json.to_clob;
+  exception
+    when others then
+      raise;
   end;
 
   -- join_preview_json: Performs this business operation according to package rules.
