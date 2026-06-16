@@ -15,7 +15,7 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
+    crossorigin="anonymous"
   />
   <script
     src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"
@@ -35,6 +35,7 @@
       <h2 data-i18n="admin.login.heading">admin.login.heading</h2>
       <div class="tools" style="justify-content:space-between; align-items:center;">
         <div id="googleLoginMount"></div>
+        <label for="uiLang" class="visually-hidden" data-i18n="admin.login.lang_select_label">admin.login.lang_select_label</label>
         <select id="uiLang" style="width:100px;"></select>
       </div>
       <div class="login-intro-row">
@@ -47,6 +48,7 @@
       <div class="card hidden" id="noOrgCard">
         <div class="no-org-topline">
           <h3 id="noOrgHeading">admin.no_org.heading</h3>
+          <label for="uiLangNoOrg" class="visually-hidden" data-i18n="admin.no_org.lang_select_label">admin.no_org.lang_select_label</label>
           <select id="uiLangNoOrg" class="superLangSelect no-org-lang-select"></select>
         </div>
         <div class="no-org-choice-hint" id="noOrgChoiceHint" data-i18n="admin.no_org.choice_hint">admin.no_org.choice_hint</div>
@@ -92,6 +94,7 @@
           <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
           <span class="adminTopLineSpacer"></span>
           <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">admin.comp.pick_comp_btn</button>
+          <label for="uiLangApp" class="visually-hidden" data-i18n="admin.app.lang_select_label">admin.app.lang_select_label</label>
           <select id="uiLangApp" class="superLangSelect"></select>
         </div>
         <div id="cDesc" style="margin-bottom:6px;"></div>
@@ -173,6 +176,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:nowrap;">
       <h3 id="cpTitle" style="margin:0; white-space:nowrap;" data-i18n="admin.cp_dialog.heading">admin.cp_dialog.heading</h3>
       <div class="tools" style="display:flex; flex-wrap:nowrap; gap:8px; align-items:center;">
+        <label for="cpDialogMapLayerSelect" class="visually-hidden" data-i18n="admin.cp_dialog.map_layer_select_hidden_label">admin.cp_dialog.map_layer_select_hidden_label</label>
         <select id="cpDialogMapLayerSelect" style="width:240px; min-width:240px;"></select>
         <button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.map_layer_select_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
         <button id="cpToggleExistingBtn" class="secondary" type="button" data-i18n="admin.cp_dialog.existing_btn">admin.cp_dialog.existing_btn</button>
@@ -193,9 +197,9 @@
     <div class="row cp-gps-row"><div class="field-label-with-info"><label for="cpLongitude" data-i18n="admin.cp_dialog.longitude_label">admin.cp_dialog.longitude_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.longitude_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpLongitude" type="number" step="0.000001" placeholder="24.753600" /></div>
     <div class="row cp-gps-row"><div class="field-label-with-info"><label for="cpRadiusM" data-i18n="admin.cp_dialog.radius_label">admin.cp_dialog.radius_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.radius_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="cpRadiusM" type="number" step="1" min="1" /></div>
     <div class="row cp-gps-row">
-      <div class="field-label-with-info"><label for="cpLocationRequired" data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.location_required_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div>
+      <div class="field-label-with-info"><label id="cpLocationRequiredLabel" for="cpLocationRequired" data-i18n="admin.cp_dialog.location_required_label">admin.cp_dialog.location_required_label</label><button class="info-icon-btn" type="button" data-info-key="admin.cp_dialog.location_required_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div>
       <div class="yn-switch-wrap">
-        <label class="yn-switch" for="cpLocationRequired">
+        <label class="yn-switch" for="cpLocationRequired" aria-labelledby="cpLocationRequiredLabel">
           <input id="cpLocationRequired" type="checkbox" />
           <span class="yn-slider"></span>
         </label>
@@ -390,20 +394,20 @@
       <div class="yn-inline-row">
         <div class="yn-inline">
           <div class="field-label-with-info field-label-inline">
-            <span data-i18n="admin.meta.use_location_label">admin.meta.use_location_label</span>
+            <span id="metaUseLocationLabel" data-i18n="admin.meta.use_location_label">admin.meta.use_location_label</span>
             <button class="info-icon-btn" type="button" data-info-key="admin.meta.use_location_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
           </div>
-          <label class="yn-switch" for="metaUseLocationInput">
+          <label class="yn-switch" for="metaUseLocationInput" aria-labelledby="metaUseLocationLabel">
             <input id="metaUseLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
         </div>
         <div class="yn-inline">
           <div class="field-label-with-info field-label-inline">
-            <span data-i18n="admin.meta.show_competitor_location_label">admin.meta.show_competitor_location_label</span>
+            <span id="metaShowCompetitorLocationLabel" data-i18n="admin.meta.show_competitor_location_label">admin.meta.show_competitor_location_label</span>
             <button class="info-icon-btn" type="button" data-info-key="admin.meta.show_competitor_location_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
           </div>
-          <label class="yn-switch" for="metaShowCompetitorLocationInput">
+          <label class="yn-switch" for="metaShowCompetitorLocationInput" aria-labelledby="metaShowCompetitorLocationLabel">
             <input id="metaShowCompetitorLocationInput" type="checkbox" />
             <span class="yn-slider"></span>
           </label>
@@ -467,7 +471,7 @@
       <select id="termsLangSelect"></select>
     </div>
     <div class="row terms-editor-row">
-      <span data-i18n="admin.terms.html_label">admin.terms.html_label</span>
+      <label for="termsHtmlInput" data-i18n="admin.terms.html_label">admin.terms.html_label</label>
       <div id="termsHtmlEditor" class="terms-editor-surface"></div>
       <textarea id="termsHtmlInput" class="hidden"></textarea>
     </div>
@@ -590,19 +594,19 @@
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
+    crossorigin="anonymous"
   ></script>
   <script
     src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"
     integrity="sha256-SXX79BH6wYQsW5HTYtMj0/AcoMtSOFouohl5D/qiCoA="
-    crossorigin=""
+    crossorigin="anonymous"
   ></script>
   <script
     src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"
     integrity="sha256-/bf+R9zVlOfIMNDuNpTviLQDJTcmjcLztY9JodcWHBI="
-    crossorigin=""
+    crossorigin="anonymous"
   ></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" crossorigin="anonymous" async defer></script>
   <script src="./assets/vendor/dompurify-3.4.7.min.js"></script>
   <script src="./assets/admin-core.js"></script>
   <script src="./assets/admin-map.js"></script>

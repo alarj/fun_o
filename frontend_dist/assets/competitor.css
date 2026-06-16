@@ -148,6 +148,17 @@ button:disabled { opacity: 0.5; }
 .modalBackdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 999;
 }
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
 #helpBackdrop {
   /* Help must open above the fullscreen map and its layer picker. */
   z-index: var(--comp-help-backdrop-z);

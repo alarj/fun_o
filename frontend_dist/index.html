@@ -24,6 +24,7 @@
           </div>
           <div class="mainHeadRight">
             <button id="switchCompetitionBtn" class="smallActionBtn"></button>
+            <label for="langSelect" class="visually-hidden" data-i18n="competitor.main.lang_select_label">competitor.main.lang_select_label</label>
             <select id="langSelect" class="langCompact">
               <option value="et">ET</option>
               <option value="en">EN</option>
@@ -54,6 +55,7 @@
           <div id="singleChoiceBlock" style="display:none;"></div>
 
           <div id="textBlock" style="display:none;">
+            <label for="textAnswer" class="visually-hidden" data-i18n="competitor.answer.text_input_label">competitor.answer.text_input_label</label>
             <textarea id="textAnswer" rows="4"></textarea>
             <div style="height:10px"></div>
             <button id="textSubmitBtn"></button>
@@ -107,6 +109,7 @@
     <div id="joinByCodeBackdrop" class="modalBackdrop">
       <div class="modal">
         <div class="joinLangRow">
+          <label for="joinLangSelect" class="visually-hidden" data-i18n="competitor.join.lang_select_label">competitor.join.lang_select_label</label>
           <select id="joinLangSelect" class="joinLangSelect"></select>
         </div>
         <h3 id="joinModalTitle"></h3>
