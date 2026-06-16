@@ -423,6 +423,12 @@
     </div>
     <div class="row"><div class="field-label-with-info"><label for="metaStartsEt" data-i18n="admin.dates.start_label">admin.dates.start_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.start_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaStartsEt" placeholder="10.05.2026 17:34" /></div>
     <div class="row"><div class="field-label-with-info"><label for="metaEndsEt" data-i18n="admin.dates.end_label">admin.dates.end_label</label><button class="info-icon-btn" type="button" data-info-key="admin.dates.end_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div><input id="metaEndsEt" placeholder="05.06.2026 17:17" /></div>
+    <div class="meta-readonly-row" id="metaMassStartInfoRow">
+      <div class="meta-readonly-item">
+        <span class="meta-readonly-label field-label-with-info"><span data-i18n="admin.meta.mass_start_info_label">admin.meta.mass_start_info_label</span><button class="info-icon-btn" type="button" data-info-key="admin.meta.mass_start_info_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></span>
+        <span id="metaMassStartInfoValue" class="meta-readonly-value muted">-</span>
+      </div>
+    </div>
     <div class="row" id="metaOwnMapRow"><span aria-hidden="true"></span><div class="tools"><button id="metaOwnMapBtn" class="secondary" type="button" data-i18n="admin.meta.overlay_btn">admin.meta.overlay_btn</button><button class="info-icon-btn" type="button" data-info-key="admin.meta.overlay_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div></div>
     <div class="row" id="metaMapLayersRow"><span aria-hidden="true"></span><div class="tools"><button id="metaMapLayersBtn" class="secondary" type="button" data-i18n="admin.meta.map_layers_btn">admin.meta.map_layers_btn</button><button class="info-icon-btn" type="button" data-info-key="admin.meta.map_layers_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button></div></div>
     <div id="metaMsg"></div>
@@ -502,6 +508,24 @@
       <div class="dialog-right">
         <button id="codeConfirmNo" class="secondary" type="button" data-i18n="admin.code_confirm.no_btn">admin.code_confirm.no_btn</button>
         <button id="codeConfirmYes" type="button" data-i18n="admin.code_confirm.yes_btn">admin.code_confirm.yes_btn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="massStartWarningDialog">
+    <h3 data-i18n="admin.mass_start_warning.heading">admin.mass_start_warning.heading</h3>
+    <div id="massStartWarningText"></div>
+    <div style="margin-top:10px;">
+      <span data-i18n="admin.mass_start_warning.line1">admin.mass_start_warning.line1</span><br>
+      <span data-i18n="admin.mass_start_warning.line2">admin.mass_start_warning.line2</span>
+    </div>
+    <div style="margin-top:10px;"><strong id="massStartWarningDelta"></strong></div>
+    <div style="margin-top:10px;"><strong data-i18n="admin.mass_start_warning.ask">admin.mass_start_warning.ask</strong></div>
+    <div class="dialog-actions">
+      <div></div>
+      <div class="dialog-right">
+        <button id="massStartWarningNo" class="secondary" type="button" data-i18n="admin.mass_start_warning.no_btn">admin.mass_start_warning.no_btn</button>
+        <button id="massStartWarningYes" type="button" data-i18n="admin.mass_start_warning.yes_btn">admin.mass_start_warning.yes_btn</button>
       </div>
     </div>
   </dialog>

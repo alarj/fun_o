@@ -625,25 +625,44 @@ function buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm) {
   const parts = String(template).split("{distance_km}");
   const prefix = esc(parts[0] || "");
   const suffix = esc(parts.slice(1).join("{distance_km}") || "");
-  return `${prefix}<span class="competitorRouteSummaryDistance">${esc(distanceKm || "-")}</span>${suffix}`;
+  return `<span class="competitorRouteSummaryLabel">${prefix}</span><strong class="competitorRouteSummaryDistance">${esc(distanceKm || "-")}</strong><span class="competitorRouteSummaryLabel">${suffix}</span>`;
+}
+
+function buildCompetitionMassStartSummaryHtml(massStartAt) {
+  const template = tr("competitor.route_summary.mass_start");
+  const parts = String(template).split("{value}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{value}") || "");
+  return `<span class="competitorRouteSummaryLabel">${prefix}</span><strong class="competitorMassStartValue">${esc(fmtEtLocal(massStartAt))}</strong><span class="competitorRouteSummaryLabel">${suffix}</span>`;
 }
 
 function renderCompetitionRouteSummary() {
   const card = el("competitionRouteCard");
   const summary = el("competitionRouteSummary");
-  if (!card || !summary) return;
+  const massStartSummary = el("competitionMassStartSummary");
+  if (!card || !summary || !massStartSummary) return;
   const route = state.mapRoute;
   const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
   const show = selectedCompetitionUsesLocation() && distanceKm != null;
   card.style.display = show ? "block" : "none";
   if (!show) {
     summary.textContent = "";
+    massStartSummary.textContent = "";
+    massStartSummary.style.display = "none";
     return;
   }
   const routeLabelKey = selectedCompetitionType() === "S"
     ? "competitor.route_summary.text_s"
     : "competitor.route_summary.text_r";
   summary.innerHTML = buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm);
+  const massStartAt = String(getSelectedCompetition()?.mass_start_at || "").trim();
+  if (massStartAt) {
+    massStartSummary.innerHTML = buildCompetitionMassStartSummaryHtml(massStartAt);
+    massStartSummary.style.display = "block";
+  } else {
+    massStartSummary.innerHTML = "";
+    massStartSummary.style.display = "none";
+  }
 }
 
 function getSelectedCompetition() {
@@ -1018,6 +1037,9 @@ async function loadMapCheckpoints() {
   const items = Array.isArray(res.data.items) ? res.data.items : [];
   if (state.activeCompetition && items[0]?.competition_type) {
     state.activeCompetition.type = String(items[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
+  }
+  if (state.activeCompetition) {
+    state.activeCompetition.mass_start_at = typeof res.data?.mass_start_at === "string" ? res.data.mass_start_at : null;
   }
   state.mapRoute = normalizeCompetitionRouteSnapshot(res.data?.route);
   const declination = Number(res.data?.declination);

@@ -998,6 +998,7 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_json clob;
+        l_mass_start_at varchar2(30);
         l_declination number;
         l_declination_last_updated varchar2(30);
         l_route_json clob;
@@ -1013,6 +1014,7 @@ begin
           p_user_id => to_number(:user_id),
           p_competition_id => to_number(:competition_id),
           o_items_json => l_json,
+          o_mass_start_at => l_mass_start_at,
           o_declination => l_declination,
           o_declination_last_updated => l_declination_last_updated
         );
@@ -1021,6 +1023,7 @@ begin
           '{'
           || '"competition_type":"R"'
           || ',"current_source_hash":null'
+          || ',"mass_start_at":' || case when l_mass_start_at is null then 'null' else '"' || replace(l_mass_start_at, '"', '\"') || '"' end
           || ',"declination":' || to_char(nvl(l_declination, 0))
           || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
           || ',"route":{}'
@@ -1047,6 +1050,7 @@ begin
             '{'
             || '"competition_type":"' || replace(nvl(l_competition_type, 'R'), '"', '\"') || '"'
             || ',"current_source_hash":' || case when l_current_hash is null then 'null' else '"' || replace(l_current_hash, '"', '\"') || '"' end
+            || ',"mass_start_at":' || case when l_mass_start_at is null then 'null' else '"' || replace(l_mass_start_at, '"', '\"') || '"' end
             || ',"declination":' || to_char(nvl(l_declination, 0))
             || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
             || ',"route":' || case when l_route_json is null then '{}' else l_route_obj.to_clob() end
@@ -1762,7 +1766,13 @@ begin
           p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
           p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
           p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
-          p_mass_start_at => case when l_body.has('mass_start_at') then to_timestamp_tz(replace(l_body.get_string('mass_start_at'), 'Z', '+00:00'), 'YYYY-MM-DD\"T\"HH24:MI:SS.FF TZH:TZM') at time zone 'UTC' else null end,
+          p_mass_start_at => case
+            when l_body.has('mass_start_at')
+             and l_body.get('mass_start_at') is not null
+             and not l_body.get('mass_start_at').is_null
+              then to_timestamp(substr(l_body.get_string('mass_start_at'), 1, 19), 'YYYY-MM-DD"T"HH24:MI:SS')
+            else null
+          end,
           p_created_by => case when l_body.has('created_by') then l_body.get_number('created_by') else null end,
           o_checkpoint_id => l_checkpoint_id
         );
@@ -1890,7 +1900,13 @@ begin
           p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
           p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
           p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
-          p_mass_start_at => case when l_body.has('mass_start_at') then to_timestamp_tz(replace(l_body.get_string('mass_start_at'), 'Z', '+00:00'), 'YYYY-MM-DD\"T\"HH24:MI:SS.FF TZH:TZM') at time zone 'UTC' else null end,
+          p_mass_start_at => case
+            when l_body.has('mass_start_at')
+             and l_body.get('mass_start_at') is not null
+             and not l_body.get('mass_start_at').is_null
+              then to_timestamp(substr(l_body.get_string('mass_start_at'), 1, 19), 'YYYY-MM-DD"T"HH24:MI:SS')
+            else null
+          end,
           p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
         );
         owa_util.mime_header('application/json', false);
@@ -2057,7 +2073,13 @@ begin
           p_use_location   => case when l_body.has('use_location') then l_body.get_string('use_location') else null end,
           p_show_competitor_location => case when l_body.has('show_competitor_location') then l_body.get_string('show_competitor_location') else null end,
           p_radius_m       => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
-          p_mass_start_at  => case when l_body.has('mass_start_at') then to_timestamp_tz(replace(l_body.get_string('mass_start_at'), 'Z', '+00:00'), 'YYYY-MM-DD\"T\"HH24:MI:SS.FF TZH:TZM') at time zone 'UTC' else null end,
+          p_mass_start_at  => case
+            when l_body.has('mass_start_at')
+             and l_body.get('mass_start_at') is not null
+             and not l_body.get('mass_start_at').is_null
+              then to_timestamp(substr(l_body.get_string('mass_start_at'), 1, 19), 'YYYY-MM-DD"T"HH24:MI:SS')
+            else null
+          end,
           p_updated_by     => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
         );
         :status_code := 200;

@@ -1150,6 +1150,19 @@ async function saveCheckpoint() {
       return showMsg("cpMsg", false, tr("admin.msg.mass_start_at_required"));
     }
   }
+  if (form.checkpointType === "START" && form.checkpointInteraction === "MASS_START" && massStartParsed) {
+    const warning = buildMassStartWarningState(massStartParsed);
+    if (warning) {
+      const shouldContinue = await confirmMassStartWarning(form.massStartAtRaw, warning);
+      if (!shouldContinue) return;
+    }
+  }
+  await persistCheckpoint(form, massStartParsed);
+  byId("cpDialog").close();
+  await loadView();
+}
+
+async function persistCheckpoint(form, massStartParsed) {
   if (!form.cpId) {
     const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType, checkpoint_interaction: form.checkpointInteraction };
     if (massStartParsed) payload.mass_start_at = massStartParsed;
@@ -1181,8 +1194,64 @@ async function saveCheckpoint() {
       writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   }
-  byId("cpDialog").close();
-  await loadView();
+}
+
+function buildMassStartWarningState(massStartAtIso) {
+  const selectedAt = new Date(massStartAtIso);
+  if (Number.isNaN(selectedAt.getTime())) return null;
+  const now = new Date();
+  const diffMs = selectedAt.getTime() - now.getTime();
+  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+  if (diffMs >= 0 && diffMs <= tenDaysMs) return null;
+  return {
+    selectedAt,
+    direction: diffMs < 0 ? "past" : "future",
+    diffMs: Math.abs(diffMs)
+  };
+}
+
+function formatMassStartWarningOffset(diffMs) {
+  const totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  return formatTr("admin.mass_start_warning.offset", { days, hours, minutes });
+}
+
+function confirmMassStartWarning(rawValue, warning) {
+  return new Promise((resolve) => {
+    const dialog = byId("massStartWarningDialog");
+    const textEl = byId("massStartWarningText");
+    const deltaEl = byId("massStartWarningDelta");
+    const noBtn = byId("massStartWarningNo");
+    const yesBtn = byId("massStartWarningYes");
+    if (!dialog || !textEl || !deltaEl || !noBtn || !yesBtn) {
+      resolve(true);
+      return;
+    }
+    textEl.innerHTML = `${esc(tr("admin.mass_start_warning.prompt_prefix"))} <strong style="font-size:22px;">${esc(rawValue || "-")}</strong>?`;
+    deltaEl.textContent = formatTr(
+      warning.direction === "past"
+        ? "admin.mass_start_warning.delta_past"
+        : "admin.mass_start_warning.delta_future",
+      { value: formatMassStartWarningOffset(warning.diffMs) }
+    );
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      noBtn.onclick = null;
+      yesBtn.onclick = null;
+      dialog.removeEventListener("close", handleClose);
+      if (dialog.open) dialog.close();
+      resolve(result);
+    };
+    const handleClose = () => finish(false);
+    noBtn.onclick = () => finish(false);
+    yesBtn.onclick = () => finish(true);
+    dialog.addEventListener("close", handleClose, { once: true });
+    dialog.showModal();
+  });
 }
 
 async function deleteCheckpoint() {
@@ -1583,6 +1652,10 @@ async function deleteOverlayDialog() {
 
 function openMetaDialog() {
   if (!currentCompetitionActive) return;
+  const hasMassStartCheckpoint = checkpointsData.some((cp) =>
+    normalizeCheckpointType(cp?.checkpoint_type) === "START" &&
+    normalizeCheckpointInteraction(cp?.checkpoint_interaction) === "MASS_START"
+  );
   byId("metaMsg").textContent = "";
   byId("metaMsg").className = "";
   byId("metaNameInput").value = window.__lastCompetitionName || "";
@@ -1599,6 +1672,10 @@ function openMetaDialog() {
     : "-";
   byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
   byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
+  byId("metaMassStartInfoRow").style.display = hasMassStartCheckpoint ? "" : "none";
+  byId("metaMassStartInfoValue").textContent = hasMassStartCheckpoint
+    ? (fmtEtInput((window.__lastMassStartAt || ""), true) || "-")
+    : "-";
   syncMetaLocationSwitches();
   updateMetaOwnMapButtonLabel();
   updateMetaMapLayersButtonLabel();
@@ -1607,6 +1684,10 @@ function openMetaDialog() {
 
 async function saveMetaDialog() {
   try {
+    const hasMassStartCheckpoint = checkpointsData.some((cp) =>
+      normalizeCheckpointType(cp?.checkpoint_type) === "START" &&
+      normalizeCheckpointInteraction(cp?.checkpoint_interaction) === "MASS_START"
+    );
     const payload = {
       competition_id: compId(),
       name: byId("metaNameInput").value.trim(),
@@ -1615,16 +1696,25 @@ async function saveMetaDialog() {
       status: byId("metaStatusInput").value,
       use_location: getMetaUseLocationValue(),
       show_competitor_location: getMetaShowCompetitorLocationValue(),
-      radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
+      radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null,
+      mass_start_at: window.__lastMassStartAt || null
     };
     if (!payload.name) {
       showMsg("metaMsg", false, tr("admin.msg.comp_name_required"));
+      return;
+    }
+    if (String(payload.status || "").toUpperCase() === "ACTIVE" && hasMassStartCheckpoint && !payload.mass_start_at) {
+      showMsg("metaMsg", false, tr("admin.msg.mass_start_at_required"));
       return;
     }
     const startParsed = parseEtInput(byId("metaStartsEt").value);
     const endParsed = parseEtInput(byId("metaEndsEt").value);
     if (startParsed && startParsed.error) return showMsg("metaMsg", false, startParsed.error);
     if (endParsed && endParsed.error) return showMsg("metaMsg", false, endParsed.error);
+    if (String(payload.status || "").toUpperCase() === "ACTIVE" && !startParsed) {
+      showMsg("metaMsg", false, tr("admin.msg.competition_start_required_for_active"));
+      return;
+    }
     await post("/api/admin/competitions/meta", payload);
     await post("/api/admin/competitions/dates", {
       competition_id: compId(),
@@ -1636,7 +1726,7 @@ async function saveMetaDialog() {
     await loadView();
     showMsg("topMsg", true, tr("admin.msg.comp_updated"));
   } catch (e) {
-    showMsg("metaMsg", false, humanizeError(e.message));
+    showMsg("metaMsg", false, humanizeError(e.message, e.details));
   }
 }
 

@@ -106,6 +106,7 @@ CONTENT_DEFAULTS_DIR_CANDIDATES = [
 UTC_TS_KEYS = {
     "starts_at",
     "ends_at",
+    "mass_start_at",
     "created_at",
     "updated_at",
     "submitted_at",
@@ -319,6 +320,7 @@ class CompetitorCompetitionsResponse(BaseModel):
 class CompetitorOpenCheckpointsResponse(BaseModel):
     competition_type: str | None = None
     current_source_hash: str | None = None
+    mass_start_at: str | None = None
     declination: float = 0.0
     declination_last_updated: str | None = None
     route: dict[str, Any] | None = None
@@ -2300,6 +2302,13 @@ def _parse_utc_datetime(value: Any) -> datetime | None:
         return None
 
 
+def _has_mass_start_begun(value: Any) -> bool:
+    dt = _parse_utc_datetime(value)
+    if dt is None:
+        return False
+    return dt <= datetime.now(timezone.utc)
+
+
 def _format_declination_service_url(latitude: float, longitude: float, date_value: datetime) -> str:
     template = (settings.declination_service_url_template or "").strip()
     return template.format(
@@ -2428,6 +2437,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
             return {
                 "competition_type": cached.get("competition_type"),
                 "current_source_hash": cached.get("current_source_hash"),
+                "mass_start_at": cached.get("mass_start_at"),
                 "items": cached_items,
                 "declination": cached.get("declination", 0.0),
                 "declination_last_updated": cached.get("declination_last_updated"),
@@ -2446,6 +2456,8 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
     competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
     current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
     current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
+    mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
+    mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
     declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
     declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
     declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
@@ -2460,6 +2472,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
     payload = {
         "competition_type": competition_type,
         "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
+        "mass_start_at": mass_start_at,
         "items": items,
         "declination": declination,
         "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
@@ -3194,6 +3207,7 @@ async def competitor_map_checkpoints(
     return CompetitorOpenCheckpointsResponse(
         competition_type=payload.get("competition_type") if isinstance(payload.get("competition_type"), str) else None,
         current_source_hash=payload.get("current_source_hash") if isinstance(payload.get("current_source_hash"), str) else None,
+        mass_start_at=payload.get("mass_start_at") if isinstance(payload.get("mass_start_at"), str) else None,
         items=payload.get("items") if isinstance(payload.get("items"), list) else [],
         declination=float(payload.get("declination", 0.0)) if isinstance(payload.get("declination"), (int, float)) else 0.0,
         declination_last_updated=payload.get("declination_last_updated") if isinstance(payload.get("declination_last_updated"), str) else None,
@@ -3231,6 +3245,7 @@ async def competitor_checkpoint_access(
     start_answered = False
     finish_answered = False
     next_ordered_checkpoint_id: int | None = None
+    mass_start_at = map_payload.get("mass_start_at") if isinstance(map_payload.get("mass_start_at"), str) else None
     if map_items:
         comp_type = _normalize_competition_type(
             next(
@@ -3253,6 +3268,13 @@ async def competitor_checkpoint_access(
             for row in map_items
             if isinstance(row, dict)
         )
+        if not start_answered and _has_mass_start_begun(mass_start_at):
+            start_answered = any(
+                _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+                and str(row.get("checkpoint_interaction") or "").strip().upper() == "MASS_START"
+                for row in map_items
+                if isinstance(row, dict)
+            )
         finish_answered = any(
             _normalize_checkpoint_type(row.get("checkpoint_type")) == "FINISH"
             and str(row.get("is_answered", "N")).upper() == "Y"
@@ -4607,6 +4629,7 @@ async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, 
             "use_location": req.use_location,
             "show_competitor_location": req.show_competitor_location,
             "radius_m": req.radius_m,
+            "mass_start_at": req.mass_start_at,
             "updated_by": user_id,
         },
     )

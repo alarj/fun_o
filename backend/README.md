@@ -86,12 +86,12 @@ Expected ORDS JSON responses:
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
   - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
-- `competitor/map-checkpoints` -> `{ "items": [...] }`
+- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"..." }`
   - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
     - `checkpoints.radius_m`, kui see on määratud;
     - muidu `competitions.radius_m`;
     - kui kumbki puudub, tagastatakse `0`.
-  - payload võib lisaks sisaldada `competition_type`, `current_source_hash` ja `route`.
+  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at` ja `route`.
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
@@ -664,6 +664,7 @@ Important persisted fields in `competition_routes`:
   - competition uses location (`competitions.use_location = 'Y'`)
   - FastAPI still includes a valid `route` object in cached `map-checkpoints` payload
 - Competitor route summary must not trigger an extra ORDS request; frontend reads it from the same cached `map-checkpoints` response as checkpoint map data.
+- Competitor mass-start summary must not trigger an extra ORDS request; frontend reads it from the same cached `map-checkpoints` response as checkpoint map data and route summary.
 
 
 ## Server-side caching (authoritative)
@@ -758,6 +759,7 @@ Important:
   - `checkpoint_type`
   - `competition_type` (`R|S`)
   - `checkpoint_map_label` (competitor map tooltip text preformatted for the current competition type)
+  - `mass_start_at`
   - `current_source_hash`
   - `route`
 - `checkpoint_map_label` formatting:

@@ -53,11 +53,27 @@ button:disabled { opacity: 0.5; }
   padding-bottom: 12px;
 }
 .competitorRouteSummary {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 400;
   line-height: 1.35;
   color: var(--ink);
   overflow-wrap: anywhere;
+}
+.competitorMassStartSummary {
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #4f5a61;
+  overflow-wrap: anywhere;
+}
+.competitorRouteSummaryLabel {
+  font-weight: 400;
+}
+.competitorRouteSummaryDistance,
+.competitorMassStartValue {
+  font-weight: 700;
+  color: var(--ink);
 }
 .mainHeadRight {
   display: flex;
@@ -108,7 +124,8 @@ button:disabled { opacity: 0.5; }
   .mainHeadLeft { padding-right: 94px; }
   .mainHeadRight { padding-top: 38px; }
   .smallActionBtn { font-size: 17px; }
-  .competitorRouteSummary { font-size: 20px; }
+  .competitorRouteSummary { font-size: 18px; }
+  .competitorMassStartSummary { font-size: 18px; }
 }
 .progressBox {
   margin-top: 10px;

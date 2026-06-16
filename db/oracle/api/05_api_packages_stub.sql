@@ -2536,6 +2536,7 @@ create or replace package pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob,
+    o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
   );
@@ -3433,6 +3434,7 @@ create or replace package body pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob,
+    o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
   ) is
@@ -3510,9 +3512,13 @@ create or replace package body pkg_competitor as
               and cp.latitude is not null
               and cp.longitude is not null
          ) x),
+      (select to_char(c.mass_start_at, pkg_common.c_iso_ts_format)
+         from competitions c
+        where c.competition_id = p_competition_id),
       nvl((select cd.declination from competition_declinations cd where cd.competition_id = p_competition_id), 0),
       (select to_char(cd.last_updated, pkg_common.c_iso_ts_format) from competition_declinations cd where cd.competition_id = p_competition_id)
       into o_items_json,
+           o_mass_start_at,
            o_declination,
            o_declination_last_updated
       from dual;

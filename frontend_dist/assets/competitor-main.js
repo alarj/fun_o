@@ -132,6 +132,7 @@ function setActiveCompetitionFromSession(sessionData) {
     name: p.competition_name || "-",
     description: p.competition_description || "",
     type: p.competition_type || "R",
+    mass_start_at: null,
     alias_display: p.alias_display || null,
     competitor_name: p.competitor_name || null,
     use_location: p.use_location || "N",
