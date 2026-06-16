@@ -678,6 +678,12 @@ function normalizeCheckpointType(rawType) {
   return "NORMAL";
 }
 
+function normalizeCheckpointInteraction(rawInteraction) {
+  const value = String(rawInteraction || "QUESTION").trim().toUpperCase();
+  if (value === "CHECK_ONLY" || value === "MASS_START") return value;
+  return "QUESTION";
+}
+
 function isSpecialCheckpointType(rawType) {
   const value = normalizeCheckpointType(rawType);
   return value === "START" || value === "FINISH";
@@ -768,6 +774,23 @@ function renderQuestionForSelectedCheckpoint() {
     return;
   }
   el("questionBlock").style.display = "block";
+  const interaction = normalizeCheckpointInteraction(item?.checkpoint_interaction);
+  if (interaction === "CHECK_ONLY") {
+    el("questionText").textContent = tr("competitor.check_only.prompt");
+    el("questionMeta").textContent = tr("competitor.check_only.help");
+    const box = el("singleChoiceBlock");
+    box.innerHTML = "";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "optionBtn opt0";
+    b.textContent = tr("competitor.check_only.submit_btn");
+    b.onclick = () => submitAnswer(item, {});
+    box.appendChild(b);
+    box.style.display = "block";
+    el("textBlock").style.display = "none";
+    setSubmissionBusy(state.submissionInFlight);
+    return;
+  }
   el("questionText").textContent = pickLocalized(item, "text_et", "text_en") || tr("competitor.msg.question_text_missing");
   const inputType = (item.input_type || "").toUpperCase();
   const maxLen = Number(item.input_max_length || 0);
@@ -807,6 +830,7 @@ function showFeedback(data) {
   const ok = !!data?.is_correct;
   const points = Number(data?.awarded_points || 0);
   const total = Number(data?.total_score || 0);
+  const feedbackEvent = String(data?.event || "QUESTION").trim().toUpperCase();
   const correctAnswers = Array.isArray(data?.correct_answer_texts)
     ? data.correct_answer_texts.filter((v) => typeof v === "string" && v.trim())
     : [];
@@ -820,7 +844,9 @@ function showFeedback(data) {
   state.feedbackOpen = true;
   const modal = el("feedbackModal");
   modal.className = "modal " + (ok ? "feedback-ok" : "feedback-err");
-  el("feedbackTitle").textContent = ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
+  el("feedbackTitle").textContent = feedbackEvent === "CHECK_ONLY"
+    ? tr("competitor.check_only.feedback_title")
+    : ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
   el("feedbackBody").innerHTML = trfBold("competitor.feedback.points_total", {
     points,
     total,
@@ -907,7 +933,7 @@ async function submitAnswer(item, extra) {
         }
       });
     }
-    showFeedback(d);
+    showFeedback({ ...d, event: item?.checkpoint_interaction || "QUESTION" });
   } catch (err) {
     console.error("submitAnswer failed", err);
     setMsg("answerMsg", tr("competitor.msg.submit_failed"), false);

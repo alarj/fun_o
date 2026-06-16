@@ -7,7 +7,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/auth/user-profile?user_id=...` - tagastab kasutaja profiiliandmed (`email`, `full_name`, `auth_type`, `google_sub`) sessiooni rikastamiseks ja admin refresh-session valideerimiseks.
 - POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
 - POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
-- POST `/submissions` - salvestab vastuse, hindab selle ja tagastab punktitulemuse koos competitor popupi jaoks vajalike lisaväljadega (õiged vastused, koguaeg, hetke koht ja tingimuslikult kumulatiivne linnulennuline vahemaa).
+- POST `/submissions` - salvestab vastuse või küsimuseta checkpointi sündmuse, hindab selle ja tagastab punktitulemuse koos competitor popupi jaoks vajalike lisaväljadega (õiged vastused, koguaeg, hetke koht ja tingimuslikult kumulatiivne linnulennuline vahemaa).
 - POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
 - POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
 - GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
@@ -73,6 +73,7 @@ Expected ORDS JSON responses:
 - `competitions/register` -> `{ "competition_id": 456 }`
 - `organizers/register` -> `{ "competition_id": 456 }`
 - `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42, "correct_answer_texts": ["..."], "other_correct_answer_texts": ["..."], "total_elapsed_seconds": 2975, "total_distance_m": 2460, "distance_display_allowed": "Y|N", "current_rank": 2 }`
+  - request `question_id` on kohustuslik ainult `QUESTION` interactioni jaoks; `CHECK_ONLY` puhul võib selle ära jätta.
   - request may include `lang_code`; backend forwards it to ORDS so localized correct-answer texts can be returned for `SINGLE_CHOICE` questions.
   - `correct_answer_texts` contains every correct answer shown to the competitor after submit.
   - `other_correct_answer_texts` contains the remaining correct answers when the competitor answered correctly and more than one correct answer exists.
@@ -84,6 +85,7 @@ Expected ORDS JSON responses:
 - `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
+  - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
 - `competitor/map-checkpoints` -> `{ "items": [...] }`
   - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
     - `checkpoints.radius_m`, kui see on määratud;
@@ -93,6 +95,7 @@ Expected ORDS JSON responses:
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
+  - ajajoon võib sisaldada nii `submission_source = SUBMISSION` kui `submission_source = EVENT` ridu.
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
   - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.
@@ -103,14 +106,16 @@ Expected ORDS JSON responses:
 - `organizer/checkpoint-results` -> `{ "access_granted":"Y|N", "items":[...] }`
 - `organizer/checkpoint-responders` -> `{ "access_granted":"Y|N", "items":[...] }`
 - `organizer/participant-submissions` -> `{ "access_granted":"Y|N", "items":[...], "total_elapsed_seconds":1234, "total_distance_m":2460, "distance_available":"Y|N" }`
+  - ajajoon võib sisaldada nii `submission_source = SUBMISSION` kui `submission_source = EVENT` ridu.
 - `organizer/submission-detail` -> `{ "access_granted":"Y|N", ... }`
 - `i18n/translations` -> `{ "lang":"et","default_lang":"et","items":{"competitor.heading":"..."}}`
 - `admin/competitions` -> `{ "items": [...] }`
 - `admin/onboarding-options` -> `{ "can_create_empty_competition": true|false }`
-- `admin/competition-overview` -> `{ ..., "type": "R|S", "route": { ... } }`
+- `admin/competition-overview` -> `{ ..., "type": "R|S", "mass_start_at":"...", "route": { ... } }`
 - `admin/competitions/route` -> `{ "competition_id":..., "calc_status":"PENDING|PROCESSING|READY|FAILED", "route_length_m":..., "algorithm_code":"...", "included_checkpoint_count":..., "route_order_json":[...], "calculated_source_hash":"...", "requested_at":"...", "started_at":"...", "calculated_at":"...", "calculation_duration_ms":..., "attempt_count":..., "error_message":"..." }`
   - route payload may also contain `current_source_hash` and `is_current` for admin UI state rendering.
 - `admin/questions-overview` -> `{ "items": [...] }`
+  - iga checkpointi reas võib olla `checkpoint_interaction`.
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
 - `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "attribution":"&copy; ...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.
@@ -460,7 +465,7 @@ Access code generation rule:
 - `submissions`
   - `submission_id` PK
   - FK: `competition_id -> competitions`, `checkpoint_id -> checkpoints`, `question_id -> questions`, `user_id -> users`, `selected_option_id -> question_options`, `evaluated_by -> users`
-  - answer fields: `answer_text` CLOB, `selected_option_id`
+  - answer fields: `answer_text` VARCHAR2(4000), `selected_option_id`
   - scoring fields: `awarded_points`, `is_correct`
   - timestamps: `submitted_at`, `evaluated_at`
   - unique business key: `(competition_id, user_id, checkpoint_id, question_id)`

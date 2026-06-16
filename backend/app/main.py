@@ -266,9 +266,9 @@ class SubmitAnswerRequest(BaseModel):
     user_id: int | None = None
     competition_id: int
     checkpoint_id: int
-    question_id: int
+    question_id: int | None = None
     lang_code: str | None = None
-    answer_text: str | None = None
+    answer_text: str | None = Field(default=None, max_length=4000)
     selected_option_id: int | None = None
     latitude: float | None = None
     longitude: float | None = None
@@ -341,8 +341,12 @@ class CompetitorCheckpointAccessEntry(BaseModel):
 class CompetitorCheckpointAccessResponse(BaseModel):
     items: list[CompetitorCheckpointAccessEntry]
 class CompetitorMySubmissionEntry(BaseModel):
+    id: int | None = None
     checkpoint_title: str | None = None
     submission_id: int | None = None
+    submission_event_id: int | None = None
+    submission_source: str | None = None
+    event: str | None = None
     submitted_at: str | None = None
     awarded_points: int = 0
 
@@ -417,7 +421,11 @@ class CheckpointRespondersResponse(BaseModel):
     items: list[CheckpointResponderEntry]
 
 class ParticipantSubmissionEntry(BaseModel):
+    id: int | None = None
     submission_id: int | None = None
+    submission_event_id: int | None = None
+    submission_source: str | None = None
+    event: str | None = None
     checkpoint_title: str | None = None
     submitted_at: str | None = None
     delta_from_prev_seconds: int | None = None
@@ -587,12 +595,14 @@ class AdminCreateCheckpointRequest(BaseModel):
     competition_id: int
     title: str
     checkpoint_type: str | None = None
+    checkpoint_interaction: str | None = None
     order_no: int | None = None
     location_hint: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     radius_m: float | None = None
     location_required: str | None = None
+    mass_start_at: str | None = None
     created_by: int | None = None
 
 
@@ -605,7 +615,7 @@ class AdminCreateQuestionRequest(BaseModel):
     checkpoint_id: int
     question_type: str
     input_type: str | None = None
-    input_max_length: int | None = None
+    input_max_length: int | None = Field(default=None, le=4000)
     input_pattern: str | None = None
     points: int = 0
     wrong_points: int = 0
@@ -755,12 +765,14 @@ class AdminUpdateCheckpointRequest(BaseModel):
     competition_id: int
     checkpoint_id: int
     title: str
+    checkpoint_interaction: str | None = None
     order_no: int | None = None
     location_hint: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     radius_m: float | None = None
     location_required: str | None = None
+    mass_start_at: str | None = None
     updated_by: int | None = None
 
 
@@ -776,7 +788,7 @@ class AdminUpdateQuestionRequest(BaseModel):
     checkpoint_id: int
     question_type: str
     input_type: str | None = None
-    input_max_length: int | None = None
+    input_max_length: int | None = Field(default=None, le=4000)
     input_pattern: str | None = None
     points: int = 0
     wrong_points: int = 0
@@ -809,6 +821,7 @@ class AdminUpdateCompetitionMetaRequest(BaseModel):
     use_location: str | None = None
     show_competitor_location: str | None = None
     radius_m: float | None = None
+    mass_start_at: str | None = None
     updated_by: int | None = None
 
 
@@ -3020,22 +3033,21 @@ async def submit_answer(
     if effective_lang not in settings.lang_available:
         effective_lang = settings.lang_default
 
-    ords_response = await _post_to_ords(
-        "submissions",
-        {
-            "user_id": user_id,
-            "competition_id": req.competition_id,
-            "checkpoint_id": req.checkpoint_id,
-            "question_id": req.question_id,
-            "lang_code": effective_lang,
-            "default_lang_code": settings.lang_default,
-            "answer_text": req.answer_text,
-            "selected_option_id": req.selected_option_id,
-            "latitude": req.latitude,
-            "longitude": req.longitude,
-            "radius_m": req.radius_m,
-        },
-    )
+    payload = {
+        "user_id": user_id,
+        "competition_id": req.competition_id,
+        "checkpoint_id": req.checkpoint_id,
+        "lang_code": effective_lang,
+        "default_lang_code": settings.lang_default,
+        "answer_text": req.answer_text,
+        "selected_option_id": req.selected_option_id,
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+        "radius_m": req.radius_m,
+    }
+    if req.question_id is not None:
+        payload["question_id"] = req.question_id
+    ords_response = await _post_to_ords("submissions", payload)
     submission_id = ords_response.get("submission_id")
     is_correct_raw = ords_response.get("is_correct")
     awarded_points = ords_response.get("awarded_points")
@@ -3402,8 +3414,12 @@ async def competitor_my_submissions(  # NOSONAR
         if isinstance(item, dict):
             items.append(
                 CompetitorMySubmissionEntry(
+                    id=item.get("id") if isinstance(item.get("id"), int) else None,
                     checkpoint_title=item.get("checkpoint_title") if isinstance(item.get("checkpoint_title"), str) else None,
                     submission_id=item.get("submission_id") if isinstance(item.get("submission_id"), int) else None,
+                    submission_event_id=item.get("submission_event_id") if isinstance(item.get("submission_event_id"), int) else None,
+                    submission_source=item.get("submission_source") if isinstance(item.get("submission_source"), str) else None,
+                    event=item.get("event") if isinstance(item.get("event"), str) else None,
                     submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
                     awarded_points=item.get("awarded_points") if isinstance(item.get("awarded_points"), int) else 0,
                 )
@@ -3621,7 +3637,11 @@ async def admin_participant_submissions(  # NOSONAR
             delta_from_prev = item.get("delta_from_prev_seconds")
             items.append(
                 ParticipantSubmissionEntry(
+                    id=item.get("id") if isinstance(item.get("id"), int) else None,
                     submission_id=item.get("submission_id") if isinstance(item.get("submission_id"), int) else None,
+                    submission_event_id=item.get("submission_event_id") if isinstance(item.get("submission_event_id"), int) else None,
+                    submission_source=item.get("submission_source") if isinstance(item.get("submission_source"), str) else None,
+                    event=item.get("event") if isinstance(item.get("event"), str) else None,
                     checkpoint_title=cp_title if isinstance(cp_title, str) else None,
                     submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
                     delta_from_prev_seconds=delta_from_prev if isinstance(delta_from_prev, int) else None,
@@ -3710,6 +3730,8 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
     }
     if req.checkpoint_type is not None:
         payload["checkpoint_type"] = req.checkpoint_type
+    if req.checkpoint_interaction is not None:
+        payload["checkpoint_interaction"] = req.checkpoint_interaction
     if req.order_no is not None:
         payload["order_no"] = req.order_no
     if req.location_hint is not None:
@@ -3722,6 +3744,8 @@ async def admin_create_checkpoint(req: AdminCreateCheckpointRequest, request: Re
         payload["radius_m"] = req.radius_m
     if req.location_required is not None:
         payload["location_required"] = req.location_required
+    if req.mass_start_at is not None:
+        payload["mass_start_at"] = req.mass_start_at
 
     ords_response = await _post_to_ords(
         ADMIN_CHECKPOINTS_PATH,
@@ -4453,6 +4477,8 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
         "title": req.title,
         "updated_by": user_id,
     }
+    if req.checkpoint_interaction is not None:
+        payload["checkpoint_interaction"] = req.checkpoint_interaction
     if req.order_no is not None:
         payload["order_no"] = req.order_no
     if req.location_hint is not None:
@@ -4465,6 +4491,8 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
         payload["radius_m"] = req.radius_m
     if req.location_required is not None:
         payload["location_required"] = req.location_required
+    if req.mass_start_at is not None:
+        payload["mass_start_at"] = req.mass_start_at
 
     await _post_to_ords(
         "admin/checkpoints/update",

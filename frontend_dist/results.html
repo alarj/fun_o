@@ -205,6 +205,16 @@
       return f || "---";
     }
 
+    function participantAnswerLabel(row) {
+      const source = String(row?.submission_source || "SUBMISSION").toUpperCase();
+      const eventCode = String(row?.event || "").toUpperCase();
+      if (source === "EVENT") {
+        if (eventCode === "CHECK_ONLY") return tr("results.participant_table.event_check_only", "CHECK_ONLY");
+        if (eventCode === "MASS_START") return tr("results.participant_table.event_mass_start", "MASS_START");
+      }
+      return String(row?.answer_text || "-");
+    }
+
     function showMsg(ok, text) {
       const el = byId("topMsg");
       if (!text) { el.className = ""; el.textContent = ""; return; }
@@ -616,11 +626,15 @@
       const rows = sortParticipantItems();
       byId("participantRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
+        const isSubmission = String(r.submission_source || "SUBMISSION").toUpperCase() === "SUBMISSION";
+        const answerCell = isSubmission && Number(r.submission_id || 0) > 0
+          ? `<button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(participantAnswerLabel(r))}</button>`
+          : `<span>${esc(participantAnswerLabel(r))}</span>`;
         return `<tr>
           <td>${esc(r.checkpoint_title || "-")}</td>
           <td>${esc(fmtEtLocal(r.submitted_at))}</td>
           <td>${Number(r.awarded_points || 0)}</td>
-          <td><button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(r.answer_text || "-")}</button></td>
+          <td>${answerCell}</td>
           <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
         </tr>`;
       }).join("");
@@ -967,12 +981,16 @@
       const rows = sortParticipantItems();
       byId("participantRows").innerHTML = rows.map((r) => {
         const ok = String(r.is_correct || "N").toUpperCase() === "Y";
+        const isSubmission = String(r.submission_source || "SUBMISSION").toUpperCase() === "SUBMISSION";
+        const answerCell = isSubmission && Number(r.submission_id || 0) > 0
+          ? `<button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(participantAnswerLabel(r))}</button>`
+          : `<span>${esc(participantAnswerLabel(r))}</span>`;
         return `<tr>
           <td>${esc(r.checkpoint_title || "-")}</td>
           <td>${esc(fmtEtLocal(r.submitted_at))}</td>
           <td>${esc(fmtHhMmSs(Number(r.delta_from_prev_seconds)))}</td>
           <td>${Number(r.awarded_points || 0)}</td>
-          <td><button class="answer-link" data-act="open-answer-detail" data-submission-id="${Number(r.submission_id || 0)}">${esc(r.answer_text || "-")}</button></td>
+          <td>${answerCell}</td>
           <td><span class="${ok ? "correct" : "wrong"}">${ok ? "&#10003;" : "&#10007;"}</span></td>
         </tr>`;
       }).join("");

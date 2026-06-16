@@ -7,6 +7,8 @@ let cpOverviewLabelsOpen = false;
 function cpDialogStateSnapshot() {
   return JSON.stringify({
     checkpointType: byId("cpType").value,
+    checkpointInteraction: byId("cpInteraction").value,
+    massStartAt: byId("cpMassStartEt").value,
     title: byId("cpName").value,
     location: byId("cpLocation").value,
     order: byId("cpOrder").value,
@@ -26,6 +28,12 @@ function getCpLocationRequiredValue() {
   return byId("cpLocationRequired").checked ? "Y" : "N";
 }
 
+function normalizeCheckpointInteraction(rawInteraction) {
+  const value = String(rawInteraction || "QUESTION").trim().toUpperCase();
+  if (value === "CHECK_ONLY" || value === "MASS_START") return value;
+  return "QUESTION";
+}
+
 function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId = null) {
   const normalizedSelected = normalizeCheckpointType(selectedType);
   const sel = byId("cpType");
@@ -42,13 +50,32 @@ function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId =
   sel.value = options.some((opt) => opt.value === normalizedSelected) ? normalizedSelected : "NORMAL";
 }
 
+function fillCheckpointInteractionSelect(selectedInteraction = "QUESTION", checkpointType = "NORMAL") {
+  const normalizedType = normalizeCheckpointType(checkpointType);
+  const normalizedInteraction = normalizeCheckpointInteraction(selectedInteraction);
+  const sel = byId("cpInteraction");
+  const options = [
+    { value: "QUESTION", label: tr("admin.cp_dialog.checkpoint_interaction.question") },
+    { value: "CHECK_ONLY", label: tr("admin.cp_dialog.checkpoint_interaction.check_only") }
+  ];
+  if (normalizedType === "START") {
+    options.push({ value: "MASS_START", label: tr("admin.cp_dialog.checkpoint_interaction.mass_start") });
+  }
+  sel.innerHTML = options.map((opt) => `<option value="${esc(opt.value)}">${esc(opt.label)}</option>`).join("");
+  sel.value = options.some((opt) => opt.value === normalizedInteraction) ? normalizedInteraction : "QUESTION";
+}
+
 function syncCheckpointTypeUi() {
   const checkpointType = normalizeCheckpointType(byId("cpType").value);
   const isSpecial = isSpecialCheckpointType(checkpointType);
+  const checkpointInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   const cpName = byId("cpName");
   const cpOrder = byId("cpOrder");
+  fillCheckpointInteractionSelect(checkpointInteraction, checkpointType);
+  const effectiveInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   byId("cpNameRow").style.display = "";
   byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+  byId("cpMassStartRow").style.display = (checkpointType === "START" && effectiveInteraction === "MASS_START") ? "" : "none";
   byId("cpType").disabled = byId("cpId").value !== "";
   if (checkpointType === "START") {
     cpName.value = "START";
@@ -100,18 +127,22 @@ function syncMetaLocationSwitches() {
 function syncCpQuestionButton() {
   const btn = byId("cpOpenQuestion");
   if (!btn) return;
+  const interaction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   if (!cpDialogCheckpointId) {
-    btn.textContent = tr("admin.cp_dialog.open_question_new");
+    btn.textContent = interaction === "QUESTION"
+      ? tr("admin.cp_dialog.open_question_new")
+      : tr("admin.cp_dialog.open_question_disabled_non_question");
     btn.disabled = true;
     return;
   }
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
   const hasQuestion = !!row?.question_id;
+  const rowInteraction = normalizeCheckpointInteraction(row?.checkpoint_interaction);
   btn.textContent = hasQuestion
     ? tr("admin.cp_dialog.open_question_edit")
     : tr("admin.cp_dialog.open_question_new");
   const dirty = cpDialogStateSnapshot() !== cpDialogInitialState;
-  btn.disabled = dirty;
+  btn.disabled = dirty || rowInteraction !== "QUESTION";
 }
 
 function setEditModeByCompetition(isActive) {
@@ -744,6 +775,7 @@ async function loadView() {
   byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
   window.__lastStartsAt = v.starts_at || null;
   window.__lastEndsAt = v.ends_at || null;
+  window.__lastMassStartAt = v.mass_start_at || null;
   setEditModeByCompetition(!v.ends_at || ((asUtcDate(v.ends_at) || new Date(0)) > new Date()));
   byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
   byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
@@ -792,13 +824,16 @@ function renderRows() {
 
   byId("cpRows").innerHTML = sorted.map((r) => {
     const hasQuestion = !!r.question_id;
+    const interaction = normalizeCheckpointInteraction(r.checkpoint_interaction);
     const qText = currentUiLang === "en"
       ? (r.text_en || r.text_et || "")
       : (r.text_et || r.text_en || "");
     const optionsCount = Array.isArray(r.options) ? r.options.length : 0;
-    const questionTypeDisplay = String(r.question_type || "") === "SINGLE_CHOICE"
-      ? `SINGLE_CHOICE (${optionsCount})`
-      : String(r.question_type || "");
+    const questionTypeDisplay = interaction !== "QUESTION"
+      ? tr(`admin.cp_table.interaction.${interaction.toLowerCase()}`)
+      : String(r.question_type || "") === "SINGLE_CHOICE"
+        ? `SINGLE_CHOICE (${optionsCount})`
+        : String(r.question_type || "");
     return `<tr>
       <td>${esc(r.checkpoint_title || "")}</td>
       <td>${r.points ?? ""}</td>
@@ -810,7 +845,7 @@ function renderRows() {
       }</td>
       <td class="actions-col">
         <div class="tools">
-          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
+          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive && interaction === "QUESTION") ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
           <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn"))}</button>
         </div>
       </td>
@@ -853,7 +888,7 @@ function fillCheckpointSelect(includeAll = true, currentCpId = null) {
     : checkpointsData.filter((c) => {
       const isCurrent = currentIdNum != null && Number(c.checkpoint_id) === Number(currentIdNum);
       if (isCurrent) return true;
-      return !c.question_id;
+      return normalizeCheckpointInteraction(c.checkpoint_interaction) === "QUESTION" && !c.question_id;
     });
   byId("qCheckpoint").innerHTML = rows.map((c) => `<option value="${c.checkpoint_id}">${esc(c.checkpoint_title || "")}</option>`).join("");
 }
@@ -1003,6 +1038,8 @@ function applyNewCheckpointDialogState(showGps) {
   byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
   byId("cpId").value = "";
   fillCheckpointTypeSelect("NORMAL", null);
+  fillCheckpointInteractionSelect("QUESTION", "NORMAL");
+  byId("cpMassStartEt").value = "";
   byId("cpName").value = "";
   byId("cpLocation").value = "";
   byId("cpOrder").value = "";
@@ -1027,6 +1064,10 @@ function applyExistingCheckpointDialogState(row, cpId, showGps) {
   byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
   byId("cpId").value = cpId;
   fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
+  fillCheckpointInteractionSelect(row?.checkpoint_interaction || "QUESTION", row?.checkpoint_type || "NORMAL");
+  byId("cpMassStartEt").value = (normalizeCheckpointType(row?.checkpoint_type) === "START" && normalizeCheckpointInteraction(row?.checkpoint_interaction) === "MASS_START")
+    ? fmtEtInput((window.__lastMassStartAt || ""), true)
+    : "";
   byId("cpName").value = row?.checkpoint_title || "";
   byId("cpLocation").value = row?.location_hint || "";
   byId("cpOrder").value = row?.checkpoint_order_no ?? "";
@@ -1067,6 +1108,8 @@ async function saveCheckpoint() {
   if (!currentCompetitionActive) return;
   const form = {
     checkpointType: normalizeCheckpointType(byId("cpType").value),
+    checkpointInteraction: normalizeCheckpointInteraction(byId("cpInteraction").value),
+    massStartAtRaw: byId("cpMassStartEt").value.trim(),
     cpId: byId("cpId").value,
     title: byId("cpName").value.trim(),
     orderRaw: byId("cpOrder").value.trim(),
@@ -1098,8 +1141,18 @@ async function saveCheckpoint() {
       return showMsg("cpMsg", false, tr("admin.msg.cp_order_exists"));
     }
   }
+  let massStartParsed = null;
+  if (form.checkpointType === "START" && form.checkpointInteraction === "MASS_START") {
+    massStartParsed = parseEtInput(form.massStartAtRaw, true);
+    if (massStartParsed && massStartParsed.error) return showMsg("cpMsg", false, massStartParsed.error);
+    const competitionStatus = String(window.__lastCompetitionStatus || "").toUpperCase();
+    if (competitionStatus === "ACTIVE" && !massStartParsed) {
+      return showMsg("cpMsg", false, tr("admin.msg.mass_start_at_required"));
+    }
+  }
   if (!form.cpId) {
-    const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType };
+    const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType, checkpoint_interaction: form.checkpointInteraction };
+    if (massStartParsed) payload.mass_start_at = massStartParsed;
     if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
@@ -1113,7 +1166,8 @@ async function saveCheckpoint() {
       writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   } else {
-    const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title };
+    const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title, checkpoint_interaction: form.checkpointInteraction };
+    if (form.checkpointType === "START") payload.mass_start_at = massStartParsed;
     if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
@@ -1166,6 +1220,10 @@ function openQuestionDialog(cpId, editMode) {
   setQuestionDialogMode("normal");
   fillCheckpointSelect(false, cpId);
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+  if (normalizeCheckpointInteraction(row?.checkpoint_interaction) !== "QUESTION") {
+    openQuestionBlockedDialog(tr("admin.msg.question_only_for_question_interaction"));
+    return;
+  }
   byId("qCheckpoint").value = String(cpId);
   if (!editMode) {
     byId("qTitle").textContent = tr("admin.q_dialog.new_title");
@@ -1827,7 +1885,7 @@ byId("cpOverviewMapDialog").addEventListener("close", () => {
 });
 
 byId("newQuestionBtn").onclick = () => {
-  const first = checkpointsData.find((x) => !x.question_id);
+  const first = checkpointsData.find((x) => normalizeCheckpointInteraction(x.checkpoint_interaction) === "QUESTION" && !x.question_id);
   if (!first) {
     openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first"));
     return;
@@ -1869,16 +1927,18 @@ byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
 byId("cpOpenQuestion").onclick = () => {
   if (!cpDialogCheckpointId) return;
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+  if (normalizeCheckpointInteraction(row?.checkpoint_interaction) !== "QUESTION") return;
   const editMode = !!row?.question_id;
   byId("cpDialog").close();
   openQuestionDialog(Number(cpDialogCheckpointId), editMode);
 };
 
 byId("cpType").addEventListener("change", syncCheckpointTypeUi);
+byId("cpInteraction").addEventListener("change", syncCheckpointTypeUi);
 byId("cpLatitude").addEventListener("change", syncMapFromCoordInputs);
 byId("cpLongitude").addEventListener("change", syncMapFromCoordInputs);
 byId("cpRadiusM").addEventListener("input", syncRadiusCircle);
-["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired","cpInteraction","cpMassStartEt"].forEach((id) => {
   byId(id).addEventListener("input", syncCpQuestionButton);
   byId(id).addEventListener("change", syncCpQuestionButton);
 });
@@ -2036,7 +2096,7 @@ byId("organizerJoinSaveNoComp").onclick = async () => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "F2" && !byId("appArea").classList.contains("hidden")) {
-    const first = checkpointsData.find((x) => !x.question_id);
+    const first = checkpointsData.find((x) => normalizeCheckpointInteraction(x.checkpoint_interaction) === "QUESTION" && !x.question_id);
     if (first) openQuestionDialog(first.checkpoint_id, false);
   }
 });

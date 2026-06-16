@@ -26,6 +26,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `checkpoints.checkpoint_type`
   - KP liik: `NORMAL`, `START`, `FINISH`.
   - Kui väärtus on `NULL`, käsitletakse seda äriloogikas kui `NORMAL`.
+- `checkpoints.checkpoint_interaction`
+  - KP aktiivse interaktsiooni liik: `QUESTION`, `CHECK_ONLY`, `MASS_START`.
+  - `MASS_START` on lubatud ainult `START` checkpointil.
 - `checkpoints.radius_m` (number, meetrites, nullable)
   - KP-spetsiifiline raadius. Kui puudub, kasutatakse `competitions.radius_m`.
 - `checkpoints.location_required` (`Y`/`N`)
@@ -39,6 +42,11 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `START` ja `FINISH` on tavalised küsimusega KP-d:
   - nende läbimine tekib `submissions` kaudu samamoodi nagu teistel KP-del;
   - nad võivad anda punkte tavalisel moel.
+- Erand: kui `START.checkpoint_interaction = MASS_START`, siis võistleja ei vasta START checkpointi käsitsi.
+  - süsteem lisab `submission_events` tabelisse tehnilise `MASS_START` sündmuse automaatselt esimese päris checkpointi tegevuse ajal;
+  - selle sündmuse aeg on `competitions.mass_start_at`;
+  - enne `mass_start_at` aega ei tohi teisi checkpointi tegevusi lubada.
+- Kui `checkpoint_interaction = CHECK_ONLY`, siis võistleja ei vasta küsimusele, vaid registreerib checkpointi läbimise ühe tegevusega.
 - `START` pealkiri on alati `START`.
 - `FINISH` pealkiri on alati `FINISH`.
 - `START` ja `FINISH` tüüpi olemasolevat KP-d ei saa adminis muuta teiseks liigiks.
@@ -161,6 +169,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
 - Kui aktiivne `START` on olemas ja seda pole veel läbitud, siis enne `START` läbimist ei avata ühtegi muud KP-d.
 - Sellises seisus võib `open-checkpoints` tagastada ainult `START` kontrollpunkti.
+- Kui aktiivne `START` kasutab `MASS_START` interaktsiooni, loetakse START avatuks alates `competitions.mass_start_at` hetkest ilma käsitsi vastuseta.
 - Kui `competition.type='S'` ja `START` on juba läbitud, siis:
   - kaardil kuvatakse kogu rada kohe algusest peale (`START`, kõik `NORMAL` KP-d, `FINISH`);
   - vastamiseks avatakse korraga ainult üks järgmine `NORMAL` KP vastavalt `order_no` järjestusele;

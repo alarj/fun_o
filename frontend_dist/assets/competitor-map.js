@@ -672,8 +672,11 @@ function checkpointPopupLabel(cp) {
     : "";
   const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
   const popupState = getCheckpointPopupState(cp);
+  const actionLabel = popupState.messageKey === "competitor.check_only.submit_btn"
+    ? tr("competitor.check_only.submit_btn")
+    : tr("competitor.map.answer_cta_btn");
   const secondLine = popupState.canAnswer
-    ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
+    ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(actionLabel)}</button>`
     : `<div class="cpPopupNoQuestion">${esc(tr(popupState.messageKey))}</div>`;
   return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
 }
@@ -709,7 +712,11 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 function getCheckpointPopupState(cp) {
   const checkpointId = Number(cp?.checkpoint_id || 0);
   const questionId = Number(cp?.question_id || 0);
-  if (checkpointId <= 0 || questionId <= 0) {
+  const interaction = normalizeCheckpointInteraction(cp?.checkpoint_interaction);
+  if (checkpointId <= 0) {
+    return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
+  }
+  if (interaction === "QUESTION" && questionId <= 0) {
     return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
   }
   if (String(cp?.is_answered || "N").toUpperCase() === "Y") {
@@ -750,7 +757,7 @@ function getCheckpointPopupState(cp) {
 
   const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
   if (!locationRequired) {
-    return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
+    return { canAnswer: true, messageKey: interaction === "CHECK_ONLY" ? "competitor.check_only.submit_btn" : "competitor.map.answer_cta_btn" };
   }
   if (!(state.geo.enabled && Number.isFinite(Number(state.geo.latitude)) && Number.isFinite(Number(state.geo.longitude)))) {
     return { canAnswer: false, messageKey: "competitor.map.access_reason_missing_location" };
@@ -766,7 +773,7 @@ function getCheckpointPopupState(cp) {
   if (!(Number.isFinite(distanceM) && distanceM <= effectiveRadius)) {
     return { canAnswer: false, messageKey: "competitor.map.access_reason_too_far" };
   }
-  return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
+  return { canAnswer: true, messageKey: interaction === "CHECK_ONLY" ? "competitor.check_only.submit_btn" : "competitor.map.answer_cta_btn" };
 }
 
 function buildCompetitionMapPoints(items) {

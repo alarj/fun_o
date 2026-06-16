@@ -54,6 +54,7 @@ erDiagram
         varchar2 use_location
         varchar2 show_competitor_location
         number radius_m
+        timestamp mass_start_at
         timestamp starts_at
         timestamp ends_at
         date start_date
@@ -214,6 +215,7 @@ erDiagram
         number competition_id FK
         varchar2 title
         varchar2 checkpoint_type
+        varchar2 checkpoint_interaction
         number order_no
         varchar2 location_hint
         number latitude
@@ -321,10 +323,28 @@ erDiagram
         number checkpoint_id FK
         number question_id FK
         number user_id FK
-        clob answer_text
+        varchar2 answer_text
         number selected_option_id FK
         number awarded_points
         varchar2 is_correct
+        number latitude
+        number longitude
+        number radius_m
+        timestamp submitted_at
+        number evaluated_by
+        timestamp evaluated_at
+    }
+
+    SUBMISSION_EVENTS {
+        number submission_event_id PK
+        number competition_id FK
+        number checkpoint_id FK
+        number user_id FK
+        varchar2 event
+        number latitude
+        number longitude
+        number radius_m
+        number awarded_points
         timestamp submitted_at
         number evaluated_by
         timestamp evaluated_at
@@ -416,4 +436,12 @@ erDiagram
 - `competition_routes.calculated_source_hash` võimaldab kontrollida, kas snapshot klapib praeguse raja sisendiga.
 - `competition_routes.calc_status` lubatud äriväärtused on `PENDING`, `PROCESSING`, `READY`, `FAILED`.
 - `competition_routes.calculation_duration_ms` salvestab ühe arvutuse kestuse millisekundites.
+
+## Mass-start ja interaction märkused
+
+- `checkpoint_interaction` lubatud äriväärtused on `QUESTION`, `CHECK_ONLY`, `MASS_START`.
+- `checkpoint_interaction = MASS_START` on lubatud ainult `START` tüüpi checkpointil.
+- `submission_events` hoiab küsimuseta läbimise/stardi sündmusi (`CHECK_ONLY`, `MASS_START`).
+- `submissions_v` koondab `submissions` ja `submission_events` üheks lugemisvaateks ajajoone, progressi ja tulemuste jaoks.
 - `app_settings` hoiab DB-poolseid route-arvutuse seadistusi, näiteks exact-läve ja batch-protsessi piiranguid.
+- Raja pikkuse arvutusse lähevad ainult aktiivsed KP-d, millel on koordinaadid ja vähemalt üks aktiivne küsimus; ainult koordinaatidest ei piisa.

@@ -72,6 +72,7 @@ create table competitions (
   show_competitor_location varchar2(1) default 'Y' not null,
   radius_m number,
   starts_at timestamp,
+  mass_start_at timestamp,
   ends_at timestamp,
   start_date date default trunc(sysdate) not null,
   end_date date,
@@ -287,6 +288,7 @@ create table checkpoints (
   competition_id number not null,
   title varchar2(200) not null,
   checkpoint_type varchar2(10),
+  checkpoint_interaction varchar2(20) default 'QUESTION' not null,
   order_no number,
   location_hint varchar2(500),
   latitude number(9,6),
@@ -307,7 +309,8 @@ create table checkpoints (
   constraint chk_cp_lon check (longitude is null or (longitude between -180 and 180)),
   constraint chk_cp_radius check (radius_m is null or radius_m > 0),
   constraint chk_cp_location_required check (location_required in ('Y','N')),
-  constraint chk_checkpoints_type check (checkpoint_type is null or upper(trim(checkpoint_type)) in ('NORMAL','START','FINISH')) -- NOSONAR: explicit DDL literals are preferred here over indirection
+  constraint chk_checkpoints_type check (checkpoint_type is null or upper(trim(checkpoint_type)) in ('NORMAL','START','FINISH')), -- NOSONAR: explicit DDL literals are preferred here over indirection
+  constraint chk_checkpoints_interaction check (upper(trim(checkpoint_interaction)) in ('QUESTION','CHECK_ONLY','MASS_START'))
 );
 
 create table questions (
@@ -334,7 +337,7 @@ create table questions (
   constraint chk_questions_dates check (end_date is null or end_date >= start_date),
   constraint chk_question_type check (question_type in ('TEXT', 'SINGLE_CHOICE')),
   constraint chk_input_type check (input_type is null or input_type in ('TEXT', 'NUMERIC')),
-  constraint chk_input_max_length check (input_max_length is null or input_max_length > 0)
+  constraint chk_input_max_length check (input_max_length is null or (input_max_length > 0 and input_max_length <= 4000))
 );
 
 create table question_texts (
@@ -418,8 +421,11 @@ create table submissions (
   checkpoint_id number not null,
   question_id number not null,
   user_id number not null,
-  answer_text clob,
+  answer_text varchar2(4000),
   selected_option_id number,
+  latitude number(9,6),
+  longitude number(9,6),
+  radius_m number,
   awarded_points number,
   is_correct varchar2(1),
   submitted_at timestamp default systimestamp not null,
@@ -432,6 +438,69 @@ create table submissions (
   constraint fk_s_user foreign key (user_id) references users(user_id),
   constraint fk_s_eval_by foreign key (evaluated_by) references users(user_id)
 );
+
+create table submission_events (
+  submission_event_id number primary key,
+  competition_id number not null,
+  checkpoint_id number not null,
+  user_id number not null,
+  event varchar2(20) not null,
+  latitude number(9,6),
+  longitude number(9,6),
+  radius_m number,
+  awarded_points number,
+  submitted_at timestamp default systimestamp not null,
+  evaluated_by number,
+  evaluated_at timestamp,
+  constraint fk_se_comp foreign key (competition_id) references competitions(competition_id),
+  constraint fk_se_chk foreign key (checkpoint_id) references checkpoints(checkpoint_id),
+  constraint fk_se_user foreign key (user_id) references users(user_id),
+  constraint fk_se_eval_by foreign key (evaluated_by) references users(user_id),
+  constraint chk_submission_events_event check (event in ('CHECK_ONLY', 'MASS_START'))
+);
+
+create or replace view submissions_v as
+  select s.submission_id as id,
+         s.submission_id,
+         cast(null as number) as submission_event_id,
+         'SUBMISSION' as submission_source,
+         'QUESTION' as event,
+         s.competition_id,
+         s.checkpoint_id,
+         s.question_id,
+         s.user_id,
+         s.answer_text,
+         s.selected_option_id,
+         s.latitude,
+         s.longitude,
+         s.radius_m,
+         s.awarded_points,
+         s.is_correct,
+         s.submitted_at,
+         s.evaluated_by,
+         s.evaluated_at
+    from submissions s
+  union all
+  select se.submission_event_id as id,
+         cast(null as number) as submission_id,
+         se.submission_event_id,
+         'EVENT' as submission_source,
+         se.event,
+         se.competition_id,
+         se.checkpoint_id,
+         cast(null as number) as question_id,
+         se.user_id,
+         cast(null as varchar2(4000)) as answer_text,
+         cast(null as number) as selected_option_id,
+         se.latitude,
+         se.longitude,
+         se.radius_m,
+         se.awarded_points,
+         'Y' as is_correct,
+         se.submitted_at,
+         se.evaluated_by,
+         se.evaluated_at
+    from submission_events se;
 
 create table materials (
   material_id number primary key,
@@ -561,6 +630,13 @@ create unique index ux_submissions_comp_user_cp_q on submissions (
   user_id,
   checkpoint_id,
   question_id
+);
+
+create unique index ux_submission_events_comp_user_cp_evt on submission_events (
+  competition_id,
+  user_id,
+  checkpoint_id,
+  event
 );
 
 -- Seed roles
