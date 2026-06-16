@@ -7,6 +7,8 @@ let cpOverviewLabelsOpen = false;
 function cpDialogStateSnapshot() {
   return JSON.stringify({
     checkpointType: byId("cpType").value,
+    checkpointInteraction: byId("cpInteraction").value,
+    massStartAt: byId("cpMassStartEt").value,
     title: byId("cpName").value,
     location: byId("cpLocation").value,
     order: byId("cpOrder").value,
@@ -26,6 +28,12 @@ function getCpLocationRequiredValue() {
   return byId("cpLocationRequired").checked ? "Y" : "N";
 }
 
+function normalizeCheckpointInteraction(rawInteraction) {
+  const value = String(rawInteraction || "QUESTION").trim().toUpperCase();
+  if (value === "CHECK_ONLY" || value === "MASS_START") return value;
+  return "QUESTION";
+}
+
 function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId = null) {
   const normalizedSelected = normalizeCheckpointType(selectedType);
   const sel = byId("cpType");
@@ -42,13 +50,32 @@ function fillCheckpointTypeSelect(selectedType = "NORMAL", editingCheckpointId =
   sel.value = options.some((opt) => opt.value === normalizedSelected) ? normalizedSelected : "NORMAL";
 }
 
+function fillCheckpointInteractionSelect(selectedInteraction = "QUESTION", checkpointType = "NORMAL") {
+  const normalizedType = normalizeCheckpointType(checkpointType);
+  const normalizedInteraction = normalizeCheckpointInteraction(selectedInteraction);
+  const sel = byId("cpInteraction");
+  const options = [
+    { value: "QUESTION", label: tr("admin.cp_dialog.checkpoint_interaction.question") },
+    { value: "CHECK_ONLY", label: tr("admin.cp_dialog.checkpoint_interaction.check_only") }
+  ];
+  if (normalizedType === "START") {
+    options.push({ value: "MASS_START", label: tr("admin.cp_dialog.checkpoint_interaction.mass_start") });
+  }
+  sel.innerHTML = options.map((opt) => `<option value="${esc(opt.value)}">${esc(opt.label)}</option>`).join("");
+  sel.value = options.some((opt) => opt.value === normalizedInteraction) ? normalizedInteraction : "QUESTION";
+}
+
 function syncCheckpointTypeUi() {
   const checkpointType = normalizeCheckpointType(byId("cpType").value);
   const isSpecial = isSpecialCheckpointType(checkpointType);
+  const checkpointInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   const cpName = byId("cpName");
   const cpOrder = byId("cpOrder");
+  fillCheckpointInteractionSelect(checkpointInteraction, checkpointType);
+  const effectiveInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   byId("cpNameRow").style.display = "";
   byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+  byId("cpMassStartRow").style.display = (checkpointType === "START" && effectiveInteraction === "MASS_START") ? "" : "none";
   byId("cpType").disabled = byId("cpId").value !== "";
   if (checkpointType === "START") {
     cpName.value = "START";
@@ -100,18 +127,22 @@ function syncMetaLocationSwitches() {
 function syncCpQuestionButton() {
   const btn = byId("cpOpenQuestion");
   if (!btn) return;
+  const interaction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   if (!cpDialogCheckpointId) {
-    btn.textContent = tr("admin.cp_dialog.open_question_new");
+    btn.textContent = interaction === "QUESTION"
+      ? tr("admin.cp_dialog.open_question_new")
+      : tr("admin.cp_dialog.open_question_disabled_non_question");
     btn.disabled = true;
     return;
   }
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
   const hasQuestion = !!row?.question_id;
+  const rowInteraction = normalizeCheckpointInteraction(row?.checkpoint_interaction);
   btn.textContent = hasQuestion
     ? tr("admin.cp_dialog.open_question_edit")
     : tr("admin.cp_dialog.open_question_new");
   const dirty = cpDialogStateSnapshot() !== cpDialogInitialState;
-  btn.disabled = dirty;
+  btn.disabled = dirty || rowInteraction !== "QUESTION";
 }
 
 function setEditModeByCompetition(isActive) {
@@ -195,16 +226,25 @@ function buildCompetitionRouteTextHtml(routeLabelKey, staleLabelKey, distanceKm,
   const parts = String(template).split("{distance_km}");
   const prefix = esc(parts[0] || "");
   const suffix = esc(parts.slice(1).join("{distance_km}") || "");
-  const distanceMarkup = `<span class="cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</span>`;
+  const distanceMarkup = `<strong class="cp-overview-route-value cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</strong>`;
   const staleMarkup = isStale
     ? `<span class="cp-overview-route-stale-note"> ${esc(tr(staleLabelKey))}</span>`
     : "";
-  return `${prefix}${distanceMarkup}${suffix}${staleMarkup}`;
+  return `<span class="cp-overview-route-label">${prefix}</span>${distanceMarkup}<span class="cp-overview-route-label">${suffix}</span>${staleMarkup}`;
+}
+
+function buildCompetitionMassStartTextHtml(massStartAt) {
+  const template = tr("admin.cp_table.mass_start_text");
+  const parts = String(template).split("{value}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{value}") || "");
+  return `<span class="cp-overview-route-label">${prefix}</span><strong class="cp-overview-route-value">${esc(fmtEtInput(massStartAt, true) || "-")}</strong><span class="cp-overview-route-label">${suffix}</span>`;
 }
 
 function renderCompetitionRouteSummary() {
   const routeSummaryTextEl = byId("checkpointsRouteSummaryText");
-  if (!routeSummaryTextEl) return;
+  const massStartSummaryEl = byId("checkpointsMassStartSummary");
+  if (!routeSummaryTextEl || !massStartSummaryEl) return;
   const route = currentCompetitionRoute;
   const snapshotExists = competitionRouteSnapshotExists(route);
   const isCurrent = competitionRouteIsCurrent(route);
@@ -218,6 +258,14 @@ function renderCompetitionRouteSummary() {
     distanceKm != null ? distanceKm : "-",
     snapshotExists && !isCurrent
   );
+  const massStartAt = String(window.__lastMassStartAt || "").trim();
+  if (massStartAt) {
+    massStartSummaryEl.innerHTML = buildCompetitionMassStartTextHtml(massStartAt);
+    massStartSummaryEl.classList.remove("hidden");
+  } else {
+    massStartSummaryEl.innerHTML = "";
+    massStartSummaryEl.classList.add("hidden");
+  }
 }
 
 function routeActionButtonHtml(labelKey) {
@@ -725,6 +773,9 @@ async function loadView() {
   window.__lastCompetitionRadiusM = v.radius_m ?? null;
   window.__lastCompetitionDeclination = v.declination ?? 0;
   window.__lastCompetitionDeclinationUpdatedAt = v.declination_last_updated || null;
+  window.__lastStartsAt = v.starts_at || null;
+  window.__lastEndsAt = v.ends_at || null;
+  window.__lastMassStartAt = v.mass_start_at || null;
   currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
   currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
   setCurrentCompetitionRoute(v.route);
@@ -742,8 +793,6 @@ async function loadView() {
   byId("cUpdated").textContent = fmtDateEt(v.updated_at) || "-";
   byId("cStarts").textContent = fmtDateEt(v.starts_at) || "-";
   byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
-  window.__lastStartsAt = v.starts_at || null;
-  window.__lastEndsAt = v.ends_at || null;
   setEditModeByCompetition(!v.ends_at || ((asUtcDate(v.ends_at) || new Date(0)) > new Date()));
   byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
   byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
@@ -792,13 +841,16 @@ function renderRows() {
 
   byId("cpRows").innerHTML = sorted.map((r) => {
     const hasQuestion = !!r.question_id;
+    const interaction = normalizeCheckpointInteraction(r.checkpoint_interaction);
     const qText = currentUiLang === "en"
       ? (r.text_en || r.text_et || "")
       : (r.text_et || r.text_en || "");
     const optionsCount = Array.isArray(r.options) ? r.options.length : 0;
-    const questionTypeDisplay = String(r.question_type || "") === "SINGLE_CHOICE"
-      ? `SINGLE_CHOICE (${optionsCount})`
-      : String(r.question_type || "");
+    const questionTypeDisplay = interaction !== "QUESTION"
+      ? tr(`admin.cp_table.interaction.${interaction.toLowerCase()}`)
+      : String(r.question_type || "") === "SINGLE_CHOICE"
+        ? `SINGLE_CHOICE (${optionsCount})`
+        : String(r.question_type || "");
     return `<tr>
       <td>${esc(r.checkpoint_title || "")}</td>
       <td>${r.points ?? ""}</td>
@@ -810,7 +862,7 @@ function renderRows() {
       }</td>
       <td class="actions-col">
         <div class="tools">
-          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive) ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
+          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive && interaction === "QUESTION") ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
           <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn"))}</button>
         </div>
       </td>
@@ -853,7 +905,7 @@ function fillCheckpointSelect(includeAll = true, currentCpId = null) {
     : checkpointsData.filter((c) => {
       const isCurrent = currentIdNum != null && Number(c.checkpoint_id) === Number(currentIdNum);
       if (isCurrent) return true;
-      return !c.question_id;
+      return normalizeCheckpointInteraction(c.checkpoint_interaction) === "QUESTION" && !c.question_id;
     });
   byId("qCheckpoint").innerHTML = rows.map((c) => `<option value="${c.checkpoint_id}">${esc(c.checkpoint_title || "")}</option>`).join("");
 }
@@ -1003,6 +1055,8 @@ function applyNewCheckpointDialogState(showGps) {
   byId("cpTitle").textContent = tr("admin.cp_dialog.new_title");
   byId("cpId").value = "";
   fillCheckpointTypeSelect("NORMAL", null);
+  fillCheckpointInteractionSelect("QUESTION", "NORMAL");
+  byId("cpMassStartEt").value = "";
   byId("cpName").value = "";
   byId("cpLocation").value = "";
   byId("cpOrder").value = "";
@@ -1027,6 +1081,10 @@ function applyExistingCheckpointDialogState(row, cpId, showGps) {
   byId("cpTitle").textContent = tr("admin.cp_dialog.edit_title");
   byId("cpId").value = cpId;
   fillCheckpointTypeSelect(row?.checkpoint_type || "NORMAL", Number(cpId));
+  fillCheckpointInteractionSelect(row?.checkpoint_interaction || "QUESTION", row?.checkpoint_type || "NORMAL");
+  byId("cpMassStartEt").value = (normalizeCheckpointType(row?.checkpoint_type) === "START" && normalizeCheckpointInteraction(row?.checkpoint_interaction) === "MASS_START")
+    ? fmtEtInput((window.__lastMassStartAt || ""), true)
+    : "";
   byId("cpName").value = row?.checkpoint_title || "";
   byId("cpLocation").value = row?.location_hint || "";
   byId("cpOrder").value = row?.checkpoint_order_no ?? "";
@@ -1067,6 +1125,8 @@ async function saveCheckpoint() {
   if (!currentCompetitionActive) return;
   const form = {
     checkpointType: normalizeCheckpointType(byId("cpType").value),
+    checkpointInteraction: normalizeCheckpointInteraction(byId("cpInteraction").value),
+    massStartAtRaw: byId("cpMassStartEt").value.trim(),
     cpId: byId("cpId").value,
     title: byId("cpName").value.trim(),
     orderRaw: byId("cpOrder").value.trim(),
@@ -1098,8 +1158,31 @@ async function saveCheckpoint() {
       return showMsg("cpMsg", false, tr("admin.msg.cp_order_exists"));
     }
   }
+  let massStartParsed = null;
+  if (form.checkpointType === "START" && form.checkpointInteraction === "MASS_START") {
+    massStartParsed = parseEtInput(form.massStartAtRaw, true);
+    if (massStartParsed && massStartParsed.error) return showMsg("cpMsg", false, massStartParsed.error);
+    const competitionStatus = String(window.__lastCompetitionStatus || "").toUpperCase();
+    if (competitionStatus === "ACTIVE" && !massStartParsed) {
+      return showMsg("cpMsg", false, tr("admin.msg.mass_start_at_required"));
+    }
+  }
+  if (form.checkpointType === "START" && form.checkpointInteraction === "MASS_START" && massStartParsed) {
+    const warning = buildMassStartWarningState(massStartParsed);
+    if (warning) {
+      const shouldContinue = await confirmMassStartWarning(form.massStartAtRaw, warning);
+      if (!shouldContinue) return;
+    }
+  }
+  await persistCheckpoint(form, massStartParsed);
+  byId("cpDialog").close();
+  await loadView();
+}
+
+async function persistCheckpoint(form, massStartParsed) {
   if (!form.cpId) {
-    const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType };
+    const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType, checkpoint_interaction: form.checkpointInteraction };
+    if (massStartParsed) payload.mass_start_at = massStartParsed;
     if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
@@ -1113,7 +1196,8 @@ async function saveCheckpoint() {
       writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   } else {
-    const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title };
+    const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title, checkpoint_interaction: form.checkpointInteraction };
+    if (form.checkpointType === "START") payload.mass_start_at = massStartParsed;
     if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
@@ -1127,8 +1211,64 @@ async function saveCheckpoint() {
       writeLastCpCoord(Number(form.latRaw), Number(form.lonRaw));
     }
   }
-  byId("cpDialog").close();
-  await loadView();
+}
+
+function buildMassStartWarningState(massStartAtIso) {
+  const selectedAt = new Date(massStartAtIso);
+  if (Number.isNaN(selectedAt.getTime())) return null;
+  const now = new Date();
+  const diffMs = selectedAt.getTime() - now.getTime();
+  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+  if (diffMs >= 0 && diffMs <= tenDaysMs) return null;
+  return {
+    selectedAt,
+    direction: diffMs < 0 ? "past" : "future",
+    diffMs: Math.abs(diffMs)
+  };
+}
+
+function formatMassStartWarningOffset(diffMs) {
+  const totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  return formatTr("admin.mass_start_warning.offset", { days, hours, minutes });
+}
+
+function confirmMassStartWarning(rawValue, warning) {
+  return new Promise((resolve) => {
+    const dialog = byId("massStartWarningDialog");
+    const textEl = byId("massStartWarningText");
+    const deltaEl = byId("massStartWarningDelta");
+    const noBtn = byId("massStartWarningNo");
+    const yesBtn = byId("massStartWarningYes");
+    if (!dialog || !textEl || !deltaEl || !noBtn || !yesBtn) {
+      resolve(true);
+      return;
+    }
+    textEl.innerHTML = `${esc(tr("admin.mass_start_warning.prompt_prefix"))} <strong style="font-size:22px;">${esc(rawValue || "-")}</strong>?`;
+    deltaEl.textContent = formatTr(
+      warning.direction === "past"
+        ? "admin.mass_start_warning.delta_past"
+        : "admin.mass_start_warning.delta_future",
+      { value: formatMassStartWarningOffset(warning.diffMs) }
+    );
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      noBtn.onclick = null;
+      yesBtn.onclick = null;
+      dialog.removeEventListener("close", handleClose);
+      if (dialog.open) dialog.close();
+      resolve(result);
+    };
+    const handleClose = () => finish(false);
+    noBtn.onclick = () => finish(false);
+    yesBtn.onclick = () => finish(true);
+    dialog.addEventListener("close", handleClose, { once: true });
+    dialog.showModal();
+  });
 }
 
 async function deleteCheckpoint() {
@@ -1166,6 +1306,10 @@ function openQuestionDialog(cpId, editMode) {
   setQuestionDialogMode("normal");
   fillCheckpointSelect(false, cpId);
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpId));
+  if (normalizeCheckpointInteraction(row?.checkpoint_interaction) !== "QUESTION") {
+    openQuestionBlockedDialog(tr("admin.msg.question_only_for_question_interaction"));
+    return;
+  }
   byId("qCheckpoint").value = String(cpId);
   if (!editMode) {
     byId("qTitle").textContent = tr("admin.q_dialog.new_title");
@@ -1525,6 +1669,10 @@ async function deleteOverlayDialog() {
 
 function openMetaDialog() {
   if (!currentCompetitionActive) return;
+  const hasMassStartCheckpoint = checkpointsData.some((cp) =>
+    normalizeCheckpointType(cp?.checkpoint_type) === "START" &&
+    normalizeCheckpointInteraction(cp?.checkpoint_interaction) === "MASS_START"
+  );
   byId("metaMsg").textContent = "";
   byId("metaMsg").className = "";
   byId("metaNameInput").value = window.__lastCompetitionName || "";
@@ -1541,6 +1689,10 @@ function openMetaDialog() {
     : "-";
   byId("metaStartsEt").value = fmtEtInput((window.__lastStartsAt || ""));
   byId("metaEndsEt").value = fmtEtInput((window.__lastEndsAt || ""));
+  byId("metaMassStartInfoRow").style.display = hasMassStartCheckpoint ? "" : "none";
+  byId("metaMassStartInfoValue").textContent = hasMassStartCheckpoint
+    ? (fmtEtInput((window.__lastMassStartAt || ""), true) || "-")
+    : "-";
   syncMetaLocationSwitches();
   updateMetaOwnMapButtonLabel();
   updateMetaMapLayersButtonLabel();
@@ -1549,6 +1701,10 @@ function openMetaDialog() {
 
 async function saveMetaDialog() {
   try {
+    const hasMassStartCheckpoint = checkpointsData.some((cp) =>
+      normalizeCheckpointType(cp?.checkpoint_type) === "START" &&
+      normalizeCheckpointInteraction(cp?.checkpoint_interaction) === "MASS_START"
+    );
     const payload = {
       competition_id: compId(),
       name: byId("metaNameInput").value.trim(),
@@ -1557,16 +1713,25 @@ async function saveMetaDialog() {
       status: byId("metaStatusInput").value,
       use_location: getMetaUseLocationValue(),
       show_competitor_location: getMetaShowCompetitorLocationValue(),
-      radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null
+      radius_m: byId("metaRadiusMInput").value.trim() ? Number(byId("metaRadiusMInput").value.trim()) : null,
+      mass_start_at: window.__lastMassStartAt || null
     };
     if (!payload.name) {
       showMsg("metaMsg", false, tr("admin.msg.comp_name_required"));
+      return;
+    }
+    if (String(payload.status || "").toUpperCase() === "ACTIVE" && hasMassStartCheckpoint && !payload.mass_start_at) {
+      showMsg("metaMsg", false, tr("admin.msg.mass_start_at_required"));
       return;
     }
     const startParsed = parseEtInput(byId("metaStartsEt").value);
     const endParsed = parseEtInput(byId("metaEndsEt").value);
     if (startParsed && startParsed.error) return showMsg("metaMsg", false, startParsed.error);
     if (endParsed && endParsed.error) return showMsg("metaMsg", false, endParsed.error);
+    if (String(payload.status || "").toUpperCase() === "ACTIVE" && !startParsed) {
+      showMsg("metaMsg", false, tr("admin.msg.competition_start_required_for_active"));
+      return;
+    }
     await post("/api/admin/competitions/meta", payload);
     await post("/api/admin/competitions/dates", {
       competition_id: compId(),
@@ -1578,7 +1743,7 @@ async function saveMetaDialog() {
     await loadView();
     showMsg("topMsg", true, tr("admin.msg.comp_updated"));
   } catch (e) {
-    showMsg("metaMsg", false, humanizeError(e.message));
+    showMsg("metaMsg", false, humanizeError(e.message, e.details));
   }
 }
 
@@ -1827,7 +1992,7 @@ byId("cpOverviewMapDialog").addEventListener("close", () => {
 });
 
 byId("newQuestionBtn").onclick = () => {
-  const first = checkpointsData.find((x) => !x.question_id);
+  const first = checkpointsData.find((x) => normalizeCheckpointInteraction(x.checkpoint_interaction) === "QUESTION" && !x.question_id);
   if (!first) {
     openQuestionBlockedDialog(tr("admin.msg.add_checkpoint_without_question_first"));
     return;
@@ -1869,16 +2034,18 @@ byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
 byId("cpOpenQuestion").onclick = () => {
   if (!cpDialogCheckpointId) return;
   const row = checkpointsData.find((x) => Number(x.checkpoint_id) === Number(cpDialogCheckpointId));
+  if (normalizeCheckpointInteraction(row?.checkpoint_interaction) !== "QUESTION") return;
   const editMode = !!row?.question_id;
   byId("cpDialog").close();
   openQuestionDialog(Number(cpDialogCheckpointId), editMode);
 };
 
 byId("cpType").addEventListener("change", syncCheckpointTypeUi);
+byId("cpInteraction").addEventListener("change", syncCheckpointTypeUi);
 byId("cpLatitude").addEventListener("change", syncMapFromCoordInputs);
 byId("cpLongitude").addEventListener("change", syncMapFromCoordInputs);
 byId("cpRadiusM").addEventListener("input", syncRadiusCircle);
-["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired"].forEach((id) => {
+["cpName","cpLocation","cpOrder","cpLatitude","cpLongitude","cpRadiusM","cpLocationRequired","cpInteraction","cpMassStartEt"].forEach((id) => {
   byId(id).addEventListener("input", syncCpQuestionButton);
   byId(id).addEventListener("change", syncCpQuestionButton);
 });
@@ -2036,7 +2203,7 @@ byId("organizerJoinSaveNoComp").onclick = async () => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "F2" && !byId("appArea").classList.contains("hidden")) {
-    const first = checkpointsData.find((x) => !x.question_id);
+    const first = checkpointsData.find((x) => normalizeCheckpointInteraction(x.checkpoint_interaction) === "QUESTION" && !x.question_id);
     if (first) openQuestionDialog(first.checkpoint_id, false);
   }
 });

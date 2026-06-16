@@ -182,6 +182,11 @@ create or replace package pkg_common as
   c_checkpoint_type_normal constant varchar2(10) := 'NORMAL';
   c_checkpoint_type_start constant varchar2(10) := 'START';
   c_checkpoint_type_finish constant varchar2(10) := 'FINISH';
+  c_checkpoint_interaction_question constant varchar2(20) := 'QUESTION';
+  c_checkpoint_interaction_check_only constant varchar2(20) := 'CHECK_ONLY';
+  c_checkpoint_interaction_mass_start constant varchar2(20) := 'MASS_START';
+  c_submission_source_submission constant varchar2(20) := 'SUBMISSION';
+  c_submission_source_event constant varchar2(20) := 'EVENT';
   c_checkpoint_start_order constant number := 0;
   c_checkpoint_finish_order constant number := 9999;
   c_competition_type_random constant varchar2(1) := 'R';
@@ -191,6 +196,11 @@ create or replace package pkg_common as
   -- normalize_checkpoint_type: normalizes null/blank values to NORMAL and uppercases supported special types.
   function normalize_checkpoint_type(
     p_checkpoint_type in varchar2
+  ) return varchar2 deterministic;
+
+  -- normalize_checkpoint_interaction: normalizes null/blank values to QUESTION and uppercases supported values.
+  function normalize_checkpoint_interaction(
+    p_checkpoint_interaction in varchar2
   ) return varchar2 deterministic;
 
   -- normalize_competition_type: normalizes null/blank values to R and uppercases supported competition types.
@@ -237,6 +247,21 @@ create or replace package body pkg_common as
       return l_type;
     end if;
     return c_checkpoint_type_normal;
+  end;
+
+  function normalize_checkpoint_interaction(
+    p_checkpoint_interaction in varchar2
+  ) return varchar2 deterministic is
+    l_interaction varchar2(20) := upper(trim(p_checkpoint_interaction));
+  begin
+    if l_interaction in (
+      c_checkpoint_interaction_question,
+      c_checkpoint_interaction_check_only,
+      c_checkpoint_interaction_mass_start
+    ) then
+      return l_interaction;
+    end if;
+    return c_checkpoint_interaction_question;
   end;
 
   function normalize_competition_type(
@@ -343,19 +368,39 @@ create or replace package body pkg_common as
       select cp.checkpoint_id
         into l_checkpoint_id
         from checkpoints cp
-        join questions q
+        left join questions q
           on q.checkpoint_id = cp.checkpoint_id
+         and (q.end_date is null or q.end_date > sysdate)
        where cp.competition_id = p_competition_id
          and normalize_checkpoint_type(cp.checkpoint_type) = c_checkpoint_type_normal
+         and normalize_checkpoint_interaction(cp.checkpoint_interaction) <> c_checkpoint_interaction_mass_start
          and (cp.end_date is null or cp.end_date > sysdate)
-         and (q.end_date is null or q.end_date > sysdate)
-         and not exists (
-           select 1
-             from submissions s
-            where s.competition_id = p_competition_id
-              and s.user_id = p_user_id
-              and s.checkpoint_id = cp.checkpoint_id
-              and s.question_id = q.question_id
+         and (
+           (normalize_checkpoint_interaction(cp.checkpoint_interaction) = c_checkpoint_interaction_question and q.question_id is not null)
+           or normalize_checkpoint_interaction(cp.checkpoint_interaction) = c_checkpoint_interaction_check_only
+         )
+         and (
+           (
+             normalize_checkpoint_interaction(cp.checkpoint_interaction) = c_checkpoint_interaction_question
+             and not exists (
+               select 1
+                 from submissions_v s
+                where s.competition_id = p_competition_id
+                  and s.user_id = p_user_id
+                  and s.checkpoint_id = cp.checkpoint_id
+                  and s.question_id = q.question_id
+             )
+           )
+           or (
+             normalize_checkpoint_interaction(cp.checkpoint_interaction) = c_checkpoint_interaction_check_only
+             and not exists (
+               select 1
+                 from submissions_v s
+                where s.competition_id = p_competition_id
+                  and s.user_id = p_user_id
+                  and s.checkpoint_id = cp.checkpoint_id
+             )
+           )
          )
        order by nvl(cp.order_no, c_checkpoint_finish_order), cp.checkpoint_id
        fetch first 1 row only;
@@ -1006,7 +1051,7 @@ create or replace package pkg_submissions as
     p_question_id in number,
     p_lang_code in varchar2,
     p_default_lang_code in varchar2,
-    p_answer_text in clob,
+    p_answer_text in varchar2,
     p_selected_option_id in number,
     p_latitude in number,
     p_longitude in number,
@@ -1053,7 +1098,7 @@ create or replace package body pkg_submissions as
     p_question_id in number,
     p_lang_code in varchar2,
     p_default_lang_code in varchar2,
-    p_answer_text in clob,
+    p_answer_text in varchar2,
     p_selected_option_id in number,
     p_latitude in number,
     p_longitude in number,
@@ -1073,21 +1118,37 @@ create or replace package body pkg_submissions as
     l_question_type questions.question_type%type;
     l_input_type questions.input_type%type;
     l_checkpoint_type checkpoints.checkpoint_type%type;
+    l_checkpoint_interaction checkpoints.checkpoint_interaction%type := pkg_common.c_checkpoint_interaction_question;
     l_awarded_points questions.points%type := 0;
     l_wrong_points questions.wrong_points%type := 0;
     l_is_correct varchar2(1) := 'N';
     l_normalized_answer varchar2(4000);
     l_correct_count number := 0;
+    l_now_utc_ts timestamp := systimestamp at time zone 'UTC';
     l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
+    l_comp_status competitions.status%type;
+    l_comp_starts_at competitions.starts_at%type;
+    l_comp_ends_at competitions.ends_at%type;
+    l_mass_start_at competitions.mass_start_at%type;
     l_start_exists number := 0;
     l_start_answered number := 0;
+    l_start_checkpoint_id checkpoints.checkpoint_id%type;
+    l_start_checkpoint_interaction checkpoints.checkpoint_interaction%type := pkg_common.c_checkpoint_interaction_question;
+    l_start_latitude checkpoints.latitude%type;
+    l_start_longitude checkpoints.longitude%type;
+    l_start_radius checkpoints.radius_m%type;
     l_finish_answered number := 0;
     l_next_ordered_checkpoint_id checkpoints.checkpoint_id%type;
     l_lang varchar2(10);
     l_fallback_lang varchar2(10);
+    l_current_event varchar2(20) := pkg_common.c_checkpoint_interaction_question;
+    l_current_geo_available varchar2(1) := 'N';
   begin
-    if p_user_id is null or p_competition_id is null or p_checkpoint_id is null or p_question_id is null then
-      raise_application_error(-20060, 'user_id, competition_id, checkpoint_id and question_id are required');
+    o_correct_answer_texts_json := to_clob('[]');
+    o_other_correct_answer_texts_json := to_clob('[]');
+
+    if p_user_id is null or p_competition_id is null or p_checkpoint_id is null then
+      raise_application_error(-20060, 'user_id, competition_id and checkpoint_id are required');
     end if;
 
     begin
@@ -1104,41 +1165,79 @@ create or replace package body pkg_submissions as
     end;
 
     begin
-      select q.question_type,
-             q.input_type,
-             q.points,
-             q.wrong_points,
-             pkg_common.normalize_checkpoint_type(cp.checkpoint_type)
-        into l_question_type,
-             l_input_type,
-             l_awarded_points,
-             l_wrong_points,
-             l_checkpoint_type
-        from questions q
-        join checkpoints cp
-          on cp.checkpoint_id = q.checkpoint_id
-       where q.question_id = p_question_id
-         and q.checkpoint_id = p_checkpoint_id
-         and cp.competition_id = p_competition_id
-         and (cp.end_date is null or cp.end_date > sysdate)
-         and (q.end_date is null or q.end_date > sysdate)
-       fetch first 1 row only;
-    exception
-      when no_data_found then
-        raise_application_error(-20062, 'question not found or inactive');
-    end;
-
-    begin
-      select pkg_common.normalize_competition_type(c.type)
-        into l_comp_type
+      select pkg_common.normalize_competition_type(c.type),
+             c.status,
+             c.starts_at,
+             c.ends_at,
+             c.mass_start_at
+        into l_comp_type,
+             l_comp_status,
+             l_comp_starts_at,
+             l_comp_ends_at,
+             l_mass_start_at
         from competitions c
        where c.competition_id = p_competition_id
          and (c.end_date is null or c.end_date > sysdate)
        fetch first 1 row only;
     exception
       when no_data_found then
-        l_comp_type := pkg_common.c_competition_type_random;
+        raise_application_error(-20062, 'competition not found or inactive');
     end;
+
+    if upper(trim(nvl(l_comp_status, ''))) <> 'ACTIVE'
+       or (l_comp_starts_at is not null and l_comp_starts_at > l_now_utc_ts)
+       or (l_comp_ends_at is not null and l_comp_ends_at <= l_now_utc_ts) then
+      raise_application_error(-20068, 'competition is not currently open for submissions');
+    end if;
+
+    begin
+      select pkg_common.normalize_checkpoint_type(cp.checkpoint_type),
+             pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction)
+        into l_checkpoint_type,
+             l_checkpoint_interaction
+        from checkpoints cp
+       where cp.checkpoint_id = p_checkpoint_id
+         and cp.competition_id = p_competition_id
+         and (cp.end_date is null or cp.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20062, 'checkpoint not found or inactive');
+    end;
+
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question then
+      if p_question_id is null then
+        raise_application_error(-20060, 'question_id is required for QUESTION interaction');
+      end if;
+
+      begin
+        select q.question_type,
+               q.input_type,
+               q.points,
+               q.wrong_points
+          into l_question_type,
+               l_input_type,
+               l_awarded_points,
+               l_wrong_points
+          from questions q
+         where q.question_id = p_question_id
+           and q.checkpoint_id = p_checkpoint_id
+           and (q.end_date is null or q.end_date > sysdate)
+         fetch first 1 row only;
+      exception
+        when no_data_found then
+          raise_application_error(-20062, 'question not found or inactive');
+      end;
+    elsif l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start then
+      raise_application_error(-20083, 'mass start checkpoint is registered automatically');
+    else
+      l_question_type := null;
+      l_input_type := null;
+      l_awarded_points := 0;
+      l_wrong_points := 0;
+      l_is_correct := 'Y';
+      l_current_event := pkg_common.c_checkpoint_interaction_check_only;
+    end if;
 
     l_lang := lower(nvl(trim(p_lang_code), 'et'));
     l_fallback_lang := lower(nvl(trim(p_default_lang_code), 'et'));
@@ -1149,32 +1248,54 @@ create or replace package body pkg_submissions as
       l_fallback_lang := null;
     end if;
 
-    select count(*)
-      into l_start_exists
-      from checkpoints cp
-     where cp.competition_id = p_competition_id
-       and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
-       and (cp.end_date is null or cp.end_date > sysdate);
+    begin
+      select cp.checkpoint_id,
+             pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction),
+             cp.latitude,
+             cp.longitude,
+             cp.radius_m
+        into l_start_checkpoint_id,
+             l_start_checkpoint_interaction,
+             l_start_latitude,
+             l_start_longitude,
+             l_start_radius
+        from checkpoints cp
+       where cp.competition_id = p_competition_id
+         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+         and (cp.end_date is null or cp.end_date > sysdate)
+       fetch first 1 row only;
+      l_start_exists := 1;
+    exception
+      when no_data_found then
+        l_start_exists := 0;
+    end;
 
     if l_start_exists > 0 then
-      select count(*)
-        into l_start_answered
-        from submissions s
-        join checkpoints cp
-          on cp.checkpoint_id = s.checkpoint_id
-       where s.competition_id = p_competition_id
-         and s.user_id = p_user_id
-         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
-         and (cp.end_date is null or cp.end_date > sysdate);
+      if l_start_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start then
+        if l_mass_start_at is null then
+          raise_application_error(-20084, 'mass_start_at is required when start interaction is MASS_START');
+        end if;
+        if l_mass_start_at > l_now_utc_ts then
+          raise_application_error(-20085, 'mass start time has not been reached yet');
+        end if;
+        l_start_answered := 1;
+      else
+        select count(*)
+          into l_start_answered
+          from submissions_v s
+         where s.competition_id = p_competition_id
+           and s.user_id = p_user_id
+           and s.checkpoint_id = l_start_checkpoint_id;
 
-      if l_start_answered = 0 and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
-        raise_application_error(-20065, 'start checkpoint must be answered first');
+        if l_start_answered = 0 and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
+          raise_application_error(-20065, 'start checkpoint must be answered first');
+        end if;
       end if;
     end if;
 
     select count(*)
       into l_finish_answered
-      from submissions s
+      from submissions_v s
       join checkpoints cp
         on cp.checkpoint_id = s.checkpoint_id
      where s.competition_id = p_competition_id
@@ -1203,7 +1324,48 @@ create or replace package body pkg_submissions as
       end if;
     end if;
 
-    if l_question_type = 'SINGLE_CHOICE' then -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+    if l_start_exists > 0
+       and l_start_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start
+       and p_checkpoint_id <> l_start_checkpoint_id then
+      select count(*)
+        into l_dummy
+        from submission_events se
+       where se.competition_id = p_competition_id
+         and se.user_id = p_user_id
+         and se.checkpoint_id = l_start_checkpoint_id
+         and se.event = pkg_common.c_checkpoint_interaction_mass_start;
+
+      if l_dummy = 0 then
+        insert into submission_events (
+          submission_event_id,
+          competition_id,
+          checkpoint_id,
+          user_id,
+          event,
+          latitude,
+          longitude,
+          radius_m,
+          awarded_points,
+          submitted_at,
+          evaluated_at
+        ) values (
+          seq_submissions.nextval,
+          p_competition_id,
+          l_start_checkpoint_id,
+          p_user_id,
+          pkg_common.c_checkpoint_interaction_mass_start,
+          l_start_latitude,
+          l_start_longitude,
+          l_start_radius,
+          0,
+          l_mass_start_at,
+          l_mass_start_at
+        );
+      end if;
+    end if;
+
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question
+       and l_question_type = 'SINGLE_CHOICE' then -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       if p_selected_option_id is null then
         raise_application_error(-20063, 'selected_option_id is required for SINGLE_CHOICE question');
       end if;
@@ -1219,12 +1381,12 @@ create or replace package body pkg_submissions as
       if l_correct_count > 0 then
         l_is_correct := 'Y';
       end if;
-    else
+    elsif l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question then
       if p_answer_text is null then
         raise_application_error(-20064, 'answer_text is required for TEXT question');
       end if;
 
-      l_normalized_answer := dbms_lob.substr(p_answer_text, 4000, 1);
+      l_normalized_answer := p_answer_text;
 
       select count(*)
         into l_correct_count
@@ -1242,53 +1404,83 @@ create or replace package body pkg_submissions as
       end if;
     end if;
 
-    if l_is_correct = 'N' then
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question
+       and l_is_correct = 'N' then
       l_awarded_points := nvl(l_wrong_points, 0);
     end if;
 
     o_submission_id := seq_submissions.nextval;
-    insert into submissions (
-      submission_id,
-      competition_id,
-      checkpoint_id,
-      question_id,
-      user_id,
-      answer_text,
-      selected_option_id,
-      latitude,
-      longitude,
-      radius_m,
-      awarded_points,
-      is_correct,
-      submitted_at,
-      evaluated_at
-    ) values (
-      o_submission_id,
-      p_competition_id,
-      p_checkpoint_id,
-      p_question_id,
-      p_user_id,
-      p_answer_text,
-      p_selected_option_id,
-      p_latitude,
-      p_longitude,
-      p_radius_m,
-      l_awarded_points,
-      l_is_correct,
-      systimestamp,
-      systimestamp
-    );
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question then
+      insert into submissions (
+        submission_id,
+        competition_id,
+        checkpoint_id,
+        question_id,
+        user_id,
+        answer_text,
+        selected_option_id,
+        latitude,
+        longitude,
+        radius_m,
+        awarded_points,
+        is_correct,
+        submitted_at,
+        evaluated_at
+      ) values (
+        o_submission_id,
+        p_competition_id,
+        p_checkpoint_id,
+        p_question_id,
+        p_user_id,
+        p_answer_text,
+        p_selected_option_id,
+        p_latitude,
+        p_longitude,
+        p_radius_m,
+        l_awarded_points,
+        l_is_correct,
+        systimestamp,
+        systimestamp
+      );
+    else
+      insert into submission_events (
+        submission_event_id,
+        competition_id,
+        checkpoint_id,
+        user_id,
+        event,
+        latitude,
+        longitude,
+        radius_m,
+        awarded_points,
+        submitted_at,
+        evaluated_at
+      ) values (
+        o_submission_id,
+        p_competition_id,
+        p_checkpoint_id,
+        p_user_id,
+        l_current_event,
+        p_latitude,
+        p_longitude,
+        p_radius_m,
+        0,
+        systimestamp,
+        systimestamp
+      );
+    end if;
 
     o_is_correct := l_is_correct;
     o_awarded_points := nvl(l_awarded_points, 0);
 
     select nvl(sum(nvl(s.awarded_points, 0)), 0)
       into o_total_score
-      from submissions s
+      from submissions_v s
      where s.competition_id = p_competition_id
        and s.user_id = p_user_id;
 
-    if l_question_type = 'SINGLE_CHOICE' then
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question
+       and l_question_type = 'SINGLE_CHOICE' then
       select coalesce(
                json_arrayagg(x.option_text returning clob),
                to_clob('[]')
@@ -1361,7 +1553,7 @@ create or replace package body pkg_submissions as
       else
         o_other_correct_answer_texts_json := to_clob('[]');
       end if;
-    else
+    elsif l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_question then
       select coalesce(
                json_arrayagg(x.answer_value returning clob),
                to_clob('[]')
@@ -1407,6 +1599,10 @@ create or replace package body pkg_submissions as
     );
 
     if p_latitude is not null and p_longitude is not null then
+      l_current_geo_available := 'Y';
+    end if;
+
+    if l_current_geo_available = 'Y' then
       o_distance_display_allowed := pkg_results.get_distance_available(
         p_competition_id => p_competition_id,
         p_user_id => p_user_id
@@ -1488,7 +1684,7 @@ create or replace package body pkg_results as
              else null
            end
       into l_total_elapsed_seconds
-      from submissions s
+      from submissions_v s
      where s.competition_id = p_competition_id
        and s.user_id = p_user_id
        and s.submitted_at is not null;
@@ -1521,7 +1717,7 @@ create or replace package body pkg_results as
       from (
         select coalesce(s.latitude, cp.latitude) as effective_latitude,
                coalesce(s.longitude, cp.longitude) as effective_longitude
-          from submissions s
+          from submissions_v s
           join checkpoints cp
             on cp.checkpoint_id = s.checkpoint_id
          where s.competition_id = p_competition_id
@@ -1558,14 +1754,14 @@ create or replace package body pkg_results as
       from (
         select x.effective_latitude,
                x.effective_longitude,
-               lag(x.effective_latitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_latitude,
-               lag(x.effective_longitude) over (order by x.submitted_at asc, x.submission_id asc) as prev_longitude
+               lag(x.effective_latitude) over (order by x.submitted_at asc, x.id asc) as prev_latitude,
+               lag(x.effective_longitude) over (order by x.submitted_at asc, x.id asc) as prev_longitude
           from (
-            select s.submission_id,
+            select s.id,
                    s.submitted_at,
                    coalesce(s.latitude, cp.latitude) as effective_latitude,
                    coalesce(s.longitude, cp.longitude) as effective_longitude
-              from submissions s
+              from submissions_v s
               join checkpoints cp
                 on cp.checkpoint_id = s.checkpoint_id
              where s.competition_id = p_competition_id
@@ -1604,7 +1800,7 @@ create or replace package body pkg_results as
                      when count(s.submitted_at) >= 2 then round((max(cast(s.submitted_at as date)) - min(cast(s.submitted_at as date))) * 86400)
                      else null
                    end as total_elapsed_seconds
-              from submissions s
+              from submissions_v s
              where s.competition_id = p_competition_id
              group by s.user_id
           ) y
@@ -1625,7 +1821,7 @@ create or replace package body pkg_results as
   begin
     select nvl(sum(nvl(s.awarded_points, 0)), 0)
       into o_score
-      from submissions s
+      from submissions_v s
      where s.competition_id = p_competition_id
        and s.user_id = p_user_id;
   end;
@@ -1698,14 +1894,14 @@ create or replace package body pkg_results as
                      from (
                        select y.effective_latitude,
                               y.effective_longitude,
-                              lag(y.effective_latitude) over (order by y.submitted_at asc, y.submission_id asc) as prev_latitude,
-                              lag(y.effective_longitude) over (order by y.submitted_at asc, y.submission_id asc) as prev_longitude
+                              lag(y.effective_latitude) over (order by y.submitted_at asc, y.id asc) as prev_latitude,
+                              lag(y.effective_longitude) over (order by y.submitted_at asc, y.id asc) as prev_longitude
                          from (
-                           select sx.submission_id,
+                           select sx.id,
                                   sx.submitted_at,
                                   coalesce(sx.latitude, cpx.latitude) as effective_latitude,
                                   coalesce(sx.longitude, cpx.longitude) as effective_longitude
-                             from submissions sx
+                             from submissions_v sx
                              join checkpoints cpx
                                on cpx.checkpoint_id = sx.checkpoint_id
                             where sx.competition_id = p_competition_id
@@ -1720,7 +1916,7 @@ create or replace package body pkg_results as
                  )
                  else null
                end as total_distance_m
-          from submissions s
+          from submissions_v s
           join competitions cc
             on cc.competition_id = s.competition_id
           left join checkpoints c
@@ -1745,9 +1941,9 @@ create or replace package body pkg_results as
                    sx.checkpoint_id,
                    row_number() over (
                      partition by sx.competition_id, sx.user_id
-                     order by sx.submitted_at desc, sx.submission_id desc
+                     order by sx.submitted_at desc, sx.id desc
                    ) as rn
-              from submissions sx
+              from submissions_v sx
           ) ls
             on ls.competition_id = s.competition_id
            and ls.user_id = s.user_id
@@ -1811,8 +2007,12 @@ create or replace package body pkg_results as
 
     select json_arrayagg(
              json_object(
+               'id' value x.id,
                'checkpoint_title' value x.checkpoint_title, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'submission_id' value x.submission_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
+               'submission_event_id' value x.submission_event_id,
+               'submission_source' value x.submission_source,
+               'event' value x.event,
                'submitted_at' value case -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                   when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
@@ -1827,10 +2027,15 @@ create or replace package body pkg_results as
       from (
         with base_rows as (
           select cp.title as checkpoint_title,
+                 s.id,
                  s.submission_id,
+                 s.submission_event_id,
+                 s.submission_source,
+                 s.event,
                  s.submitted_at,
                  nvl(s.awarded_points, 0) as awarded_points,
                  case
+                   when s.submission_source = pkg_common.c_submission_source_event then s.event
                    when q.question_type = 'SINGLE_CHOICE' then nvl(
                      (
                        select qot_et.option_text
@@ -1850,31 +2055,35 @@ create or replace package body pkg_results as
                        '---'
                      )
                    )
-                   else dbms_lob.substr(s.answer_text, 4000, 1)
+                   else s.answer_text
                  end as answer_text,
                  case when nvl(s.is_correct, 'N') = 'Y' then 'Y' else 'N' end as is_correct,
                  coalesce(s.latitude, cp.latitude) as effective_latitude,
                  coalesce(s.longitude, cp.longitude) as effective_longitude
-            from submissions s
+            from submissions_v s
             join checkpoints cp
               on cp.checkpoint_id = s.checkpoint_id
-            join questions q
+            left join questions q
               on q.question_id = s.question_id
            where s.competition_id = p_competition_id
              and s.user_id = p_user_id
         )
-        select b.checkpoint_title,
+        select b.id,
+               b.checkpoint_title,
                b.submission_id,
+               b.submission_event_id,
+               b.submission_source,
+               b.event,
                b.submitted_at,
                case
-                 when lag(b.submitted_at) over (order by b.submitted_at asc, b.submission_id asc) is null then null
-                 else round((cast(b.submitted_at as date) - cast(lag(b.submitted_at) over (order by b.submitted_at asc, b.submission_id asc) as date)) * 86400)
+                 when lag(b.submitted_at) over (order by b.submitted_at asc, b.id asc) is null then null
+                 else round((cast(b.submitted_at as date) - cast(lag(b.submitted_at) over (order by b.submitted_at asc, b.id asc) as date)) * 86400)
                end as delta_from_prev_seconds,
                b.awarded_points,
                b.answer_text,
                b.is_correct
           from base_rows b
-         order by b.submitted_at desc, b.submission_id desc
+         order by b.submitted_at desc, b.id desc
       ) x;
 
     if o_items_json is null then
@@ -1909,7 +2118,7 @@ create or replace package body pkg_results as
     l_question_id questions.question_id%type;
     l_question_type questions.question_type%type;
     l_selected_option_id submissions.selected_option_id%type;
-    l_answer_text clob;
+    l_answer_text submissions.answer_text%type;
     l_lang varchar2(10);
     l_fallback_lang varchar2(10);
     l_is_organizer number := 0;
@@ -2002,7 +2211,7 @@ create or replace package body pkg_results as
                    '---'
                  )
                )
-               else dbms_lob.substr(s.answer_text, 4000, 1)
+               else s.answer_text
              end,
              'options' value case -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                when q.question_type = 'SINGLE_CHOICE' then (
@@ -2048,7 +2257,7 @@ create or replace package body pkg_results as
                             'is_selected' value case
                               when qa.is_correct = 'Y'
                                    and pkg_submissions.normalize_text(qa.answer_value, qa.normalize_mode)
-                                       = pkg_submissions.normalize_text(dbms_lob.substr(s.answer_text, 4000, 1), qa.normalize_mode)
+                                       = pkg_submissions.normalize_text(s.answer_text, qa.normalize_mode)
                               then 'Y' else 'N'
                             end
                           ) returning clob
@@ -2144,7 +2353,7 @@ create or replace package body pkg_results as
                    partition by s.checkpoint_id
                    order by s.submitted_at desc, s.submission_id desc
                  ) as rn
-            from submissions s
+            from submissions_v s
            where s.competition_id = p_competition_id
         ),
         cp_points as (
@@ -2162,7 +2371,7 @@ create or replace package body pkg_results as
                nvl(sum(case when s.is_correct = 'Y' then 1 else 0 end), 0) as correct_count,
                nvl(sum(case when s.is_correct = 'N' then 1 else 0 end), 0) as wrong_count
           from checkpoints cp
-          left join submissions s
+          left join submissions_v s
             on s.competition_id = p_competition_id
            and s.checkpoint_id = cp.checkpoint_id
           left join last_sub ls
@@ -2242,7 +2451,7 @@ create or replace package body pkg_results as
                    partition by s.user_id
                    order by s.submitted_at desc, s.submission_id desc
                  ) as rn
-            from submissions s
+            from submissions_v s
            where s.competition_id = p_competition_id
              and s.checkpoint_id = p_checkpoint_id
         )
@@ -2327,6 +2536,7 @@ create or replace package pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob,
+    o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
   );
@@ -2956,14 +3166,16 @@ create or replace package body pkg_competitor as
     l_use_location varchar2(1) := 'N';
     l_comp_radius number;
     l_comp_type varchar2(1) := pkg_common.c_competition_type_random;
+    l_mass_start_at competitions.mass_start_at%type;
     l_start_exists number := 0;
     l_start_answered number := 0;
+    l_start_checkpoint_interaction checkpoints.checkpoint_interaction%type := pkg_common.c_checkpoint_interaction_question;
     l_finish_answered number := 0;
     l_next_ordered_checkpoint_id checkpoints.checkpoint_id%type;
   begin
     begin
-      select nvl(c.use_location, 'N'), c.radius_m, pkg_common.normalize_competition_type(c.type)
-        into l_use_location, l_comp_radius, l_comp_type
+      select nvl(c.use_location, 'N'), c.radius_m, pkg_common.normalize_competition_type(c.type), c.mass_start_at
+        into l_use_location, l_comp_radius, l_comp_type, l_mass_start_at
         from competitions c
        where c.competition_id = p_competition_id
          and (c.end_date is null or c.end_date > sysdate)
@@ -2976,7 +3188,7 @@ create or replace package body pkg_competitor as
 
     select count(*)
       into l_finish_answered
-      from submissions s
+      from submissions_v s
       join checkpoints cp
         on cp.checkpoint_id = s.checkpoint_id
      where s.competition_id = p_competition_id
@@ -2997,15 +3209,32 @@ create or replace package body pkg_competitor as
        and (cp.end_date is null or cp.end_date > sysdate);
 
     if l_start_exists > 0 then
-      select count(*)
-        into l_start_answered
-        from submissions s
-        join checkpoints cp
-          on cp.checkpoint_id = s.checkpoint_id
-       where s.competition_id = p_competition_id
-         and s.user_id = p_user_id
-         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
-         and (cp.end_date is null or cp.end_date > sysdate);
+      begin
+        select pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction)
+          into l_start_checkpoint_interaction
+          from checkpoints cp
+         where cp.competition_id = p_competition_id
+           and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+           and (cp.end_date is null or cp.end_date > sysdate)
+         fetch first 1 row only;
+      exception
+        when no_data_found then
+          l_start_checkpoint_interaction := pkg_common.c_checkpoint_interaction_question;
+      end;
+
+      if l_start_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start then
+        l_start_answered := case when l_mass_start_at is not null and l_mass_start_at <= systimestamp at time zone 'UTC' then 1 else 0 end;
+      else
+        select count(*)
+          into l_start_answered
+          from submissions_v s
+          join checkpoints cp
+            on cp.checkpoint_id = s.checkpoint_id
+         where s.competition_id = p_competition_id
+           and s.user_id = p_user_id
+           and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+           and (cp.end_date is null or cp.end_date > sysdate);
+      end if;
     end if;
 
     if l_comp_type = pkg_common.c_competition_type_sequential then
@@ -3021,6 +3250,7 @@ create or replace package body pkg_competitor as
                'checkpoint_title' value z.checkpoint_title,
                'checkpoint_order_no' value z.checkpoint_order_no,
                'checkpoint_type' value z.checkpoint_type, -- NOSONAR: repeated JSON key is intentional for payload readability
+               'checkpoint_interaction' value z.checkpoint_interaction,
                'competition_type' value z.competition_type,
                'question_id' value z.question_id, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
                'question_type' value z.question_type,
@@ -3044,10 +3274,11 @@ create or replace package body pkg_competitor as
                cp.title as checkpoint_title,
                cp.order_no as checkpoint_order_no,
                pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
+               pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) as checkpoint_interaction,
                l_comp_type as competition_type,
                q.question_id,
                q.question_type,
-               q.points,
+               nvl(q.points, 0) as points,
                q.input_type,
                q.input_max_length,
                cp.latitude,
@@ -3121,14 +3352,18 @@ create or replace package body pkg_competitor as
                     and (qo.end_date is null or qo.end_date > sysdate)
                ) as options_json
           from checkpoints cp
-          join questions q
+          left join questions q
             on q.checkpoint_id = cp.checkpoint_id
+           and (q.end_date is null or q.end_date > sysdate)
           left join question_texts qt
             on qt.question_id = q.question_id
            and (qt.end_date is null or qt.end_date > sysdate)
          where cp.competition_id = p_competition_id
            and (cp.end_date is null or cp.end_date > sysdate)
-           and (q.end_date is null or q.end_date > sysdate)
+           and (
+             (pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question and q.question_id is not null)
+             or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_check_only
+           )
            and (
              l_start_exists = 0
              or l_start_answered > 0
@@ -3173,13 +3408,19 @@ create or replace package body pkg_competitor as
            )
            and not exists (
              select 1
-              from submissions s
-             where s.competition_id = p_competition_id
-               and s.user_id = p_user_id
-               and s.checkpoint_id = cp.checkpoint_id
-               and s.question_id = q.question_id
+               from submissions_v s
+              where s.competition_id = p_competition_id
+                and s.user_id = p_user_id
+                and s.checkpoint_id = cp.checkpoint_id
+                and (
+                  (
+                    pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question
+                    and s.question_id = q.question_id
+                  )
+                  or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_check_only
+                )
            )
-         group by cp.checkpoint_id, cp.title, cp.checkpoint_type, cp.order_no, q.question_id, q.question_type, q.points, q.input_type, q.input_max_length,
+         group by cp.checkpoint_id, cp.title, cp.checkpoint_type, cp.checkpoint_interaction, cp.order_no, q.question_id, q.question_type, q.points, q.input_type, q.input_max_length,
                   cp.latitude, cp.longitude, cp.radius_m, cp.location_required
       ) z;
 
@@ -3193,6 +3434,7 @@ create or replace package body pkg_competitor as
     p_user_id in number,
     p_competition_id in number,
     o_items_json out clob,
+    o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
   ) is
@@ -3204,6 +3446,7 @@ create or replace package body pkg_competitor as
                   'checkpoint_title' value x.checkpoint_title,
                   'checkpoint_order_no' value x.checkpoint_order_no,
                   'checkpoint_type' value x.checkpoint_type,
+                  'checkpoint_interaction' value x.checkpoint_interaction,
                   'competition_type' value x.competition_type,
                   'question_id' value x.question_id,
                   'points' value x.points,
@@ -3221,9 +3464,10 @@ create or replace package body pkg_competitor as
                   cp.title as checkpoint_title,
                   cp.order_no as checkpoint_order_no,
                   pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
+                  pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) as checkpoint_interaction,
                   nvl(c.type, 'R') as competition_type,
                   q.question_id,
-                  q.points,
+                  nvl(q.points, 0) as points,
                   cp.latitude,
                   cp.longitude,
                   case
@@ -3234,28 +3478,47 @@ create or replace package body pkg_competitor as
                   case
                     when exists (
                       select 1
-                        from submissions s
+                        from submissions_v s
                        where s.competition_id = p_competition_id
                          and s.user_id = p_user_id
                          and s.checkpoint_id = cp.checkpoint_id
-                         and s.question_id = q.question_id
+                         and (
+                           (
+                             pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question
+                             and s.question_id = q.question_id
+                           )
+                           or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_check_only
+                           or (
+                             pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+                             and pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_mass_start
+                             and s.event = pkg_common.c_checkpoint_interaction_mass_start
+                           )
+                         )
                     ) then 'Y'
                     else 'N'
                   end as is_answered
              from checkpoints cp
              join competitions c
                on c.competition_id = cp.competition_id
-             join questions q
+             left join questions q
                on q.checkpoint_id = cp.checkpoint_id
+              and (q.end_date is null or q.end_date > sysdate)
             where cp.competition_id = p_competition_id
               and (cp.end_date is null or cp.end_date > sysdate)
-              and (q.end_date is null or q.end_date > sysdate)
+              and (
+                (pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question and q.question_id is not null)
+                or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
+              )
               and cp.latitude is not null
               and cp.longitude is not null
          ) x),
+      (select to_char(c.mass_start_at, pkg_common.c_iso_ts_format)
+         from competitions c
+        where c.competition_id = p_competition_id),
       nvl((select cd.declination from competition_declinations cd where cd.competition_id = p_competition_id), 0),
       (select to_char(cd.last_updated, pkg_common.c_iso_ts_format) from competition_declinations cd where cd.competition_id = p_competition_id)
       into o_items_json,
+           o_mass_start_at,
            o_declination,
            o_declination_last_updated
       from dual;
@@ -3278,24 +3541,27 @@ create or replace package body pkg_competitor as
     select count(distinct cp.checkpoint_id)
       into l_total
       from checkpoints cp
-      join questions q
-        on q.checkpoint_id = cp.checkpoint_id
      where cp.competition_id = p_competition_id
        and (cp.end_date is null or cp.end_date > sysdate)
-       and (q.end_date is null or q.end_date > sysdate);
+       and (
+         pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
+         or exists (
+           select 1
+             from questions q
+            where q.checkpoint_id = cp.checkpoint_id
+              and (q.end_date is null or q.end_date > sysdate)
+         )
+       );
 
     select count(distinct cp.checkpoint_id)
       into l_answered
-      from submissions s
-      join questions q
-        on q.question_id = s.question_id
+      from submissions_v s
       join checkpoints cp
-        on cp.checkpoint_id = q.checkpoint_id
+        on cp.checkpoint_id = s.checkpoint_id
      where s.competition_id = p_competition_id
        and s.user_id = p_user_id
        and cp.competition_id = p_competition_id
-       and (cp.end_date is null or cp.end_date > sysdate)
-       and (q.end_date is null or q.end_date > sysdate);
+       and (cp.end_date is null or cp.end_date > sysdate);
 
     pkg_results.get_competition_score(
       p_competition_id => p_competition_id,
@@ -3322,8 +3588,12 @@ create or replace package body pkg_competitor as
   begin
     select json_arrayagg(
              json_object(
+               'id' value x.id,
                'checkpoint_title' value x.checkpoint_title,
                'submission_id' value x.submission_id,
+               'submission_event_id' value x.submission_event_id,
+               'submission_source' value x.submission_source,
+               'event' value x.event,
                'submitted_at' value case
                   when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
@@ -3334,19 +3604,20 @@ create or replace package body pkg_competitor as
       into o_items_json
       from (
         select cp.title as checkpoint_title,
+               s.id,
                s.submission_id,
+               s.submission_event_id,
+               s.submission_source,
+               s.event,
                s.submitted_at,
                nvl(s.awarded_points, 0) as awarded_points
-          from submissions s
+          from submissions_v s
           join checkpoints cp
             on cp.checkpoint_id = s.checkpoint_id
-          join questions q
-            on q.question_id = s.question_id
          where s.user_id = p_user_id
            and s.competition_id = p_competition_id
            and (cp.end_date is null or cp.end_date > sysdate)
-           and (q.end_date is null or q.end_date > sysdate)
-         order by s.submitted_at desc, s.submission_id desc
+         order by s.submitted_at desc, s.id desc
       ) x;
 
     if o_items_json is null then
@@ -3432,7 +3703,7 @@ create or replace package body pkg_competitor as
                    )
                  )
                )
-               else dbms_lob.substr(s.answer_text, 4000, 1)
+               else s.answer_text
              end,
              'responders_count' value (
                select count(distinct sx.user_id)
@@ -3496,7 +3767,7 @@ create or replace package body pkg_competitor as
                             'is_selected' value case
                               when qa.is_correct = 'Y'
                                    and pkg_submissions.normalize_text(qa.answer_value, qa.normalize_mode)
-                                       = pkg_submissions.normalize_text(dbms_lob.substr(s.answer_text, 4000, 1), qa.normalize_mode)
+                                       = pkg_submissions.normalize_text(s.answer_text, qa.normalize_mode)
                               then 'Y' else 'N'
                             end
                           ) returning clob
@@ -3585,6 +3856,7 @@ create or replace package pkg_admin_content as
     p_use_location in varchar2,
     p_show_competitor_location in varchar2,
     p_radius_m in number,
+    p_mass_start_at in timestamp,
     p_updated_by in number
   );
   -- upsert_competition_declination: Saves a competition magnetic declination snapshot.
@@ -3717,12 +3989,14 @@ create or replace package pkg_admin_content as
     p_competition_id in number,
     p_title in varchar2,
     p_checkpoint_type in varchar2,
+    p_checkpoint_interaction in varchar2,
     p_order_no in number,
     p_location_hint in varchar2,
     p_latitude in number,
     p_longitude in number,
     p_radius_m in number,
     p_location_required in varchar2,
+    p_mass_start_at in timestamp,
     p_created_by in number,
     o_checkpoint_id out number
   );
@@ -3730,12 +4004,14 @@ create or replace package pkg_admin_content as
   procedure update_checkpoint(
     p_checkpoint_id in number,
     p_title in varchar2,
+    p_checkpoint_interaction in varchar2,
     p_order_no in number,
     p_location_hint in varchar2,
     p_latitude in number,
     p_longitude in number,
     p_radius_m in number,
     p_location_required in varchar2,
+    p_mass_start_at in timestamp,
     p_updated_by in number
   );
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
@@ -5274,6 +5550,7 @@ create or replace package body pkg_admin_content as
         select cp.checkpoint_id,
                cp.title,
                cp.checkpoint_type,
+               cp.checkpoint_interaction,
                cp.order_no,
                cp.location_hint,
                cp.latitude,
@@ -5290,9 +5567,9 @@ create or replace package body pkg_admin_content as
         begin
           l_new_checkpoint_id := seq_checkpoints.nextval;
           insert into checkpoints (
-            checkpoint_id, competition_id, title, checkpoint_type, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at
+            checkpoint_id, competition_id, title, checkpoint_type, checkpoint_interaction, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at
           ) values (
-            l_new_checkpoint_id, o_competition_id, cp.title, cp.checkpoint_type, cp.order_no, cp.location_hint, cp.latitude, cp.longitude, cp.radius_m, cp.location_required,
+            l_new_checkpoint_id, o_competition_id, cp.title, cp.checkpoint_type, cp.checkpoint_interaction, cp.order_no, cp.location_hint, cp.latitude, cp.longitude, cp.radius_m, cp.location_required,
             trunc(sysdate), p_created_by, systimestamp
           );
 
@@ -5485,6 +5762,7 @@ create or replace package body pkg_admin_content as
     p_use_location in varchar2,
     p_show_competitor_location in varchar2,
     p_radius_m in number,
+    p_mass_start_at in timestamp,
     p_updated_by in number
   ) is
     l_name varchar2(255) := trim(p_name);
@@ -5492,6 +5770,7 @@ create or replace package body pkg_admin_content as
     l_status varchar2(30) := upper(trim(p_status));
     l_use_location varchar2(1) := upper(trim(nvl(p_use_location, 'N')));
     l_show_competitor_location varchar2(1) := upper(trim(nvl(p_show_competitor_location, 'Y')));
+    l_requires_mass_start number := 0;
   begin
     if l_name is null then
       raise_application_error(-20120, 'competition name is required');
@@ -5515,6 +5794,20 @@ create or replace package body pkg_admin_content as
       raise_application_error(-20123, 'radius_m must be > 0');
     end if;
 
+    if l_status = 'ACTIVE' then
+      select count(*)
+        into l_requires_mass_start
+        from checkpoints cp
+       where cp.competition_id = p_competition_id
+         and pkg_common.normalize_checkpoint_type(cp.checkpoint_type) = pkg_common.c_checkpoint_type_start
+         and pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_mass_start
+         and (cp.end_date is null or cp.end_date > sysdate);
+
+      if l_requires_mass_start > 0 and p_mass_start_at is null then
+        raise_application_error(-20199, 'mass_start_at is required before activating a mass-start competition');
+      end if;
+    end if;
+
     update competitions
        set name = l_name,
            description = p_description,
@@ -5523,6 +5816,7 @@ create or replace package body pkg_admin_content as
            use_location = l_use_location,
            show_competitor_location = l_show_competitor_location,
            radius_m = p_radius_m,
+           mass_start_at = p_mass_start_at,
            updated_by = p_updated_by,
            updated_at = systimestamp
      where competition_id = p_competition_id
@@ -5536,7 +5830,8 @@ create or replace package body pkg_admin_content as
         'status' value l_status,
         'use_location' value l_use_location,
         'show_competitor_location' value l_show_competitor_location,
-        'radius_m' value p_radius_m
+        'radius_m' value p_radius_m,
+        'mass_start_at' value to_char(p_mass_start_at, pkg_common.c_iso_ts_format)
       )));
   end;
 
@@ -6206,6 +6501,7 @@ create or replace package body pkg_admin_content as
       'checkpoint_id' value cp.checkpoint_id,
       'title' value cp.title, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       'checkpoint_type' value pkg_common.normalize_checkpoint_type(cp.checkpoint_type),
+      'checkpoint_interaction' value pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction),
       'order_no' value cp.order_no, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       'location_hint' value cp.location_hint, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
       'latitude' value cp.latitude,
@@ -6307,6 +6603,7 @@ create or replace package body pkg_admin_content as
       'use_location' value c.use_location,
       'show_competitor_location' value c.show_competitor_location,
       'radius_m' value c.radius_m,
+      'mass_start_at' value to_char(c.mass_start_at, pkg_common.c_iso_ts_format),
       'declination' value nvl(cd.declination, 0),
       'declination_last_updated' value to_char(cd.last_updated, pkg_common.c_iso_ts_format),
       'starts_at' value to_char(c.starts_at, pkg_common.c_iso_ts_format),
@@ -6335,6 +6632,7 @@ create or replace package body pkg_admin_content as
         'checkpoint_title' value cp.title,
         'checkpoint_order_no' value cp.order_no,
         'checkpoint_type' value pkg_common.normalize_checkpoint_type(cp.checkpoint_type),
+        'checkpoint_interaction' value pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction),
         'location_hint' value cp.location_hint,
         'latitude' value cp.latitude,
         'longitude' value cp.longitude,
@@ -6342,8 +6640,8 @@ create or replace package body pkg_admin_content as
         'location_required' value cp.location_required,
         'question_id' value q.question_id,
         'question_type' value q.question_type,
-        'points' value q.points,
-        'wrong_points' value q.wrong_points,
+        'points' value nvl(q.points, 0),
+        'wrong_points' value nvl(q.wrong_points, 0),
         'question_status' value q.status,
         'text_et' value (select qt.question_text from question_texts qt where qt.question_id=q.question_id and lower(qt.lang_code)='et' and (qt.end_date is null or qt.end_date > sysdate) fetch first 1 row only),
         'text_en' value (select qt.question_text from question_texts qt where qt.question_id=q.question_id and lower(qt.lang_code)='en' and (qt.end_date is null or qt.end_date > sysdate) fetch first 1 row only),
@@ -6464,12 +6762,13 @@ create or replace package body pkg_admin_content as
   end;
 
   -- create_checkpoint: Creates a new checkpoint record.
-  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_checkpoint_type in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_created_by in number, o_checkpoint_id out number) is -- NOSONAR: API boundary procedure mirrors checkpoint payload shape
+  procedure create_checkpoint(p_competition_id in number, p_title in varchar2, p_checkpoint_type in varchar2, p_checkpoint_interaction in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_mass_start_at in timestamp, p_created_by in number, o_checkpoint_id out number) is -- NOSONAR: API boundary procedure mirrors checkpoint payload shape
     l_dummy number;
     l_use_location varchar2(1);
     l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
     l_checkpoint_type varchar2(10) := pkg_common.normalize_checkpoint_type(p_checkpoint_type);
+    l_checkpoint_interaction varchar2(20) := pkg_common.normalize_checkpoint_interaction(p_checkpoint_interaction);
     l_title checkpoints.title%type := trim(p_title);
     l_order_no checkpoints.order_no%type := p_order_no;
     l_special_exists number := 0;
@@ -6496,6 +6795,10 @@ create or replace package body pkg_admin_content as
     if l_checkpoint_type = pkg_common.c_checkpoint_type_normal
        and l_order_no in (pkg_common.c_checkpoint_start_order, pkg_common.c_checkpoint_finish_order) then
       raise_application_error(-20197, 'order_no is reserved for start and finish checkpoints');
+    end if;
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start
+       and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
+      raise_application_error(-20199, 'MASS_START interaction is allowed only for START checkpoints');
     end if;
 
     begin
@@ -6533,30 +6836,44 @@ create or replace package body pkg_admin_content as
     end if;
 
     o_checkpoint_id := seq_checkpoints.nextval;
-    insert into checkpoints(checkpoint_id, competition_id, title, checkpoint_type, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at)
-    values(o_checkpoint_id, p_competition_id, l_title, l_checkpoint_type, l_order_no, p_location_hint, p_latitude, p_longitude, p_radius_m, l_location_required, trunc(sysdate), p_created_by, systimestamp);
+    insert into checkpoints(checkpoint_id, competition_id, title, checkpoint_type, checkpoint_interaction, order_no, location_hint, latitude, longitude, radius_m, location_required, start_date, created_by, created_at)
+    values(o_checkpoint_id, p_competition_id, l_title, l_checkpoint_type, l_checkpoint_interaction, l_order_no, p_location_hint, p_latitude, p_longitude, p_radius_m, l_location_required, trunc(sysdate), p_created_by, systimestamp);
+
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_start then
+      update competitions
+         set mass_start_at = case
+               when l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start then p_mass_start_at
+               else null
+             end
+       where competition_id = p_competition_id
+         and (end_date is null or end_date > sysdate);
+    end if;
 
     add_audit('CHECKPOINT', o_checkpoint_id, 'CREATE', p_created_by, null, -- NOSONAR: S1192 repeated literal accepted for script readability/stability
-      to_clob(json_object('competition_id' value p_competition_id,'title' value l_title,'checkpoint_type' value l_checkpoint_type,'order_no' value l_order_no)));
+      to_clob(json_object('competition_id' value p_competition_id,'title' value l_title,'checkpoint_type' value l_checkpoint_type,'checkpoint_interaction' value l_checkpoint_interaction,'order_no' value l_order_no)));
   end;
 
   -- update_checkpoint: Updates existing data for checkpoint.
-  procedure update_checkpoint(p_checkpoint_id in number, p_title in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_updated_by in number) is
+  procedure update_checkpoint(p_checkpoint_id in number, p_title in varchar2, p_checkpoint_interaction in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_mass_start_at in timestamp, p_updated_by in number) is
     l_competition_id number;
     l_dummy number;
     l_use_location varchar2(1);
     l_comp_type varchar2(1) := 'R';
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
     l_checkpoint_type varchar2(10) := pkg_common.c_checkpoint_type_normal;
+    l_checkpoint_interaction varchar2(20) := pkg_common.c_checkpoint_interaction_question;
     l_title checkpoints.title%type := trim(p_title);
     l_order_no checkpoints.order_no%type := p_order_no;
+    l_active_question_count number := 0;
   begin
     if p_checkpoint_id is null or trim(p_title) is null then raise_application_error(-20102, 'checkpoint_id and title are required'); end if;
 
     select competition_id,
-           pkg_common.normalize_checkpoint_type(checkpoint_type)
+           pkg_common.normalize_checkpoint_type(checkpoint_type),
+           pkg_common.normalize_checkpoint_interaction(coalesce(p_checkpoint_interaction, checkpoint_interaction))
       into l_competition_id,
-           l_checkpoint_type
+           l_checkpoint_type,
+           l_checkpoint_interaction
       from checkpoints
      where checkpoint_id = p_checkpoint_id
        and (end_date is null or end_date > sysdate);
@@ -6576,6 +6893,10 @@ create or replace package body pkg_admin_content as
     elsif l_order_no in (pkg_common.c_checkpoint_start_order, pkg_common.c_checkpoint_finish_order) then
       raise_application_error(-20197, 'order_no is reserved for start and finish checkpoints');
     end if;
+    if l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start
+       and l_checkpoint_type <> pkg_common.c_checkpoint_type_start then
+      raise_application_error(-20199, 'MASS_START interaction is allowed only for START checkpoints');
+    end if;
     if l_comp_type = 'S' and l_order_no is null then
       raise_application_error(-20127, 'order_no is required for competition type S');
     end if;
@@ -6593,14 +6914,36 @@ create or replace package body pkg_admin_content as
       raise_application_error(-20103, 'checkpoint title already exists in this competition');
     exception when no_data_found then null; end;
 
+    if l_checkpoint_interaction <> pkg_common.c_checkpoint_interaction_question then
+      select count(*)
+        into l_active_question_count
+        from questions q
+       where q.checkpoint_id = p_checkpoint_id
+         and (q.end_date is null or q.end_date > sysdate);
+      if l_active_question_count > 0
+         and l_checkpoint_type = pkg_common.c_checkpoint_type_normal then
+        raise_application_error(-20200, 'cannot switch NORMAL checkpoint interaction away from QUESTION while an active question exists');
+      end if;
+    end if;
+
     update checkpoints
-       set title=l_title, order_no=l_order_no, location_hint=p_location_hint,
+       set title=l_title, checkpoint_interaction=l_checkpoint_interaction, order_no=l_order_no, location_hint=p_location_hint,
            latitude = p_latitude, longitude = p_longitude, radius_m = p_radius_m, location_required = l_location_required,
            updated_by=p_updated_by, updated_at=systimestamp
      where checkpoint_id = p_checkpoint_id;
 
+    if l_checkpoint_type = pkg_common.c_checkpoint_type_start then
+      update competitions
+         set mass_start_at = case
+               when l_checkpoint_interaction = pkg_common.c_checkpoint_interaction_mass_start then p_mass_start_at
+               else null
+             end
+       where competition_id = l_competition_id
+         and (end_date is null or end_date > sysdate);
+    end if;
+
     add_audit('CHECKPOINT', p_checkpoint_id, 'UPDATE', p_updated_by, null,
-      to_clob(json_object('title' value l_title, 'checkpoint_type' value l_checkpoint_type, 'order_no' value l_order_no, 'location_hint' value p_location_hint, 'latitude' value p_latitude, 'longitude' value p_longitude, 'radius_m' value p_radius_m, 'location_required' value l_location_required)));
+      to_clob(json_object('title' value l_title, 'checkpoint_type' value l_checkpoint_type, 'checkpoint_interaction' value l_checkpoint_interaction, 'order_no' value l_order_no, 'location_hint' value p_location_hint, 'latitude' value p_latitude, 'longitude' value p_longitude, 'radius_m' value p_radius_m, 'location_required' value l_location_required)));
   end;
 
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.

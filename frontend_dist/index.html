@@ -9,7 +9,7 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
+      crossorigin="anonymous"
     />
     <script src="./assets/vendor/dompurify-3.4.7.min.js"></script>
   </head>
@@ -24,6 +24,7 @@
           </div>
           <div class="mainHeadRight">
             <button id="switchCompetitionBtn" class="smallActionBtn"></button>
+            <label for="langSelect" class="visually-hidden" data-i18n="competitor.main.lang_select_label">competitor.main.lang_select_label</label>
             <select id="langSelect" class="langCompact">
               <option value="et">ET</option>
               <option value="en">EN</option>
@@ -34,6 +35,7 @@
 
       <div class="card competitorRouteCard" id="competitionRouteCard" style="display:none;">
         <div class="competitorRouteSummary" id="competitionRouteSummary"></div>
+        <div class="competitorMassStartSummary" id="competitionMassStartSummary" style="display:none;"></div>
       </div>
 
       <div class="card answerCardBig" id="answerCard" style="display:none;">
@@ -53,6 +55,7 @@
           <div id="singleChoiceBlock" style="display:none;"></div>
 
           <div id="textBlock" style="display:none;">
+            <label for="textAnswer" class="visually-hidden" data-i18n="competitor.answer.text_input_label">competitor.answer.text_input_label</label>
             <textarea id="textAnswer" rows="4"></textarea>
             <div style="height:10px"></div>
             <button id="textSubmitBtn"></button>
@@ -106,6 +109,7 @@
     <div id="joinByCodeBackdrop" class="modalBackdrop">
       <div class="modal">
         <div class="joinLangRow">
+          <label for="joinLangSelect" class="visually-hidden" data-i18n="competitor.join.lang_select_label">competitor.join.lang_select_label</label>
           <select id="joinLangSelect" class="joinLangSelect"></select>
         </div>
         <h3 id="joinModalTitle"></h3>
@@ -250,17 +254,17 @@
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
+      crossorigin="anonymous"
     ></script>
     <script
       src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"
       integrity="sha256-SXX79BH6wYQsW5HTYtMj0/AcoMtSOFouohl5D/qiCoA="
-      crossorigin=""
+      crossorigin="anonymous"
     ></script>
     <script
       src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"
       integrity="sha256-/bf+R9zVlOfIMNDuNpTviLQDJTcmjcLztY9JodcWHBI="
-      crossorigin=""
+      crossorigin="anonymous"
     ></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
     <script src="./assets/competitor-core.js"></script>

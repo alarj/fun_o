@@ -28,11 +28,18 @@ function renderMyResults() {
     refreshMySortIcons();
     return;
   }
-  box.innerHTML = rows.map((r) => `<tr>
-    <td><button class="kpLink" data-sub-id="${Number(r.submission_id || 0)}">${esc(r.checkpoint_title || "-")}</button></td>
+  box.innerHTML = rows.map((r) => {
+    const isSubmission = String(r.submission_source || "SUBMISSION").toUpperCase() === "SUBMISSION";
+    const detailId = Number(r.submission_id || 0);
+    const titleHtml = isSubmission && detailId > 0
+      ? `<button class="kpLink" data-sub-id="${detailId}">${esc(r.checkpoint_title || "-")}</button>`
+      : `<span>${esc(r.checkpoint_title || "-")}</span>`;
+    return `<tr>
+    <td>${titleHtml}</td>
     <td>${esc(fmtEtLocal(r.submitted_at))}</td>
     <td>${Number(r.awarded_points || 0)}</td>
-  </tr>`).join("");
+  </tr>`;
+  }).join("");
   refreshMySortIcons();
 }
 
@@ -125,6 +132,7 @@ function setActiveCompetitionFromSession(sessionData) {
     name: p.competition_name || "-",
     description: p.competition_description || "",
     type: p.competition_type || "R",
+    mass_start_at: null,
     alias_display: p.alias_display || null,
     competitor_name: p.competitor_name || null,
     use_location: p.use_location || "N",

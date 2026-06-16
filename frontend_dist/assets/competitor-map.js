@@ -672,14 +672,40 @@ function checkpointPopupLabel(cp) {
     : "";
   const firstLine = `${points} ${tr("competitor.common.points_short")}${passedSuffix}`;
   const popupState = getCheckpointPopupState(cp);
+  const actionLabel = popupState.messageKey === "competitor.check_only.submit_btn"
+    ? tr("competitor.check_only.submit_btn")
+    : tr("competitor.map.answer_cta_btn");
+  const popupMessage = typeof popupState.messageText === "string" && popupState.messageText.trim()
+    ? popupState.messageText
+    : tr(popupState.messageKey);
   const secondLine = popupState.canAnswer
-    ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(tr("competitor.map.answer_cta_btn"))}</button>`
-    : `<div class="cpPopupNoQuestion">${esc(tr(popupState.messageKey))}</div>`;
+    ? `<button type="button" class="cpPopupAnswerBtn" data-checkpoint-id="${Number(cp?.checkpoint_id || 0)}">${esc(actionLabel)}</button>`
+    : `<div class="cpPopupNoQuestion">${esc(popupMessage)}</div>`;
   return `<div class="cpPopupContent"><div class="cpPopupLine cpPopupPoints">${esc(firstLine)}</div><div class="cpPopupLine cpPopupAction">${secondLine}</div></div>`;
 }
 
 function mapCheckpointRows() {
   return Array.isArray(state.mapItems) ? state.mapItems.filter((row) => row && typeof row === "object") : [];
+}
+
+function hasMassStartBegun() {
+  const massStartAt = String(getSelectedCompetition()?.mass_start_at || "").trim();
+  const massStartDate = parseUtcDate(massStartAt);
+  return !!massStartDate && massStartDate.getTime() <= Date.now();
+}
+
+function isLogicalStartAnswered(rows) {
+  const normalizedRows = Array.isArray(rows) ? rows : [];
+  const explicitStartAnswered = normalizedRows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "START"
+    && String(row?.is_answered || "N").toUpperCase() === "Y"
+  ));
+  if (explicitStartAnswered) return true;
+  if (!hasMassStartBegun()) return false;
+  return normalizedRows.some((row) => (
+    normalizeCheckpointType(row?.checkpoint_type) === "START"
+    && normalizeCheckpointInteraction(row?.checkpoint_interaction) === "MASS_START"
+  ));
 }
 
 function currentSequentialCheckpointId() {
@@ -709,7 +735,22 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 function getCheckpointPopupState(cp) {
   const checkpointId = Number(cp?.checkpoint_id || 0);
   const questionId = Number(cp?.question_id || 0);
-  if (checkpointId <= 0 || questionId <= 0) {
+  const interaction = normalizeCheckpointInteraction(cp?.checkpoint_interaction);
+  const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
+  if (checkpointType === "START" && interaction === "MASS_START") {
+    const massStartAt = String(getSelectedCompetition()?.mass_start_at || "").trim();
+    return {
+      canAnswer: false,
+      messageKey: "competitor.map.mass_start_auto_info",
+      messageText: trf("competitor.map.mass_start_auto_info", {
+        value: massStartAt ? fmtEtLocal(massStartAt) : "-",
+      }),
+    };
+  }
+  if (checkpointId <= 0) {
+    return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
+  }
+  if (interaction === "QUESTION" && questionId <= 0) {
     return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
   }
   if (String(cp?.is_answered || "N").toUpperCase() === "Y") {
@@ -717,7 +758,6 @@ function getCheckpointPopupState(cp) {
   }
 
   const rows = mapCheckpointRows();
-  const checkpointType = normalizeCheckpointType(cp?.checkpoint_type);
   const finishAnswered = rows.some((row) => (
     normalizeCheckpointType(row?.checkpoint_type) === "FINISH"
     && String(row?.is_answered || "N").toUpperCase() === "Y"
@@ -727,10 +767,7 @@ function getCheckpointPopupState(cp) {
   }
 
   const startExists = rows.some((row) => normalizeCheckpointType(row?.checkpoint_type) === "START");
-  const startAnswered = rows.some((row) => (
-    normalizeCheckpointType(row?.checkpoint_type) === "START"
-    && String(row?.is_answered || "N").toUpperCase() === "Y"
-  ));
+  const startAnswered = isLogicalStartAnswered(rows);
   if (startExists && !startAnswered && checkpointType !== "START") {
     return { canAnswer: false, messageKey: "competitor.map.access_reason_start_required" };
   }
@@ -750,7 +787,7 @@ function getCheckpointPopupState(cp) {
 
   const locationRequired = String(cp?.location_required || "N").toUpperCase() === "Y";
   if (!locationRequired) {
-    return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
+    return { canAnswer: true, messageKey: interaction === "CHECK_ONLY" ? "competitor.check_only.submit_btn" : "competitor.map.answer_cta_btn" };
   }
   if (!(state.geo.enabled && Number.isFinite(Number(state.geo.latitude)) && Number.isFinite(Number(state.geo.longitude)))) {
     return { canAnswer: false, messageKey: "competitor.map.access_reason_missing_location" };
@@ -766,7 +803,7 @@ function getCheckpointPopupState(cp) {
   if (!(Number.isFinite(distanceM) && distanceM <= effectiveRadius)) {
     return { canAnswer: false, messageKey: "competitor.map.access_reason_too_far" };
   }
-  return { canAnswer: true, messageKey: "competitor.map.answer_cta_btn" };
+  return { canAnswer: true, messageKey: interaction === "CHECK_ONLY" ? "competitor.check_only.submit_btn" : "competitor.map.answer_cta_btn" };
 }
 
 function buildCompetitionMapPoints(items) {
@@ -1482,6 +1519,9 @@ async function applyCheckpointLoadingMode() {
   state.openItems = [];
   state.openItemsLoaded = false;
   renderCheckpointSelect();
+  if (needsLocation) {
+    state.mapItems = await loadMapCheckpoints();
+  }
   if (!needsLocation) {
     state.geo.enabled = false;
     state.geo.latitude = null;

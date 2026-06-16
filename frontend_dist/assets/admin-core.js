@@ -158,6 +158,7 @@ const translateAdminError = (msg, detailsText) => {
   if (errorMatchesAny(msg, detailsText, ["ora-20196"])) return tr("admin.msg.cp_reserved_title");
   if (errorMatchesAny(msg, detailsText, ["ora-20197"])) return tr("admin.msg.cp_order_reserved");
   if (errorMatchesAny(msg, detailsText, ["ora-20198"])) return tr("admin.msg.cp_special_type_exists");
+  if (errorMatchesAny(msg, detailsText, ["ora-20199"])) return tr("admin.msg.mass_start_at_required");
   if (errorMatchesAny(msg, detailsText, ["ora-20183"])) return tr("admin.overlay.epk_required_for_overlay_option_msg");
   if (errorMatchesAny(msg, detailsText, ["ora-20188"])) return tr("admin.overlay.epk_required_before_save_msg");
   return "";
@@ -498,12 +499,13 @@ const fmtDateEtShort = (v) => {
   return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
 };
 
-const fmtEtInput = (v) => {
+const fmtEtInput = (v, includeSeconds = false) => {
   if (!v) return "";
   const d = asUtcDate(v);
   if (!d) return "";
   const p2 = (n) => String(n).padStart(2, "0");
-  return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  const secondsPart = includeSeconds ? `:${p2(d.getSeconds())}` : "";
+  return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}${secondsPart}`;
 };
 
 const fmtMagDeclination = (v) => {
@@ -512,20 +514,23 @@ const fmtMagDeclination = (v) => {
   return `${n.toFixed(3)}°`;
 };
 
-const parseEtInput = (v) => {
+const parseEtInput = (v, allowSeconds = false) => {
   const t = (v || "").trim();
   if (!t) return null;
-  const m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/);
+  const m = allowSeconds
+    ? t.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/)
+    : t.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/);
   if (!m) return { error: tr("admin.msg.date_format_error") };
-  const [, dd, mm, yyyy, hh, mi] = m;
+  const [, dd, mm, yyyy, hh, mi, ss] = m;
   const month = Number(mm);
   const day = Number(dd);
   const hour = Number(hh);
   const minute = Number(mi);
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+  const second = ss == null ? 0 : Number(ss);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) {
     return { error: tr("admin.msg.date_value_error") };
   }
-  const localDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), 0);
+  const localDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), second);
   if (Number.isNaN(localDate.getTime())) return { error: tr("admin.msg.date_value_error") };
   return localDate.toISOString().slice(0, 19) + "Z";
 };

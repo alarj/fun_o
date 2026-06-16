@@ -625,25 +625,44 @@ function buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm) {
   const parts = String(template).split("{distance_km}");
   const prefix = esc(parts[0] || "");
   const suffix = esc(parts.slice(1).join("{distance_km}") || "");
-  return `${prefix}<span class="competitorRouteSummaryDistance">${esc(distanceKm || "-")}</span>${suffix}`;
+  return `<span class="competitorRouteSummaryLabel">${prefix}</span><strong class="competitorRouteSummaryDistance">${esc(distanceKm || "-")}</strong><span class="competitorRouteSummaryLabel">${suffix}</span>`;
+}
+
+function buildCompetitionMassStartSummaryHtml(massStartAt) {
+  const template = tr("competitor.route_summary.mass_start");
+  const parts = String(template).split("{value}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{value}") || "");
+  return `<span class="competitorRouteSummaryLabel">${prefix}</span><strong class="competitorMassStartValue">${esc(fmtEtLocal(massStartAt))}</strong><span class="competitorRouteSummaryLabel">${suffix}</span>`;
 }
 
 function renderCompetitionRouteSummary() {
   const card = el("competitionRouteCard");
   const summary = el("competitionRouteSummary");
-  if (!card || !summary) return;
+  const massStartSummary = el("competitionMassStartSummary");
+  if (!card || !summary || !massStartSummary) return;
   const route = state.mapRoute;
   const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
   const show = selectedCompetitionUsesLocation() && distanceKm != null;
   card.style.display = show ? "block" : "none";
   if (!show) {
     summary.textContent = "";
+    massStartSummary.textContent = "";
+    massStartSummary.style.display = "none";
     return;
   }
   const routeLabelKey = selectedCompetitionType() === "S"
     ? "competitor.route_summary.text_s"
     : "competitor.route_summary.text_r";
   summary.innerHTML = buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm);
+  const massStartAt = String(getSelectedCompetition()?.mass_start_at || "").trim();
+  if (massStartAt) {
+    massStartSummary.innerHTML = buildCompetitionMassStartSummaryHtml(massStartAt);
+    massStartSummary.style.display = "block";
+  } else {
+    massStartSummary.innerHTML = "";
+    massStartSummary.style.display = "none";
+  }
 }
 
 function getSelectedCompetition() {
@@ -676,6 +695,12 @@ function normalizeCheckpointType(rawType) {
   const value = String(rawType || "NORMAL").trim().toUpperCase();
   if (value === "START" || value === "FINISH") return value;
   return "NORMAL";
+}
+
+function normalizeCheckpointInteraction(rawInteraction) {
+  const value = String(rawInteraction || "QUESTION").trim().toUpperCase();
+  if (value === "CHECK_ONLY" || value === "MASS_START") return value;
+  return "QUESTION";
 }
 
 function isSpecialCheckpointType(rawType) {
@@ -768,6 +793,23 @@ function renderQuestionForSelectedCheckpoint() {
     return;
   }
   el("questionBlock").style.display = "block";
+  const interaction = normalizeCheckpointInteraction(item?.checkpoint_interaction);
+  if (interaction === "CHECK_ONLY") {
+    el("questionText").textContent = tr("competitor.check_only.prompt");
+    el("questionMeta").textContent = tr("competitor.check_only.help");
+    const box = el("singleChoiceBlock");
+    box.innerHTML = "";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "optionBtn opt0";
+    b.textContent = tr("competitor.check_only.submit_btn");
+    b.onclick = () => submitAnswer(item, {});
+    box.appendChild(b);
+    box.style.display = "block";
+    el("textBlock").style.display = "none";
+    setSubmissionBusy(state.submissionInFlight);
+    return;
+  }
   el("questionText").textContent = pickLocalized(item, "text_et", "text_en") || tr("competitor.msg.question_text_missing");
   const inputType = (item.input_type || "").toUpperCase();
   const maxLen = Number(item.input_max_length || 0);
@@ -807,6 +849,7 @@ function showFeedback(data) {
   const ok = !!data?.is_correct;
   const points = Number(data?.awarded_points || 0);
   const total = Number(data?.total_score || 0);
+  const feedbackEvent = String(data?.event || "QUESTION").trim().toUpperCase();
   const correctAnswers = Array.isArray(data?.correct_answer_texts)
     ? data.correct_answer_texts.filter((v) => typeof v === "string" && v.trim())
     : [];
@@ -820,7 +863,9 @@ function showFeedback(data) {
   state.feedbackOpen = true;
   const modal = el("feedbackModal");
   modal.className = "modal " + (ok ? "feedback-ok" : "feedback-err");
-  el("feedbackTitle").textContent = ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
+  el("feedbackTitle").textContent = feedbackEvent === "CHECK_ONLY"
+    ? tr("competitor.check_only.feedback_title")
+    : ok ? tr("competitor.feedback.correct_title") : tr("competitor.feedback.wrong_title");
   el("feedbackBody").innerHTML = trfBold("competitor.feedback.points_total", {
     points,
     total,
@@ -907,7 +952,7 @@ async function submitAnswer(item, extra) {
         }
       });
     }
-    showFeedback(d);
+    showFeedback({ ...d, event: item?.checkpoint_interaction || "QUESTION" });
   } catch (err) {
     console.error("submitAnswer failed", err);
     setMsg("answerMsg", tr("competitor.msg.submit_failed"), false);
@@ -992,6 +1037,9 @@ async function loadMapCheckpoints() {
   const items = Array.isArray(res.data.items) ? res.data.items : [];
   if (state.activeCompetition && items[0]?.competition_type) {
     state.activeCompetition.type = String(items[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
+  }
+  if (state.activeCompetition) {
+    state.activeCompetition.mass_start_at = typeof res.data?.mass_start_at === "string" ? res.data.mass_start_at : null;
   }
   state.mapRoute = normalizeCompetitionRouteSnapshot(res.data?.route);
   const declination = Number(res.data?.declination);
