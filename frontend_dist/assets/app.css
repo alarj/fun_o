@@ -866,14 +866,19 @@ body.admin-booting .wrap {
       min-width: 0;
     }
     .cp-overview-route-text {
-      display: inline;
-      font-weight: 600;
+      display: block;
       color: #1f2937;
       white-space: normal;
       min-width: 0;
       overflow-wrap: anywhere;
       word-break: break-word;
       line-height: 1.35;
+    }
+    .cp-overview-route-label {
+      font-weight: 400;
+    }
+    .cp-overview-route-value {
+      font-weight: 700;
     }
     .cp-overview-footer {
       display: grid;

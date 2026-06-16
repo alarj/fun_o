@@ -226,16 +226,25 @@ function buildCompetitionRouteTextHtml(routeLabelKey, staleLabelKey, distanceKm,
   const parts = String(template).split("{distance_km}");
   const prefix = esc(parts[0] || "");
   const suffix = esc(parts.slice(1).join("{distance_km}") || "");
-  const distanceMarkup = `<span class="cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</span>`;
+  const distanceMarkup = `<strong class="cp-overview-route-value cp-overview-route-distance${isStale ? " is-stale" : ""}">${esc(distanceKm ?? "-")}</strong>`;
   const staleMarkup = isStale
     ? `<span class="cp-overview-route-stale-note"> ${esc(tr(staleLabelKey))}</span>`
     : "";
-  return `${prefix}${distanceMarkup}${suffix}${staleMarkup}`;
+  return `<span class="cp-overview-route-label">${prefix}</span>${distanceMarkup}<span class="cp-overview-route-label">${suffix}</span>${staleMarkup}`;
+}
+
+function buildCompetitionMassStartTextHtml(massStartAt) {
+  const template = tr("admin.cp_table.mass_start_text");
+  const parts = String(template).split("{value}");
+  const prefix = esc(parts[0] || "");
+  const suffix = esc(parts.slice(1).join("{value}") || "");
+  return `<span class="cp-overview-route-label">${prefix}</span><strong class="cp-overview-route-value">${esc(fmtEtInput(massStartAt, true) || "-")}</strong><span class="cp-overview-route-label">${suffix}</span>`;
 }
 
 function renderCompetitionRouteSummary() {
   const routeSummaryTextEl = byId("checkpointsRouteSummaryText");
-  if (!routeSummaryTextEl) return;
+  const massStartSummaryEl = byId("checkpointsMassStartSummary");
+  if (!routeSummaryTextEl || !massStartSummaryEl) return;
   const route = currentCompetitionRoute;
   const snapshotExists = competitionRouteSnapshotExists(route);
   const isCurrent = competitionRouteIsCurrent(route);
@@ -249,6 +258,14 @@ function renderCompetitionRouteSummary() {
     distanceKm != null ? distanceKm : "-",
     snapshotExists && !isCurrent
   );
+  const massStartAt = String(window.__lastMassStartAt || "").trim();
+  if (massStartAt) {
+    massStartSummaryEl.innerHTML = buildCompetitionMassStartTextHtml(massStartAt);
+    massStartSummaryEl.classList.remove("hidden");
+  } else {
+    massStartSummaryEl.innerHTML = "";
+    massStartSummaryEl.classList.add("hidden");
+  }
 }
 
 function routeActionButtonHtml(labelKey) {
@@ -756,6 +773,9 @@ async function loadView() {
   window.__lastCompetitionRadiusM = v.radius_m ?? null;
   window.__lastCompetitionDeclination = v.declination ?? 0;
   window.__lastCompetitionDeclinationUpdatedAt = v.declination_last_updated || null;
+  window.__lastStartsAt = v.starts_at || null;
+  window.__lastEndsAt = v.ends_at || null;
+  window.__lastMassStartAt = v.mass_start_at || null;
   currentCompetitionUseLocation = window.__lastCompetitionUseLocation;
   currentCompetitionType = String(window.__lastCompetitionType || "R").toUpperCase();
   setCurrentCompetitionRoute(v.route);
@@ -773,9 +793,6 @@ async function loadView() {
   byId("cUpdated").textContent = fmtDateEt(v.updated_at) || "-";
   byId("cStarts").textContent = fmtDateEt(v.starts_at) || "-";
   byId("cEnds2").textContent = fmtDateEt(v.ends_at) || "-";
-  window.__lastStartsAt = v.starts_at || null;
-  window.__lastEndsAt = v.ends_at || null;
-  window.__lastMassStartAt = v.mass_start_at || null;
   setEditModeByCompetition(!v.ends_at || ((asUtcDate(v.ends_at) || new Date(0)) > new Date()));
   byId("codeCompetitor").textContent = v.competitor_code?.code || "-";
   byId("codeOrganizer").textContent = v.organizer_code?.code || "-";
