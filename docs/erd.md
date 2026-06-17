@@ -443,5 +443,8 @@ erDiagram
 - `checkpoint_interaction = MASS_START` on lubatud ainult `START` tüüpi checkpointil.
 - `submission_events` hoiab küsimuseta läbimise/stardi sündmusi (`CHECK_ONLY`, `MASS_START`).
 - `submissions_v` koondab `submissions` ja `submission_events` üheks lugemisvaateks ajajoone, progressi ja tulemuste jaoks.
+- `submitted_at` tähistab ärilist sündmuse aega.
+- `evaluated_at` tähistab süsteemi tegelikku töötlemise või salvestamise aega.
+- `MASS_START` sündmuse korral on `submitted_at = competitions.mass_start_at`, kuid `evaluated_at` jääb rea tegelikuks loomise ajaks.
 - `app_settings` hoiab DB-poolseid route-arvutuse seadistusi, näiteks exact-läve ja batch-protsessi piiranguid.
 - Raja pikkuse arvutusse lähevad ainult aktiivsed KP-d, millel on koordinaadid ja vähemalt üks aktiivne küsimus; ainult koordinaatidest ei piisa.

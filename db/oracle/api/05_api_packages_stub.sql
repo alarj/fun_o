@@ -1359,7 +1359,7 @@ create or replace package body pkg_submissions as
           l_start_radius,
           0,
           l_mass_start_at,
-          l_mass_start_at
+          l_now_utc_ts
         );
       end if;
     end if;

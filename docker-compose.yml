@@ -37,6 +37,7 @@ services:
     image: locustio/locust:2.29.1
     container_name: funo_testing
     profiles: ["testing"]
+    user: "${TESTING_UID:-1000}:${TESTING_GID:-1000}"
     depends_on:
       - nginx
       - fastapi
