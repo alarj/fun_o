@@ -22,6 +22,7 @@ DURATION_JITTER_PCT = float(os.getenv("LOAD_DURATION_JITTER_PCT", "6"))
 MAP_BURST_SECONDS = float(os.getenv("LOAD_MAP_BURST_SECONDS", "5"))
 USER_PREFIX = os.getenv("LOAD_USER_PREFIX", "t")
 USER_COUNT = int(os.getenv("LOAD_USER_COUNT", "200"))
+USER_START_INDEX = int(os.getenv("LOAD_USER_START_INDEX", "1"))
 LOG_FILE = os.getenv("LOAD_LOG_FILE", "/mnt/load_logs/fun_o_test_41.jsonl")
 MAX_BODY_CHARS = int(os.getenv("LOAD_MAX_BODY_CHARS", "0"))
 LANG_CODE = os.getenv("LOAD_LANG_CODE", "et").strip().lower() or "et"
@@ -30,6 +31,8 @@ MAX_NEAR_RETRIES = int(os.getenv("LOAD_MAX_NEAR_RETRIES", "3"))
 GPS_ACCURACY_MIN_M = float(os.getenv("LOAD_GPS_ACCURACY_MIN_M", "8"))
 GPS_ACCURACY_MAX_M = float(os.getenv("LOAD_GPS_ACCURACY_MAX_M", "22"))
 CHECKPOINT_RADIUS_FALLBACK_M = float(os.getenv("LOAD_CHECKPOINT_RADIUS_FALLBACK_M", "50"))
+BOOTSTRAP_RETRY_MIN_SECONDS = float(os.getenv("LOAD_BOOTSTRAP_RETRY_MIN_SECONDS", "5"))
+BOOTSTRAP_RETRY_MAX_SECONDS = float(os.getenv("LOAD_BOOTSTRAP_RETRY_MAX_SECONDS", "15"))
 
 
 @dataclass
@@ -129,6 +132,67 @@ def parse_json(response: Any) -> dict[str, Any]:
         return {}
 
 
+def _response_branch_name(base_name: str, payload: dict[str, Any], status_code: int | None) -> str:
+    if base_name == "POST /api/competitor/checkpoint-access":
+        ords_called = payload.get("ords_called")
+        if isinstance(ords_called, bool):
+            return f"{base_name} [{'ords' if ords_called else 'fastapi'}]"
+        detail = payload.get("detail")
+        if isinstance(detail, dict) and str(detail.get("code") or "").startswith("ORDS_"):
+            return f"{base_name} [ords]"
+        return f"{base_name} [fastapi]"
+    if base_name in {"GET /api/competitor/open-checkpoints", "GET /api/competitor/map-checkpoints"}:
+        response_source = str(payload.get("response_source") or "").strip().lower()
+        if response_source in {"cache", "ords"}:
+            return f"{base_name} [{response_source}]"
+        detail = payload.get("detail")
+        if isinstance(detail, dict) and str(detail.get("code") or "").startswith("ORDS_"):
+            return f"{base_name} [ords]"
+    return base_name
+
+
+def _augment_request_row(row: dict[str, Any], response: Any) -> None:
+    path = row.get("path")
+    if path not in {
+        "/api/competitor/checkpoint-access",
+        "/api/competitor/open-checkpoints",
+        "/api/competitor/map-checkpoints",
+    }:
+        return
+    payload = parse_json(response)
+    if not payload:
+        return
+    if path == "/api/competitor/checkpoint-access":
+        if isinstance(payload.get("ords_called"), bool):
+            row["ords_called"] = payload.get("ords_called")
+        items = payload.get("items")
+        if isinstance(items, list):
+            row["checkpoint_access_item_count"] = len(items)
+            row["checkpoint_access_open_count"] = sum(
+                1 for item in items if isinstance(item, dict) and item.get("can_open") is True
+            )
+            reason_counts: dict[str, int] = {}
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                reason = str(item.get("reason") or "unknown")
+                reason_counts[reason] = reason_counts.get(reason, 0) + 1
+            row["checkpoint_access_reason_counts"] = reason_counts
+        detail = payload.get("detail")
+        if isinstance(detail, dict):
+            row["error_code"] = detail.get("code")
+    else:
+        response_source = payload.get("response_source")
+        if isinstance(response_source, str):
+            row["response_source"] = response_source
+        items = payload.get("items")
+        if isinstance(items, list):
+            row["item_count"] = len(items)
+        detail = payload.get("detail")
+        if isinstance(detail, dict):
+            row["error_code"] = detail.get("code")
+
+
 def maybe_truncate(value: str | None) -> str | None:
     if value is None:
         return None
@@ -219,6 +283,7 @@ def _on_test_start(environment, **kwargs):
                 "load_lang_code": LANG_CODE,
                 "load_text_ok_probability": TEXT_OK_PROBABILITY,
                 "load_log_file": LOG_FILE,
+                "load_user_start_index": USER_START_INDEX,
             },
         }
     )
@@ -253,6 +318,7 @@ def _on_request(
     }
     row.update(request_inputs(url, response))
     row["response_body"] = response_body(response)
+    _augment_request_row(row, response)
     if isinstance(context, dict):
         row.update(context)
     _append_jsonl(row)
@@ -280,7 +346,7 @@ class CompetitorJourneyUser(HttpUser):
     def __init__(self, environment):
         super().__init__(environment)
         self.vuser = next_user_seq()
-        user_idx = ((self.vuser - 1) % USER_COUNT) + 1
+        user_idx = USER_START_INDEX + ((self.vuser - 1) % USER_COUNT)
         self.user_email = f"{USER_PREFIX}{user_idx:03d}@funo.local"
         self.competition_id = COMPETITION_ID
         self.done = False
@@ -290,20 +356,22 @@ class CompetitorJourneyUser(HttpUser):
         self.route: list[int] = []
         self.completed_checkpoint_ids: set[int] = set()
         self.access_plan: list[AccessAttempt] = []
-        self.next_attempt_idx = 0
         self.plan_duration_s = 0.0
         self.plan_far_attempts = 0
         self.plan_near_attempts = 0
+        self.plan_extensions = 0
+        self.bootstrap_started_monotonic = 0.0
 
     def on_start(self):
-        self._dev_login()
+        self.bootstrap_started_monotonic = time.monotonic()
+        self._run_bootstrap_step("dev_login", self._dev_login_once)
         if self.done:
             return
-        self._resolve_competition()
+        self._run_bootstrap_step("load_competitions", self._resolve_competition_once)
         if self.done:
             return
         gevent_sleep(random.uniform(0.0, max(0.0, MAP_BURST_SECONDS)))
-        self._load_map()
+        self._run_bootstrap_step("load_map", self._load_map_once)
         if self.done:
             return
         self._prepare_route_and_plan()
@@ -319,6 +387,7 @@ class CompetitorJourneyUser(HttpUser):
                 "planned_access_attempt_count": len(self.access_plan),
                 "planned_far_attempt_count": self.plan_far_attempts,
                 "planned_near_attempt_count": self.plan_near_attempts,
+                "bootstrap_elapsed_seconds": round(self.run_started_monotonic - self.bootstrap_started_monotonic, 3),
             }
         )
 
@@ -333,49 +402,71 @@ class CompetitorJourneyUser(HttpUser):
         payload.update(extra)
         return payload
 
-    def _dev_login(self):
+    def _run_bootstrap_step(self, step_name: str, step_fn) -> None:
+        attempt_no = 0
+        while not self.done:
+            attempt_no += 1
+            if step_fn():
+                if attempt_no > 1:
+                    _append_jsonl(
+                        {
+                            "event_type": "bootstrap_step_recovered",
+                            "competition_id": self.competition_id,
+                            "virtual_user": self.vuser,
+                            "user_email": self.user_email,
+                            "step_name": step_name,
+                            "attempt_no": attempt_no,
+                            "elapsed_seconds": round(time.monotonic() - self.bootstrap_started_monotonic, 3),
+                        }
+                    )
+                return
+            gevent_sleep(random.uniform(BOOTSTRAP_RETRY_MIN_SECONDS, BOOTSTRAP_RETRY_MAX_SECONDS))
+
+    def _dev_login_once(self) -> bool:
         response = self.client.post(
             "/api/dev/login",
             json={"email": self.user_email},
             name="POST /api/dev/login",
             context=self._context("dev_login", "bootstrap"),
         )
-        if response.status_code != 200:
-            self.done = True
+        return response.status_code == 200
 
-    def _resolve_competition(self):
+    def _resolve_competition_once(self) -> bool:
         response = self.client.get(
             "/api/competitor/competitions",
             name="GET /api/competitor/competitions",
             context=self._context("load_competitions", "bootstrap"),
         )
         if response.status_code != 200:
-            self.done = True
-            return
+            return False
         payload = parse_json(response)
         items = parse_items(payload)
         if not items:
-            self.done = True
-            return
+            return False
         if any(int(item.get("competition_id") or 0) == COMPETITION_ID for item in items):
             self.competition_id = COMPETITION_ID
-            return
+            return True
         first_id = int(items[0].get("competition_id") or 0)
         if first_id <= 0:
-            self.done = True
-            return
+            return False
         self.competition_id = first_id
+        return True
 
-    def _load_map(self):
-        response = self.client.get(
+    def _load_map_once(self) -> bool:
+        with self.client.get(
             f"/api/competitor/map-checkpoints?competition_id={self.competition_id}",
             name="GET /api/competitor/map-checkpoints",
             context=self._context("load_map", "bootstrap"),
-        )
+            catch_response=True,
+        ) as response:
+            payload = parse_json(response)
+            response.request_meta["name"] = _response_branch_name(
+                "GET /api/competitor/map-checkpoints",
+                payload,
+                response.status_code,
+            )
         if response.status_code != 200:
-            self.done = True
-            return
-        payload = parse_json(response)
+            return False
         payload_competition_type = str(payload.get("competition_type") or "").strip().upper()
         if payload_competition_type in {"R", "S"}:
             self.competition_type = payload_competition_type
@@ -411,7 +502,8 @@ class CompetitorJourneyUser(HttpUser):
         ]
         self.checkpoints = {cp.checkpoint_id: cp for cp in normal_checkpoints}
         if not self.checkpoints:
-            self.done = True
+            return False
+        return True
 
     def _prepare_route_and_plan(self):
         checkpoint_ids = list(self.checkpoints.keys())
@@ -482,6 +574,7 @@ class CompetitorJourneyUser(HttpUser):
         self.access_plan = sorted(access_plan, key=lambda attempt: (attempt.due_at_s, attempt.checkpoint_id, attempt.geo_kind))
         self.plan_far_attempts = far_total
         self.plan_near_attempts = near_total
+
     def _geo_accuracy_m(self) -> float:
         return random.uniform(GPS_ACCURACY_MIN_M, GPS_ACCURACY_MAX_M)
 
@@ -496,7 +589,7 @@ class CompetitorJourneyUser(HttpUser):
             "longitude": round(lon, 7),
             "radius_m": round(self._geo_accuracy_m(), 2),
         }
-        response = self.client.post(
+        with self.client.post(
             "/api/competitor/checkpoint-access",
             json=payload,
             name="POST /api/competitor/checkpoint-access",
@@ -509,8 +602,15 @@ class CompetitorJourneyUser(HttpUser):
                 simulated_distance_m=round(self._distance_from_cp(cp, lat, lon), 2),
                 retry_no=retry_no,
             ),
-        )
-        return response, parse_json(response)
+            catch_response=True,
+        ) as response:
+            response_payload = parse_json(response)
+            response.request_meta["name"] = _response_branch_name(
+                "POST /api/competitor/checkpoint-access",
+                response_payload,
+                response.status_code,
+            )
+        return response, response_payload
 
     def _distance_from_cp(self, cp: Checkpoint, lat: float, lon: float) -> float:
         lat1 = math.radians(cp.lat)
@@ -523,7 +623,7 @@ class CompetitorJourneyUser(HttpUser):
 
     def _load_open_checkpoint_item(self, cp: Checkpoint, lat: float, lon: float) -> dict[str, Any] | None:
         radius_m = round(self._geo_accuracy_m(), 2)
-        response = self.client.get(
+        with self.client.get(
             f"/api/competitor/open-checkpoints?competition_id={self.competition_id}"
             f"&lang_code={LANG_CODE}"
             f"&latitude={lat:.7f}&longitude={lon:.7f}&radius_m={radius_m:.2f}",
@@ -535,10 +635,17 @@ class CompetitorJourneyUser(HttpUser):
                 checkpoint_title=cp.title,
                 geo_kind="near",
             ),
-        )
+            catch_response=True,
+        ) as response:
+            payload = parse_json(response)
+            response.request_meta["name"] = _response_branch_name(
+                "GET /api/competitor/open-checkpoints",
+                payload,
+                response.status_code,
+            )
         if response.status_code != 200:
             return None
-        items = parse_items(parse_json(response))
+        items = parse_items(payload)
         return next((item for item in items if int(item.get("checkpoint_id") or 0) == cp.checkpoint_id), None)
 
     def _submit_answer(self, cp: Checkpoint, item: dict[str, Any], lat: float, lon: float) -> bool:
@@ -600,6 +707,80 @@ class CompetitorJourneyUser(HttpUser):
         )
         self.access_plan.sort(key=lambda attempt: (attempt.due_at_s, attempt.checkpoint_id, attempt.geo_kind))
 
+    def _time_left_s(self, elapsed_s: float) -> float:
+        return max(0.0, self.plan_duration_s - elapsed_s)
+
+    def _extend_plan_for_remaining_time(self, elapsed_s: float) -> bool:
+        remaining_ids = [cp_id for cp_id in self.route if cp_id not in self.completed_checkpoint_ids]
+        if not remaining_ids:
+            return False
+
+        remaining_time_s = self._time_left_s(elapsed_s)
+        if remaining_time_s <= 5.0:
+            return False
+
+        batch_window_s = min(remaining_time_s, max(120.0, min(600.0, len(remaining_ids) * 12.0)))
+        batch_start_s = elapsed_s + random.uniform(0.5, 2.0)
+        segment_s = batch_window_s / max(1, len(remaining_ids))
+        new_attempts: list[AccessAttempt] = []
+        far_total = 0
+
+        for idx, cp_id in enumerate(remaining_ids):
+            cp = self.checkpoints[cp_id]
+            segment_start_s = batch_start_s + (idx * segment_s)
+            far_count = random.choice([4, 5, 5, 5, 6])
+            far_total += far_count
+            far_fractions = sorted(random.uniform(0.08, 0.76) for _ in range(far_count))
+            start_distance = random.uniform(160.0, 340.0)
+            end_distance = random.uniform(max(cp.radius_m + 8.0, 55.0), max(cp.radius_m + 30.0, 85.0))
+            for far_idx, fraction in enumerate(far_fractions):
+                if far_count == 1:
+                    base_distance = start_distance
+                else:
+                    base_distance = start_distance - ((start_distance - end_distance) * far_idx / (far_count - 1))
+                new_attempts.append(
+                    AccessAttempt(
+                        due_at_s=segment_start_s + (segment_s * fraction),
+                        checkpoint_id=cp_id,
+                        geo_kind="far",
+                        distance_m=max(cp.radius_m + 3.0, base_distance + random.uniform(-10.0, 10.0)),
+                    )
+                )
+
+            near_fraction = max((far_fractions[-1] + 0.08) if far_fractions else 0.84, random.uniform(0.84, 0.96))
+            near_fraction = min(0.97, near_fraction)
+            new_attempts.append(
+                AccessAttempt(
+                    due_at_s=segment_start_s + (segment_s * near_fraction),
+                    checkpoint_id=cp_id,
+                    geo_kind="near",
+                    distance_m=max(4.0, min(cp.radius_m * random.uniform(0.28, 0.64), cp.radius_m - 4.0)),
+                )
+            )
+
+        if not new_attempts:
+            return False
+
+        self.access_plan.extend(new_attempts)
+        self.access_plan.sort(key=lambda attempt: (attempt.due_at_s, attempt.checkpoint_id, attempt.geo_kind))
+        self.plan_extensions += 1
+        _append_jsonl(
+            {
+                "event_type": "plan_extension",
+                "competition_id": self.competition_id,
+                "virtual_user": self.vuser,
+                "user_email": self.user_email,
+                "remaining_checkpoint_count": len(remaining_ids),
+                "added_attempt_count": len(new_attempts),
+                "added_far_attempt_count": far_total,
+                "added_near_attempt_count": len(remaining_ids),
+                "batch_window_seconds": round(batch_window_s, 3),
+                "elapsed_seconds": round(elapsed_s, 3),
+                "extension_no": self.plan_extensions,
+            }
+        )
+        return True
+
     def _run_far_attempt(self, cp: Checkpoint, attempt: AccessAttempt) -> None:
         lat, lon = random_geo_near_checkpoint(cp, attempt.distance_m)
         self._request_checkpoint_access(cp, lat, lon, geo_kind="far", retry_no=attempt.retry_no)
@@ -639,7 +820,11 @@ class CompetitorJourneyUser(HttpUser):
         if self.done:
             gevent_sleep(1.0)
             return
-        if self.next_attempt_idx >= len(self.access_plan):
+
+        elapsed_s = time.monotonic() - self.run_started_monotonic
+        all_completed = len(self.completed_checkpoint_ids) >= len(self.route)
+
+        if all_completed:
             self.done = True
             _append_jsonl(
                 {
@@ -649,19 +834,59 @@ class CompetitorJourneyUser(HttpUser):
                     "user_email": self.user_email,
                     "completed_checkpoint_count": len(self.completed_checkpoint_ids),
                     "planned_checkpoint_count": len(self.route),
-                    "elapsed_seconds": round(time.monotonic() - self.run_started_monotonic, 3),
+                    "elapsed_seconds": round(elapsed_s, 3),
+                    "completion_reason": "all_checkpoints_completed",
+                    "plan_extensions": self.plan_extensions,
                 }
             )
             gevent_sleep(1.0)
             return
 
-        attempt = self.access_plan[self.next_attempt_idx]
-        elapsed_s = time.monotonic() - self.run_started_monotonic
+        if elapsed_s >= self.plan_duration_s:
+            self.done = True
+            _append_jsonl(
+                {
+                    "event_type": "user_complete",
+                    "competition_id": self.competition_id,
+                    "virtual_user": self.vuser,
+                    "user_email": self.user_email,
+                    "completed_checkpoint_count": len(self.completed_checkpoint_ids),
+                    "planned_checkpoint_count": len(self.route),
+                    "elapsed_seconds": round(elapsed_s, 3),
+                    "completion_reason": "time_elapsed",
+                    "plan_extensions": self.plan_extensions,
+                }
+            )
+            gevent_sleep(1.0)
+            return
+
+        if not self.access_plan:
+            if self._extend_plan_for_remaining_time(elapsed_s):
+                gevent_sleep(0.2)
+                return
+            self.done = True
+            _append_jsonl(
+                {
+                    "event_type": "user_complete",
+                    "competition_id": self.competition_id,
+                    "virtual_user": self.vuser,
+                    "user_email": self.user_email,
+                    "completed_checkpoint_count": len(self.completed_checkpoint_ids),
+                    "planned_checkpoint_count": len(self.route),
+                    "elapsed_seconds": round(elapsed_s, 3),
+                    "completion_reason": "time_elapsed_or_no_more_attempts",
+                    "plan_extensions": self.plan_extensions,
+                }
+            )
+            gevent_sleep(1.0)
+            return
+
+        attempt = self.access_plan[0]
         if attempt.due_at_s > elapsed_s:
             gevent_sleep(min(attempt.due_at_s - elapsed_s, 1.0))
             return
 
-        self.next_attempt_idx += 1
+        self.access_plan.pop(0)
         if attempt.checkpoint_id in self.completed_checkpoint_ids:
             return
         cp = self._checkpoint_by_id(attempt.checkpoint_id)

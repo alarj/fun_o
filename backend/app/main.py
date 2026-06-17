@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class Settings:
     app_env: str = os.getenv("APP_ENV", "production").lower()
+    log_level: str = os.getenv("LOG_LEVEL", "INFO").strip().upper() or "INFO"
     ords_base_url: str = os.getenv("ORDS_BASE_URL", "").rstrip("/")
     ords_username: str = os.getenv("ORDS_USERNAME", "")
     ords_password: str = os.getenv("ORDS_PASSWORD", "")
@@ -159,6 +160,38 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20102", "ORA-20103", "ORA-20104", "ORA-20196", "ORA-20197", "ORA-20198"), ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-02290",), ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")),
 )
+
+
+def _resolve_log_level(level_name: str) -> int:
+    level = getattr(logging, str(level_name or "").upper(), None)
+    return level if isinstance(level, int) else logging.INFO
+
+
+def _configure_logging() -> None:
+    level = _resolve_log_level(settings.log_level)
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        logging.basicConfig(level=level)
+    root_logger.setLevel(level)
+    for handler in root_logger.handlers:
+        handler.setLevel(level)
+    logging.getLogger("app").setLevel(level)
+    logger.setLevel(level)
+
+
+def _log_structured(level: int, event_name: str, payload: dict[str, Any]) -> None:
+    if not logger.isEnabledFor(level):
+        return
+    logger.log(level, "%s %s", event_name, json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str))
+
+
+def _extract_http_exception_meta(exc: HTTPException) -> tuple[str | None, dict[str, Any] | None]:
+    detail = exc.detail if isinstance(exc.detail, dict) else None
+    if not detail:
+        return None, None
+    code = detail.get("code") if isinstance(detail.get("code"), str) else None
+    details = detail.get("details") if isinstance(detail.get("details"), dict) else None
+    return code, details
 
 
 class ApiError(BaseModel):
@@ -318,6 +351,7 @@ class CompetitorCompetitionsResponse(BaseModel):
 
 
 class CompetitorOpenCheckpointsResponse(BaseModel):
+    response_source: str | None = None
     competition_type: str | None = None
     current_source_hash: str | None = None
     mass_start_at: str | None = None
@@ -342,6 +376,17 @@ class CompetitorCheckpointAccessEntry(BaseModel):
 
 class CompetitorCheckpointAccessResponse(BaseModel):
     items: list[CompetitorCheckpointAccessEntry]
+    ords_called: bool = False
+
+
+def _reason_counts(entries: list[CompetitorCheckpointAccessEntry]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for entry in entries:
+        reason = entry.reason or "unknown"
+        counts[reason] = counts.get(reason, 0) + 1
+    return counts
+
+
 class CompetitorMySubmissionEntry(BaseModel):
     id: int | None = None
     checkpoint_title: str | None = None
@@ -2435,6 +2480,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
         cached_items = cached.get("items")
         if isinstance(cached_items, list):
             return {
+                "response_source": "cache",
                 "competition_type": cached.get("competition_type"),
                 "current_source_hash": cached.get("current_source_hash"),
                 "mass_start_at": cached.get("mass_start_at"),
@@ -2470,6 +2516,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
     if not route_valid:
         route = None
     payload = {
+        "response_source": "ords",
         "competition_type": competition_type,
         "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
         "mass_start_at": mass_start_at,
@@ -2484,6 +2531,7 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    _configure_logging()
     await _load_i18n_cache()
     await _resume_pending_overlay_processing()
 
@@ -3162,6 +3210,7 @@ async def competitor_open_checkpoints(
     user_id: int | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorOpenCheckpointsResponse:
+    started_at = time.monotonic()
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
     now = time.monotonic()
     req_signature = _open_checkpoints_signature(latitude, longitude, radius_m)
@@ -3177,22 +3226,66 @@ async def competitor_open_checkpoints(
             and previous_signature == req_signature
             and (now - previous_at) <= OPEN_CHECKPOINTS_THROTTLE_SECONDS
         ):
-            return CompetitorOpenCheckpointsResponse(items=previous_items)
+            if logger.isEnabledFor(logging.DEBUG):
+                _log_structured(
+                    logging.DEBUG,
+                    "open_checkpoints_trace",
+                    {
+                        "competition_id": competition_id,
+                        "user_id": resolved_user_id,
+                        "source": "cache",
+                        "item_count": len(previous_items),
+                        "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+                    },
+                )
+            return CompetitorOpenCheckpointsResponse(response_source="cache", items=previous_items)
 
-    ords_response = await _get_from_ords(
-        "competitor/open-checkpoints",
-        {
-            "competition_id": competition_id,
-            "user_id": resolved_user_id,
-            "latitude": latitude,
-            "longitude": longitude,
-            "radius_m": radius_m,
-        },
-    )
+    ords_started_at = time.monotonic()
+    try:
+        ords_response = await _get_from_ords(
+            "competitor/open-checkpoints",
+            {
+                "competition_id": competition_id,
+                "user_id": resolved_user_id,
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius_m": radius_m,
+            },
+        )
+    except HTTPException as exc:
+        error_code, error_details = _extract_http_exception_meta(exc)
+        _log_structured(
+            logging.ERROR,
+            "open_checkpoints_trace",
+            {
+                "competition_id": competition_id,
+                "user_id": resolved_user_id,
+                "source": "ords",
+                "status_code": exc.status_code,
+                "error_code": error_code,
+                "error_details": error_details,
+                "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3),
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+        raise
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
     items = raw_items if isinstance(raw_items, list) else []
     open_checkpoints_last_response[key] = {"response_at": now, "items": items, "signature": req_signature}
-    return CompetitorOpenCheckpointsResponse(items=items)
+    if logger.isEnabledFor(logging.DEBUG):
+        _log_structured(
+            logging.DEBUG,
+            "open_checkpoints_trace",
+            {
+                "competition_id": competition_id,
+                "user_id": resolved_user_id,
+                "source": "ords",
+                "item_count": len(items),
+                "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3),
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+    return CompetitorOpenCheckpointsResponse(response_source="ords", items=items)
 
 
 @app.get("/api/competitor/map-checkpoints", response_model=CompetitorOpenCheckpointsResponse)
@@ -3202,9 +3295,23 @@ async def competitor_map_checkpoints(
     user_id: int | None = None,
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorOpenCheckpointsResponse:
+    started_at = time.monotonic()
     resolved_user_id = _resolve_user_id(request, user_id, x_user_id)
     payload = await _get_map_checkpoints_payload(competition_id=competition_id, user_id=resolved_user_id)
+    if logger.isEnabledFor(logging.DEBUG):
+        _log_structured(
+            logging.DEBUG,
+            "map_checkpoints_trace",
+            {
+                "competition_id": competition_id,
+                "user_id": resolved_user_id,
+                "source": payload.get("response_source") if isinstance(payload.get("response_source"), str) else None,
+                "item_count": len(payload.get("items")) if isinstance(payload.get("items"), list) else 0,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
     return CompetitorOpenCheckpointsResponse(
+        response_source=payload.get("response_source") if isinstance(payload.get("response_source"), str) else None,
         competition_type=payload.get("competition_type") if isinstance(payload.get("competition_type"), str) else None,
         current_source_hash=payload.get("current_source_hash") if isinstance(payload.get("current_source_hash"), str) else None,
         mass_start_at=payload.get("mass_start_at") if isinstance(payload.get("mass_start_at"), str) else None,
@@ -3221,6 +3328,7 @@ async def competitor_checkpoint_access(
     request: Request,
     x_user_id: int | None = Header(default=None),
 ) -> CompetitorCheckpointAccessResponse:
+    started_at = time.monotonic()
     resolved_user_id = _resolve_user_id(request, req.user_id, x_user_id)
     map_payload = await _get_map_checkpoints_payload(competition_id=req.competition_id, user_id=resolved_user_id)
     map_items = map_payload.get("items") if isinstance(map_payload.get("items"), list) else []
@@ -3234,7 +3342,22 @@ async def competitor_checkpoint_access(
 
     requested_ids = [cp_id for cp_id in req.checkpoint_ids if isinstance(cp_id, int)]
     if not requested_ids:
-        return CompetitorCheckpointAccessResponse(items=[])
+        if logger.isEnabledFor(logging.DEBUG):
+            _log_structured(
+                logging.DEBUG,
+                "checkpoint_access_trace",
+                {
+                    "competition_id": req.competition_id,
+                    "user_id": resolved_user_id,
+                    "requested_count": 0,
+                    "local_resolved_count": 0,
+                    "candidate_count": 0,
+                    "ords_called": False,
+                    "reason_counts": {},
+                    "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+                },
+            )
+        return CompetitorCheckpointAccessResponse(items=[], ords_called=False)
 
     items: list[CompetitorCheckpointAccessEntry] = []
     candidate_ids: list[int] = []
@@ -3337,17 +3460,45 @@ async def competitor_checkpoint_access(
         else:
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="too_far"))
 
+    pre_ords_duration_ms = round((time.monotonic() - started_at) * 1000.0, 3)
+    ords_called = bool(candidate_ids)
+    candidate_id_set = set(candidate_ids)
+
     if candidate_ids:
-        ords_response = await _get_from_ords(
-            "competitor/open-checkpoints",
-            {
-                "competition_id": req.competition_id,
-                "user_id": resolved_user_id,
-                "latitude": lat,
-                "longitude": lon,
-                "radius_m": req.radius_m if isinstance(req.radius_m, (int, float)) else None,
-            },
-        )
+        ords_started_at = time.monotonic()
+        try:
+            ords_response = await _get_from_ords(
+                "competitor/open-checkpoints",
+                {
+                    "competition_id": req.competition_id,
+                    "user_id": resolved_user_id,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "radius_m": req.radius_m if isinstance(req.radius_m, (int, float)) else None,
+                },
+            )
+        except HTTPException as exc:
+            error_code, error_details = _extract_http_exception_meta(exc)
+            _log_structured(
+                logging.ERROR,
+                "checkpoint_access_trace",
+                {
+                    "competition_id": req.competition_id,
+                    "user_id": resolved_user_id,
+                    "requested_count": len(requested_ids),
+                    "local_resolved_count": len(requested_ids) - len(candidate_ids),
+                    "candidate_count": len(candidate_ids),
+                    "ords_called": True,
+                    "status_code": exc.status_code,
+                    "error_code": error_code,
+                    "error_details": error_details,
+                    "reason_counts": _reason_counts(items),
+                    "pre_ords_duration_ms": pre_ords_duration_ms,
+                    "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3),
+                    "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+                },
+            )
+            raise
         raw = ords_response.get("items") if isinstance(ords_response, dict) else []
         open_ids: set[int] = set()
         if isinstance(raw, list):
@@ -3361,7 +3512,27 @@ async def competitor_checkpoint_access(
             entry.can_open = entry.checkpoint_id in open_ids
             entry.reason = "open" if entry.can_open else "not_open"
 
-    return CompetitorCheckpointAccessResponse(items=items)
+    if logger.isEnabledFor(logging.DEBUG):
+        _log_structured(
+            logging.DEBUG,
+            "checkpoint_access_trace",
+            {
+                "competition_id": req.competition_id,
+                "user_id": resolved_user_id,
+                "requested_count": len(requested_ids),
+                "local_resolved_count": len(requested_ids) - len(candidate_ids),
+                "candidate_count": len(candidate_ids),
+                "ords_called": ords_called,
+                "ords_open_count": sum(1 for entry in items if entry.checkpoint_id in candidate_id_set and entry.can_open),
+                "ords_not_open_count": sum(1 for entry in items if entry.checkpoint_id in candidate_id_set and not entry.can_open),
+                "reason_counts": _reason_counts(items),
+                "pre_ords_duration_ms": pre_ords_duration_ms,
+                "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3) if ords_called else 0.0,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+
+    return CompetitorCheckpointAccessResponse(items=items, ords_called=ords_called)
 
 
 @app.get("/api/results/score", response_model=ScoreResponse)

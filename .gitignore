@@ -1,3 +1,4 @@
 .env
 db/oracle/translations/
 cookies.txt
+__pycache__/

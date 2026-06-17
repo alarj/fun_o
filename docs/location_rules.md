@@ -44,7 +44,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - nad võivad anda punkte tavalisel moel.
 - Erand: kui `START.checkpoint_interaction = MASS_START`, siis võistleja ei vasta START checkpointi käsitsi.
   - süsteem lisab `submission_events` tabelisse tehnilise `MASS_START` sündmuse automaatselt esimese päris checkpointi tegevuse ajal;
-  - selle sündmuse aeg on `competitions.mass_start_at`;
+  - selle sündmuse äriline aeg (`submitted_at`) on `competitions.mass_start_at`;
+  - sündmuse tegelik salvestamise aeg läheb `evaluated_at` väljale;
   - enne `mass_start_at` aega ei tohi teisi checkpointi tegevusi lubada.
 - Kui `checkpoint_interaction = CHECK_ONLY`, siis võistleja ei vasta küsimusele, vaid registreerib checkpointi läbimise ühe tegevusega.
 - `START` pealkiri on alati `START`.

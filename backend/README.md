@@ -162,7 +162,7 @@ Session cookie flow:
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`
+- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
 - Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
@@ -467,7 +467,7 @@ Access code generation rule:
   - FK: `competition_id -> competitions`, `checkpoint_id -> checkpoints`, `question_id -> questions`, `user_id -> users`, `selected_option_id -> question_options`, `evaluated_by -> users`
   - answer fields: `answer_text` VARCHAR2(4000), `selected_option_id`
   - scoring fields: `awarded_points`, `is_correct`
-  - timestamps: `submitted_at`, `evaluated_at`
+  - timestamps: `submitted_at` (äriline sündmuse aeg), `evaluated_at` (tegelik töötlemise või salvestamise aeg)
   - unique business key: `(competition_id, user_id, checkpoint_id, question_id)`
   - no `start_date/end_date` soft-delete columns
 - `materials`
@@ -799,6 +799,7 @@ Important:
 ### 5a) `POST /api/competitor/checkpoint-access` behavior
 - Purpose: pre-validate map checkpoint availability with FastAPI-side filtering.
 - Input: `competition_id`, `checkpoint_ids[]`, optional `latitude/longitude/radius_m`.
+- Response includes `ords_called: true|false` to show whether final ORDS confirmation was needed for any requested checkpoint.
 - Data source:
   - uses `map_checkpoints_cache` (same `competition_id:user_id` cache as map view) for checkpoint metadata and `is_answered` hint.
   - if needed, performs final ORDS confirmation via `competitor/open-checkpoints`.
@@ -808,11 +809,19 @@ Important:
   - if `competition_type='S'` -> only the next unanswered `NORMAL` checkpoint may open; after all normal checkpoints only `FINISH` may open (`reason=wrong_order` for others)
   - `location_required='N'` can be opened without geo gate.
   - `location_required='Y'` requires geo; far checkpoints are rejected in FastAPI precheck.
-  - final "open/not open" decision for candidates comes from ORDS response.
+- final "open/not open" decision for candidates comes from ORDS response.
+- With `LOG_LEVEL=DEBUG`, backend logs structured `checkpoint_access_trace` rows that show `ords_called`, local-vs-candidate counts, reason distribution, and FastAPI / ORDS timing separately.
+- ORDS-side failures in this flow are logged even when debug logging is disabled.
 
 Frontend event-driven refresh notes:
 - After successful answer submit, UI updates the answered checkpoint status locally (`is_answered='Y'`) for visible map markers.
 - After opening competitor results (`/api/competitor/my-submissions`), UI refreshes map checkpoints from `/api/competitor/map-checkpoints` to keep map answered flags aligned.
+
+### 5b) `GET /api/competitor/open-checkpoints` and `GET /api/competitor/map-checkpoints` response source
+- Both responses include `response_source: "cache" | "ords"`.
+- `open-checkpoints` uses `cache` when the short FastAPI throttle cache serves the exact same geo signature.
+- `map-checkpoints` uses `cache` when the competition/user map payload is already present in `map_checkpoints_cache`.
+- With `LOG_LEVEL=DEBUG`, backend logs these branches as structured `open_checkpoints_trace` and `map_checkpoints_trace` rows (`source=cache|ords`).
 
 ### 6) `competitor_terms_cache`
 - Purpose: cached terms payload for `GET /api/competitor/terms`.
@@ -883,6 +892,7 @@ Final authority:
 - candidate checkpoint IDs are validated by ORDS `competitor/open-checkpoints`;
 - FastAPI maps ORDS result to `can_open=true/false` (`reason=open|not_open`);
 - this keeps database-side rule as final source of truth.
+- With `LOG_LEVEL=DEBUG`, `GET /api/competitor/open-checkpoints` logs structured `open_checkpoints_trace` rows with `source=cache|ords` and separate timing.
 
 Competitor map popup flow:
 - map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
