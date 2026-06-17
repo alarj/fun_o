@@ -1,65 +1,236 @@
-# Load Test 41 (frontend emulation)
+# Load Testing
 
-This test emulates competition `41` competitors as closely as practical to the current frontend flow.
+This load test emulates competitor behaviour as closely as practical to the current frontend flow.
 
-## Test Run Comparison
+## Important note about earlier test runs
 
-### Run Matrix
+After the first test iterations it became clear that logging and FastAPI response metadata had to be improved before the system's real behaviour could be identified narrowly and reliably.
 
-| Run ID | Date | Competitions | Users | Spawn Rate | Map Burst | Run Time | Submission Events | Checkpoint Submissions | Total Requests | Total Failures | 429 Failures | Non-429 Failures | Aggregated Median ms | Aggregated Max ms | Key Outcome |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| R1 | 2026-06-16 | 1 | 200 | 40 | 5 | 70m | 192 | 9600 | 68424 | 641 | 621 | 20 | 42 | 37915 | 192 users reached full 50 KP path |
-| R2 | 2026-06-16 | 1 | 200 | 20 | 25 | 85m | 200 | 10000 | 71315 | 862 | 862 | 0 | 42 | 5177 | All 200 users reached full 50 KP path |
-| R3 | 2026-06-16 | 1 | 400 | 20 | 25 | 85m | 400 | 17590 | 156657 | 33068 | 32991 | 77 | 47 | 25540 | All 400 users got a start mark, but no user completed all 50 KP |
-| R4 | 2026-06-16 | 2 | 200 | 20 | 25 | 85m | 200 | 9985 | 71244 | 1392 | 1392 | 0 | 43 | 5989 | Split load across 2 competitions: 185 users completed all 50 KP, 15 users missed 1 KP |
+Because of that, the early runs are not treated as architectural comparison material anymore.
 
-### Endpoint Comparison
+The following observability improvements were added after those early runs:
+- backend log level is now configurable from `.env` via `LOG_LEVEL`
+- typical usage:
+  - `ERROR` for minimal production error visibility
+  - `INFO` for normal operational logging
+  - `DEBUG` for load testing and branch-level tracing
+- comparison runs must use `LOG_LEVEL=DEBUG`
+- competitor-facing API responses were extended so the caller can see whether the answer came from:
+  - local FastAPI rules / cache
+  - or a real ORDS / database roundtrip
+- `checkpoint-access` now exposes `ords_called`
+- `open-checkpoints` and `map-checkpoints` now expose `response_source=cache|ords`
+- FastAPI logging was extended with structured trace rows so we can see:
+  - which branch handled the request
+  - whether ORDS was called
+  - branch-specific timing
+  - local-vs-ORDS decision paths
 
-| Run ID | Endpoint | Requests | Failures | Avg ms | Median ms | P99 ms | P99.9 ms | Max ms |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| R1 | `GET /api/competitor/competitions` | 199 | 5 | 2569.87 | 750 | 13000 | 13000 | 13000 |
-| R1 | `GET /api/competitor/map-checkpoints` | 194 | 3 | 2002.39 | 110 | 12000 | 13000 | 13000 |
-| R1 | `POST /api/competitor/checkpoint-access` | 49538 | 561 | 70.45 | 5 | 130 | 12000 | 37915 |
-| R1 | `GET /api/competitor/open-checkpoints` | 9169 | 45 | 176.20 | 49 | 3500 | 22000 | 37000 |
-| R1 | `POST /api/submissions` | 9124 | 26 | 188.27 | 68 | 3200 | 12000 | 38000 |
-| R1 | `POST /api/dev/login` | 200 | 1 | 3470.21 | 1200 | 26000 | 26000 | 26000 |
-| R2 | `GET /api/competitor/competitions` | 200 | 0 | 232.00 | 240 | 340 | 340 | 340 |
-| R2 | `GET /api/competitor/map-checkpoints` | 200 | 0 | 83.00 | 48 | 630 | 640 | 640 |
-| R2 | `POST /api/competitor/checkpoint-access` | 50569 | 755 | 26.00 | 7 | 96 | 720 | 5177 |
-| R2 | `GET /api/competitor/open-checkpoints` | 10107 | 68 | 55.00 | 49 | 130 | 1000 | 3692 |
-| R2 | `POST /api/submissions` | 10039 | 39 | 89.00 | 68 | 820 | 2100 | 4749 |
-| R2 | `POST /api/dev/login` | 200 | 0 | 369.00 | 370 | 530 | 550 | 550 |
-| R3 | `GET /api/competitor/competitions` | 400 | 0 | 283.00 | 240 | 1300 | 8200 | 8204 |
-| R3 | `GET /api/competitor/map-checkpoints` | 400 | 0 | 201.00 | 58 | 3900 | 8400 | 8410 |
-| R3 | `POST /api/competitor/checkpoint-access` | 117225 | 30836 | 270.00 | 31 | 3700 | 15000 | 25540 |
-| R3 | `GET /api/competitor/open-checkpoints` | 19769 | 1306 | 563.00 | 63 | 13000 | 16000 | 25235 |
-| R3 | `POST /api/submissions` | 18463 | 926 | 497.00 | 97 | 11000 | 15000 | 25279 |
-| R3 | `POST /api/dev/login` | 400 | 0 | 618.00 | 380 | 7800 | 12000 | 11933 |
-| R4 | `GET /api/competitor/competitions` | 200 | 0 | 121.00 | 125 | 210 | 210 | 208 |
-| R4 | `GET /api/competitor/map-checkpoints` | 200 | 0 | 45.00 | 43 | 280 | 280 | 276 |
-| R4 | `POST /api/competitor/checkpoint-access` | 50575 | 1320 | 28.00 | 8 | 100 | 1200 | 5817 |
-| R4 | `GET /api/competitor/open-checkpoints` | 10057 | 45 | 58.00 | 49 | 120 | 2200 | 5832 |
-| R4 | `POST /api/submissions` | 10012 | 27 | 85.50 | 64 | 770 | 3000 | 5989 |
-| R4 | `POST /api/dev/login` | 200 | 0 | 219.50 | 195 | 750 | 750 | 747 |
+These changes were necessary because the earlier aggregated endpoint totals did not show narrowly enough what the system was actually doing.
 
-### Current Conclusions
+## Current test scope
 
-- The Ubuntu VM was not the bottleneck in either run; CPU and memory stayed comfortably below saturation.
-- The dominant limiting factor remained ORDS throttling.
-- FastAPI-side geo prefiltering kept `checkpoint-access` median latency very low in both runs.
-- Reducing `spawn-rate` from `40` to `20` and increasing `LOAD_MAP_BURST_SECONDS` from `5` to `25` materially improved the bootstrap phase and enabled all `200` users to complete the path.
-- Extending `--run-time` from `70m` to `85m` was not the main reason for the improvement; the key gain came from a softer start wave.
-- At `400` users with the same softer start wave, the system did not crash and all users eventually got a start mark, but the ORDS-backed active competition flow degraded sharply during the start wave.
-- In the `400`-user run the failure rate dropped later, which indicates partial recovery after the initial spike, but the current test logic still allowed users to stall with unfinished checkpoints.
-- The next iteration of the load script should keep retrying unfinished checkpoints while competition time remains, so temporary early errors do not artificially cap end-of-run usage.
-- Splitting the same `200` total users across two simultaneous `100`-user competitions produced a near-perfect result with low latency and no non-`429` errors.
-- For this system, competition-local concurrency clearly matters: `2 x 100` was materially better than `1 x 200` on one competition, even though total user count was the same.
+Current comparable runs are expected to use:
+- improved FastAPI tracing
+- response metadata that shows whether a result came from FastAPI/cache or required ORDS
+- Locust statistics split by FastAPI/cache/ORDS branches where applicable
 
-Assumptions:
-- competition `41` is active;
-- the mass-start moment has already passed, so the first real answer creates the automatic start event by system rules;
-- 200 test users `t001@funo.local` ... `t200@funo.local` are already active participants on that competition;
-- the competition has 50 location-required checkpoints.
+Only runs produced after those observability improvements should be used as comparison input for architectural decisions.
+
+## Comparable run matrix
+
+| Run ID | Date | Scenario | Competitions | Users | Spawn rate | Duration min | Map burst s | Start events | KP submissions | Full 50 KP | Partial users | Submission window | Key result |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|
+| R4 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 9989 | 190 | `10` users at `48..49` KP | `10:27:00` to `11:30:19` UTC | FastAPI branch stayed clean; main error source was ORDS-backed `checkpoint-access` |
+| R5 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `12:53:58` to `13:57:27` UTC | Removing ordinary ORDS confirmation from `checkpoint-access` eliminated the main failure branch |
+
+Notes:
+- `R4` consists of two simultaneous runs:
+  - competition `41`, users `t100..t199`
+  - competition `341`, users `t300..t399`
+- `submissions_v` confirmed:
+  - competition `41`: `100` start events, `4991` KP submissions, `92` users completed all `50`, `8` users ended at `48..49`
+  - competition `341`: `100` start events, `4998` KP submissions, `98` users completed all `50`, `2` users ended at `49`
+- `R5` consists of the same two simultaneous runs after the `checkpoint-access` change:
+  - competition `41`, users `t100..t199`
+  - competition `341`, users `t300..t399`
+- `submissions_v` / DB counts confirmed for `R5`:
+  - competition `41`: `100` start events, `5000` KP submissions, all `100` users completed all `50`
+  - competition `341`: `100` start events, `5000` KP submissions, all `100` users completed all `50`
+
+## Endpoint comparison
+
+### Run R4 by competition
+
+| Run ID | Competition | Endpoint branch | Requests | Failures | Failure % | Avg ms | Median ms | P99 ms | Max ms | Main interpretation |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| R4 | 41 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 312 | 270 | 680 | 683 | bootstrap stable |
+| R4 | 41 | `GET /api/competitor/map-checkpoints [cache]` | 45 | 0 | 0.00% | 18 | 4 | 240 | 238 | fast cache hit path |
+| R4 | 41 | `GET /api/competitor/map-checkpoints [ords]` | 55 | 0 | 0.00% | 90 | 45 | 640 | 644 | first-load ORDS path |
+| R4 | 41 | `GET /api/competitor/open-checkpoints [ords]` | 5025 | 18 | 0.36% | 57 | 49 | 120 | 3739 | ORDS-backed but mostly stable |
+| R4 | 41 | `POST /api/competitor/checkpoint-access [fastapi]` | 19872 | 0 | 0.00% | 19 | 4 | 82 | 5447 | local FastAPI path was clean |
+| R4 | 41 | `POST /api/competitor/checkpoint-access [ords]` | 5384 | 359 | 6.67% | 61 | 51 | 160 | 3693 | main `429` hotspot |
+| R4 | 41 | `POST /api/dev/login` | 100 | 0 | 0.00% | 425 | 410 | 800 | 803 | bootstrap stable |
+| R4 | 41 | `POST /api/submissions` | 5007 | 16 | 0.32% | 91 | 63 | 1100 | 6558 | real save path stayed stable |
+| R4 | 341 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 296 | 270 | 660 | 655 | bootstrap stable |
+| R4 | 341 | `GET /api/competitor/map-checkpoints [cache]` | 2 | 0 | 0.00% | 3 | 3 | 5 | 4 | almost no cache reuse during first wave |
+| R4 | 341 | `GET /api/competitor/map-checkpoints [ords]` | 98 | 0 | 0.00% | 57 | 46 | 320 | 317 | first-load ORDS path |
+| R4 | 341 | `GET /api/competitor/open-checkpoints [ords]` | 5030 | 23 | 0.46% | 59 | 49 | 140 | 5935 | ORDS-backed but mostly stable |
+| R4 | 341 | `POST /api/competitor/checkpoint-access [fastapi]` | 19709 | 0 | 0.00% | 19 | 4 | 81 | 5478 | local FastAPI path was clean |
+| R4 | 341 | `POST /api/competitor/checkpoint-access [ords]` | 5399 | 369 | 6.83% | 59 | 50 | 160 | 5048 | main `429` hotspot |
+| R4 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 468 | 440 | 810 | 814 | bootstrap stable |
+| R4 | 341 | `POST /api/submissions` | 5007 | 9 | 0.18% | 83 | 63 | 710 | 5544 | real save path stayed stable |
+
+### Run R5 by competition
+
+| Run ID | Competition | Endpoint branch | Requests | Failures | Failure % | Avg ms | Median ms | P99 ms | Max ms | Main interpretation |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| R5 | 41 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 504 | 180 | 10000 | 10238 | bootstrap stable, but with long-tail startup latency |
+| R5 | 41 | `GET /api/competitor/map-checkpoints [ords]` | 100 | 0 | 0.00% | 445 | 51 | 11000 | 11227 | first-load ORDS path only |
+| R5 | 41 | `GET /api/competitor/open-checkpoints [ords]` | 5001 | 0 | 0.00% | 59 | 51 | 170 | 3703 | ORDS-backed and fully stable in this run |
+| R5 | 41 | `POST /api/competitor/checkpoint-access [fastapi]` | 25002 | 0 | 0.00% | 16 | 4 | 76 | 5332 | local FastAPI path carried the precheck load cleanly |
+| R5 | 41 | `POST /api/dev/login` | 100 | 0 | 0.00% | 600 | 360 | 9800 | 9756 | bootstrap stable, but with long-tail startup latency |
+| R5 | 41 | `POST /api/submissions` | 5001 | 1 | 0.02% | 88 | 61 | 1000 | 11769 | real save path was effectively clean |
+| R5 | 341 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 642 | 240 | 9100 | 9098 | bootstrap stable, but with long-tail startup latency |
+| R5 | 341 | `GET /api/competitor/map-checkpoints [ords]` | 100 | 0 | 0.00% | 94 | 47 | 3500 | 3512 | first-load ORDS path only |
+| R5 | 341 | `GET /api/competitor/open-checkpoints [ords]` | 5000 | 0 | 0.00% | 62 | 51 | 180 | 3734 | ORDS-backed and fully stable in this run |
+| R5 | 341 | `POST /api/competitor/checkpoint-access [fastapi]` | 24990 | 0 | 0.00% | 15 | 4 | 73 | 4988 | local FastAPI path carried the precheck load cleanly |
+| R5 | 341 | `POST /api/competitor/checkpoint-access [ords]` | 2 | 2 | 100.00% | 23 | 20 | 27 | 26 | narrow fallback path still exists but was hit only twice |
+| R5 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 619 | 290 | 10000 | 10191 | bootstrap stable, but with long-tail startup latency |
+| R5 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 86 | 61 | 880 | 10760 | real save path was fully clean |
+
+### Combined branch totals by run
+
+| Run ID | Branch | Requests | Failures | Failure % | Main meaning |
+|---|---|---:|---:|---:|---|
+| R4 | `map-checkpoints [cache]` | 47 | 0 | 0.00% | small cache-hit share |
+| R4 | `map-checkpoints [ords]` | 153 | 0 | 0.00% | most first map loads still hit ORDS |
+| R4 | `open-checkpoints [ords]` | 10055 | 41 | 0.41% | low ORDS failure rate |
+| R4 | `checkpoint-access [fastapi]` | 39581 | 0 | 0.00% | FastAPI branch stayed fully stable |
+| R4 | `checkpoint-access [ords]` | 10783 | 728 | 6.75% | dominant ORDS error branch |
+| R4 | `submissions` | 10014 | 25 | 0.25% | save path was far more stable than ORDS pre-check |
+| R5 | `map-checkpoints [cache]` | 0 | 0 | 0.00% | no cache-hit observations in this run snapshot |
+| R5 | `map-checkpoints [ords]` | 200 | 0 | 0.00% | all first map loads hit ORDS |
+| R5 | `open-checkpoints [ords]` | 10001 | 0 | 0.00% | ORDS-backed and fully stable |
+| R5 | `checkpoint-access [fastapi]` | 49992 | 0 | 0.00% | FastAPI branch absorbed the full precheck load cleanly |
+| R5 | `checkpoint-access [ords]` | 2 | 2 | 100.00% | residual fallback path only, no longer a material branch |
+| R5 | `submissions` | 10001 | 1 | 0.01% | save path effectively clean |
+
+### Run R4 time distribution for `checkpoint-access [ords]` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R4 | 41 | 359 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | 341 | 369 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | Combined | 728 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### Run R4 time distribution for `open-checkpoints [ords]` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R4 | 41 | 18 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | 341 | 23 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | Combined | 41 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### Run R4 time distribution for `submissions` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R4 | 41 | 16 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | 341 | 9 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R4 | Combined | 25 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### Run R5 time distribution for `checkpoint-access [ords]` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R5 | 41 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | 341 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | Combined | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### Run R5 time distribution for `open-checkpoints [ords]` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R5 | 41 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | 341 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | Combined | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+### Run R5 time distribution for `submissions` errors
+
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R5 | 41 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | 341 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R5 | Combined | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+## Current conclusions from R4 vs R5
+
+- Both runs used the same `2 x 100` scenario, same users, same competitions, same duration, and the same mass-start model.
+- The key architectural change in `R5` was that ordinary in-radius `checkpoint-access` requests were answered locally in FastAPI instead of performing an ORDS confirmation roundtrip.
+- End result:
+  - `R4`: `9989` successful KP submissions, `190` full finishers
+  - `R5`: `10000` successful KP submissions, `200` full finishers
+- The dominant failure branch from `R4` disappeared in `R5`:
+  - `R4 checkpoint-access [ords]`: `10783` requests, `728` failures, `6.75%`
+  - `R5 checkpoint-access [ords]`: `2` requests, `2` failures
+- The `R5` fallback branch is not comparable in weight to `R4` anymore:
+  - it was hit only twice in the whole run
+  - both failures happened in the first `0-10` minutes
+  - it no longer represents a meaningful load path
+- The FastAPI precheck branch remained fully stable and absorbed more load:
+  - `R4 checkpoint-access [fastapi]`: `39581` requests, `0` failures
+  - `R5 checkpoint-access [fastapi]`: `49992` requests, `0` failures
+- ORDS-backed `open-checkpoints` also improved materially:
+  - `R4`: `10055` requests, `41` failures, `0.41%`
+  - `R5`: `10001` requests, `0` failures
+- The final save path became almost perfectly clean:
+  - `R4 submissions`: `10014` requests, `25` failures, `0.25%`
+  - `R5 submissions`: `10001` requests, `1` failure, `0.01%`
+- In both runs, the remaining failures were concentrated in the first wave:
+  - `R4`: all `728` `checkpoint-access [ords]` failures, all `41` `open-checkpoints [ords]` failures, and all `25` `submissions` failures happened in the first `0-10` minutes
+  - `R5`: the only `submissions` failure and the only `checkpoint-access [ords]` fallback failures also happened in the first `0-10` minutes
+
+## Architectural findings to carry forward
+
+- `R5` strongly validates the decision to remove ordinary ORDS confirmation from `checkpoint-access`.
+- The earlier `R4` bottleneck was architectural, not simply a tuning issue.
+- FastAPI already has:
+  - cached checkpoint metadata
+  - checkpoint coordinates and effective radius
+  - local haversine distance calculation
+- `R4` showed that the duplicated ORDS confirmation path was the most failure-prone branch.
+- `R5` showed that once that duplicated precheck was bypassed for ordinary in-radius cases:
+  - the local FastAPI branch stayed fully stable under higher effective precheck volume
+  - `open-checkpoints` stayed fully stable
+  - the final `submissions` save path was effectively clean
+  - all `200` users completed all `50` checkpoints
+- `map-checkpoints` still hit ORDS on first load for every user in `R5`:
+  - combined ORDS path: `200`
+  - combined cache path: `0`
+  - this remains a separate optimization topic, but it was not the dominant failure source in `R5`
+
+## Aborted diagnostic run: `R6` (`1 x 400`, competition `41`)
+
+- `R6` was intentionally stopped early after the first-wave error pattern was identified.
+- Locust snapshot at interruption:
+  - `GET /api/competitor/map-checkpoints [ords]`: `407` requests, `7` failures
+  - `GET /api/competitor/open-checkpoints [ords]`: `838` requests, `193` failures
+  - `POST /api/competitor/checkpoint-access [fastapi]`: `4142` requests, `0` failures
+  - `POST /api/competitor/checkpoint-access [ords]`: `335` requests, `335` failures
+  - `POST /api/submissions`: `638` requests, `16` failures
+- Detailed JSONL analysis showed that the apparent `checkpoint-access [ords]` branch in `R6` was misleading:
+  - `ords_called:true` count in `checkpoint-access` responses was `0`
+  - the failing `checkpoint-access [ords]` log rows contained ORDS errors from `/ords/funo/competitor/map-checkpoints`
+  - this means `checkpoint-access` itself was not reintroducing the old `open-checkpoints` confirmation flow
+- Root cause identified from the log:
+  - some users received `429` during bootstrap `GET /api/competitor/map-checkpoints [ords]`
+  - those users later reached `checkpoint-access` without a personal map cache
+  - `checkpoint-access` then tried to refill `map-checkpoints` via `_get_map_checkpoints_payload(...)`
+  - Locust grouped those failures under `checkpoint-access [ords]`, even though the underlying ORDS bottleneck was still `map-checkpoints`
+- Architectural conclusion from aborted `R6`:
+  - after fixing ordinary `checkpoint-access` ORDS confirmation in `R5`, the next bottleneck at `1 x 400` moved to first-wave `map-checkpoints` loading
+  - the next backend improvement therefore targets bootstrap deduplication for `map-checkpoints`, not further `checkpoint-access` rule changes
 
 ## What the test does
 
@@ -73,27 +244,39 @@ Each virtual user does:
   - `POST /api/submissions`
 
 Important:
-- the test does not send a separate `START` submit;
-- the mass-start event must be created by the system itself on the first real answer;
-- `map-checkpoints` is loaded once per user, like in the frontend;
-- checkpoint opening is checked through `checkpoint-access`, so FastAPI can do the geo prefilter before a possible ORDS roundtrip.
+- the test does not send a separate `START` submit
+- the mass-start event must be created by the system itself on the first real answer
+- `map-checkpoints` is loaded once per user, like in the frontend
+- unfinished checkpoints are retried while competition time remains
 
-## Load profile
+## Branch visibility
 
-Defaults:
-- `200` users
-- `50` submit attempts per user
-- on average about `250` `checkpoint-access` requests per user
-- the first checkpoints happen more densely, then the pace spreads out
-- near/far geo attempts are distributed across the whole user journey, not front-loaded into the beginning
+The current test and backend expose these distinctions:
 
-Near/far logic:
-- `far` attempts stay intentionally outside checkpoint radius and should mostly stop at FastAPI level
-- `near` attempts go inside the 50 m answering radius and should reach final open-check plus submit flow
+- `POST /api/competitor/checkpoint-access`
+  - response field: `ords_called`
+  - Locust stats:
+    - `POST /api/competitor/checkpoint-access [fastapi]`
+    - `POST /api/competitor/checkpoint-access [ords]`
+  - current FastAPI behavior opens ordinary in-radius checkpoints locally; the `[ords]` branch should now appear only for narrow fallback cases where local metadata is insufficient
+
+- `GET /api/competitor/open-checkpoints`
+  - response field: `response_source=cache|ords`
+  - Locust stats:
+    - `GET /api/competitor/open-checkpoints [cache]`
+    - `GET /api/competitor/open-checkpoints [ords]`
+
+- `GET /api/competitor/map-checkpoints`
+  - response field: `response_source=cache|ords`
+  - Locust stats:
+    - `GET /api/competitor/map-checkpoints [cache]`
+    - `GET /api/competitor/map-checkpoints [ords]`
+
+This split is required to understand actual ORDS pressure and to avoid misleading conclusions from aggregated endpoint totals.
 
 ## Logging
 
-The test writes one growing `JSONL` file.
+The Locust run writes one growing `JSONL` file.
 
 Every line is a separate JSON object.
 The file contains:
@@ -106,13 +289,17 @@ The file contains:
   - request body or query
   - response body
   - virtual-user info
-  - logical action (`load_map`, `checkpoint_access`, `open_checkpoint`, `submit_answer`)
+  - logical action
+  - `ords_called` for `checkpoint-access`
+  - `response_source` for `open-checkpoints` and `map-checkpoints`
 
-By default the Locust container writes to:
-- `/mnt/load_logs/fun_o_test_41.jsonl`
+FastAPI debug logging should be enabled during comparison runs:
+- `.env`: `LOG_LEVEL=DEBUG`
 
-Recommended host-side mount target:
-- `~/fun_o_test`
+Useful FastAPI trace rows:
+- `checkpoint_access_trace`
+- `open_checkpoints_trace`
+- `map_checkpoints_trace`
 
 ## Server preparation
 
@@ -123,193 +310,17 @@ mkdir -p ~/fun_o_test
 cd ~/fun_o
 ```
 
-The `testing` container now runs by default as UID/GID `1000:1000`, which matches the normal `ubuntu` user setup on your server and allows writing into a bind-mounted `~/fun_o_test`.
-
-If the server user has a different UID/GID, set them before running:
+If needed:
 
 ```bash
 export TESTING_UID=$(id -u)
 export TESTING_GID=$(id -g)
 ```
 
-## Recommended run
+## Example run pattern
 
 ```bash
-docker compose --profile testing run --rm \
-  -v ~/fun_o_test:/mnt/load_logs \
-  -e LOAD_COMPETITION_ID=41 \
-  -e LOAD_DURATION_MIN=60 \
-  -e LOAD_DURATION_JITTER_PCT=6 \
-  -e LOAD_MAP_BURST_SECONDS=5 \
-  -e LOAD_USER_PREFIX=t \
-  -e LOAD_USER_COUNT=200 \
-  -e LOAD_LOG_FILE=/mnt/load_logs/fun_o_test_41.jsonl \
-  -e LOAD_LANG_CODE=et \
-  -e LOAD_TEXT_OK_PROBABILITY=0.82 \
-  testing \
-  -f /mnt/locust/locustfile.py \
-  --host https://fun-o.eu \
-  --users 200 \
-  --spawn-rate 40 \
-  --run-time 70m \
-  --headless
-```
-
-Notes:
-- `--run-time 70m` leaves buffer so the full 60-minute journey can finish.
-- `spawn-rate 40` creates roughly a 5-second start wave.
-- the log file stays on the server outside the repo, under `~/fun_o_test`.
-- if writing still fails, first check `echo $TESTING_UID`, `echo $TESTING_GID`, and that `~/fun_o_test` is owned by the same host user.
-
-## Smoke test
-
-Before the full run, use a short smoke test:
-
-```bash
-docker compose --profile testing run --rm \
-  -v ~/fun_o_test:/mnt/load_logs \
-  -e LOAD_COMPETITION_ID=41 \
-  -e LOAD_DURATION_MIN=5 \
-  -e LOAD_LOG_FILE=/mnt/load_logs/fun_o_test_smoke.jsonl \
-  testing \
-  -f /mnt/locust/locustfile.py \
-  --host https://fun-o.eu \
-  --users 10 \
-  --spawn-rate 5 \
-  --run-time 7m \
-  --headless
-```
-
-## Main environment variables
-
-- `LOAD_COMPETITION_ID`
-  - default `41`
-- `LOAD_DURATION_MIN`
-  - base planned journey length in minutes, default `60`
-- `LOAD_DURATION_JITTER_PCT`
-  - small timing spread between users, default `6`
-- `LOAD_MAP_BURST_SECONDS`
-  - how quickly users load the map at the start, default `5`
-- `LOAD_USER_PREFIX`
-  - default `t`
-- `LOAD_USER_COUNT`
-  - default `200`
-- `LOAD_USER_START_INDEX`
-  - first numeric user index, default `1`
-- `LOAD_LOG_FILE`
-  - in-container path for the JSONL log file
-- `LOAD_LANG_CODE`
-  - default `et`
-- `LOAD_TEXT_OK_PROBABILITY`
-  - how often TEXT answers use `OK`, default `0.82`
-- `LOAD_MAX_BODY_CHARS`
-  - `0` means request/response bodies are not truncated
-- `LOAD_MAX_NEAR_RETRIES`
-  - how many times a near-open can be retried for the same checkpoint, default `3`
-
-## What this test intentionally does not do
-
-- does not re-register users to the competition;
-- does not send a separate start-submit;
-- does not collect ORDS-side detailed tracing yet;
-- does not modify application code.
-
-## Full run summary (2026-06-16)
-
-This section records the first full `competition_id=41` run with the current frontend-emulation Locust script.
-
-Run profile:
-- `200` users
-- `spawn-rate 40`
-- `LOAD_DURATION_MIN=60`
-- `LOAD_MAP_BURST_SECONDS=5`
-- `--run-time 70m`
-
-Observed outcome:
-- the run ended normally because the configured `--run-time` limit was reached;
-- `submission_events`: `192`
-- `submissions`: about `9600`
-- practical interpretation:
-  - `192` users completed all `50` checkpoints;
-  - `8` users did not complete the full path before the run stopped.
-
-Locust totals from `run_stop`:
-- total requests: `68424`
-- total failures: `641`
-- aggregated median response time: `42 ms`
-- aggregated max response time: about `38 s`
-
-Per-endpoint totals:
-- `GET /api/competitor/competitions`
-  - `199` requests
-  - `5` failures
-  - median `750 ms`
-- `GET /api/competitor/map-checkpoints`
-  - `194` requests
-  - `3` failures
-  - median `110 ms`
-- `POST /api/competitor/checkpoint-access`
-  - `49538` requests
-  - `561` failures
-  - median `5 ms`
-- `GET /api/competitor/open-checkpoints`
-  - `9169` requests
-  - `45` failures
-  - median `49 ms`
-- `POST /api/submissions`
-  - `9124` requests
-  - `26` failures
-  - median `68 ms`
-- `POST /api/dev/login`
-  - `200` requests
-  - `1` failure
-  - median `1200 ms`
-
-Important percentile observations:
-- `POST /api/competitor/checkpoint-access`
-  - `99%` about `130 ms`
-  - `99.9%` about `12 s`
-  - max about `38 s`
-- `GET /api/competitor/open-checkpoints`
-  - `99%` about `3.5 s`
-  - `99.9%` about `22 s`
-  - max about `37 s`
-- `POST /api/submissions`
-  - `99%` about `3.2 s`
-  - `99.9%` about `12 s`
-  - max about `38 s`
-
-Error summary from Locust:
-- `559` x `429` on `POST /api/competitor/checkpoint-access`
-- `42` x `429` on `GET /api/competitor/open-checkpoints`
-- `20` x `429` on `POST /api/submissions`
-- small number of `400` errors on login, competitions, map-checkpoints, open-checkpoints, submissions, and checkpoint-access
-- `1` x `502` on `POST /api/submissions`
-
-Root-cause interpretation:
-- the Ubuntu VM itself was not the bottleneck;
-- during the run the host stayed low on CPU and memory usage, so infra capacity on that VM remained comfortable;
-- the dominant bottleneck was ORDS-side throttling and related tail latency;
-- many `400` responses were not client payload mistakes, but FastAPI-wrapped ORDS errors:
-  - log details showed `api.error.ords_request_failed`
-  - underlying ORDS status was `404`
-  - ORDS returned HTML error pages in those cases;
-- the `429` responses were real ORDS rate-limit responses and were the main reason why a part of users did not finish.
-
-What this run proved:
-- FastAPI-side geo prefiltering helps significantly;
-- most `checkpoint-access` calls stayed very fast, which means the far-check filtering avoided unnecessary ORDS work;
-- the remaining limiting factor is still ORDS under concurrent near-open and submit load.
-
-Recommended next run tuning without changing application code:
-- reduce `spawn-rate` from `40` to `20` or `25`
-- increase `LOAD_MAP_BURST_SECONDS` from `5` to `20` or `30`
-- increase `--run-time` from `70m` to `80m` or `85m`
-
-Suggested next attempt:
-
-```bash
-docker compose --profile testing run --rm \
+TESTING_UID=$(id -u) TESTING_GID=$(id -g) docker compose --profile testing run --rm \
   -v ~/fun_o_test:/mnt/load_logs \
   -e LOAD_COMPETITION_ID=41 \
   -e LOAD_DURATION_MIN=60 \
@@ -317,7 +328,7 @@ docker compose --profile testing run --rm \
   -e LOAD_MAP_BURST_SECONDS=25 \
   -e LOAD_USER_PREFIX=t \
   -e LOAD_USER_COUNT=200 \
-  -e LOAD_LOG_FILE=/mnt/load_logs/fun_o_test_41_run2.jsonl \
+  -e LOAD_LOG_FILE=/mnt/load_logs/fun_o_test_41.jsonl \
   -e LOAD_LANG_CODE=et \
   -e LOAD_TEXT_OK_PROBABILITY=0.82 \
   testing \
@@ -329,371 +340,64 @@ docker compose --profile testing run --rm \
   --headless
 ```
 
-## Full run summary (2026-06-16, run 2)
+## Live monitoring
 
-This section records the second full `competition_id=41` run with the tuned frontend-emulation Locust script.
-
-Run profile:
-- `200` users
-- `spawn-rate 20`
-- `LOAD_DURATION_MIN=60`
-- `LOAD_MAP_BURST_SECONDS=25`
-- `--run-time 85m`
-
-Observed outcome:
-- the run ended normally because the configured `--run-time` limit was reached;
-- `submission_events`: `200`
-- `submissions`: `10000`
-- practical interpretation:
-  - all `200` users completed all `50` checkpoints.
-
-Locust totals from `run_stop`:
-- total requests: `71315`
-- total failures: `862`
-- aggregated median response time: `42 ms`
-- aggregated max response time: `5177 ms`
-
-Per-endpoint totals:
-- `GET /api/competitor/competitions`
-  - `200` requests
-  - `0` failures
-  - median `240 ms`
-- `GET /api/competitor/map-checkpoints`
-  - `200` requests
-  - `0` failures
-  - median `48 ms`
-- `POST /api/competitor/checkpoint-access`
-  - `50569` requests
-  - `755` failures
-  - median `7 ms`
-- `GET /api/competitor/open-checkpoints`
-  - `10107` requests
-  - `68` failures
-  - median `49 ms`
-- `POST /api/submissions`
-  - `10039` requests
-  - `39` failures
-  - median `68 ms`
-- `POST /api/dev/login`
-  - `200` requests
-  - `0` failures
-  - median `370 ms`
-
-Error summary from Locust:
-- `755` x `429` on `POST /api/competitor/checkpoint-access`
-- `68` x `429` on `GET /api/competitor/open-checkpoints`
-- `39` x `429` on `POST /api/submissions`
-- no non-`429` failures
-
-What changed versus run 1:
-- the softer start wave removed the earlier `400` and `502` noise;
-- all `200` users reached a full `50 KP` path;
-- median latencies stayed low and endpoint max times dropped sharply.
-
-## Full run summary (2026-06-16, run 3)
-
-This section records the first `400`-user full run for `competition_id=41` with the same tuned start profile as run 2.
-
-Run profile:
-- `400` users
-- `spawn-rate 20`
-- `LOAD_DURATION_MIN=60`
-- `LOAD_MAP_BURST_SECONDS=25`
-- `--run-time 85m`
-
-Observed outcome:
-- the run ended with Locust exit code `1` because failures were present, but the configured run completed;
-- `submission_events`: `400`
-- `submissions`: `17590`
-- practical interpretation:
-  - all `400` users eventually got a start mark;
-  - no user completed all `50` checkpoints;
-  - users stopped between `38` and `49` checkpoint submissions each;
-  - the distribution concentrated in the middle: `286` users ended at `43` to `46` checkpoints, `32` users reached `47` to `49`, and `11` users remained at `38` to `40`.
-
-Locust totals from `run_stop`:
-- total requests: `156657`
-- total failures: `33068`
-- aggregated median response time: `47 ms`
-- aggregated max response time: `25540 ms`
-
-Per-endpoint totals:
-- `GET /api/competitor/competitions`
-  - `400` requests
-  - `0` failures
-  - median `240 ms`
-- `GET /api/competitor/map-checkpoints`
-  - `400` requests
-  - `0` failures
-  - median `58 ms`
-- `POST /api/competitor/checkpoint-access`
-  - `117225` requests
-  - `30836` failures
-  - median `31 ms`
-- `GET /api/competitor/open-checkpoints`
-  - `19769` requests
-  - `1306` failures
-  - median `63 ms`
-- `POST /api/submissions`
-  - `18463` requests
-  - `926` failures
-  - median `97 ms`
-- `POST /api/dev/login`
-  - `400` requests
-  - `0` failures
-  - median `380 ms`
-
-Important percentile observations:
-- `POST /api/competitor/checkpoint-access`
-  - `99%` about `3.7 s`
-  - `99.9%` about `15 s`
-  - max about `25.5 s`
-- `GET /api/competitor/open-checkpoints`
-  - `99%` about `13 s`
-  - `99.9%` about `16 s`
-  - max about `25.2 s`
-- `POST /api/submissions`
-  - `99%` about `11 s`
-  - `99.9%` about `15 s`
-  - max about `25.3 s`
-
-Error summary from Locust:
-- `30808` x `429` on `POST /api/competitor/checkpoint-access`
-- `1290` x `429` on `GET /api/competitor/open-checkpoints`
-- `893` x `429` on `POST /api/submissions`
-- `31` x `400` on `POST /api/submissions`
-- `16` x `400` on `GET /api/competitor/open-checkpoints`
-- `28` x `400` on `POST /api/competitor/checkpoint-access`
-- `2` x `502` on `POST /api/submissions`
-
-Operational observations during the run:
-- Ubuntu VM memory stayed low, around `1.75 GB` used on a `24 GB` server;
-- CPU spiked during the start wave, but later stabilized and finally dropped under `1%`;
-- `429` rows became rare later in the run, which suggests the system partially recovered after the initial start-wave spike.
-
-Interpretation:
-- the main bottleneck again appeared in the ORDS-backed active competition flow, especially `checkpoint-access` leading into `open-checkpoints`;
-- the system did not hard-fail and eventually created all `400` start marks;
-- the database end state confirmed `400` `submission_events` rows and `17590` `submissions` rows for the run;
-- per-user completion counts clustered heavily below the finish line, with the largest groups at `44` checkpoints (`86` users), `43` checkpoints (`77` users), and `45` checkpoints (`77` users);
-- however, the current Locust journey logic let users stall after early failures instead of returning to unfinished checkpoints later in the hour;
-- this means the final `17590` submissions total reflects both real ORDS throttling and a test-scenario limitation.
-
-Follow-up requirement for the next test-script iteration:
-- if a checkpoint is still unfinished and competition time remains, the virtual competitor should keep trying later instead of effectively abandoning that checkpoint after early failures;
-- start-wave errors should not artificially suppress end-of-run load when the competition window is still open.
-
-## Full run summary (2026-06-16, run 4)
-
-This section records the split-load comparison run: two simultaneous competitions with `100` users each, for a combined total of `200` users.
-
-Run profile:
-- competition `41`: users `t100..t199`
-- competition `341`: users `t300..t399`
-- `100` users per container, `200` total
-- `spawn-rate 10` per container, `20` total
-- `LOAD_DURATION_MIN=60`
-- `LOAD_MAP_BURST_SECONDS=25`
-- `--run-time 85m`
-
-Observed outcome:
-- both runs ended with Locust exit code `1` because failures were present, but the configured runs completed;
-- `submission_events`: `200`
-- `submissions`: `9985`
-- practical interpretation:
-  - all `200` users got a start mark;
-  - `185` users completed all `50` checkpoints;
-  - `15` users missed exactly `1` checkpoint;
-  - of those `15`, `8` belonged to competition `41` and `7` to competition `341`;
-  - the effective submission window was about `1 h 3 min`.
-
-Combined Locust totals from both `run_stop` reports:
-- total requests: `71244`
-- total failures: `1392`
-- aggregated median response time: `43 ms`
-- aggregated max response time: `5989 ms`
-
-Per-competition totals:
-- competition `41`
-  - total requests: `35671`
-  - total failures: `656`
-  - aggregated median response time: `43 ms`
-  - aggregated max response time: `5989 ms`
-- competition `341`
-  - total requests: `35573`
-  - total failures: `736`
-  - aggregated median response time: `43 ms`
-  - aggregated max response time: `5832 ms`
-
-Combined per-endpoint totals:
-- `GET /api/competitor/competitions`
-  - `200` requests
-  - `0` failures
-  - median about `125 ms`
-- `GET /api/competitor/map-checkpoints`
-  - `200` requests
-  - `0` failures
-  - median about `43 ms`
-- `POST /api/competitor/checkpoint-access`
-  - `50575` requests
-  - `1320` failures
-  - median `8 ms`
-- `GET /api/competitor/open-checkpoints`
-  - `10057` requests
-  - `45` failures
-  - median `49 ms`
-- `POST /api/submissions`
-  - `10012` requests
-  - `27` failures
-  - median about `64 ms`
-- `POST /api/dev/login`
-  - `200` requests
-  - `0` failures
-  - median about `195 ms`
-
-Error summary from Locust:
-- competition `41`
-  - `620` x `429` on `POST /api/competitor/checkpoint-access`
-  - `24` x `429` on `GET /api/competitor/open-checkpoints`
-  - `12` x `429` on `POST /api/submissions`
-- competition `341`
-  - `700` x `429` on `POST /api/competitor/checkpoint-access`
-  - `21` x `429` on `GET /api/competitor/open-checkpoints`
-  - `15` x `429` on `POST /api/submissions`
-
-Operational observations during the run:
-- all `200` users got their start marks quickly;
-- server RAM stayed around `1.7 GB`;
-- CPU stayed mostly around `5%` to `10%`, with only occasional small spikes;
-- no visible sustained `429` burst appeared in the live tail view.
-
-Comparison against run 2 (`1 x 200` on one competition):
-- total request volume was almost identical: `71244` in run 4 vs `71315` in run 2;
-- total failures were higher: `1392` vs `862`;
-- `checkpoint-access` failures were higher: `1320` vs `755`;
-- however, the practical completion outcome remained very close:
-  - run 2: `200 / 200` users completed all `50` checkpoints;
-  - run 4: `185 / 200` users completed all `50`, and the remaining `15` missed only `1` checkpoint each.
-
-Interpretation:
-- splitting the same total `200` users across two competitions kept the infrastructure profile very calm and avoided the severe degradation seen in the `400`-user single-competition run;
-- compared with the best `1 x 200` single-competition run, the split run was slightly worse on raw `429` counts but still nearly equivalent in practical business outcome;
-- the remaining gap to a perfect `10000` submissions is again best explained by the current Locust journey logic, which does not keep returning to unfinished checkpoints late in the run.
-
-## How to analyze JSONL after a run
-
-All examples below assume the log file is on the Ubuntu server under `~/fun_o_test/`.
-
-Example:
+FastAPI branch traces:
 
 ```bash
-cd ~/fun_o_test
+docker compose logs -f fastapi | grep -E "map_checkpoints_trace|open_checkpoints_trace|checkpoint_access_trace"
 ```
 
-### 1. Check that the run ended normally
+Locust errors from a run log:
+
+```bash
+tail -f ~/fun_o_test/fun_o_test_41.jsonl | grep --line-buffered -E '"status_code":(400|429|500|502|503|504)'
+```
+
+## How to analyze JSONL after a run
 
 Show the final `run_stop` line:
 
 ```bash
-grep '"event_type":"run_stop"' fun_o_test_41.jsonl | tail -n 1
+grep '"event_type":"run_stop"' ~/fun_o_test/fun_o_test_41.jsonl | tail -n 1
 ```
 
-This line contains:
-- total request count
-- total failure count
-- aggregated timings
-- per-endpoint summary
-
-### 2. Watch only real errors during a live run
-
-Only `429`, `500`, `502`, `503`:
+Count FastAPI-only vs ORDS-backed `checkpoint-access` responses:
 
 ```bash
-tail -f fun_o_test_41.jsonl | grep -E '"status_code":(429|500|502|503)'
+grep '"path":"/api/competitor/checkpoint-access"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"ords_called":true' | wc -l
 ```
-
-Only non-null exceptions:
 
 ```bash
-tail -f fun_o_test_41.jsonl | grep -v '"exception":null' | grep '"exception":'
+grep '"path":"/api/competitor/checkpoint-access"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"ords_called":false' | wc -l
 ```
 
-### 3. Count how many users actually finished
+Count cached vs ORDS `open-checkpoints`:
 
 ```bash
-grep -c '"event_type":"user_complete"' fun_o_test_41.jsonl
+grep '"path":"/api/competitor/open-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"cache"' | wc -l
 ```
-
-To inspect the completion rows themselves:
 
 ```bash
-grep '"event_type":"user_complete"' fun_o_test_41.jsonl | tail -n 20
+grep '"path":"/api/competitor/open-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"ords"' | wc -l
 ```
 
-### 4. See the slowest requests
-
-If `jq` is available, show requests slower than 1000 ms:
+Count cached vs ORDS `map-checkpoints`:
 
 ```bash
-jq -c 'select(.event_type=="request" and (.response_time_ms > 1000))' fun_o_test_41.jsonl
+grep '"path":"/api/competitor/map-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"cache"' | wc -l
 ```
-
-For a stricter threshold, for example 5000 ms:
 
 ```bash
-jq -c 'select(.event_type=="request" and (.response_time_ms > 5000))' fun_o_test_41.jsonl
+grep '"path":"/api/competitor/map-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"ords"' | wc -l
 ```
 
-### 5. See only failed requests
+## Current direction
 
-With `jq`:
+The main purpose of the current test line is not just to count failures, but to identify:
+- how much load is handled fully in FastAPI
+- how much load requires ORDS
+- where failures actually occur
+- which request steps may be redundant or architecturally questionable
 
-```bash
-jq -c 'select(.event_type=="request" and (.status_code != 200 or .exception != null))' fun_o_test_41.jsonl
-```
-
-### 6. Group by status code
-
-If `jq` is available:
-
-```bash
-jq -r 'select(.event_type=="request") | .status_code' fun_o_test_41.jsonl | sort | uniq -c
-```
-
-### 7. Group by endpoint
-
-If `jq` is available:
-
-```bash
-jq -r 'select(.event_type=="request") | .name' fun_o_test_41.jsonl | sort | uniq -c
-```
-
-### 8. Extract only ORDS throttling rows
-
-This is useful when ORDS `429` is suspected:
-
-```bash
-grep '"code":"ORDS_RATE_LIMITED"' fun_o_test_41.jsonl
-```
-
-### 9. Extract FastAPI-wrapped ORDS errors
-
-This helps separate true client-side mistakes from upstream failures:
-
-```bash
-grep '"code":"ORDS_ERROR"' fun_o_test_41.jsonl
-```
-
-### 10. Quick interpretation checklist
-
-After a run, check at least:
-- how many `user_complete` rows exist
-- whether `run_stop` exists
-- total failures in the `run_stop` stats
-- whether failures are mostly `429`
-- whether the highest tail latencies are concentrated on:
-  - `checkpoint-access`
-  - `open-checkpoints`
-  - `submissions`
-
-If most failures are `429`, the practical bottleneck is usually ORDS throttling rather than the Ubuntu VM itself.
+This is the basis for the next architectural decisions.

@@ -65,6 +65,9 @@ class Settings:
 settings = Settings()
 i18n_cache: dict[str, dict[str, str]] = {}
 map_checkpoints_cache: dict[str, dict[str, Any]] = {}
+map_checkpoints_bootstrap_cache: dict[int, dict[str, Any]] = {}
+map_checkpoints_bootstrap_inflight: dict[int, asyncio.Task[dict[str, Any]]] = {}
+map_checkpoints_personalized_users: set[str] = set()
 open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
 map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
@@ -72,6 +75,7 @@ competitor_terms_cache: dict[str, dict[str, Any]] = {}
 background_tasks: set[asyncio.Task[None]] = set()
 
 MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
+MAP_CHECKPOINTS_BOOTSTRAP_CACHE_TTL_SECONDS = 30.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
 ORDS_RETRY_ATTEMPTS = 3
 ORDS_RETRY_BACKOFF_SECONDS = (0.2, 0.5, 1.0)
@@ -2158,6 +2162,17 @@ def _purge_expired_map_cache(now: float | None = None) -> None:
     for key in expired_keys:
         map_checkpoints_cache.pop(key, None)
 
+    expired_bootstrap_competitions: list[int] = []
+    for competition_id, value in map_checkpoints_bootstrap_cache.items():
+        cached_at = value.get("cached_at")
+        if not isinstance(cached_at, float):
+            expired_bootstrap_competitions.append(competition_id)
+            continue
+        if current - cached_at > MAP_CHECKPOINTS_BOOTSTRAP_CACHE_TTL_SECONDS:
+            expired_bootstrap_competitions.append(competition_id)
+    for competition_id in expired_bootstrap_competitions:
+        map_checkpoints_bootstrap_cache.pop(competition_id, None)
+
 
 def _invalidate_competition_cache(competition_id: int | None) -> None:
     if competition_id is None:
@@ -2166,10 +2181,48 @@ def _invalidate_competition_cache(competition_id: int | None) -> None:
     for key in list(map_checkpoints_cache.keys()):
         if key.startswith(prefix):
             map_checkpoints_cache.pop(key, None)
+    for key in list(map_checkpoints_personalized_users):
+        if key.startswith(prefix):
+            map_checkpoints_personalized_users.discard(key)
+    map_checkpoints_bootstrap_cache.pop(competition_id, None)
+    inflight = map_checkpoints_bootstrap_inflight.pop(competition_id, None)
+    if inflight is not None and not inflight.done():
+        inflight.cancel()
     competitor_map_layers_cache.pop(competition_id, None)
     for key in list(open_checkpoints_last_response.keys()):
         if key.startswith(prefix):
             open_checkpoints_last_response.pop(key, None)
+
+
+def _clear_all_competitor_runtime_cache() -> None:
+    map_checkpoints_cache.clear()
+    map_checkpoints_bootstrap_cache.clear()
+    for inflight in list(map_checkpoints_bootstrap_inflight.values()):
+        if not inflight.done():
+            inflight.cancel()
+    map_checkpoints_bootstrap_inflight.clear()
+    map_checkpoints_personalized_users.clear()
+    open_checkpoints_last_response.clear()
+
+
+def _clone_map_checkpoint_payload(payload: dict[str, Any], *, response_source: str | None = None) -> dict[str, Any]:
+    clone = dict(payload)
+    items = payload.get("items")
+    if isinstance(items, list):
+        clone["items"] = [dict(item) if isinstance(item, dict) else item for item in items]
+    route = payload.get("route")
+    if isinstance(route, dict):
+        clone["route"] = dict(route)
+    if isinstance(response_source, str):
+        clone["response_source"] = response_source
+    return clone
+
+
+def _has_answered_map_items(items: list[Any]) -> bool:
+    return any(
+        isinstance(row, dict) and str(row.get("is_answered", "N")).upper() == "Y"
+        for row in items
+    )
 
 
 def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -2472,6 +2525,43 @@ def _schedule_declination_refresh(competition_id: int | None) -> None:
 
 
 async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dict[str, Any]:
+    async def _fetch_from_ords() -> dict[str, Any]:
+        ords_response = await _get_from_ords(
+            "competitor/map-checkpoints",
+            {
+                "competition_id": competition_id,
+                "user_id": user_id,
+            },
+        )
+        raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
+        items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
+        competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
+        current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
+        current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
+        mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
+        mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
+        declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
+        declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
+        declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
+        route = _normalize_route_payload(ords_response.get("route") if isinstance(ords_response, dict) else None)
+        locally_computed_hash = _compute_route_source_hash_from_items(competition_type, items)
+        route_valid = False
+        if current_source_hash and current_source_hash == locally_computed_hash and isinstance(route, dict):
+            calculated_source_hash = route.get("calculated_source_hash")
+            route_valid = isinstance(calculated_source_hash, str) and calculated_source_hash == current_source_hash
+        if not route_valid:
+            route = None
+        return {
+            "response_source": "ords",
+            "competition_type": competition_type,
+            "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
+            "mass_start_at": mass_start_at,
+            "items": items,
+            "declination": declination,
+            "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
+            "route": route,
+        }
+
     now = time.monotonic()
     _purge_expired_map_cache(now)
     key = _map_cache_key(competition_id=competition_id, user_id=user_id)
@@ -2479,53 +2569,38 @@ async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dic
     if isinstance(cached, dict):
         cached_items = cached.get("items")
         if isinstance(cached_items, list):
-            return {
-                "response_source": "cache",
-                "competition_type": cached.get("competition_type"),
-                "current_source_hash": cached.get("current_source_hash"),
-                "mass_start_at": cached.get("mass_start_at"),
-                "items": cached_items,
-                "declination": cached.get("declination", 0.0),
-                "declination_last_updated": cached.get("declination_last_updated"),
-                "route": cached.get("route"),
-            }
+            return _clone_map_checkpoint_payload(cached, response_source="cache")
 
-    ords_response = await _get_from_ords(
-        "competitor/map-checkpoints",
-        {
-            "competition_id": competition_id,
-            "user_id": user_id,
-        },
-    )
-    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
-    competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
-    current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
-    current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
-    mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
-    mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
-    declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
-    declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
-    declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
-    route = _normalize_route_payload(ords_response.get("route") if isinstance(ords_response, dict) else None)
-    locally_computed_hash = _compute_route_source_hash_from_items(competition_type, items)
-    route_valid = False
-    if current_source_hash and current_source_hash == locally_computed_hash and isinstance(route, dict):
-        calculated_source_hash = route.get("calculated_source_hash")
-        route_valid = isinstance(calculated_source_hash, str) and calculated_source_hash == current_source_hash
-    if not route_valid:
-        route = None
-    payload = {
-        "response_source": "ords",
-        "competition_type": competition_type,
-        "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
-        "mass_start_at": mass_start_at,
-        "items": items,
-        "declination": declination,
-        "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
-        "route": route,
-    }
-    map_checkpoints_cache[key] = {"cached_at": now, **payload}
+    if key not in map_checkpoints_personalized_users:
+        bootstrap_cached = map_checkpoints_bootstrap_cache.get(competition_id)
+        if isinstance(bootstrap_cached, dict):
+            bootstrap_items = bootstrap_cached.get("items")
+            if isinstance(bootstrap_items, list):
+                payload = _clone_map_checkpoint_payload(bootstrap_cached, response_source="cache")
+                map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
+                return payload
+
+        inflight = map_checkpoints_bootstrap_inflight.get(competition_id)
+        created_inflight = False
+        if inflight is None:
+            inflight = asyncio.create_task(_fetch_from_ords())
+            map_checkpoints_bootstrap_inflight[competition_id] = inflight
+            created_inflight = True
+        try:
+            shared_payload = await inflight
+        finally:
+            if map_checkpoints_bootstrap_inflight.get(competition_id) is inflight and inflight.done():
+                map_checkpoints_bootstrap_inflight.pop(competition_id, None)
+
+        payload = _clone_map_checkpoint_payload(shared_payload, response_source="ords" if created_inflight else "cache")
+        map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
+        items = payload.get("items")
+        if isinstance(items, list) and not _has_answered_map_items(items):
+            map_checkpoints_bootstrap_cache[competition_id] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
+        return payload
+
+    payload = await _fetch_from_ords()
+    map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
     return payload
 
 
@@ -3152,7 +3227,9 @@ async def submit_answer(
     )
     distance_display_allowed = distance_display_allowed_raw in (True, "Y", "y", "true", "TRUE", 1)
     # Event-driven cache refresh for competitor status after successful submit.
-    map_checkpoints_cache.pop(_map_cache_key(competition_id=req.competition_id, user_id=user_id), None)
+    map_cache_key = _map_cache_key(competition_id=req.competition_id, user_id=user_id)
+    map_checkpoints_personalized_users.add(map_cache_key)
+    map_checkpoints_cache.pop(map_cache_key, None)
     open_checkpoints_last_response.pop(_open_checkpoints_key(competition_id=req.competition_id, user_id=user_id), None)
     return SubmitAnswerResponse(
         submission_id=submission_id,
@@ -3455,8 +3532,10 @@ async def competitor_checkpoint_access(
             continue
         distance_m = _haversine_meters(float(lat), float(lon), float(cp_lat), float(cp_lon))
         if distance_m <= float(effective_radius):
-            candidate_ids.append(cp_id)
-            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, needs_ords=True, reason="needs_ords"))
+            # Keep ORDS fallback only for cases where FastAPI cannot evaluate the checkpoint locally.
+            # When the local geofence check succeeds, let the next open-checkpoints request remain
+            # the authoritative server-side gate for question payload retrieval.
+            items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=True, reason="open"))
         else:
             items.append(CompetitorCheckpointAccessEntry(checkpoint_id=cp_id, can_open=False, reason="too_far"))
 
@@ -3977,8 +4056,7 @@ async def admin_create_question(req: AdminCreateQuestionRequest, request: Reques
     if req.competition_id is not None:
         _invalidate_competition_cache(req.competition_id)
     else:
-        map_checkpoints_cache.clear()
-        open_checkpoints_last_response.clear()
+        _clear_all_competitor_runtime_cache()
     return AdminCreateQuestionResponse(question_id=question_id)
 
 
@@ -4004,8 +4082,7 @@ async def admin_create_question_option(req: AdminCreateQuestionOptionRequest, re
     if req.competition_id is not None:
         _invalidate_competition_cache(req.competition_id)
     else:
-        map_checkpoints_cache.clear()
-        open_checkpoints_last_response.clear()
+        _clear_all_competitor_runtime_cache()
     return AdminCreateQuestionOptionResponse(option_id=option_id)
 
 
@@ -4029,8 +4106,7 @@ async def admin_create_question_answer(req: AdminCreateQuestionAnswerRequest, re
     if req.competition_id is not None:
         _invalidate_competition_cache(req.competition_id)
     else:
-        map_checkpoints_cache.clear()
-        open_checkpoints_last_response.clear()
+        _clear_all_competitor_runtime_cache()
     return AdminCreateQuestionAnswerResponse(answer_id=answer_id)
 
 
@@ -4082,8 +4158,7 @@ async def admin_process_pending_competition_routes(req: AdminCompetitionRoutePro
         "admin/competitions/routes/process-pending",
         {"limit": req.limit} if isinstance(req.limit, int) else {},
     )
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    _clear_all_competitor_runtime_cache()
     processed_count = data.get("processed_count") if isinstance(data, dict) else 0
     return {"processed_count": processed_count if isinstance(processed_count, int) else 0}
 
@@ -4691,8 +4766,7 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
         "admin/checkpoints/update",
         payload,
     )
-    map_checkpoints_cache.clear()
-    open_checkpoints_last_response.clear()
+    _clear_all_competitor_runtime_cache()
     _schedule_declination_refresh(req.competition_id)
     return {"ok": True}
 
@@ -4744,8 +4818,7 @@ async def admin_update_question(req: AdminUpdateQuestionRequest, request: Reques
     if req.competition_id is not None:
         _invalidate_competition_cache(req.competition_id)
     else:
-        map_checkpoints_cache.clear()
-        open_checkpoints_last_response.clear()
+        _clear_all_competitor_runtime_cache()
     return {"ok": True}
 
 
@@ -4763,8 +4836,7 @@ async def admin_delete_question(req: AdminDeleteQuestionRequest, request: Reques
     if req.competition_id is not None:
         _invalidate_competition_cache(req.competition_id)
     else:
-        map_checkpoints_cache.clear()
-        open_checkpoints_last_response.clear()
+        _clear_all_competitor_runtime_cache()
     return {"ok": True}
 
 
