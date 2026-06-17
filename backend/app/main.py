@@ -64,18 +64,16 @@ class Settings:
 
 settings = Settings()
 i18n_cache: dict[str, dict[str, str]] = {}
-map_checkpoints_cache: dict[str, dict[str, Any]] = {}
-map_checkpoints_bootstrap_cache: dict[int, dict[str, Any]] = {}
-map_checkpoints_bootstrap_inflight: dict[int, asyncio.Task[dict[str, Any]]] = {}
-map_checkpoints_personalized_users: set[str] = set()
+competition_checkpoint_static_cache: dict[int, dict[str, Any]] = {}
+competition_checkpoint_static_inflight: dict[int, asyncio.Task[dict[str, Any]]] = {}
+participant_checkpoint_state_cache: dict[str, dict[str, Any]] = {}
 open_checkpoints_last_response: dict[str, dict[str, Any]] = {}
 map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
 competitor_terms_cache: dict[str, dict[str, Any]] = {}
 background_tasks: set[asyncio.Task[None]] = set()
 
-MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900.0
-MAP_CHECKPOINTS_BOOTSTRAP_CACHE_TTL_SECONDS = 30.0
+PARTICIPANT_CHECKPOINT_STATE_CACHE_TTL_SECONDS = 900.0
 OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2.0
 ORDS_RETRY_ATTEMPTS = 3
 ORDS_RETRY_BACKOFF_SECONDS = (0.2, 0.5, 1.0)
@@ -2136,6 +2134,10 @@ def _map_cache_key(*, competition_id: int, user_id: int) -> str:
     return f"{competition_id}:{user_id}"
 
 
+def _participant_state_cache_key(*, competition_id: int, user_id: int) -> str:
+    return f"{competition_id}:{user_id}"
+
+
 def _open_checkpoints_key(*, competition_id: int, user_id: int) -> str:
     return f"{competition_id}:{user_id}"
 
@@ -2152,40 +2154,26 @@ def _open_checkpoints_signature(latitude: float | None, longitude: float | None,
 def _purge_expired_map_cache(now: float | None = None) -> None:
     current = now if now is not None else time.monotonic()
     expired_keys: list[str] = []
-    for key, value in map_checkpoints_cache.items():
+    for key, value in participant_checkpoint_state_cache.items():
         cached_at = value.get("cached_at")
         if not isinstance(cached_at, float):
             expired_keys.append(key)
             continue
-        if current - cached_at > MAP_CHECKPOINTS_CACHE_TTL_SECONDS:
+        if current - cached_at > PARTICIPANT_CHECKPOINT_STATE_CACHE_TTL_SECONDS:
             expired_keys.append(key)
     for key in expired_keys:
-        map_checkpoints_cache.pop(key, None)
-
-    expired_bootstrap_competitions: list[int] = []
-    for competition_id, value in map_checkpoints_bootstrap_cache.items():
-        cached_at = value.get("cached_at")
-        if not isinstance(cached_at, float):
-            expired_bootstrap_competitions.append(competition_id)
-            continue
-        if current - cached_at > MAP_CHECKPOINTS_BOOTSTRAP_CACHE_TTL_SECONDS:
-            expired_bootstrap_competitions.append(competition_id)
-    for competition_id in expired_bootstrap_competitions:
-        map_checkpoints_bootstrap_cache.pop(competition_id, None)
+        participant_checkpoint_state_cache.pop(key, None)
 
 
 def _invalidate_competition_cache(competition_id: int | None) -> None:
     if competition_id is None:
         return
     prefix = f"{competition_id}:"
-    for key in list(map_checkpoints_cache.keys()):
+    for key in list(participant_checkpoint_state_cache.keys()):
         if key.startswith(prefix):
-            map_checkpoints_cache.pop(key, None)
-    for key in list(map_checkpoints_personalized_users):
-        if key.startswith(prefix):
-            map_checkpoints_personalized_users.discard(key)
-    map_checkpoints_bootstrap_cache.pop(competition_id, None)
-    inflight = map_checkpoints_bootstrap_inflight.pop(competition_id, None)
+            participant_checkpoint_state_cache.pop(key, None)
+    competition_checkpoint_static_cache.pop(competition_id, None)
+    inflight = competition_checkpoint_static_inflight.pop(competition_id, None)
     if inflight is not None and not inflight.done():
         inflight.cancel()
     competitor_map_layers_cache.pop(competition_id, None)
@@ -2195,13 +2183,12 @@ def _invalidate_competition_cache(competition_id: int | None) -> None:
 
 
 def _clear_all_competitor_runtime_cache() -> None:
-    map_checkpoints_cache.clear()
-    map_checkpoints_bootstrap_cache.clear()
-    for inflight in list(map_checkpoints_bootstrap_inflight.values()):
+    participant_checkpoint_state_cache.clear()
+    competition_checkpoint_static_cache.clear()
+    for inflight in list(competition_checkpoint_static_inflight.values()):
         if not inflight.done():
             inflight.cancel()
-    map_checkpoints_bootstrap_inflight.clear()
-    map_checkpoints_personalized_users.clear()
+    competition_checkpoint_static_inflight.clear()
     open_checkpoints_last_response.clear()
 
 
@@ -2218,11 +2205,18 @@ def _clone_map_checkpoint_payload(payload: dict[str, Any], *, response_source: s
     return clone
 
 
-def _has_answered_map_items(items: list[Any]) -> bool:
-    return any(
-        isinstance(row, dict) and str(row.get("is_answered", "N")).upper() == "Y"
-        for row in items
-    )
+def _clone_checkpoint_state_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    clone = dict(payload)
+    answered_checkpoint_ids = payload.get("answered_checkpoint_ids")
+    if isinstance(answered_checkpoint_ids, set):
+        clone["answered_checkpoint_ids"] = set(answered_checkpoint_ids)
+    elif isinstance(answered_checkpoint_ids, list):
+        clone["answered_checkpoint_ids"] = set(
+            checkpoint_id
+            for checkpoint_id in answered_checkpoint_ids
+            if isinstance(checkpoint_id, int)
+        )
+    return clone
 
 
 def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -2364,6 +2358,84 @@ def _enrich_competitor_map_checkpoint_items(raw_items: list[Any]) -> list[Any]:
         item["checkpoint_map_label"] = _build_competitor_checkpoint_map_label(item, competition_type)
         enriched.append(item)
     return enriched
+
+
+def _answered_checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
+    answered: set[int] = set()
+    if not isinstance(raw_items, list):
+        return answered
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        checkpoint_id = row.get("checkpoint_id")
+        if isinstance(checkpoint_id, int):
+            answered.add(checkpoint_id)
+    return answered
+
+
+def _overlay_answered_state_on_items(static_items: list[Any], answered_checkpoint_ids: set[int]) -> list[Any]:
+    items: list[Any] = []
+    for row in static_items:
+        if not isinstance(row, dict):
+            items.append(row)
+            continue
+        item = dict(row)
+        checkpoint_id = item.get("checkpoint_id")
+        item["is_answered"] = "Y" if isinstance(checkpoint_id, int) and checkpoint_id in answered_checkpoint_ids else "N"
+        items.append(item)
+    return items
+
+
+def _participant_progress_context(
+    static_items: list[Any],
+    answered_checkpoint_ids: set[int],
+    mass_start_at: str | None,
+) -> dict[str, Any]:
+    comp_type = _normalize_competition_type(
+        next(
+            (
+                row.get("competition_type")
+                for row in static_items
+                if isinstance(row, dict) and row.get("competition_type") is not None
+            ),
+            "R",
+        )
+    )
+    normalized_items = [row for row in static_items if isinstance(row, dict)]
+    start_exists = any(_normalize_checkpoint_type(row.get("checkpoint_type")) == "START" for row in normalized_items)
+    explicit_start_answered = any(
+        _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+        and isinstance(row.get("checkpoint_id"), int)
+        and row.get("checkpoint_id") in answered_checkpoint_ids
+        for row in normalized_items
+    )
+    logical_start_answered = explicit_start_answered
+    if not logical_start_answered and _has_mass_start_begun(mass_start_at):
+        logical_start_answered = any(
+            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+            and str(row.get("checkpoint_interaction") or "").strip().upper() == "MASS_START"
+            for row in normalized_items
+        )
+    finish_answered = any(
+        _normalize_checkpoint_type(row.get("checkpoint_type")) == "FINISH"
+        and isinstance(row.get("checkpoint_id"), int)
+        and row.get("checkpoint_id") in answered_checkpoint_ids
+        for row in normalized_items
+    )
+    overlay_items = _overlay_answered_state_on_items(normalized_items, answered_checkpoint_ids)
+    next_ordered_checkpoint_id = (
+        _ordered_checkpoint_id_from_map_items([row for row in overlay_items if isinstance(row, dict)])
+        if comp_type == "S"
+        else None
+    )
+    return {
+        "competition_type": comp_type,
+        "start_exists": start_exists,
+        "explicit_start_answered": explicit_start_answered,
+        "logical_start_answered": logical_start_answered,
+        "finish_answered": finish_answered,
+        "next_ordered_checkpoint_id": next_ordered_checkpoint_id,
+    }
 
 
 def _ordered_checkpoint_id_from_map_items(map_items: list[dict[str, Any]]) -> int | None:
@@ -2524,84 +2596,265 @@ def _schedule_declination_refresh(competition_id: int | None) -> None:
         pass
 
 
-async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dict[str, Any]:
-    async def _fetch_from_ords() -> dict[str, Any]:
-        ords_response = await _get_from_ords(
-            "competitor/map-checkpoints",
-            {
-                "competition_id": competition_id,
-                "user_id": user_id,
-            },
-        )
-        raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-        items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
-        competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
-        current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
-        current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
-        mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
-        mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
-        declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
-        declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
-        declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
-        route = _normalize_route_payload(ords_response.get("route") if isinstance(ords_response, dict) else None)
-        locally_computed_hash = _compute_route_source_hash_from_items(competition_type, items)
-        route_valid = False
-        if current_source_hash and current_source_hash == locally_computed_hash and isinstance(route, dict):
-            calculated_source_hash = route.get("calculated_source_hash")
-            route_valid = isinstance(calculated_source_hash, str) and calculated_source_hash == current_source_hash
-        if not route_valid:
-            route = None
-        return {
-            "response_source": "ords",
-            "competition_type": competition_type,
-            "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
-            "mass_start_at": mass_start_at,
-            "items": items,
-            "declination": declination,
-            "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
-            "route": route,
-        }
+async def _fetch_competition_checkpoint_static_payload_from_ords(competition_id: int) -> dict[str, Any]:
+    ords_response = await _get_from_ords(
+        "competitor/competition-content",
+        {
+            "competition_id": competition_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
+    items = _enrich_competitor_map_checkpoint_items(raw_items if isinstance(raw_items, list) else [])
+    competition_type = _normalize_competition_type(ords_response.get("competition_type") if isinstance(ords_response, dict) else "R")
+    current_source_hash_raw = ords_response.get("current_source_hash") if isinstance(ords_response, dict) else None
+    current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
+    mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
+    mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
+    use_location_raw = ords_response.get("use_location") if isinstance(ords_response, dict) else None
+    use_location = str(use_location_raw or "N").strip().upper() or "N"
+    declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
+    declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
+    declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
+    route = _normalize_route_payload(ords_response.get("route") if isinstance(ords_response, dict) else None)
+    locally_computed_hash = _compute_route_source_hash_from_items(competition_type, items)
+    route_valid = False
+    if current_source_hash and current_source_hash == locally_computed_hash and isinstance(route, dict):
+        calculated_source_hash = route.get("calculated_source_hash")
+        route_valid = isinstance(calculated_source_hash, str) and calculated_source_hash == current_source_hash
+    if not route_valid:
+        route = None
+    return {
+        "competition_type": competition_type,
+        "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
+        "mass_start_at": mass_start_at,
+        "use_location": "Y" if use_location == "Y" else "N",
+        "items": items,
+        "declination": declination,
+        "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
+        "route": route,
+    }
 
+
+async def _get_competition_checkpoint_static_payload(competition_id: int) -> tuple[dict[str, Any], str]:
+    cached = competition_checkpoint_static_cache.get(competition_id)
+    if isinstance(cached, dict) and isinstance(cached.get("items"), list):
+        return _clone_map_checkpoint_payload(cached, response_source=None), "cache"
+
+    inflight = competition_checkpoint_static_inflight.get(competition_id)
+    created_inflight = False
+    if inflight is None:
+        inflight = asyncio.create_task(_fetch_competition_checkpoint_static_payload_from_ords(competition_id))
+        competition_checkpoint_static_inflight[competition_id] = inflight
+        created_inflight = True
+    try:
+        payload = await inflight
+    finally:
+        if competition_checkpoint_static_inflight.get(competition_id) is inflight and inflight.done():
+            competition_checkpoint_static_inflight.pop(competition_id, None)
+
+    competition_checkpoint_static_cache[competition_id] = _clone_map_checkpoint_payload(payload)
+    return _clone_map_checkpoint_payload(payload), "ords" if created_inflight else "cache"
+
+
+async def _fetch_participant_checkpoint_state_from_ords(competition_id: int, user_id: int) -> dict[str, Any]:
+    ords_response = await _get_from_ords(
+        "competitor/checkpoint-state",
+        {
+            "competition_id": competition_id,
+            "user_id": user_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
+    answered_checkpoint_ids = _answered_checkpoint_ids_from_payload(raw_items)
+    return {
+        "answered_checkpoint_ids": answered_checkpoint_ids,
+    }
+
+
+async def _get_participant_checkpoint_state(competition_id: int, user_id: int) -> tuple[dict[str, Any], str]:
     now = time.monotonic()
     _purge_expired_map_cache(now)
-    key = _map_cache_key(competition_id=competition_id, user_id=user_id)
-    cached = map_checkpoints_cache.get(key)
+    key = _participant_state_cache_key(competition_id=competition_id, user_id=user_id)
+    cached = participant_checkpoint_state_cache.get(key)
     if isinstance(cached, dict):
-        cached_items = cached.get("items")
-        if isinstance(cached_items, list):
-            return _clone_map_checkpoint_payload(cached, response_source="cache")
+        answered_checkpoint_ids = cached.get("answered_checkpoint_ids")
+        if isinstance(answered_checkpoint_ids, set):
+            return _clone_checkpoint_state_payload(cached), "cache"
 
-    if key not in map_checkpoints_personalized_users:
-        bootstrap_cached = map_checkpoints_bootstrap_cache.get(competition_id)
-        if isinstance(bootstrap_cached, dict):
-            bootstrap_items = bootstrap_cached.get("items")
-            if isinstance(bootstrap_items, list):
-                payload = _clone_map_checkpoint_payload(bootstrap_cached, response_source="cache")
-                map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
-                return payload
+    payload = await _fetch_participant_checkpoint_state_from_ords(competition_id, user_id)
+    participant_checkpoint_state_cache[key] = {"cached_at": now, **_clone_checkpoint_state_payload(payload)}
+    return _clone_checkpoint_state_payload(payload), "ords"
 
-        inflight = map_checkpoints_bootstrap_inflight.get(competition_id)
-        created_inflight = False
-        if inflight is None:
-            inflight = asyncio.create_task(_fetch_from_ords())
-            map_checkpoints_bootstrap_inflight[competition_id] = inflight
-            created_inflight = True
-        try:
-            shared_payload = await inflight
-        finally:
-            if map_checkpoints_bootstrap_inflight.get(competition_id) is inflight and inflight.done():
-                map_checkpoints_bootstrap_inflight.pop(competition_id, None)
 
-        payload = _clone_map_checkpoint_payload(shared_payload, response_source="ords" if created_inflight else "cache")
-        map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
-        items = payload.get("items")
-        if isinstance(items, list) and not _has_answered_map_items(items):
-            map_checkpoints_bootstrap_cache[competition_id] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
-        return payload
+def _mark_participant_checkpoint_answered_in_cache(competition_id: int, user_id: int, checkpoint_id: int) -> None:
+    key = _participant_state_cache_key(competition_id=competition_id, user_id=user_id)
+    cached = participant_checkpoint_state_cache.get(key)
+    if not isinstance(cached, dict):
+        return
+    answered_checkpoint_ids = cached.get("answered_checkpoint_ids")
+    if isinstance(answered_checkpoint_ids, set):
+        answered_checkpoint_ids = set(answered_checkpoint_ids)
+    elif isinstance(answered_checkpoint_ids, list):
+        answered_checkpoint_ids = set(x for x in answered_checkpoint_ids if isinstance(x, int))
+    else:
+        answered_checkpoint_ids = set()
+    answered_checkpoint_ids.add(checkpoint_id)
 
-    payload = await _fetch_from_ords()
-    map_checkpoints_cache[key] = {"cached_at": now, **_clone_map_checkpoint_payload(payload)}
-    return payload
+    static_payload = competition_checkpoint_static_cache.get(competition_id)
+    if isinstance(static_payload, dict):
+        static_items = static_payload.get("items") if isinstance(static_payload.get("items"), list) else []
+        if not any(
+            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+            and isinstance(row.get("checkpoint_id"), int)
+            and row.get("checkpoint_id") in answered_checkpoint_ids
+            for row in static_items
+            if isinstance(row, dict)
+        ):
+            if any(
+                _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
+                and str(row.get("checkpoint_interaction") or "").strip().upper() == "MASS_START"
+                for row in static_items
+                if isinstance(row, dict)
+            ):
+                for row in static_items:
+                    if not isinstance(row, dict):
+                        continue
+                    if _normalize_checkpoint_type(row.get("checkpoint_type")) == "START":
+                        start_checkpoint_id = row.get("checkpoint_id")
+                        if isinstance(start_checkpoint_id, int):
+                            answered_checkpoint_ids.add(start_checkpoint_id)
+                        break
+
+    participant_checkpoint_state_cache[key] = {
+        "cached_at": time.monotonic(),
+        "answered_checkpoint_ids": answered_checkpoint_ids,
+    }
+
+
+def _build_map_checkpoints_payload(
+    static_payload: dict[str, Any],
+    participant_state: dict[str, Any],
+    *,
+    static_source: str,
+    state_source: str,
+) -> dict[str, Any]:
+    static_items = static_payload.get("items") if isinstance(static_payload.get("items"), list) else []
+    answered_checkpoint_ids = participant_state.get("answered_checkpoint_ids")
+    answered_ids = answered_checkpoint_ids if isinstance(answered_checkpoint_ids, set) else set()
+    items = _overlay_answered_state_on_items(static_items, answered_ids)
+    return {
+        "response_source": "ords" if static_source == "ords" or state_source == "ords" else "cache",
+        "static_source": static_source,
+        "state_source": state_source,
+        "competition_type": static_payload.get("competition_type"),
+        "current_source_hash": static_payload.get("current_source_hash"),
+        "mass_start_at": static_payload.get("mass_start_at"),
+        "use_location": static_payload.get("use_location"),
+        "items": items,
+        "declination": static_payload.get("declination"),
+        "declination_last_updated": static_payload.get("declination_last_updated"),
+        "route": static_payload.get("route"),
+    }
+
+
+async def _get_map_checkpoints_payload(competition_id: int, user_id: int) -> dict[str, Any]:
+    static_payload, static_source = await _get_competition_checkpoint_static_payload(competition_id)
+    participant_state, state_source = await _get_participant_checkpoint_state(competition_id, user_id)
+    return _build_map_checkpoints_payload(
+        static_payload,
+        participant_state,
+        static_source=static_source,
+        state_source=state_source,
+    )
+
+
+def _static_checkpoint_effective_radius(item: dict[str, Any]) -> float | None:
+    radius_m = item.get("radius_m")
+    if isinstance(radius_m, (int, float)) and float(radius_m) > 0:
+        return float(radius_m)
+    return None
+
+
+def _build_open_checkpoint_items(
+    static_payload: dict[str, Any],
+    participant_state: dict[str, Any],
+    *,
+    latitude: float | None,
+    longitude: float | None,
+) -> list[dict[str, Any]]:
+    static_items = static_payload.get("items") if isinstance(static_payload.get("items"), list) else []
+    answered_checkpoint_ids = participant_state.get("answered_checkpoint_ids")
+    answered_ids = answered_checkpoint_ids if isinstance(answered_checkpoint_ids, set) else set()
+    mass_start_at = static_payload.get("mass_start_at") if isinstance(static_payload.get("mass_start_at"), str) else None
+    use_location = str(static_payload.get("use_location") or "N").strip().upper() == "Y"
+    progress = _participant_progress_context(static_items, answered_ids, mass_start_at)
+    competition_type = str(progress.get("competition_type") or "R")
+    start_exists = bool(progress.get("start_exists"))
+    start_answered = bool(progress.get("logical_start_answered"))
+    finish_answered = bool(progress.get("finish_answered"))
+    next_ordered_checkpoint_id = progress.get("next_ordered_checkpoint_id")
+    if finish_answered:
+        return []
+
+    open_items: list[dict[str, Any]] = []
+    for row in static_items:
+        if not isinstance(row, dict):
+            continue
+        checkpoint_id = row.get("checkpoint_id")
+        if not isinstance(checkpoint_id, int):
+            continue
+        if checkpoint_id in answered_ids:
+            continue
+
+        checkpoint_type = _normalize_checkpoint_type(row.get("checkpoint_type"))
+        checkpoint_interaction = str(row.get("checkpoint_interaction") or "").strip().upper()
+        question_id = row.get("question_id")
+        if checkpoint_interaction == "QUESTION" and not isinstance(question_id, int):
+            continue
+        if checkpoint_interaction not in {"QUESTION", "CHECK_ONLY"}:
+            continue
+
+        if start_exists and not start_answered and checkpoint_type != "START":
+            continue
+        if competition_type == "S":
+            if not (start_exists and not start_answered and checkpoint_type == "START"):
+                if isinstance(next_ordered_checkpoint_id, int):
+                    if checkpoint_type != "NORMAL" or checkpoint_id != next_ordered_checkpoint_id:
+                        continue
+                elif checkpoint_type != "FINISH":
+                    continue
+
+        location_required = str(row.get("location_required") or "N").strip().upper() == "Y"
+        if use_location and location_required:
+            if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+                continue
+            cp_lat = row.get("latitude")
+            cp_lon = row.get("longitude")
+            effective_radius = _static_checkpoint_effective_radius(row)
+            if not isinstance(cp_lat, (int, float)) or not isinstance(cp_lon, (int, float)) or effective_radius is None:
+                continue
+            distance_m = _haversine_meters(float(latitude), float(longitude), float(cp_lat), float(cp_lon))
+            if distance_m > effective_radius:
+                continue
+        else:
+            distance_m = None
+
+        item = dict(row)
+        item["competition_type"] = competition_type
+        item["distance_m"] = distance_m
+        open_items.append(item)
+
+    def _sort_key(item: dict[str, Any]) -> tuple[int, float, str, int]:
+        location_required = str(item.get("location_required") or "N").strip().upper() == "Y"
+        sort_location_group = 0 if location_required else 1
+        sort_distance = float(item.get("distance_m")) if isinstance(item.get("distance_m"), (int, float)) else 999999999.0
+        sort_title = str(item.get("checkpoint_title") or "").lower()
+        return (sort_location_group, sort_distance, sort_title, int(item.get("checkpoint_id") or 0))
+
+    open_items.sort(key=_sort_key)
+    for item in open_items:
+        item.pop("distance_m", None)
+    return open_items
 
 
 @app.on_event("startup")
@@ -3227,9 +3480,7 @@ async def submit_answer(
     )
     distance_display_allowed = distance_display_allowed_raw in (True, "Y", "y", "true", "TRUE", 1)
     # Event-driven cache refresh for competitor status after successful submit.
-    map_cache_key = _map_cache_key(competition_id=req.competition_id, user_id=user_id)
-    map_checkpoints_personalized_users.add(map_cache_key)
-    map_checkpoints_cache.pop(map_cache_key, None)
+    _mark_participant_checkpoint_answered_in_cache(req.competition_id, user_id, req.checkpoint_id)
     open_checkpoints_last_response.pop(_open_checkpoints_key(competition_id=req.competition_id, user_id=user_id), None)
     return SubmitAnswerResponse(
         submission_id=submission_id,
@@ -3317,18 +3568,9 @@ async def competitor_open_checkpoints(
                 )
             return CompetitorOpenCheckpointsResponse(response_source="cache", items=previous_items)
 
-    ords_started_at = time.monotonic()
     try:
-        ords_response = await _get_from_ords(
-            "competitor/open-checkpoints",
-            {
-                "competition_id": competition_id,
-                "user_id": resolved_user_id,
-                "latitude": latitude,
-                "longitude": longitude,
-                "radius_m": radius_m,
-            },
-        )
+        static_payload, static_source = await _get_competition_checkpoint_static_payload(competition_id)
+        participant_state, state_source = await _get_participant_checkpoint_state(competition_id, resolved_user_id)
     except HTTPException as exc:
         error_code, error_details = _extract_http_exception_meta(exc)
         _log_structured(
@@ -3341,14 +3583,19 @@ async def competitor_open_checkpoints(
                 "status_code": exc.status_code,
                 "error_code": error_code,
                 "error_details": error_details,
-                "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3),
                 "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
             },
         )
         raise
-    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    items = raw_items if isinstance(raw_items, list) else []
+
+    items = _build_open_checkpoint_items(
+        static_payload,
+        participant_state,
+        latitude=latitude,
+        longitude=longitude,
+    )
     open_checkpoints_last_response[key] = {"response_at": now, "items": items, "signature": req_signature}
+    response_source = "ords" if static_source == "ords" or state_source == "ords" else "fastapi"
     if logger.isEnabledFor(logging.DEBUG):
         _log_structured(
             logging.DEBUG,
@@ -3356,13 +3603,19 @@ async def competitor_open_checkpoints(
             {
                 "competition_id": competition_id,
                 "user_id": resolved_user_id,
-                "source": "ords",
+                "source": response_source,
+                "static_source": static_source,
+                "state_source": state_source,
                 "item_count": len(items),
-                "ords_duration_ms": round((time.monotonic() - ords_started_at) * 1000.0, 3),
                 "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
             },
         )
-    return CompetitorOpenCheckpointsResponse(response_source="ords", items=items)
+    return CompetitorOpenCheckpointsResponse(
+        response_source=response_source,
+        competition_type=static_payload.get("competition_type") if isinstance(static_payload.get("competition_type"), str) else None,
+        mass_start_at=static_payload.get("mass_start_at") if isinstance(static_payload.get("mass_start_at"), str) else None,
+        items=items,
+    )
 
 
 @app.get("/api/competitor/map-checkpoints", response_model=CompetitorOpenCheckpointsResponse)
@@ -3383,6 +3636,8 @@ async def competitor_map_checkpoints(
                 "competition_id": competition_id,
                 "user_id": resolved_user_id,
                 "source": payload.get("response_source") if isinstance(payload.get("response_source"), str) else None,
+                "static_source": payload.get("static_source") if isinstance(payload.get("static_source"), str) else None,
+                "state_source": payload.get("state_source") if isinstance(payload.get("state_source"), str) else None,
                 "item_count": len(payload.get("items")) if isinstance(payload.get("items"), list) else 0,
                 "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
             },
@@ -3409,6 +3664,7 @@ async def competitor_checkpoint_access(
     resolved_user_id = _resolve_user_id(request, req.user_id, x_user_id)
     map_payload = await _get_map_checkpoints_payload(competition_id=req.competition_id, user_id=resolved_user_id)
     map_items = map_payload.get("items") if isinstance(map_payload.get("items"), list) else []
+    map_response_source = map_payload.get("response_source") if isinstance(map_payload.get("response_source"), str) else None
     by_id: dict[int, dict[str, Any]] = {}
     for row in map_items:
         if not isinstance(row, dict):
@@ -3430,6 +3686,7 @@ async def competitor_checkpoint_access(
                     "local_resolved_count": 0,
                     "candidate_count": 0,
                     "ords_called": False,
+                    "map_response_source": map_response_source,
                     "reason_counts": {},
                     "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
                 },
@@ -3440,51 +3697,13 @@ async def competitor_checkpoint_access(
     candidate_ids: list[int] = []
     lat = req.latitude if isinstance(req.latitude, (int, float)) else None
     lon = req.longitude if isinstance(req.longitude, (int, float)) else None
-    comp_type = "R"
-    start_exists = False
-    start_answered = False
-    finish_answered = False
-    next_ordered_checkpoint_id: int | None = None
     mass_start_at = map_payload.get("mass_start_at") if isinstance(map_payload.get("mass_start_at"), str) else None
-    if map_items:
-        comp_type = _normalize_competition_type(
-            next(
-                (
-                    row.get("competition_type")
-                    for row in map_items
-                    if isinstance(row, dict) and row.get("competition_type") is not None
-                ),
-                "R",
-            )
-        )
-        start_exists = any(
-            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
-            for row in map_items
-            if isinstance(row, dict)
-        )
-        start_answered = any(
-            _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
-            and str(row.get("is_answered", "N")).upper() == "Y"
-            for row in map_items
-            if isinstance(row, dict)
-        )
-        if not start_answered and _has_mass_start_begun(mass_start_at):
-            start_answered = any(
-                _normalize_checkpoint_type(row.get("checkpoint_type")) == "START"
-                and str(row.get("checkpoint_interaction") or "").strip().upper() == "MASS_START"
-                for row in map_items
-                if isinstance(row, dict)
-            )
-        finish_answered = any(
-            _normalize_checkpoint_type(row.get("checkpoint_type")) == "FINISH"
-            and str(row.get("is_answered", "N")).upper() == "Y"
-            for row in map_items
-            if isinstance(row, dict)
-        )
-        if comp_type == "S":
-            next_ordered_checkpoint_id = _ordered_checkpoint_id_from_map_items(
-                [row for row in map_items if isinstance(row, dict)]
-            )
+    progress = _participant_progress_context(map_items, _answered_checkpoint_ids_from_payload(map_items), mass_start_at)
+    comp_type = str(progress.get("competition_type") or "R")
+    start_exists = bool(progress.get("start_exists"))
+    start_answered = bool(progress.get("logical_start_answered"))
+    finish_answered = bool(progress.get("finish_answered"))
+    next_ordered_checkpoint_id = progress.get("next_ordered_checkpoint_id")
 
     for cp_id in requested_ids:
         cp = by_id.get(cp_id)
@@ -3568,6 +3787,7 @@ async def competitor_checkpoint_access(
                     "local_resolved_count": len(requested_ids) - len(candidate_ids),
                     "candidate_count": len(candidate_ids),
                     "ords_called": True,
+                    "map_response_source": map_response_source,
                     "status_code": exc.status_code,
                     "error_code": error_code,
                     "error_details": error_details,
@@ -3602,6 +3822,7 @@ async def competitor_checkpoint_access(
                 "local_resolved_count": len(requested_ids) - len(candidate_ids),
                 "candidate_count": len(candidate_ids),
                 "ords_called": ords_called,
+                "map_response_source": map_response_source,
                 "ords_open_count": sum(1 for entry in items if entry.checkpoint_id in candidate_id_set and entry.can_open),
                 "ords_not_open_count": sum(1 for entry in items if entry.checkpoint_id in candidate_id_set and not entry.can_open),
                 "reason_counts": _reason_counts(items),

@@ -11,8 +11,10 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
 - POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
 - GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
-- GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab küsimuste avamiseks lubatud KP-d (lõplik serveripoolne otsus).
+- GET `/competitor/open-checkpoints?competition_id=...&user_id=...` - tagastab küsimuste avamiseks lubatud KP-d; FastAPI võib need kokku panna lokaalsest static payload + participant-state cache'ist.
 - GET `/competitor/map-checkpoints?competition_id=...&user_id=...` - tagastab kaardivaate KP andmed (asukohad, staatused, answered lipud ja asukohanõudega KP-de efektiivse vastamisraadiuse).
+- GET `/competitor/competition-content?competition_id=...` - tagastab jagatava competitor static payload'i (KP-de staatiline sisu + küsimuste tekstid/valikud, ilma participant-state'ita).
+- GET `/competitor/checkpoint-state?competition_id=...&user_id=...` - tagastab ühe participanti answered checkpoint id-de seisu.
 - GET `/competitor/progress?competition_id=...&user_id=...` - tagastab osaleja progressi kokkuvõtte (KP-de arv, vastatud, skoor).
 - GET `/competitor/my-submissions?competition_id=...&user_id=...` - toob osaleja enda vastuste loendi.
 - GET `/competitor/my-submission-detail?competition_id=...&submission_id=...&lang_code=...&user_id=...` - toob osaleja ühe vastuse detailvaate.
@@ -93,6 +95,15 @@ Expected ORDS JSON responses:
     - kui kumbki puudub, tagastatakse `0`.
   - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at` ja `route`.
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
+- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
+  - payload sisaldab competitor-flow jaoks vajalikku staatilist checkpoint/question sisu:
+    - checkpoint metadata
+    - küsimuse tekstid
+    - `SINGLE_CHOICE` valikud
+    - efektiivne `radius_m`
+  - payload ei sisalda participant-specific `is_answered` välju.
+- `competitor/checkpoint-state` -> `{ "items": [{"checkpoint_id":123}, ...] }`
+  - payload sisaldab ainult participanti answered checkpoint id-de loendit.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
   - ajajoon võib sisaldada nii `submission_source = SUBMISSION` kui `submission_source = EVENT` ridu.
@@ -749,17 +760,20 @@ Important:
   - `POST /api/admin/competitions/map-layers` removes entry for that competition.
   - process restart clears all.
 
-### 4) `map_checkpoints_cache`
-- Purpose: cached payload for `GET /api/competitor/map-checkpoints`.
-- Key: `competition_id:user_id`.
-- TTL: `MAP_CHECKPOINTS_CACHE_TTL_SECONDS = 900` (15 min).
-- Filled: first request per key.
-- Bootstrap optimization:
-  - FastAPI also keeps a short competition-scoped bootstrap snapshot for `map-checkpoints`.
-  - TTL: `MAP_CHECKPOINTS_BOOTSTRAP_CACHE_TTL_SECONDS = 30`.
-  - intended use: collapse the first-wave "same competition, many users, no answers yet" ORDS burst into one shared fetch.
-  - this shared bootstrap snapshot is reused only for users who have not yet submitted answers in that competition.
-  - after a user submits an answer, that user is treated as personalized and future map refreshes for that user go through the normal per-user path.
+### 4) `competition_checkpoint_static_cache`
+- Purpose: shared competitor static payload for one competition.
+- Key: `competition_id`.
+- TTL: no time-based TTL; lives until invalidation or process restart.
+- Filled: first request that needs competitor static checkpoint/question content.
+- Contents:
+  - checkpoint metadata
+  - question texts
+  - `SINGLE_CHOICE` options
+  - effective radii
+  - route snapshot / hash metadata
+- Important:
+  - this cache is user-neutral by design
+  - it must not contain participant-specific `is_answered`
 - Additive payload fields (backward-compatible):
   - `checkpoint_order_no`
   - `checkpoint_type`
@@ -778,15 +792,25 @@ Important:
     - title part is truncated to maximum 5 characters;
     - no ellipsis is added in `S` type.
 - Invalidated/reset:
-  - user+competition scoped invalidation after successful `POST /api/submissions`.
-  - successful `POST /api/submissions` also marks that user+competition as personalized for future map refreshes.
-  - automatic expiry purge on reads.
   - competition-scoped clear via `_invalidate_competition_cache(...)` on checkpoint mutations, competition meta/date updates and question mutations when `competition_id` is present in the admin request.
   - fallback full clear for legacy question/option/answer admin requests that do not carry `competition_id`.
   - process restart clears all.
   - cached `route` is treated as display-only snapshot data; FastAPI removes it from payload when source-hash validation no longer matches current checkpoints.
 
-### 5) `open_checkpoints_last_response`
+### 5) `participant_checkpoint_state_cache`
+- Purpose: participant answered-checkpoint state used to overlay `is_answered` on the static payload and to derive the open-checkpoint list.
+- Key: `competition_id:user_id`.
+- TTL: `PARTICIPANT_CHECKPOINT_STATE_CACHE_TTL_SECONDS = 900` (15 min).
+- Filled: first request per participant after cache miss / restart / invalidation.
+- Contents:
+  - answered checkpoint id set
+- Invalidated/reset:
+  - automatic expiry purge on reads
+  - competition-scoped clear via `_invalidate_competition_cache(...)`
+  - after successful `POST /api/submissions`, FastAPI updates the participant state in memory immediately for that checkpoint instead of blindly dropping all state
+  - process restart clears all
+
+### 6) `open_checkpoints_last_response`
 - Purpose: short throttle cache for `GET /api/competitor/open-checkpoints`.
 - Key: `competition_id:user_id`.
 - TTL: `OPEN_CHECKPOINTS_THROTTLE_SECONDS = 2`.
@@ -799,16 +823,16 @@ Important:
   - `competition_type` (`R|S`)
 - Invalidated/reset:
   - naturally overwritten by next response.
-  - cleared together with map checkpoint cache on admin content mutations.
+  - cleared together with competitor cache invalidation on admin content mutations.
   - competition-scoped clear via `_invalidate_competition_cache(...)`.
   - process restart clears all.
 
-### 5a) `POST /api/competitor/checkpoint-access` behavior
+### 6a) `POST /api/competitor/checkpoint-access` behavior
 - Purpose: pre-validate map checkpoint availability with FastAPI-side filtering.
 - Input: `competition_id`, `checkpoint_ids[]`, optional `latitude/longitude/radius_m`.
 - Response includes `ords_called: true|false` to show whether any requested checkpoint had to fall back to ORDS because FastAPI could not decide locally.
 - Data source:
-  - uses `map_checkpoints_cache` (same `competition_id:user_id` cache as map view) for checkpoint metadata and `is_answered` hint.
+  - uses the composed map payload built from `competition_checkpoint_static_cache` + `participant_checkpoint_state_cache`.
   - uses ORDS only as a fallback when local checkpoint metadata is insufficient for a FastAPI-side decision.
 - Rules:
   - if `FINISH` is already answered -> `can_open=false, reason=finished`
@@ -824,13 +848,17 @@ Frontend event-driven refresh notes:
 - After successful answer submit, UI updates the answered checkpoint status locally (`is_answered='Y'`) for visible map markers.
 - After opening competitor results (`/api/competitor/my-submissions`), UI refreshes map checkpoints from `/api/competitor/map-checkpoints` to keep map answered flags aligned.
 
-### 5b) `GET /api/competitor/open-checkpoints` and `GET /api/competitor/map-checkpoints` response source
-- Both responses include `response_source: "cache" | "ords"`.
-- `open-checkpoints` uses `cache` when the short FastAPI throttle cache serves the exact same geo signature.
-- `map-checkpoints` uses `cache` when the competition/user map payload is already present in `map_checkpoints_cache`.
-- With `LOG_LEVEL=DEBUG`, backend logs these branches as structured `open_checkpoints_trace` and `map_checkpoints_trace` rows (`source=cache|ords`).
+### 6b) `GET /api/competitor/open-checkpoints` and `GET /api/competitor/map-checkpoints` response source
+- `map-checkpoints` includes `response_source: "cache" | "ords"`.
+  - `ords` means at least one source component (competition static payload or participant state) had to be loaded from ORDS for this request.
+  - `cache` means both source components were already available in FastAPI memory.
+- `open-checkpoints` includes `response_source: "cache" | "fastapi" | "ords"`.
+  - `cache` means the short geo-signature throttle cache served the exact same response.
+  - `fastapi` means FastAPI built the open list locally from cached static payload + cached participant state.
+  - `ords` means one of the underlying source components had to be reloaded from ORDS during this request.
+- With `LOG_LEVEL=DEBUG`, backend logs these branches as structured `open_checkpoints_trace` and `map_checkpoints_trace` rows and also includes `static_source` / `state_source`.
 
-### 6) `competitor_terms_cache`
+### 7) `competitor_terms_cache`
 - Purpose: cached terms payload for `GET /api/competitor/terms`.
 - Key: `competition_id|lang_code`.
 - TTL: no time-based TTL.
@@ -882,7 +910,7 @@ Main API entrypoints:
 - `GET /api/competitor/open-checkpoints`
 
 FastAPI precheck (`/api/competitor/checkpoint-access`):
-- reads checkpoint metadata from `map_checkpoints_cache` (or refreshes from ORDS if cache miss/expired);
+- reads checkpoint metadata from the composed `competitor/map-checkpoints` payload built from static checkpoint/question content plus participant answered-state;
 - checks per checkpoint:
   - not found -> `can_open=false, reason=not_found`
   - already answered -> `can_open=false, reason=answered`
@@ -898,24 +926,26 @@ FastAPI precheck (`/api/competitor/checkpoint-access`):
 
 Final authority:
 - question payload retrieval still happens through `GET /api/competitor/open-checkpoints`;
-- that endpoint remains the authoritative server-side source for the actual open question list and payload;
+- that endpoint is now normally built in FastAPI from:
+  - shared competition static payload
+  - participant answered-state
+  - current geolocation
 - `checkpoint-access` is therefore a FastAPI-side precheck plus a narrow fallback, not a required ORDS confirmation step for ordinary in-radius map clicks.
-- With `LOG_LEVEL=DEBUG`, `GET /api/competitor/open-checkpoints` logs structured `open_checkpoints_trace` rows with `source=cache|ords` and separate timing.
+- With `LOG_LEVEL=DEBUG`, `GET /api/competitor/open-checkpoints` logs structured `open_checkpoints_trace` rows with `source=cache|fastapi|ords` and separate timing.
 
 Competitor map popup flow:
 - map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
 - popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
 - user geolocation updates must not force content refresh for every closed popup; only currently open popup content should be refreshed on GPS movement.
-- after a positive `checkpoint-access` decision, the actual question payload still comes from `open-checkpoints`, which remains the authoritative server-side list of currently open checkpoints.
+- after a positive `checkpoint-access` decision, the actual question payload still comes from `open-checkpoints`, but in the normal path that list is assembled locally in FastAPI without an extra ORDS roundtrip.
 
 ORDS/PLSQL side:
-- `open-checkpoints` logic uses spherical distance formula (`6371000 * 2 * asin(sqrt(...))`);
-- location-required checkpoints are returned only when computed distance is within effective radius.
-- if an active `START` exists and the participant has not yet answered it, only `START` is returned as open;
-- if `competition.type='S'`, after `START` has been answered only the next unanswered `NORMAL` checkpoint in `order_no` order is returned as open;
-- if `competition.type='S'` and all normal checkpoints are already answered, only `FINISH` may remain open;
-- if `competition.type='R'`, after `START` has been answered the remaining unanswered checkpoints follow normal location rules in free order;
-- if active `FINISH` has already been answered, no more checkpoints are returned as open;
+- ORDS still remains authoritative for persisted submission/order rules in `submissions`.
+- FastAPI mirrors the same open-checkpoint rules locally:
+  - spherical distance formula (`6371000 * 2 * asin(sqrt(...))`)
+  - `START` gate
+  - `S`-type next-checkpoint gate
+  - `FINISH` cutoff
 - `START` and `FINISH` are answered through normal `submissions` flow and may award points like any other checkpoint;
 - `submissions` enforces the same server-authoritative order rule and raises `ORA-20067` on invalid `S`-type checkpoint order.
 
@@ -949,14 +979,15 @@ Availability flag:
 ### 3) Performance and ORDS-load behavior
 
 To reduce ORDS pressure (important in limited shared environments):
-- `map_checkpoints_cache` (15 min TTL) avoids repeated checkpoint-metadata fetches;
+- `competition_checkpoint_static_cache` collapses repeated checkpoint/question payload loads to one shared competition-scoped fetch;
+- `participant_checkpoint_state_cache` keeps participant answered-state small and separate from the static payload;
 - `open_checkpoints_last_response` (2 sec throttle by geo signature) coalesces bursts;
 - FastAPI precheck drops obviously far checkpoints before ORDS call;
 - ORDS retry/backoff (`ORDS_RETRY_ATTEMPTS`, `ORDS_RETRY_BACKOFF_SECONDS`) mitigates transient pool saturation.
 
 ### 4) Why two-stage decision exists
 
-FastAPI precheck is an optimization and UX helper. ORDS/DB remains authoritative for final open/not-open decision to keep rule consistency across clients and avoid trusting only edge-device input.
+FastAPI precheck and `open-checkpoints` assembly are now optimization and presentation helpers built on top of shared static payload + participant state. ORDS/DB remains authoritative for persisted submission validity, scoring and final business enforcement in `submissions`.
 
 ## Results ordering rule (authoritative)
 

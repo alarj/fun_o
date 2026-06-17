@@ -19,7 +19,7 @@ The following observability improvements were added after those early runs:
   - local FastAPI rules / cache
   - or a real ORDS / database roundtrip
 - `checkpoint-access` now exposes `ords_called`
-- `open-checkpoints` and `map-checkpoints` now expose `response_source=cache|ords`
+- `open-checkpoints` and `map-checkpoints` now expose response-source metadata
 - FastAPI logging was extended with structured trace rows so we can see:
   - which branch handled the request
   - whether ORDS was called
@@ -36,6 +36,10 @@ Current comparable runs are expected to use:
 - Locust statistics split by FastAPI/cache/ORDS branches where applicable
 
 Only runs produced after those observability improvements should be used as comparison input for architectural decisions.
+
+Important:
+- after the next-version cache split (`competition-content` static payload + `checkpoint-state` participant overlay), new runs should be compared primarily against each other
+- earlier `R4`/`R5` remain useful as historical baseline, but they describe the pre-split implementation
 
 ## Comparable run matrix
 
@@ -261,9 +265,10 @@ The current test and backend expose these distinctions:
   - current FastAPI behavior opens ordinary in-radius checkpoints locally; the `[ords]` branch should now appear only for narrow fallback cases where local metadata is insufficient
 
 - `GET /api/competitor/open-checkpoints`
-  - response field: `response_source=cache|ords`
+  - response field: `response_source=cache|fastapi|ords`
   - Locust stats:
     - `GET /api/competitor/open-checkpoints [cache]`
+    - `GET /api/competitor/open-checkpoints [fastapi]`
     - `GET /api/competitor/open-checkpoints [ords]`
 
 - `GET /api/competitor/map-checkpoints`
@@ -376,6 +381,10 @@ Count cached vs ORDS `open-checkpoints`:
 
 ```bash
 grep '"path":"/api/competitor/open-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"cache"' | wc -l
+```
+
+```bash
+grep '"path":"/api/competitor/open-checkpoints"' ~/fun_o_test/fun_o_test_41.jsonl | grep '"response_source":"fastapi"' | wc -l
 ```
 
 ```bash
