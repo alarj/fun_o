@@ -419,6 +419,51 @@ Staatus:
 Millal uuesti hinnata:
 - ainult siis, kui admin-session refresh scope tulevikus uuesti laieneb.
 
+### 2a.9 Locust JSONL request-logimise blokeeriv faili-I/O võib moonutada koormustesti enda mõõtmisi
+
+Mõjutatud fail:
+- `testing/load/locustfile.py`
+
+Mõjutatud ala:
+- `_append_jsonl(...)`
+- request/response detailrea kirjutamine koormustesti ajal
+
+Miks ei parandatud kohe:
+- praegune test logib teadlikult iga päringu detailse JSONL reana, et hilisem analüüs oleks võimalikult täielik;
+- samas avatakse ja suletakse logifail iga kirje jaoks uuesti ning kasutatakse standardset blokeerivat faili-I/O-d;
+- suure koormuse all võib see tekitada täiendavat CPU ja ketta survet Locusti konteineris ning mõjutada mõõdetavaid response time näitajaid;
+- tähelepanek puudutab eelkõige testitööriista enda mõõtmistäpsust, mitte rakenduse äriloogika korrektsust;
+- käesoleva töö fookus oli ORDS/FastAPI päris pudelikaelte leidmine ja kõrvaldamine, mitte Locusti logimissüsteemi refaktor.
+
+Staatus:
+- teadlikult edasi lükatud testitööriista täpsuse / jõudluse parandus
+
+Millal uuesti hinnata:
+- enne järgmisi väga suure koormusega võrdlusteste, kus response time täpsus muutub otsustuskriteeriumiks;
+- kui detailse JSONL logi maht kasvab nii suureks, et testigeneraatori enda koormus hakkab tulemusi nähtavalt mõjutama.
+
+### 2a.10 `map_checkpoints` payload kloonimine kasutab madalat koopiat ja võib muutuda riskiks rikkalikuma cache-payloadi korral
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `_clone_map_checkpoint_payload(...)`
+
+Miks ei parandatud kohe:
+- praegune kloonimisloogika kopeerib ülemise taseme sõnastikud ja `items` listi elemendid, kuid ei tee täielikku sügavat koopiat kõigist võimalikest siseobjektidest;
+- tänases voos ei ole see kinnitatud funktsionaalne viga ning praegune cache kasutus ei ole näidanud sellest tulenevat regressiooni;
+- samas võib risk kasvada, kui cache-payload muutub rikkalikumaks ja sisaldab rohkem nested struktuure, mida hakatakse hiljem lokaalselt uuendama või muteerima;
+- kuna aktiivne fookus oli ORDS koormuse vähendamisel ja request-flow pudelikaelte leidmisel, ei tehtud siin eraldi `deepcopy` refaktorit ilma kinnitatud vajaduseta.
+
+Staatus:
+- teadlikult edasi lükatud ettevaatus-/töökindluse parandus
+
+Millal uuesti hinnata:
+- kui `map-checkpoints` või muu competitor cache hakkab sisaldama rikkalikumat küsimuse payloadi;
+- kui FastAPI hakkab cache-payloadis rohkem nested välju kohapeal uuendama;
+- kui ilmneb päris sümptom, mis viitab jagatud mutable state lekkimisele kasutajate vahel.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
