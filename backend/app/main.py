@@ -173,12 +173,14 @@ def _configure_logging() -> None:
     level = _resolve_log_level(settings.log_level)
     root_logger = logging.getLogger()
     if not root_logger.handlers:
-        logging.basicConfig(level=level)
-    root_logger.setLevel(level)
+        logging.basicConfig(level=logging.DEBUG if level == logging.DEBUG else level)
+    root_logger.setLevel(logging.INFO)
     for handler in root_logger.handlers:
-        handler.setLevel(level)
+        handler.setLevel(logging.DEBUG if level == logging.DEBUG else level)
     logging.getLogger("app").setLevel(level)
     logger.setLevel(level)
+    for noisy_logger_name in ("httpx", "httpcore", "uvicorn.access"):
+        logging.getLogger(noisy_logger_name).setLevel(logging.WARNING)
 
 
 def _log_structured(level: int, event_name: str, payload: dict[str, Any]) -> None:

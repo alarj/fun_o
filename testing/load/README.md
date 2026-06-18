@@ -14,6 +14,7 @@ The following observability improvements were added after those early runs:
   - `ERROR` for minimal production error visibility
   - `INFO` for normal operational logging
   - `DEBUG` for load testing and branch-level tracing
+- `DEBUG` is intended to expose application branch traces only; noisy third-party HTTP client logs are suppressed so test runs stay analyzable
 - comparison runs must use `LOG_LEVEL=DEBUG`
 - competitor-facing API responses were extended so the caller can see whether the answer came from:
   - local FastAPI rules / cache
@@ -47,6 +48,7 @@ Important:
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|
 | R4 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 9989 | 190 | `10` users at `48..49` KP | `10:27:00` to `11:30:19` UTC | FastAPI branch stayed clean; main error source was ORDS-backed `checkpoint-access` |
 | R5 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `12:53:58` to `13:57:27` UTC | Removing ordinary ORDS confirmation from `checkpoint-access` eliminated the main failure branch |
+| R6 | 2026-06-17 | `2 x 100` split load, static/state split version | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `20:54:11` to `21:57:23` UTC | New cache split stayed stable; only `2` early `submissions` 429 remained |
 
 Notes:
 - `R4` consists of two simultaneous runs:
@@ -61,6 +63,13 @@ Notes:
 - `submissions_v` / DB counts confirmed for `R5`:
   - competition `41`: `100` start events, `5000` KP submissions, all `100` users completed all `50`
   - competition `341`: `100` start events, `5000` KP submissions, all `100` users completed all `50`
+- `R6` consists of the same two simultaneous runs after the static payload / participant-state split:
+  - competition `41`, users `t100..t199`
+  - competition `341`, users `t300..t399`
+- DB counts confirmed for `R6`:
+  - competition `41`: `100` start events, `5000` KP submissions
+  - competition `341`: `100` start events, `5000` KP submissions
+  - combined: `200` start events, `10000` KP submissions
 
 ## Endpoint comparison
 
@@ -103,6 +112,25 @@ Notes:
 | R5 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 619 | 290 | 10000 | 10191 | bootstrap stable, but with long-tail startup latency |
 | R5 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 86 | 61 | 880 | 10760 | real save path was fully clean |
 
+### Run R6 by competition
+
+| Run ID | Competition | Endpoint branch | Requests | Failures | Failure % | Avg ms | Median ms | P99 ms | Max ms | Main interpretation |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| R6 | 41 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 124 | 130 | 170 | 165 | bootstrap stable |
+| R6 | 41 | `GET /api/competitor/map-checkpoints [cache]` | 45 | 0 | 0.00% | 12 | 4 | 83 | 83 | cache reuse visible already in first wave |
+| R6 | 41 | `GET /api/competitor/map-checkpoints [ords]` | 55 | 0 | 0.00% | 69 | 45 | 500 | 499 | static/state split reduced first-load ORDS cost |
+| R6 | 41 | `GET /api/competitor/open-checkpoints [ords]` | 5002 | 0 | 0.00% | 54 | 47 | 160 | 2600 | log still showed old ORDS response branch |
+| R6 | 41 | `POST /api/competitor/checkpoint-access [fastapi]` | 24989 | 0 | 0.00% | 12 | 4 | 78 | 4400 | precheck stayed fully local and clean |
+| R6 | 41 | `POST /api/dev/login` | 100 | 0 | 0.00% | 193 | 180 | 270 | 273 | bootstrap stable |
+| R6 | 41 | `POST /api/submissions` | 5002 | 2 | 0.04% | 71 | 53 | 650 | 5200 | only remaining errors were two early ORDS 429 on save |
+| R6 | 341 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 120 | 120 | 160 | 156 | bootstrap stable |
+| R6 | 341 | `GET /api/competitor/map-checkpoints [cache]` | 98 | 0 | 0.00% | 7 | 4 | 80 | 79 | almost all first map loads came from cache |
+| R6 | 341 | `GET /api/competitor/map-checkpoints [ords]` | 2 | 0 | 0.00% | 57 | 57 | 58 | 58 | static payload dedup worked as intended |
+| R6 | 341 | `GET /api/competitor/open-checkpoints [ords]` | 5000 | 0 | 0.00% | 59 | 51 | 180 | 5400 | log still showed old ORDS response branch |
+| R6 | 341 | `POST /api/competitor/checkpoint-access [fastapi]` | 25059 | 0 | 0.00% | 15 | 4 | 77 | 5200 | precheck stayed fully local and clean |
+| R6 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 195 | 190 | 590 | 592 | bootstrap stable |
+| R6 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 82 | 60 | 830 | 3525 | save path fully clean |
+
 ### Combined branch totals by run
 
 | Run ID | Branch | Requests | Failures | Failure % | Main meaning |
@@ -119,6 +147,11 @@ Notes:
 | R5 | `checkpoint-access [fastapi]` | 49992 | 0 | 0.00% | FastAPI branch absorbed the full precheck load cleanly |
 | R5 | `checkpoint-access [ords]` | 2 | 2 | 100.00% | residual fallback path only, no longer a material branch |
 | R5 | `submissions` | 10001 | 1 | 0.01% | save path effectively clean |
+| R6 | `map-checkpoints [cache]` | 143 | 0 | 0.00% | static/state split produced strong cache reuse in first wave |
+| R6 | `map-checkpoints [ords]` | 57 | 0 | 0.00% | only a small first-load ORDS share remained |
+| R6 | `open-checkpoints [ords]` | 10002 | 0 | 0.00% | response log still showed ORDS branch for every call |
+| R6 | `checkpoint-access [fastapi]` | 50048 | 0 | 0.00% | local FastAPI branch carried all precheck load cleanly |
+| R6 | `submissions` | 10002 | 2 | 0.02% | only two early ORDS 429 remained on final save path |
 
 ### Run R4 time distribution for `checkpoint-access [ords]` errors
 
@@ -168,51 +201,62 @@ Notes:
 | R5 | 341 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | R5 | Combined | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-## Current conclusions from R4 vs R5
+### Run R6 time distribution for `submissions` errors
 
-- Both runs used the same `2 x 100` scenario, same users, same competitions, same duration, and the same mass-start model.
-- The key architectural change in `R5` was that ordinary in-radius `checkpoint-access` requests were answered locally in FastAPI instead of performing an ORDS confirmation roundtrip.
+| Run ID | Competition | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R6 | 41 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R6 | 341 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R6 | Combined | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+## Current conclusions from R4 vs R5 vs R6
+
+- All three comparable runs used the same `2 x 100` split-load scenario, same users, same competitions, same duration, and the same mass-start model.
+- Architectural steps by run:
+  - `R4`: old design where `checkpoint-access` still had a meaningful ORDS-backed branch
+  - `R5`: ordinary in-radius `checkpoint-access` requests were answered locally in FastAPI instead of performing an ORDS confirmation roundtrip
+  - `R6`: same `checkpoint-access` improvement plus the new static payload / participant-state cache split
 - End result:
   - `R4`: `9989` successful KP submissions, `190` full finishers
   - `R5`: `10000` successful KP submissions, `200` full finishers
-- The dominant failure branch from `R4` disappeared in `R5`:
+  - `R6`: `10000` successful KP submissions, `200` full finishers
+- `R4 -> R5` removed the dominant failure branch:
   - `R4 checkpoint-access [ords]`: `10783` requests, `728` failures, `6.75%`
   - `R5 checkpoint-access [ords]`: `2` requests, `2` failures
-- The `R5` fallback branch is not comparable in weight to `R4` anymore:
-  - it was hit only twice in the whole run
-  - both failures happened in the first `0-10` minutes
-  - it no longer represents a meaningful load path
-- The FastAPI precheck branch remained fully stable and absorbed more load:
-  - `R4 checkpoint-access [fastapi]`: `39581` requests, `0` failures
+- `R5 -> R6` kept that gain and improved first-wave map loading:
+  - `R5 map-checkpoints [ords]`: `200`
+  - `R5 map-checkpoints [cache]`: `0`
+  - `R6 map-checkpoints [ords]`: `57`
+  - `R6 map-checkpoints [cache]`: `143`
+- The FastAPI precheck branch stayed fully stable in both newer designs:
   - `R5 checkpoint-access [fastapi]`: `49992` requests, `0` failures
-- ORDS-backed `open-checkpoints` also improved materially:
-  - `R4`: `10055` requests, `41` failures, `0.41%`
-  - `R5`: `10001` requests, `0` failures
-- The final save path became almost perfectly clean:
-  - `R4 submissions`: `10014` requests, `25` failures, `0.25%`
+  - `R6 checkpoint-access [fastapi]`: `50048` requests, `0` failures
+- The final save path remained very clean:
   - `R5 submissions`: `10001` requests, `1` failure, `0.01%`
-- In both runs, the remaining failures were concentrated in the first wave:
-  - `R4`: all `728` `checkpoint-access [ords]` failures, all `41` `open-checkpoints [ords]` failures, and all `25` `submissions` failures happened in the first `0-10` minutes
-  - `R5`: the only `submissions` failure and the only `checkpoint-access [ords]` fallback failures also happened in the first `0-10` minutes
+  - `R6 submissions`: `10002` requests, `2` failures, `0.02%`
+- In `R6`, the only errors were two early `429` responses on `/ords/funo/submissions`, both in the first `0-10` minutes.
 
 ## Architectural findings to carry forward
 
-- `R5` strongly validates the decision to remove ordinary ORDS confirmation from `checkpoint-access`.
-- The earlier `R4` bottleneck was architectural, not simply a tuning issue.
-- FastAPI already has:
-  - cached checkpoint metadata
-  - checkpoint coordinates and effective radius
-  - local haversine distance calculation
-- `R4` showed that the duplicated ORDS confirmation path was the most failure-prone branch.
-- `R5` showed that once that duplicated precheck was bypassed for ordinary in-radius cases:
-  - the local FastAPI branch stayed fully stable under higher effective precheck volume
-  - `open-checkpoints` stayed fully stable
-  - the final `submissions` save path was effectively clean
-  - all `200` users completed all `50` checkpoints
-- `map-checkpoints` still hit ORDS on first load for every user in `R5`:
-  - combined ORDS path: `200`
-  - combined cache path: `0`
-  - this remains a separate optimization topic, but it was not the dominant failure source in `R5`
+- `R5` strongly validated the decision to remove ordinary ORDS confirmation from `checkpoint-access`.
+- `R6` strongly validated the static payload / participant-state split for `map-checkpoints` first-wave loading.
+- The new cache split did not introduce a new visible failure branch in this `2 x 100` scenario.
+- Remaining save-path risk is now narrow and explicit:
+  - `submissions` can still hit ORDS rate limit during the very first spike
+  - after the first minutes, that error pattern disappeared in `R6`
+- Important investigation result from `R6`:
+  - run logs still showed `GET /api/competitor/open-checkpoints [ords]` for every call
+  - detailed response bodies also showed the old ORDS-style payload shape:
+    - top-level `competition_type = null`
+    - top-level `mass_start_at = null`
+    - top-level `route = null`
+    - item-level `radius_m = null`
+  - this does **not** match the new local FastAPI `open-checkpoints` implementation now present in repo
+  - therefore `R6` must not be interpreted as proof that the new local `open-checkpoints` branch was active on the server
+- Practical conclusion:
+  - `R6` proves the new `map-checkpoints` split is active and beneficial
+  - `R6` does **not** yet prove that the new local `open-checkpoints` assembly path was deployed and used in production during that run
+  - before the next `1 x 400` comparison run, deployment state for `open-checkpoints` should be rechecked explicitly
 
 ## Aborted diagnostic run: `R6` (`1 x 400`, competition `41`)
 

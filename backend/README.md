@@ -932,6 +932,7 @@ Final authority:
   - current geolocation
 - `checkpoint-access` is therefore a FastAPI-side precheck plus a narrow fallback, not a required ORDS confirmation step for ordinary in-radius map clicks.
 - With `LOG_LEVEL=DEBUG`, `GET /api/competitor/open-checkpoints` logs structured `open_checkpoints_trace` rows with `source=cache|fastapi|ords` and separate timing.
+- `LOG_LEVEL=DEBUG` is scoped to application traces; noisy third-party transport logs (`httpx`, `httpcore`, `uvicorn.access`) stay suppressed so load testing does not drown in client-library chatter.
 
 Competitor map popup flow:
 - map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
