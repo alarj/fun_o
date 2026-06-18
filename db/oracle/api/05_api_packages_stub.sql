@@ -1743,10 +1743,16 @@ create or replace package body pkg_results as
     select round(sum(
              6371000 * 2 * asin(
                sqrt(
-                 power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
-                 cos(g.prev_latitude * 0.017453292519943295) *
-                 cos(g.effective_latitude * 0.017453292519943295) *
-                 power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                 least(
+                   1,
+                   greatest(
+                     0,
+                     power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
+                     cos(g.prev_latitude * 0.017453292519943295) *
+                     cos(g.effective_latitude * 0.017453292519943295) *
+                     power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                   )
+                 )
                )
              )
            ))
@@ -1882,10 +1888,16 @@ create or replace package body pkg_results as
                             when count(*) >= 2 then round(sum(
                               6371000 * 2 * asin(
                                 sqrt(
-                                  power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
-                                  cos(g.prev_latitude * 0.017453292519943295) *
-                                  cos(g.effective_latitude * 0.017453292519943295) *
-                                  power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                                  least(
+                                    1,
+                                    greatest(
+                                      0,
+                                      power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
+                                      cos(g.prev_latitude * 0.017453292519943295) *
+                                      cos(g.effective_latitude * 0.017453292519943295) *
+                                      power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                                    )
+                                  )
                                 )
                               )
                             ))

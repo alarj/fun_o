@@ -486,6 +486,37 @@ Millal uuesti hinnata:
 - enne järgmisi suuremaid koormusteste, kus soovime participant-state ORDS päringuid veel kitsamaks tõmmata;
 - kui ORDS koormus on pärast suuremate pudelikaelte eemaldamist endiselt märkimisväärne just participant-state harus.
 
+### 2a.12 `1 x 400` mass-stardi bootstrapis jääb ORDS-i esimene metadata-laine kitsaskohaks
+
+Mõjutatud failid:
+- `backend/app/main.py`
+- `testing/load/README.md`
+
+Mõjutatud ala:
+- `POST /api/dev/login`
+- `GET /api/competitor/competitions`
+- `GET /api/competitor/map-checkpoints [ords]`
+
+Miks ei parandatud kohe:
+- `R9` jooks näitas, et võistlusaegne põhivoog on nüüd puhas ka `1 x 400` mass-stardi korral:
+  - `GET /api/competitor/open-checkpoints [fastapi]` -> `20000` päringut, `0` viga
+  - `POST /api/competitor/checkpoint-access [fastapi]` -> `100171` päringut, `0` viga
+  - `POST /api/submissions` -> `20000` päringut, `0` viga
+- alles jäänud vead olid ainult esimeses bootstrapi laines, kokku `61` tk:
+  - `18` × `POST /api/dev/login` `429`
+  - `13` × `GET /api/competitor/competitions` `429`
+  - `30` × `GET /api/competitor/map-checkpoints [ords]` `429`
+- kõik need vead jäid esimesse `0-10 min` ajakorvi ega rikkunud jooksu lõpptulemust: kõik `400` kasutajat lõpetasid ja tegid kokku `20000` KP märget;
+- see on seega päris ORDS bootstrapi optimeerimiskoht, kuid mitte enam süsteemi korrektsuse ega töövõime blokk.
+
+Staatus:
+- teadlikult edasi lükatud ORDS bootstrapi optimeerimine / backlog
+
+Millal uuesti hinnata:
+- enne järgmist suuremat kui `1 x 400` mass-stardi testi;
+- kui soovime vähendada just alglaadimise `429` vigu;
+- kui ORDS bootstrapi koormuse vähendamine muutub eraldi arhitektuurilise töövoo eesmärgiks.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

@@ -50,6 +50,7 @@ Important:
 | R5 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `12:53:58` to `13:57:27` UTC | Removing ordinary ORDS confirmation from `checkpoint-access` eliminated the main failure branch |
 | R6 | 2026-06-17 | `2 x 100` split load, static/state split version | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `20:54:11` to `21:57:23` UTC | New cache split stayed stable; only `2` early `submissions` 429 remained |
 | R8 | 2026-06-18 | `2 x 100` split load, local `open-checkpoints` active | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `07:06:38` to `08:10:00` UTC | Clean zero-failure run; `open-checkpoints` served locally in FastAPI and `submission_v` matched successful test submissions exactly |
+| R9 | 2026-06-18 | `1 x 400` mass start, local `open-checkpoints` active | 1 | 400 | 20 | 60 | 25 | 400 | 20000 | 400 | `0` partial users | `08:54:11` to `09:57:23` UTC | Core flow stayed fully clean at `400` users; all `61` failures were early bootstrap `429` on login and first metadata loads |
 
 Notes:
 - `R4` consists of two simultaneous runs:
@@ -86,6 +87,20 @@ Notes:
   - log-only rows: `0`
   - duplicate keys on either side: `0`
   - conclusion: every successful load-test KP marking was persisted for the same competition, same competitor, same checkpoint and same question as in the test log
+- `R9` used competition `41` with users `t001..t400`
+- DB counts confirmed for `R9`:
+  - competition `41`: `400` start events, `20000` KP submissions
+  - all `400` users completed all `50` KP
+- `R9` successful `POST /api/submissions` rows were reconciled against `submission_v` by
+  `competition_id + email + checkpoint_id + question_id`:
+  - log success rows: `20000`
+  - `submission_v` submission rows: `20000`
+  - DB-only rows: `0`
+  - log-only rows: `0`
+  - duplicate keys on either side: `0`
+  - `checkpoint_id` and `checkpoint_title` matched between log and DB rows for every successful submission
+  - per-checkpoint distribution was exact: all `50` checkpoints received `400` submissions each
+  - conclusion: every successful `R9` load-test KP marking was persisted for the same competition, same competitor, same checkpoint and same question as in the test log
 
 ## Endpoint comparison
 
@@ -164,6 +179,17 @@ Notes:
 | R8 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 219 | 200 | 710 | 710 | bootstrap stable |
 | R8 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 86 | 60 | 810 | 5756 | final save path fully clean |
 
+### Run R9 by competition
+
+| Run ID | Competition | Endpoint branch | Requests | Failures | Failure % | Avg ms | Median ms | P99 ms | Max ms | Main interpretation |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| R9 | 41 | `GET /api/competitor/competitions` | 413 | 13 | 3.15% | 221 | 230 | 370 | 510 | bootstrap-only `429` branch in first wave |
+| R9 | 41 | `GET /api/competitor/map-checkpoints [ords]` | 430 | 30 | 6.98% | 100 | 49 | 420 | 510 | first metadata wave still hits ORDS and is the main startup hotspot |
+| R9 | 41 | `GET /api/competitor/open-checkpoints [fastapi]` | 20000 | 0 | 0.00% | 3 | 3 | 12 | 113 | local FastAPI question-open path stayed fully clean at `400` users |
+| R9 | 41 | `POST /api/competitor/checkpoint-access [fastapi]` | 100171 | 0 | 0.00% | 4 | 4 | 14 | 256 | local FastAPI precheck carried the full in-race load cleanly |
+| R9 | 41 | `POST /api/dev/login` | 418 | 18 | 4.31% | 351 | 350 | 610 | 667 | startup login burst still produced some `429` |
+| R9 | 41 | `POST /api/submissions` | 20000 | 0 | 0.00% | 84 | 60 | 760 | 6998 | final save path stayed fully clean even at `400` users |
+
 ### Combined branch totals by run
 
 | Run ID | Branch | Requests | Failures | Failure % | Main meaning |
@@ -189,6 +215,19 @@ Notes:
 | R8 | `open-checkpoints [fastapi]` | 10000 | 0 | 0.00% | local question-open assembly was active for every call |
 | R8 | `checkpoint-access [fastapi]` | 50024 | 0 | 0.00% | local FastAPI precheck carried the full branch cleanly |
 | R8 | `submissions` | 10000 | 0 | 0.00% | final save path fully clean |
+| R9 | `map-checkpoints [ords]` | 430 | 30 | 6.98% | first-wave ORDS bootstrap remained the only material startup hotspot |
+| R9 | `open-checkpoints [fastapi]` | 20000 | 0 | 0.00% | local question-open assembly scaled cleanly to `400` users |
+| R9 | `checkpoint-access [fastapi]` | 100171 | 0 | 0.00% | local FastAPI precheck carried the entire in-race branch cleanly |
+| R9 | `submissions` | 20000 | 0 | 0.00% | final save path stayed fully clean at `400` users |
+
+### Run R9 time distribution for bootstrap errors
+
+| Run ID | Branch | 0-10 min | 10-20 min | 20-30 min | 30-40 min | 40-50 min | 50-60 min | 60+ min |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| R9 | `GET /api/competitor/map-checkpoints [ords]` | 30 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R9 | `POST /api/dev/login` | 18 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R9 | `GET /api/competitor/competitions` | 13 | 0 | 0 | 0 | 0 | 0 | 0 |
+| R9 | Combined | 61 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ### Run R4 time distribution for `checkpoint-access [ords]` errors
 
@@ -313,6 +352,33 @@ Notes:
 - Practical meaning:
   - for this scenario, the optimized FastAPI-side open/precheck flow is not only fast but also persisted exactly the checkpoints and competitors that the test intended to submit
   - remaining ORDS dependency in the competitor read path is now mainly the first `map-checkpoints` load and the final `submissions` save
+
+## Current conclusions from R9
+
+- `R9` is the first completed `1 x 400` mass-start comparison run on the optimized branch split:
+  - `map-checkpoints [ords]`
+  - `open-checkpoints [fastapi]`
+  - `checkpoint-access [fastapi]`
+  - `submissions`
+- `R9` completed with:
+  - `400` mass-start events
+  - `20000` successful KP submissions
+  - `400` users finishing all `50` KP
+  - submission window `08:54:11` to `09:57:23` UTC
+- `R9` error pattern was narrow and startup-bound:
+  - total failures: `61` out of `141432` requests (`0.04%`)
+  - all `61` failures happened in the first `10` minutes
+  - there were no failures at all in the core in-race branches:
+    - `open-checkpoints [fastapi]`
+    - `checkpoint-access [fastapi]`
+    - `submissions`
+- Persistence validation was exact:
+  - successful `POST /api/submissions` rows in the JSONL log matched `submission_v` exactly by `competition_id + email + checkpoint_id + question_id`
+  - there were no extra DB rows, no missing DB rows and no duplicate keys
+  - all `50` checkpoints were marked exactly `400` times each
+- Practical meaning:
+  - once the first-wave bootstrap passes, the optimized steady-state flow scales cleanly to `400` simultaneous competitors on this test scenario
+  - the remaining bottleneck is no longer the race-time question/open/save flow, but the first metadata burst that still depends on ORDS during user bootstrap
 
 ## Aborted diagnostic run: `R6` (`1 x 400`, competition `41`)
 
