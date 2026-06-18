@@ -454,6 +454,7 @@ Miks ei parandatud kohe:
 - praegune kloonimisloogika kopeerib ülemise taseme sõnastikud ja `items` listi elemendid, kuid ei tee täielikku sügavat koopiat kõigist võimalikest siseobjektidest;
 - tänases voos ei ole see kinnitatud funktsionaalne viga ning praegune cache kasutus ei ole näidanud sellest tulenevat regressiooni;
 - samas võib risk kasvada, kui cache-payload muutub rikkalikumaks ja sisaldab rohkem nested struktuure, mida hakatakse hiljem lokaalselt uuendama või muteerima;
+- viimane Gemini review tõi sama riski eraldi välja ja selle sisuga võib nõustuda: kui mõni tulevane kooditee muudab vastuses olevat nested objekti kohapeal, võib shallow-copy tõttu muutuda ka globaalne cache-entry ning halvimal juhul lekkida muutus teiste kasutajate vastustesse;
 - kuna aktiivne fookus oli ORDS koormuse vähendamisel ja request-flow pudelikaelte leidmisel, ei tehtud siin eraldi `deepcopy` refaktorit ilma kinnitatud vajaduseta.
 
 Staatus:
@@ -462,6 +463,7 @@ Staatus:
 Millal uuesti hinnata:
 - kui `map-checkpoints` või muu competitor cache hakkab sisaldama rikkalikumat küsimuse payloadi;
 - kui FastAPI hakkab cache-payloadis rohkem nested välju kohapeal uuendama;
+- kui tehakse järgmine sihitud cache-hardening pass, võib `_clone_map_checkpoint_payload(...)` ja seotud clone-helperid viia `copy.deepcopy(...)` peale;
 - kui ilmneb päris sümptom, mis viitab jagatud mutable state lekkimisele kasutajate vahel.
 
 ### 2a.11 `participant_checkpoint_state_cache` võib bootstrap-faasis teha sama kasutaja kohta paralleelseid ORDS päringuid
