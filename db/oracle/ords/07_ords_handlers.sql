@@ -1005,7 +1005,9 @@ begin
         l_declination_last_updated varchar2(30);
         l_route_json clob;
         l_output_json clob;
+        l_output_obj json_object_t := json_object_t();
         l_route_obj json_object_t;
+        l_items_element json_element_t;
         l_current_hash varchar2(64);
         l_len pls_integer;
         l_pos pls_integer := 1;
@@ -1020,17 +1022,7 @@ begin
           o_declination => l_declination,
           o_declination_last_updated => l_declination_last_updated
         );
-        l_output_json :=
-          '{'
-          || '"competition_type":"' || replace(nvl(l_competition_type, 'R'), '"', '\"') || '"'
-          || ',"use_location":"' || replace(nvl(l_use_location, 'N'), '"', '\"') || '"'
-          || ',"current_source_hash":null'
-          || ',"mass_start_at":' || case when l_mass_start_at is null then 'null' else '"' || replace(l_mass_start_at, '"', '\"') || '"' end
-          || ',"declination":' || to_char(nvl(l_declination, 0))
-          || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
-          || ',"route":{}'
-          || ',"items":' || nvl(l_json, '[]')
-          || '}';
+        l_route_obj := json_object_t();
         begin
           FUNO_APP.pkg_competition_routes.get_route_snapshot_json(
             p_competition_id => to_number(:competition_id),
@@ -1041,25 +1033,40 @@ begin
           );
           if l_route_json is not null then
             l_route_obj := json_object_t.parse(l_route_json);
-          else
-            l_route_obj := json_object_t();
           end if;
-          l_route_obj.put('current_source_hash', l_current_hash);
-          l_output_json :=
-            '{'
-            || '"competition_type":"' || replace(nvl(l_competition_type, 'R'), '"', '\"') || '"'
-            || ',"use_location":"' || replace(nvl(l_use_location, 'N'), '"', '\"') || '"'
-            || ',"current_source_hash":' || case when l_current_hash is null then 'null' else '"' || replace(l_current_hash, '"', '\"') || '"' end
-            || ',"mass_start_at":' || case when l_mass_start_at is null then 'null' else '"' || replace(l_mass_start_at, '"', '\"') || '"' end
-            || ',"declination":' || to_char(nvl(l_declination, 0))
-            || ',"declination_last_updated":' || case when l_declination_last_updated is null then 'null' else '"' || replace(l_declination_last_updated, '"', '\"') || '"' end
-            || ',"route":' || case when l_route_json is null then '{}' else l_route_obj.to_clob() end
-            || ',"items":' || nvl(l_json, '[]')
-            || '}';
+          if l_current_hash is not null then
+            l_route_obj.put('current_source_hash', l_current_hash);
+          end if;
         exception
           when others then
             null;
         end;
+        l_output_obj.put('competition_type', nvl(l_competition_type, 'R'));
+        l_output_obj.put('use_location', nvl(l_use_location, 'N'));
+        if l_current_hash is null then
+          l_output_obj.put_null('current_source_hash');
+        else
+          l_output_obj.put('current_source_hash', l_current_hash);
+        end if;
+        if l_mass_start_at is null then
+          l_output_obj.put_null('mass_start_at');
+        else
+          l_output_obj.put('mass_start_at', l_mass_start_at);
+        end if;
+        l_output_obj.put('declination', nvl(l_declination, 0));
+        if l_declination_last_updated is null then
+          l_output_obj.put_null('declination_last_updated');
+        else
+          l_output_obj.put('declination_last_updated', l_declination_last_updated);
+        end if;
+        l_output_obj.put('route', l_route_obj);
+        if l_json is null then
+          l_output_obj.put('items', json_array_t());
+        else
+          l_items_element := json_element_t.parse(l_json);
+          l_output_obj.put('items', l_items_element);
+        end if;
+        l_output_json := l_output_obj.to_clob();
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
         l_len := dbms_lob.getlength(l_output_json);

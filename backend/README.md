@@ -763,7 +763,7 @@ Important:
 ### 4) `competition_checkpoint_static_cache`
 - Purpose: shared competitor static payload for one competition.
 - Key: `competition_id`.
-- TTL: no time-based TTL; lives until invalidation or process restart.
+- TTL: fallback time-based TTL `COMPETITION_CHECKPOINT_STATIC_CACHE_FALLBACK_TTL_SECONDS = 43200` (12 h), plus normal invalidation and process restart.
 - Filled: first request that needs competitor static checkpoint/question content.
 - Contents:
   - checkpoint metadata
@@ -794,6 +794,7 @@ Important:
 - Invalidated/reset:
   - competition-scoped clear via `_invalidate_competition_cache(...)` on checkpoint mutations, competition meta/date updates and question mutations when `competition_id` is present in the admin request.
   - fallback full clear for legacy question/option/answer admin requests that do not carry `competition_id`.
+  - stale entry is also lazily refreshed once the 12 h fallback TTL has expired.
   - process restart clears all.
   - cached `route` is treated as display-only snapshot data; FastAPI removes it from payload when source-hash validation no longer matches current checkpoints.
 

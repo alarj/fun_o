@@ -464,6 +464,28 @@ Millal uuesti hinnata:
 - kui FastAPI hakkab cache-payloadis rohkem nested välju kohapeal uuendama;
 - kui ilmneb päris sümptom, mis viitab jagatud mutable state lekkimisele kasutajate vahel.
 
+### 2a.11 `participant_checkpoint_state_cache` võib bootstrap-faasis teha sama kasutaja kohta paralleelseid ORDS päringuid
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `_get_participant_checkpoint_state(...)`
+
+Miks ei parandatud kohe:
+- staatilise competition-scope payloadi jaoks on olemas `inflight` koondamine, kuid participant-state cache kasutab praegu ainult tavalist cache-miss -> ORDS laadimist;
+- funktsionaalselt on voog korrektne ja senised parandused keskendusid kinnitatud süsteemivigadele ning ORDS koormuse suurematele allikatele;
+- sama kasutaja paralleelne bootstrap-koormus on pigem optimeerimise, mitte ärilise korrektsuse teema;
+- selle lisamine muudaks concurrency-käitumist ning väärib eraldi sihitud muudatust koos mõõtmisega.
+
+Staatus:
+- teadlikult edasi lükatud optimeerimine / hardening
+
+Millal uuesti hinnata:
+- kui logidest ilmneb sama `competition_id:user_id` kohta dubleeruvaid `competitor/checkpoint-state` ORDS päringuid bootstrap-faasis;
+- enne järgmisi suuremaid koormusteste, kus soovime participant-state ORDS päringuid veel kitsamaks tõmmata;
+- kui ORDS koormus on pärast suuremate pudelikaelte eemaldamist endiselt märkimisväärne just participant-state harus.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
