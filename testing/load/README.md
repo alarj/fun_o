@@ -49,6 +49,7 @@ Important:
 | R4 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 9989 | 190 | `10` users at `48..49` KP | `10:27:00` to `11:30:19` UTC | FastAPI branch stayed clean; main error source was ORDS-backed `checkpoint-access` |
 | R5 | 2026-06-17 | `2 x 100` split load | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `12:53:58` to `13:57:27` UTC | Removing ordinary ORDS confirmation from `checkpoint-access` eliminated the main failure branch |
 | R6 | 2026-06-17 | `2 x 100` split load, static/state split version | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `20:54:11` to `21:57:23` UTC | New cache split stayed stable; only `2` early `submissions` 429 remained |
+| R8 | 2026-06-18 | `2 x 100` split load, local `open-checkpoints` active | 2 | 200 | 20 total | 60 | 25 | 200 | 10000 | 200 | `0` partial users | `07:06:38` to `08:10:00` UTC | Clean zero-failure run; `open-checkpoints` served locally in FastAPI and `submission_v` matched successful test submissions exactly |
 
 Notes:
 - `R4` consists of two simultaneous runs:
@@ -70,6 +71,21 @@ Notes:
   - competition `41`: `100` start events, `5000` KP submissions
   - competition `341`: `100` start events, `5000` KP submissions
   - combined: `200` start events, `10000` KP submissions
+- `R8` consists of the same two simultaneous runs after the local `open-checkpoints` path was confirmed active:
+  - competition `41`, users `t100..t199`
+  - competition `341`, users `t300..t399`
+- DB counts confirmed for `R8`:
+  - competition `41`: `100` start events, `5000` KP submissions
+  - competition `341`: `100` start events, `5000` KP submissions
+  - combined: `200` start events, `10000` KP submissions
+- `R8` successful `POST /api/submissions` rows were reconciled against `submission_v` by
+  `competition_id + email + checkpoint_id + question_id`:
+  - log success rows: `10000`
+  - `submission_v` submission rows: `10000`
+  - DB-only rows: `0`
+  - log-only rows: `0`
+  - duplicate keys on either side: `0`
+  - conclusion: every successful load-test KP marking was persisted for the same competition, same competitor, same checkpoint and same question as in the test log
 
 ## Endpoint comparison
 
@@ -131,6 +147,23 @@ Notes:
 | R6 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 195 | 190 | 590 | 592 | bootstrap stable |
 | R6 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 82 | 60 | 830 | 3525 | save path fully clean |
 
+### Run R8 by competition
+
+| Run ID | Competition | Endpoint branch | Requests | Failures | Failure % | Avg ms | Median ms | P99 ms | Max ms | Main interpretation |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| R8 | 41 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 166 | 150 | 440 | 443 | bootstrap stable |
+| R8 | 41 | `GET /api/competitor/map-checkpoints [ords]` | 100 | 0 | 0.00% | 96 | 42 | 2400 | 2378 | first map load still comes from ORDS |
+| R8 | 41 | `GET /api/competitor/open-checkpoints [fastapi]` | 5000 | 0 | 0.00% | 2 | 3 | 11 | 36 | local FastAPI question-open path was active and very fast |
+| R8 | 41 | `POST /api/competitor/checkpoint-access [fastapi]` | 25104 | 0 | 0.00% | 3 | 3 | 11 | 82 | local FastAPI precheck path stayed fully clean |
+| R8 | 41 | `POST /api/dev/login` | 100 | 0 | 0.00% | 269 | 210 | 920 | 921 | bootstrap stable |
+| R8 | 41 | `POST /api/submissions` | 5000 | 0 | 0.00% | 84 | 60 | 800 | 4643 | final save path fully clean |
+| R8 | 341 | `GET /api/competitor/competitions` | 100 | 0 | 0.00% | 127 | 120 | 680 | 676 | bootstrap stable |
+| R8 | 341 | `GET /api/competitor/map-checkpoints [ords]` | 100 | 0 | 0.00% | 68 | 43 | 590 | 589 | first map load still comes from ORDS |
+| R8 | 341 | `GET /api/competitor/open-checkpoints [fastapi]` | 5000 | 0 | 0.00% | 2 | 3 | 8 | 36 | local FastAPI question-open path was active and very fast |
+| R8 | 341 | `POST /api/competitor/checkpoint-access [fastapi]` | 24920 | 0 | 0.00% | 3 | 3 | 11 | 48 | local FastAPI precheck path stayed fully clean |
+| R8 | 341 | `POST /api/dev/login` | 100 | 0 | 0.00% | 219 | 200 | 710 | 710 | bootstrap stable |
+| R8 | 341 | `POST /api/submissions` | 5000 | 0 | 0.00% | 86 | 60 | 810 | 5756 | final save path fully clean |
+
 ### Combined branch totals by run
 
 | Run ID | Branch | Requests | Failures | Failure % | Main meaning |
@@ -152,6 +185,10 @@ Notes:
 | R6 | `open-checkpoints [ords]` | 10002 | 0 | 0.00% | response log still showed ORDS branch for every call |
 | R6 | `checkpoint-access [fastapi]` | 50048 | 0 | 0.00% | local FastAPI branch carried all precheck load cleanly |
 | R6 | `submissions` | 10002 | 2 | 0.02% | only two early ORDS 429 remained on final save path |
+| R8 | `map-checkpoints [ords]` | 200 | 0 | 0.00% | first map loads still hit ORDS once per user |
+| R8 | `open-checkpoints [fastapi]` | 10000 | 0 | 0.00% | local question-open assembly was active for every call |
+| R8 | `checkpoint-access [fastapi]` | 50024 | 0 | 0.00% | local FastAPI precheck carried the full branch cleanly |
+| R8 | `submissions` | 10000 | 0 | 0.00% | final save path fully clean |
 
 ### Run R4 time distribution for `checkpoint-access [ords]` errors
 
@@ -257,6 +294,25 @@ Notes:
   - `R6` proves the new `map-checkpoints` split is active and beneficial
   - `R6` does **not** yet prove that the new local `open-checkpoints` assembly path was deployed and used in production during that run
   - before the next `1 x 400` comparison run, deployment state for `open-checkpoints` should be rechecked explicitly
+
+## Current conclusions from R8
+
+- `R8` is the first fully clean `2 x 100` comparison run where the load log itself shows the intended steady-state branch split:
+  - `map-checkpoints [ords]`
+  - `open-checkpoints [fastapi]`
+  - `checkpoint-access [fastapi]`
+  - `submissions`
+- `R8` completed with:
+  - `200` mass-start events
+  - `10000` successful KP submissions
+  - `0` endpoint failures across both simultaneous runs
+  - submission window `07:06:38` to `08:10:00` UTC
+- `R8` also passed persistence reconciliation:
+  - successful `POST /api/submissions` rows in both JSONL logs matched `submission_v` exactly by `competition_id + email + checkpoint_id + question_id`
+  - there were no extra DB rows, no missing DB rows and no duplicate keys on either side
+- Practical meaning:
+  - for this scenario, the optimized FastAPI-side open/precheck flow is not only fast but also persisted exactly the checkpoints and competitors that the test intended to submit
+  - remaining ORDS dependency in the competitor read path is now mainly the first `map-checkpoints` load and the final `submissions` save
 
 ## Aborted diagnostic run: `R6` (`1 x 400`, competition `41`)
 

@@ -3713,6 +3713,7 @@ async def competitor_checkpoint_access(
     candidate_ids: list[int] = []
     lat = req.latitude if isinstance(req.latitude, (int, float)) else None
     lon = req.longitude if isinstance(req.longitude, (int, float)) else None
+    competition_type = str(map_payload.get("competition_type") or "R")
     mass_start_at = map_payload.get("mass_start_at") if isinstance(map_payload.get("mass_start_at"), str) else None
     progress = _participant_progress_context(competition_type, map_items, _answered_checkpoint_ids_from_payload(map_items), mass_start_at)
     comp_type = str(progress.get("competition_type") or "R")
