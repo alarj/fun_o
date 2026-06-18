@@ -460,9 +460,70 @@ html, body { max-width: 100%; overflow-x: hidden; }
       word-break: break-word;
       overflow-wrap: anywhere;
     }
-.adminTopLine {
-  align-items: center;
+.adminCompHeader {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  position: relative;
+}
+.adminCompHeaderTop {
+  display: block;
+  padding-right: 88px;
+}
+.adminCompTitleWrap {
+  min-width: 0;
+}
+.adminCompTitleHeading {
+  margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.adminCompTitleIcons {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-left: 8px;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.adminCompTitleIcons > span,
+.adminCompTitleIcons > .competition-overlay-ready-badge {
+  display: inline-flex;
+  vertical-align: baseline;
+}
+.adminCompLangWrap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  z-index: 1;
+}
+.adminCompActions {
+  align-items: center;
+  margin-top: 22px;
+}
+.adminCompDescription {
+  margin-bottom: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.admin-participants-intro {
+  margin: 4px 0 12px;
+  line-height: 1.4;
+}
+.admin-participants-table-wrap {
+  overflow-x: auto;
+}
+.admin-participants-table {
+  min-width: 620px;
+}
+.adminCompStatsGrid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 16px;
 }
 .competition-overlay-ready-badge {
   display: inline-flex;
@@ -496,22 +557,15 @@ html, body { max-width: 100%; overflow-x: hidden; }
   width: 18px;
   height: 18px;
 }
-.adminTopLineSpacer {
-  margin-left: auto;
-}
 @media (max-width: 980px) {
-  .adminTopLine {
-    flex-wrap: wrap;
+  .adminCompHeaderTop {
+    padding-right: 84px;
+  }
+  .adminCompTitleHeading {
+    font-size: 20px;
+  }
+  .adminCompActions {
     align-items: flex-start;
-  }
-  .adminTopLine h1 {
-    flex: 1 1 100%;
-  }
-  .adminTopLine .superLangSelect {
-    margin-left: auto;
-  }
-  .adminTopLineSpacer {
-    display: none;
   }
   .no-org-topline {
     flex-direction: column;
@@ -753,6 +807,19 @@ body.admin-booting .wrap {
   border: 1px solid #d9d9d9;
   border-radius: 12px;
   padding: 14px;
+}
+#removeParticipantBackdrop {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  width: min(560px, 96vw);
+  max-width: 96vw;
+}
+#removeParticipantBackdrop::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+#removeParticipantBackdrop .modalCard {
+  width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -1065,6 +1132,10 @@ body.admin-booting .wrap {
       .card { padding: 12px; }
       .cols { grid-template-columns: 1fr; gap: 10px; }
       .row { grid-template-columns: 1fr; gap: 6px; }
+      .adminCompStatsGrid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px 14px;
+      }
       .no-org-topline {
         flex-direction: column;
         align-items: flex-start;
@@ -1091,6 +1162,24 @@ body.admin-booting .wrap {
         flex-wrap: wrap;
       }
       h1, h2, h3 { font-size: 20px; }
+      .adminCompHeaderTop {
+        padding-right: 74px;
+      }
+      .adminCompTitleHeading {
+        padding-right: 4px;
+      }
+      .adminCompLangWrap .superLangSelect {
+        width: 60px;
+        min-width: 60px;
+      }
+      .adminCompTitleIcons {
+        gap: 6px;
+        margin-left: 6px;
+      }
+      .adminCompActions {
+        gap: 6px;
+        margin-top: 20px;
+      }
 
       /* Mobile/tablet: keep table usable via horizontal scroll instead of breaking layout */
       #checkpointsCard { overflow-x: auto; -webkit-overflow-scrolling: touch; }

@@ -4042,6 +4042,19 @@ create or replace package pkg_admin_content as
     p_user_id in number,
     p_removed_by in number
   );
+  -- list_competition_participants_json: Returns active competition participants for organizer modal.
+  procedure list_competition_participants_json(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  );
+  -- soft_delete_competition_participant: Soft-deletes one competition participant relation.
+  procedure soft_delete_competition_participant(
+    p_competition_id in number,
+    p_competition_participant_id in number,
+    p_removed_by in number
+  );
   -- update_competition_dates: Updates existing data for competition dates.
   procedure update_competition_dates(
     p_competition_id in number,
@@ -5930,6 +5943,118 @@ create or replace package body pkg_admin_content as
         json_object(
           'competition_id' value p_competition_id,
           'user_id' value p_user_id
+        )
+      )
+    );
+  end;
+
+  -- list_competition_participants_json: Returns active competition participants for organizer modal.
+  procedure list_competition_participants_json(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  ) is
+    l_has_access number := 0;
+  begin
+    o_access_granted := 'N';
+    o_items_json := '[]';
+
+    if p_competition_id is null or p_requester_user_id is null then
+      return;
+    end if;
+
+    select count(*)
+      into l_has_access
+      from competition_organizers co
+     where co.competition_id = p_competition_id
+       and co.user_id = p_requester_user_id
+       and (co.end_date is null or co.end_date > sysdate);
+
+    if l_has_access = 0 then
+      return;
+    end if;
+
+    o_access_granted := 'Y';
+
+    select nvl(
+             json_arrayagg(
+               json_object(
+                 'competition_participant_id' value x.competition_participant_id,
+                 'alias_display' value x.alias_display,
+                 'contact_email' value x.contact_email,
+                 'joined_at' value to_char(x.joined_at, pkg_common.c_iso_ts_format)
+               ) returning clob
+             ),
+             to_clob('[]')
+           )
+      into o_items_json
+      from (
+        select cp.competition_participant_id,
+               cp.alias_display,
+               cp.contact_email,
+               cp.joined_at
+          from competition_participants cp
+         where cp.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+         order by lower(nvl(cp.alias_display, '')), cp.competition_participant_id
+      ) x;
+  end;
+
+  -- soft_delete_competition_participant: Soft-deletes one competition participant relation.
+  procedure soft_delete_competition_participant(
+    p_competition_id in number,
+    p_competition_participant_id in number,
+    p_removed_by in number
+  ) is
+    l_has_access number := 0;
+    l_user_id competition_participants.user_id%type;
+  begin
+    if p_competition_id is null or p_competition_participant_id is null or p_removed_by is null then
+      raise_application_error(-20173, 'competition_id, competition_participant_id and removed_by are required');
+    end if;
+
+    select count(*)
+      into l_has_access
+      from competition_organizers co
+     where co.competition_id = p_competition_id
+       and co.user_id = p_removed_by
+       and (co.end_date is null or co.end_date > sysdate);
+
+    if l_has_access = 0 then
+      raise_application_error(-20174, 'active organizer relation not found for remover');
+    end if;
+
+    begin
+      select cp.user_id
+        into l_user_id
+        from competition_participants cp
+       where cp.competition_id = p_competition_id
+         and cp.competition_participant_id = p_competition_participant_id
+         and (cp.end_date is null or cp.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20175, 'active participant relation not found');
+    end;
+
+    update competition_participants
+       set end_date = sysdate
+     where competition_participant_id = p_competition_participant_id
+       and competition_id = p_competition_id
+       and (end_date is null or end_date > sysdate);
+
+    add_audit(
+      'COMPETITION_PARTICIPANT',
+      p_competition_participant_id,
+      'SOFT_DELETE',
+      p_removed_by,
+      null,
+      to_clob(
+        json_object(
+          'competition_id' value p_competition_id,
+          'competition_participant_id' value p_competition_participant_id,
+          'user_id' value l_user_id
         )
       )
     );

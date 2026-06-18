@@ -784,6 +784,23 @@ class SuperAdminRemoveOrganizerRequest(BaseModel):
     competition_id: int
     user_id: int
 
+class AdminParticipantEntry(BaseModel):
+    competition_participant_id: int
+    alias_display: str | None = None
+    contact_email: str | None = None
+    joined_at: str | None = None
+
+
+class AdminParticipantsResponse(BaseModel):
+    competition_id: int
+    access_granted: bool = True
+    items: list[AdminParticipantEntry]
+
+
+class AdminDeleteParticipantRequest(BaseModel):
+    competition_id: int
+    competition_participant_id: int
+
 class SuperAdminTranslationItem(BaseModel):
     translation_key: str
     lang_code: str
@@ -4228,6 +4245,63 @@ async def admin_submission_detail(  # NOSONAR
         competitor_answer=ords_response.get("competitor_answer") if isinstance(ords_response.get("competitor_answer"), str) else None,
         options=options,
     )
+
+
+@app.get("/api/admin/participants", response_model=AdminParticipantsResponse)
+async def admin_participants(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> AdminParticipantsResponse:
+    requester_user_id = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/participants",
+        {
+            "competition_id": competition_id,
+            "requester_user_id": requester_user_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    items: list[AdminParticipantEntry] = []
+    for item in raw_items:
+        participant_id = item.get("competition_participant_id") if isinstance(item, dict) else None
+        if not isinstance(participant_id, int):
+            continue
+        items.append(
+            AdminParticipantEntry(
+                competition_participant_id=participant_id,
+                alias_display=item.get("alias_display") if isinstance(item.get("alias_display"), str) else None,
+                contact_email=item.get("contact_email") if isinstance(item.get("contact_email"), str) else None,
+                joined_at=item.get("joined_at") if isinstance(item.get("joined_at"), str) else None,
+            )
+        )
+
+    return AdminParticipantsResponse(
+        competition_id=competition_id,
+        access_granted=str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y",
+        items=items,
+    )
+
+
+@app.post("/api/admin/participants/delete")
+async def admin_delete_participant(
+    req: AdminDeleteParticipantRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    await _post_to_ords(
+        "admin/participants/delete",
+        {
+            "competition_id": req.competition_id,
+            "competition_participant_id": req.competition_participant_id,
+            "removed_by": user_id,
+        },
+    )
+    return {"ok": True}
 
 
 @app.post("/api/admin/checkpoints", response_model=AdminCreateCheckpointResponse)
