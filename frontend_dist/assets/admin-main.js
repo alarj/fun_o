@@ -3,6 +3,72 @@ let pendingCompetitionCopySourceId = null;
 let currentCompetitionRoute = null;
 let currentCompetitionIdLoaded = null;
 let cpOverviewLabelsOpen = false;
+const GOOGLE_GSI_SCRIPT_ID = "googleGsiClientScript";
+let googleGsiReadyPromise = null;
+
+function ensureGoogleGsiReady() {
+  if (window.google && window.google.accounts && window.google.accounts.id) {
+    return Promise.resolve(window.google);
+  }
+  if (googleGsiReadyPromise) {
+    return googleGsiReadyPromise;
+  }
+  googleGsiReadyPromise = new Promise((resolve, reject) => {
+    const script = byId(GOOGLE_GSI_SCRIPT_ID);
+    if (!script) {
+      reject(new Error(tr("admin.msg.google_script_failed")));
+      return;
+    }
+    let settled = false;
+    let timeoutId = null;
+    const cleanup = () => {
+      script.removeEventListener("load", handleLoad);
+      script.removeEventListener("error", handleError);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+    const finishResolve = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(window.google);
+    };
+    const finishReject = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      googleGsiReadyPromise = null;
+      reject(new Error(tr("admin.msg.google_script_failed")));
+    };
+    const handleLoad = () => {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        finishResolve();
+        return;
+      }
+      window.setTimeout(() => {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+          finishResolve();
+          return;
+        }
+        finishReject();
+      }, 0);
+    };
+    const handleError = () => {
+      finishReject();
+    };
+    script.addEventListener("load", handleLoad);
+    script.addEventListener("error", handleError);
+    timeoutId = window.setTimeout(() => {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        finishResolve();
+        return;
+      }
+      finishReject();
+    }, 10000);
+  });
+  return googleGsiReadyPromise;
+}
 
 function cpDialogStateSnapshot() {
   return JSON.stringify({
@@ -602,15 +668,12 @@ async function initGoogleLogin() {
       showMsg("loginMsg", false, tr("admin.msg.google_not_configured"));
       return;
     }
-    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-      showMsg("loginMsg", false, tr("admin.msg.google_script_failed"));
-      return;
-    }
+    await ensureGoogleGsiReady();
     window.google.accounts.id.initialize({
       client_id: cfg.client_id,
       callback: async (resp) => {
         try {
-          if (!resp || !resp.credential) throw new Error("Google credential puudub.");
+          if (!resp || !resp.credential) throw new Error(tr("admin.msg.google_login_failed"));
           await googleLoginWithCredential(resp.credential);
         } catch (e) {
           showMsg("loginMsg", false, humanizeError(e.message || tr("admin.msg.google_login_failed")));

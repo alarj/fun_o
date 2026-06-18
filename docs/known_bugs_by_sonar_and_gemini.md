@@ -454,6 +454,7 @@ Miks ei parandatud kohe:
 - praegune kloonimisloogika kopeerib ülemise taseme sõnastikud ja `items` listi elemendid, kuid ei tee täielikku sügavat koopiat kõigist võimalikest siseobjektidest;
 - tänases voos ei ole see kinnitatud funktsionaalne viga ning praegune cache kasutus ei ole näidanud sellest tulenevat regressiooni;
 - samas võib risk kasvada, kui cache-payload muutub rikkalikumaks ja sisaldab rohkem nested struktuure, mida hakatakse hiljem lokaalselt uuendama või muteerima;
+- viimane Gemini review tõi sama riski eraldi välja ja selle sisuga võib nõustuda: kui mõni tulevane kooditee muudab vastuses olevat nested objekti kohapeal, võib shallow-copy tõttu muutuda ka globaalne cache-entry ning halvimal juhul lekkida muutus teiste kasutajate vastustesse;
 - kuna aktiivne fookus oli ORDS koormuse vähendamisel ja request-flow pudelikaelte leidmisel, ei tehtud siin eraldi `deepcopy` refaktorit ilma kinnitatud vajaduseta.
 
 Staatus:
@@ -462,7 +463,61 @@ Staatus:
 Millal uuesti hinnata:
 - kui `map-checkpoints` või muu competitor cache hakkab sisaldama rikkalikumat küsimuse payloadi;
 - kui FastAPI hakkab cache-payloadis rohkem nested välju kohapeal uuendama;
+- kui tehakse järgmine sihitud cache-hardening pass, võib `_clone_map_checkpoint_payload(...)` ja seotud clone-helperid viia `copy.deepcopy(...)` peale;
 - kui ilmneb päris sümptom, mis viitab jagatud mutable state lekkimisele kasutajate vahel.
+
+### 2a.11 `participant_checkpoint_state_cache` võib bootstrap-faasis teha sama kasutaja kohta paralleelseid ORDS päringuid
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `_get_participant_checkpoint_state(...)`
+
+Miks ei parandatud kohe:
+- staatilise competition-scope payloadi jaoks on olemas `inflight` koondamine, kuid participant-state cache kasutab praegu ainult tavalist cache-miss -> ORDS laadimist;
+- funktsionaalselt on voog korrektne ja senised parandused keskendusid kinnitatud süsteemivigadele ning ORDS koormuse suurematele allikatele;
+- sama kasutaja paralleelne bootstrap-koormus on pigem optimeerimise, mitte ärilise korrektsuse teema;
+- selle lisamine muudaks concurrency-käitumist ning väärib eraldi sihitud muudatust koos mõõtmisega.
+
+Staatus:
+- teadlikult edasi lükatud optimeerimine / hardening
+
+Millal uuesti hinnata:
+- kui logidest ilmneb sama `competition_id:user_id` kohta dubleeruvaid `competitor/checkpoint-state` ORDS päringuid bootstrap-faasis;
+- enne järgmisi suuremaid koormusteste, kus soovime participant-state ORDS päringuid veel kitsamaks tõmmata;
+- kui ORDS koormus on pärast suuremate pudelikaelte eemaldamist endiselt märkimisväärne just participant-state harus.
+
+### 2a.12 `1 x 400` mass-stardi bootstrapis jääb ORDS-i esimene metadata-laine kitsaskohaks
+
+Mõjutatud failid:
+- `backend/app/main.py`
+- `testing/load/README.md`
+
+Mõjutatud ala:
+- `POST /api/dev/login`
+- `GET /api/competitor/competitions`
+- `GET /api/competitor/map-checkpoints [ords]`
+
+Miks ei parandatud kohe:
+- `R9` jooks näitas, et võistlusaegne põhivoog on nüüd puhas ka `1 x 400` mass-stardi korral:
+  - `GET /api/competitor/open-checkpoints [fastapi]` -> `20000` päringut, `0` viga
+  - `POST /api/competitor/checkpoint-access [fastapi]` -> `100171` päringut, `0` viga
+  - `POST /api/submissions` -> `20000` päringut, `0` viga
+- alles jäänud vead olid ainult esimeses bootstrapi laines, kokku `61` tk:
+  - `18` × `POST /api/dev/login` `429`
+  - `13` × `GET /api/competitor/competitions` `429`
+  - `30` × `GET /api/competitor/map-checkpoints [ords]` `429`
+- kõik need vead jäid esimesse `0-10 min` ajakorvi ega rikkunud jooksu lõpptulemust: kõik `400` kasutajat lõpetasid ja tegid kokku `20000` KP märget;
+- see on seega päris ORDS bootstrapi optimeerimiskoht, kuid mitte enam süsteemi korrektsuse ega töövõime blokk.
+
+Staatus:
+- teadlikult edasi lükatud ORDS bootstrapi optimeerimine / backlog
+
+Millal uuesti hinnata:
+- enne järgmist suuremat kui `1 x 400` mass-stardi testi;
+- kui soovime vähendada just alglaadimise `429` vigu;
+- kui ORDS bootstrapi koormuse vähendamine muutub eraldi arhitektuurilise töövoo eesmärgiks.
 
 ## 3. Kuidas seda dokumenti kasutada
 

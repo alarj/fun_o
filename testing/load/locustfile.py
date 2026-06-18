@@ -143,7 +143,7 @@ def _response_branch_name(base_name: str, payload: dict[str, Any], status_code: 
         return f"{base_name} [fastapi]"
     if base_name in {"GET /api/competitor/open-checkpoints", "GET /api/competitor/map-checkpoints"}:
         response_source = str(payload.get("response_source") or "").strip().lower()
-        if response_source in {"cache", "ords"}:
+        if response_source in {"cache", "ords", "fastapi"}:
             return f"{base_name} [{response_source}]"
         detail = payload.get("detail")
         if isinstance(detail, dict) and str(detail.get("code") or "").startswith("ORDS_"):

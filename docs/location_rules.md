@@ -165,9 +165,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `location_required='Y'` KP puhul tehakse taustal ligipääsukontroll:
   - popupi nupu nähtavuse eelotsuse teeb FastAPI/cache-põhine loogika ilma täiendava ORDS päringuta;
   - frontend saadab geolokatsiooni FastAPI-le alles siis, kui kasutaja vajutab popupi vastamise nuppu;
-  - FastAPI teeb eelkontrolli (distants + cache-põhine filter);
-  - FastAPI küsib ORDS-ist lõpliku avatavuse ainult kandidaatide jaoks.
-- Lõplik otsus “kas küsimus on vastamiseks avatud” tuleb ORDS-ist, mitte ainult cache’ist.
+  - FastAPI teeb eelkontrolli ja tavapärase open-listi koostamise lokaalselt (distants + participant-state + staatiline payload);
+  - FastAPI küsib ORDS-ist ainult siis, kui lokaalset otsust ei saa teha olemasoleva metadata põhjal.
+- Tavapärases voos ei vaja küsimuse avatavuse lõplik otsus enam eraldi ORDS roundtrip'i; autoriteetne lõplik ärikontroll jääb `submissions` teenusele.
 - Kui aktiivne `START` on olemas ja seda pole veel läbitud, siis enne `START` läbimist ei avata ühtegi muud KP-d.
 - Sellises seisus võib `open-checkpoints` tagastada ainult `START` kontrollpunkti.
 - Kui aktiivne `START` kasutab `MASS_START` interaktsiooni, loetakse START avatuks alates `competitions.mass_start_at` hetkest ilma käsitsi vastuseta.

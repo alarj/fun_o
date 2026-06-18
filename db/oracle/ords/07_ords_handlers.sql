@@ -988,6 +988,149 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/competitor/competition-content?competition_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/competition-content');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'competitor/competition-content',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_json clob;
+        l_competition_type varchar2(1);
+        l_use_location varchar2(1);
+        l_mass_start_at varchar2(30);
+        l_declination number;
+        l_declination_last_updated varchar2(30);
+        l_route_json clob;
+        l_output_json clob;
+        l_output_obj json_object_t := json_object_t();
+        l_route_obj json_object_t;
+        l_items_element json_element_t;
+        l_current_hash varchar2(64);
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
+      begin
+        FUNO_APP.pkg_competitor.list_competition_checkpoint_content_json(
+          p_competition_id => to_number(:competition_id),
+          o_items_json => l_json,
+          o_competition_type => l_competition_type,
+          o_use_location => l_use_location,
+          o_mass_start_at => l_mass_start_at,
+          o_declination => l_declination,
+          o_declination_last_updated => l_declination_last_updated
+        );
+        l_route_obj := json_object_t();
+        begin
+          FUNO_APP.pkg_competition_routes.get_route_snapshot_json(
+            p_competition_id => to_number(:competition_id),
+            o_item_json => l_route_json
+          );
+          l_current_hash := FUNO_APP.pkg_competition_routes.get_current_source_hash(
+            p_competition_id => to_number(:competition_id)
+          );
+          if l_route_json is not null then
+            l_route_obj := json_object_t.parse(l_route_json);
+          end if;
+          if l_current_hash is not null then
+            l_route_obj.put('current_source_hash', l_current_hash);
+          end if;
+        exception
+          when others then
+            null;
+        end;
+        l_output_obj.put('competition_type', nvl(l_competition_type, 'R'));
+        l_output_obj.put('use_location', nvl(l_use_location, 'N'));
+        if l_current_hash is null then
+          l_output_obj.put_null('current_source_hash');
+        else
+          l_output_obj.put('current_source_hash', l_current_hash);
+        end if;
+        if l_mass_start_at is null then
+          l_output_obj.put_null('mass_start_at');
+        else
+          l_output_obj.put('mass_start_at', l_mass_start_at);
+        end if;
+        l_output_obj.put('declination', nvl(l_declination, 0));
+        if l_declination_last_updated is null then
+          l_output_obj.put_null('declination_last_updated');
+        else
+          l_output_obj.put('declination_last_updated', l_declination_last_updated);
+        end if;
+        l_output_obj.put('route', l_route_obj);
+        if l_json is null then
+          l_output_obj.put('items', json_array_t());
+        else
+          l_items_element := json_element_t.parse(l_json);
+          l_output_obj.put('items', l_items_element);
+        end if;
+        l_output_json := l_output_obj.to_clob();
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/competition-content',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
+  -- GET /funo/competitor/checkpoint-state?competition_id=..&user_id=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/checkpoint-state');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'competitor/checkpoint-state',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.list_participant_checkpoint_state_json(
+          p_user_id => to_number(:user_id),
+          p_competition_id => to_number(:competition_id),
+          o_items_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"items":' || nvl(l_json, '[]') || '}');
+      end;
+    ~'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/checkpoint-state',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/checkpoint-state',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
   -- GET /funo/competitor/map-checkpoints?competition_id=..&user_id=..
   ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/map-checkpoints'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
   ORDS.DEFINE_HANDLER(
@@ -1318,7 +1461,11 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_output_json clob;
         l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_results.get_competition_leaderboard(
           p_competition_id => to_number(:competition_id),
@@ -1327,9 +1474,18 @@ begin
           o_items_json     => l_items_json
         );
 
+        l_output_json := '{"access_granted":"'
+          || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end
+          || '","items":'
+          || nvl(l_items_json, '[]')
+          || '}';
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -1380,7 +1536,11 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_output_json clob;
         l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_results.get_checkpoint_results(
           p_competition_id => to_number(:competition_id),
@@ -1389,9 +1549,18 @@ begin
           o_items_json     => l_items_json
         );
 
+        l_output_json := '{"access_granted":"'
+          || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end
+          || '","items":'
+          || nvl(l_items_json, '[]')
+          || '}';
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -1431,7 +1600,11 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_output_json clob;
         l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_results.get_checkpoint_responders(
           p_competition_id => to_number(:competition_id),
@@ -1441,9 +1614,18 @@ begin
           o_items_json     => l_items_json
         );
 
+        l_output_json := '{"access_granted":"'
+          || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end
+          || '","items":'
+          || nvl(l_items_json, '[]')
+          || '}';
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p('{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]') || '}');
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -1494,10 +1676,14 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_items_json clob;
+        l_output_json clob;
         l_total_elapsed_seconds number;
         l_total_distance_m number;
         l_distance_available varchar2(1);
         l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_results.get_participant_submissions(
           p_competition_id => to_number(:competition_id),
@@ -1512,14 +1698,25 @@ begin
           o_distance_available => l_distance_available
         );
 
+        l_output_json :=
+          '{"access_granted":"'
+          || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end
+          || '","items":'
+          || nvl(l_items_json, '[]')
+          || ',"total_elapsed_seconds":'
+          || case when l_total_elapsed_seconds is null then 'null' else to_char(l_total_elapsed_seconds) end
+          || ',"total_distance_m":'
+          || case when l_total_distance_m is null then 'null' else to_char(l_total_distance_m) end
+          || ',"distance_available":"'
+          || case when nvl(l_distance_available, 'N') = 'Y' then 'Y' else 'N' end
+          || '"}';
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        htp.p(
-          '{"access_granted":"' || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end || '","items":' || nvl(l_items_json, '[]')
-          || ',"total_elapsed_seconds":' || case when l_total_elapsed_seconds is null then 'null' else to_char(l_total_elapsed_seconds) end
-          || ',"total_distance_m":' || case when l_total_distance_m is null then 'null' else to_char(l_total_distance_m) end
-          || ',"distance_available":"' || case when nvl(l_distance_available, 'N') = 'Y' then 'Y' else 'N' end || '"}'
-        );
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );
@@ -1592,7 +1789,11 @@ begin
     p_source      => q'~ -- NOSONAR
       declare
         l_item_json clob;
+        l_output_json clob;
         l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
       begin
         FUNO_APP.pkg_results.get_submission_detail(
           p_competition_id => to_number(:competition_id),
@@ -1605,13 +1806,18 @@ begin
           o_item_json      => l_item_json
         );
 
+        if nvl(l_access_granted, 'N') = 'Y' then
+          l_output_json := '{"access_granted":"Y",' || ltrim(nvl(l_item_json, '{}'), '{');
+        else
+          l_output_json := '{"access_granted":"N"}';
+        end if;
         owa_util.mime_header('application/json', false);
         owa_util.http_header_close;
-        if nvl(l_access_granted, 'N') = 'Y' then
-          htp.p('{"access_granted":"Y",' || ltrim(nvl(l_item_json, '{}'), '{'));
-        else
-          htp.p('{"access_granted":"N"}');
-        end if;
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
       end;
     ~'
   );

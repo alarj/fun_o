@@ -1743,10 +1743,16 @@ create or replace package body pkg_results as
     select round(sum(
              6371000 * 2 * asin(
                sqrt(
-                 power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
-                 cos(g.prev_latitude * 0.017453292519943295) *
-                 cos(g.effective_latitude * 0.017453292519943295) *
-                 power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                 least(
+                   1,
+                   greatest(
+                     0,
+                     power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
+                     cos(g.prev_latitude * 0.017453292519943295) *
+                     cos(g.effective_latitude * 0.017453292519943295) *
+                     power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                   )
+                 )
                )
              )
            ))
@@ -1882,10 +1888,16 @@ create or replace package body pkg_results as
                             when count(*) >= 2 then round(sum(
                               6371000 * 2 * asin(
                                 sqrt(
-                                  power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
-                                  cos(g.prev_latitude * 0.017453292519943295) *
-                                  cos(g.effective_latitude * 0.017453292519943295) *
-                                  power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                                  least(
+                                    1,
+                                    greatest(
+                                      0,
+                                      power(sin((g.effective_latitude - g.prev_latitude) * 0.008726646259971648), 2) +
+                                      cos(g.prev_latitude * 0.017453292519943295) *
+                                      cos(g.effective_latitude * 0.017453292519943295) *
+                                      power(sin((g.effective_longitude - g.prev_longitude) * 0.008726646259971648), 2)
+                                    )
+                                  )
                                 )
                               )
                             ))
@@ -2539,6 +2551,24 @@ create or replace package pkg_competitor as
     o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
+  );
+
+  -- list_competition_checkpoint_content_json: Returns user-neutral checkpoint/question payload for competitor flows.
+  procedure list_competition_checkpoint_content_json(
+    p_competition_id in number,
+    o_items_json out clob,
+    o_competition_type out varchar2,
+    o_use_location out varchar2,
+    o_mass_start_at out varchar2,
+    o_declination out number,
+    o_declination_last_updated out varchar2
+  );
+
+  -- list_participant_checkpoint_state_json: Returns answered checkpoint ids for one participant.
+  procedure list_participant_checkpoint_state_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_items_json out clob
   );
   -- get_progress_json: Returns a JSON object for the requested progress.
   procedure get_progress_json(
@@ -3522,6 +3552,179 @@ create or replace package body pkg_competitor as
            o_declination,
            o_declination_last_updated
       from dual;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure list_competition_checkpoint_content_json(
+    p_competition_id in number,
+    o_items_json out clob,
+    o_competition_type out varchar2,
+    o_use_location out varchar2,
+    o_mass_start_at out varchar2,
+    o_declination out number,
+    o_declination_last_updated out varchar2
+  ) is
+  begin
+    begin
+      select nvl(c.type, 'R'),
+             nvl(c.use_location, 'N'),
+             to_char(c.mass_start_at, pkg_common.c_iso_ts_format),
+             nvl(cd.declination, 0),
+             to_char(cd.last_updated, pkg_common.c_iso_ts_format)
+        into o_competition_type,
+             o_use_location,
+             o_mass_start_at,
+             o_declination,
+             o_declination_last_updated
+        from competitions c
+        left join competition_declinations cd
+          on cd.competition_id = c.competition_id
+       where c.competition_id = p_competition_id
+         and (c.end_date is null or c.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        o_competition_type := 'R';
+        o_use_location := 'N';
+        o_mass_start_at := null;
+        o_declination := 0;
+        o_declination_last_updated := null;
+    end;
+
+    select json_arrayagg(
+             json_object(
+               'checkpoint_id' value z.checkpoint_id,
+               'checkpoint_title' value z.checkpoint_title,
+               'checkpoint_order_no' value z.checkpoint_order_no,
+               'checkpoint_type' value z.checkpoint_type,
+               'checkpoint_interaction' value z.checkpoint_interaction,
+               'competition_type' value z.competition_type,
+               'question_id' value z.question_id,
+               'question_type' value z.question_type,
+               'points' value z.points,
+               'text_et' value z.text_et,
+               'text_en' value z.text_en,
+               'input_type' value z.input_type,
+               'input_max_length' value z.input_max_length,
+               'latitude' value z.latitude,
+               'longitude' value z.longitude,
+               'radius_m' value z.radius_m,
+               'location_required' value z.location_required,
+               'options' value nvl(z.options_json, '[]') format json
+             )
+             order by lower(z.checkpoint_title), z.checkpoint_id
+             returning clob
+           )
+      into o_items_json
+      from (
+        select cp.checkpoint_id,
+               cp.title as checkpoint_title,
+               cp.order_no as checkpoint_order_no,
+               pkg_common.normalize_checkpoint_type(cp.checkpoint_type) as checkpoint_type,
+               pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) as checkpoint_interaction,
+               nvl(c.type, 'R') as competition_type,
+               q.question_id,
+               q.question_type,
+               nvl(q.points, 0) as points,
+               q.input_type,
+               q.input_max_length,
+               cp.latitude,
+               cp.longitude,
+               case
+                 when nvl(cp.location_required, 'N') = 'Y' then coalesce(cp.radius_m, c.radius_m, 0)
+                 else cp.radius_m
+               end as radius_m,
+               nvl(cp.location_required, 'N') as location_required,
+               max(case when lower(qt.lang_code) = 'et' then qt.question_text end) as text_et,
+               max(case when lower(qt.lang_code) = 'en' then qt.question_text end) as text_en,
+               (
+                 select json_arrayagg(
+                          json_object(
+                            'option_id' value qo.option_id,
+                            'option_code' value qo.option_code,
+                            'text_et' value (
+                              select max(case when lower(qot.lang_code) = 'et' then qot.option_text end)
+                                from question_option_texts qot
+                               where qot.option_id = qo.option_id
+                                 and (qot.end_date is null or qot.end_date > sysdate)
+                            ),
+                            'text_en' value (
+                              select max(case when lower(qot.lang_code) = 'en' then qot.option_text end)
+                                from question_option_texts qot
+                               where qot.option_id = qo.option_id
+                                 and (qot.end_date is null or qot.end_date > sysdate)
+                            )
+                          ) returning clob
+                        )
+                   from question_options qo
+                  where qo.question_id = q.question_id
+                    and (qo.end_date is null or qo.end_date > sysdate)
+               ) as options_json
+          from checkpoints cp
+          join competitions c
+            on c.competition_id = cp.competition_id
+          left join questions q
+            on q.checkpoint_id = cp.checkpoint_id
+           and (q.end_date is null or q.end_date > sysdate)
+          left join question_texts qt
+            on qt.question_id = q.question_id
+           and (qt.end_date is null or qt.end_date > sysdate)
+         where cp.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+           and (
+             (pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question and q.question_id is not null)
+             or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_check_only
+           )
+         group by cp.checkpoint_id,
+                  cp.title,
+                  cp.order_no,
+                  cp.checkpoint_type,
+                  cp.checkpoint_interaction,
+                  c.type,
+                  q.question_id,
+                  q.question_type,
+                  q.points,
+                  q.input_type,
+                  q.input_max_length,
+                  cp.latitude,
+                  cp.longitude,
+                  cp.radius_m,
+                  c.radius_m,
+                  cp.location_required
+      ) z;
+
+    if o_items_json is null then
+      o_items_json := '[]';
+    end if;
+  end;
+
+  procedure list_participant_checkpoint_state_json(
+    p_user_id in number,
+    p_competition_id in number,
+    o_items_json out clob
+  ) is
+  begin
+    select json_arrayagg(
+             json_object(
+               'checkpoint_id' value z.checkpoint_id
+             )
+             order by z.checkpoint_id
+             returning clob
+           )
+      into o_items_json
+      from (
+        select distinct s.checkpoint_id
+          from submissions_v s
+          join checkpoints cp
+            on cp.checkpoint_id = s.checkpoint_id
+         where s.user_id = p_user_id
+           and s.competition_id = p_competition_id
+           and cp.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+      ) z;
 
     if o_items_json is null then
       o_items_json := '[]';
