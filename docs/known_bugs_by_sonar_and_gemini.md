@@ -555,6 +555,38 @@ Millal uuesti hinnata:
 - iga kord, kui muudetakse competitor cache-helper'eid, popupi ligipääsuloogikat või answered-state overlay koostamist;
 - iga kord, kui tekib soov “lihtsustada” payloadi parsivaid helper'eid ühiseks üldfunktsiooniks.
 
+### 2a.14 Competitor join access code ajatelje ebaühtlus
+
+Mõjutatud fail:
+- `db/oracle/api/05_api_packages_stub.sql`
+
+Mõjutatud ala:
+- `resolve_join_access_code(...)`
+
+Märkus:
+- sama päringu sees kasutatakse kahte erinevat ajavõrdluse alust:
+  - `c.end_date` ja `comp.end_date` kontrollitakse reegliga `> sysdate`
+  - `c.expires_at` kontrollitakse reegliga `> cast((systimestamp at time zone 'UTC') as timestamp)`
+
+Mida kontrolliti:
+- see ei ole praeguse dokumentatsiooni põhjal automaatselt kinnitatud bugi, sest väljad ei kanna sama semantikat:
+  - `end_date` on süsteemi üldise aktiivse kirje / soft-delete reegli väli
+  - `expires_at` on access code äriline aegumine
+- ERD defineerib aktiivse kirje reegli kujul `end_date is null or end_date > sysdate`
+- ERD järgi on `end_date` tüüpi `date`, samal ajal kui `expires_at` on tüüpi `timestamp`
+
+Miks jäi praegu parandamata:
+- selles töövoos ei ilmnenud kinnitatud regressiooni ega tõestatud valet käitumist ainult selle koodikoha põhjal;
+- samas on ajamudel selles harus ebaühtlane ja väärib eraldi auditit, kui liitumiskoodide aegumise semantikat või DB/session timezone eeldusi muudetakse.
+
+Staatus:
+- dokumenteeritud auditikoht, mitte kinnitatud bugfixi kandidaat käesolevas töövoos
+
+Millal uuesti hinnata:
+- kui access code aegumine või liitumisreeglid muutuvad;
+- kui DB/session timezone eeldused muutuvad;
+- kui leitakse päris juhtum, kus `end_date` ja `expires_at` annavad vastuolulise tulemuse.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
