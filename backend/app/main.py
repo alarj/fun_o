@@ -175,7 +175,7 @@ def _configure_logging() -> None:
     root_logger = logging.getLogger()
     if not root_logger.handlers:
         logging.basicConfig(level=logging.DEBUG if level == logging.DEBUG else level)
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(level)
     for handler in root_logger.handlers:
         handler.setLevel(logging.DEBUG if level == logging.DEBUG else level)
     logging.getLogger("app").setLevel(level)
@@ -275,6 +275,14 @@ class CompetitorJoinPreviewResponse(BaseModel):
     competition_description: str | None = None
     already_active_for_user: bool
     terms: CompetitorJoinPreviewTerms | None = None
+
+
+class CompetitorJoinCodePreviewResponse(BaseModel):
+    competition_id: int
+    competition_name: str
+    competition_description: str | None = None
+    already_active_for_user: bool
+
 
 class CompetitorTermsResponse(BaseModel):
     competition_id: int
@@ -783,6 +791,23 @@ class SuperAdminCopyCompetitionRequest(BaseModel):
 class SuperAdminRemoveOrganizerRequest(BaseModel):
     competition_id: int
     user_id: int
+
+class AdminParticipantEntry(BaseModel):
+    competition_participant_id: int
+    alias_display: str | None = None
+    contact_email: str | None = None
+    joined_at: str | None = None
+
+
+class AdminParticipantsResponse(BaseModel):
+    competition_id: int
+    access_granted: bool = True
+    items: list[AdminParticipantEntry]
+
+
+class AdminDeleteParticipantRequest(BaseModel):
+    competition_id: int
+    competition_participant_id: int
 
 class SuperAdminTranslationItem(BaseModel):
     translation_key: str
@@ -2377,10 +2402,25 @@ def _answered_checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
     for row in raw_items:
         if not isinstance(row, dict):
             continue
+        if str(row.get("is_answered") or "N").strip().upper() != "Y":
+            continue
         checkpoint_id = row.get("checkpoint_id")
         if isinstance(checkpoint_id, int):
             answered.add(checkpoint_id)
     return answered
+
+
+def _checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
+    checkpoint_ids: set[int] = set()
+    if not isinstance(raw_items, list):
+        return checkpoint_ids
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        checkpoint_id = row.get("checkpoint_id")
+        if isinstance(checkpoint_id, int) and not isinstance(checkpoint_id, bool):
+            checkpoint_ids.add(checkpoint_id)
+    return checkpoint_ids
 
 
 def _overlay_answered_state_on_items(static_items: list[Any], answered_checkpoint_ids: set[int]) -> list[Any]:
@@ -2679,7 +2719,7 @@ async def _fetch_participant_checkpoint_state_from_ords(competition_id: int, use
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    answered_checkpoint_ids = _answered_checkpoint_ids_from_payload(raw_items)
+    answered_checkpoint_ids = _checkpoint_ids_from_payload(raw_items)
     return {
         "answered_checkpoint_ids": answered_checkpoint_ids,
     }
@@ -3282,6 +3322,25 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
         competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
         already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
         terms=terms,
+    )
+
+
+@app.get("/api/competitor/join-code-preview", response_model=CompetitorJoinCodePreviewResponse)
+async def competitor_join_code_preview(code: str, request: Request) -> CompetitorJoinCodePreviewResponse:
+    user_id = _read_competitor_session_user_id(request)
+    payload: dict[str, Any] = {"access_code": code}
+    if isinstance(user_id, int):
+        payload["user_id"] = user_id
+    ords_response = await _get_from_ords("competitor/join-code-preview", payload)
+    cid = ords_response.get("competition_id")
+    name = ords_response.get("competition_name")
+    if not isinstance(cid, int) or not isinstance(name, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    return CompetitorJoinCodePreviewResponse(
+        competition_id=cid,
+        competition_name=name,
+        competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
+        already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
     )
 
 
@@ -4228,6 +4287,63 @@ async def admin_submission_detail(  # NOSONAR
         competitor_answer=ords_response.get("competitor_answer") if isinstance(ords_response.get("competitor_answer"), str) else None,
         options=options,
     )
+
+
+@app.get("/api/admin/participants", response_model=AdminParticipantsResponse)
+async def admin_participants(
+    competition_id: int,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> AdminParticipantsResponse:
+    requester_user_id = _require_google_session_user(request, x_user_id)
+    ords_response = await _get_from_ords(
+        "organizer/participants",
+        {
+            "competition_id": competition_id,
+            "requester_user_id": requester_user_id,
+        },
+    )
+    raw_items = ords_response.get("items") if isinstance(ords_response, dict) else None
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    items: list[AdminParticipantEntry] = []
+    for item in raw_items:
+        participant_id = item.get("competition_participant_id") if isinstance(item, dict) else None
+        if not isinstance(participant_id, int):
+            continue
+        items.append(
+            AdminParticipantEntry(
+                competition_participant_id=participant_id,
+                alias_display=item.get("alias_display") if isinstance(item.get("alias_display"), str) else None,
+                contact_email=item.get("contact_email") if isinstance(item.get("contact_email"), str) else None,
+                joined_at=item.get("joined_at") if isinstance(item.get("joined_at"), str) else None,
+            )
+        )
+
+    return AdminParticipantsResponse(
+        competition_id=competition_id,
+        access_granted=str(ords_response.get("access_granted") if isinstance(ords_response, dict) else "N").upper() == "Y",
+        items=items,
+    )
+
+
+@app.post("/api/admin/participants/delete")
+async def admin_delete_participant(
+    req: AdminDeleteParticipantRequest,
+    request: Request,
+    x_user_id: int | None = Header(default=None),
+) -> dict[str, bool]:
+    user_id = _require_google_session_user(request, x_user_id)
+    await _post_to_ords(
+        "admin/participants/delete",
+        {
+            "competition_id": req.competition_id,
+            "competition_participant_id": req.competition_participant_id,
+            "removed_by": user_id,
+        },
+    )
+    return {"ok": True}
 
 
 @app.post("/api/admin/checkpoints", response_model=AdminCreateCheckpointResponse)

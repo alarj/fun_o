@@ -3,6 +3,10 @@ let pendingCompetitionCopySourceId = null;
 let currentCompetitionRoute = null;
 let currentCompetitionIdLoaded = null;
 let cpOverviewLabelsOpen = false;
+let participantsItems = [];
+let participantsSortKey = "alias_display";
+let participantsSortDir = "asc";
+let pendingParticipantRemoval = null;
 const GOOGLE_GSI_SCRIPT_ID = "googleGsiClientScript";
 let googleGsiReadyPromise = null;
 
@@ -229,6 +233,62 @@ function logoutIconSvg() {
 
 function copyIconSvg() {
   return `<svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="11" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="8" width="11" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+}
+
+function removeIconSvg() {
+  return `<svg class="removeIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 7V5h6v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="6" y="7" width="12" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+}
+
+function qrIconSvg() {
+  return `<svg class="qrIconSvg" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h7v7H3zm2 2v3h3V5zm6-2h10v10H11zm2 2v6h6V5zM3 14h7v7H3zm2 2v3h3v-3zm7-1h2v2h-2zm3 0h2v2h-2zm3 0h3v2h-3zm-6 3h5v3h-2v-1h-3zm6 0h2v2h-2zm-3 3h6v2h-6z"/></svg>`;
+}
+
+function buildCompetitionJoinUrl(accessCode) {
+  const url = new URL("/index.html", window.location.origin);
+  url.searchParams.set("join_code", String(accessCode || "").trim());
+  return url.toString();
+}
+
+function clearCompetitionQrDialog() {
+  showMsg("competitionQrMsg", false, "");
+  byId("competitionQrCanvas").replaceChildren();
+}
+
+function closeCompetitionQrDialog() {
+  if (byId("competitionQrDialog").open) {
+    byId("competitionQrDialog").close();
+  }
+  clearCompetitionQrDialog();
+}
+
+function renderCompetitionQrCode(joinUrl) {
+  const canvas = byId("competitionQrCanvas");
+  canvas.replaceChildren();
+  if (!window.QRCode) {
+    showMsg("competitionQrMsg", false, tr("admin.comp.qr_modal.unavailable_msg"));
+    return;
+  }
+  const qrSize = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.34)));
+  new window.QRCode(canvas, {
+    text: joinUrl,
+    width: qrSize,
+    height: qrSize,
+    correctLevel: window.QRCode.CorrectLevel.M,
+  });
+}
+
+function openCompetitionQrDialog() {
+  const accessCode = String(byId("codeCompetitor").textContent || "").trim();
+  if (!accessCode || accessCode === "-") {
+    showMsg("topMsg", false, tr("admin.comp.qr_modal.unavailable_msg"));
+    return;
+  }
+  byId("competitionQrCompetitionName").textContent = String(window.__lastCompetitionName || "").trim() || `#${compId() || "-"}`;
+  showMsg("competitionQrMsg", false, "");
+  if (!byId("competitionQrDialog").open) {
+    byId("competitionQrDialog").showModal();
+  }
+  renderCompetitionQrCode(buildCompetitionJoinUrl(accessCode));
 }
 
 function normalizeCompetitionRouteData(route) {
@@ -937,6 +997,135 @@ function renderRows() {
   document.querySelectorAll(".cp-loc-col").forEach((el) => {
     el.style.display = showLocCol ? "" : "none";
   });
+}
+
+function participantsSortIconFor(key) {
+  if (participantsSortKey !== key) return "☰";
+  return participantsSortDir === "asc" ? "▲" : "▼";
+}
+
+function refreshParticipantsSortIcons() {
+  byId("participantsSortAlias").textContent = participantsSortIconFor("alias_display");
+  byId("participantsSortEmail").textContent = participantsSortIconFor("contact_email");
+  byId("participantsSortJoined").textContent = participantsSortIconFor("joined_at");
+}
+
+function sortParticipantsItems(items) {
+  const dir = participantsSortDir === "asc" ? 1 : -1;
+  return [...items].sort((a, b) => {
+    if (participantsSortKey === "joined_at") {
+      const av = a?.joined_at ? (asUtcDate(a.joined_at)?.getTime() ?? 0) : 0;
+      const bv = b?.joined_at ? (asUtcDate(b.joined_at)?.getTime() ?? 0) : 0;
+      return (av - bv) * dir;
+    }
+    const av = String(a?.[participantsSortKey] ?? "");
+    const bv = String(b?.[participantsSortKey] ?? "");
+    return av.localeCompare(bv, "et", { sensitivity: "base" }) * dir;
+  });
+}
+
+function renderParticipantsRows() {
+  const body = byId("participantsRows");
+  if (!body) return;
+  refreshParticipantsSortIcons();
+  const sorted = sortParticipantsItems(participantsItems);
+  if (!sorted.length) {
+    body.innerHTML = `<tr><td colspan="4" class="muted">${esc(tr("admin.participants.empty_msg"))}</td></tr>`;
+    return;
+  }
+  body.innerHTML = sorted.map((item) => {
+    const participantId = Number(item?.competition_participant_id || 0);
+    const alias = String(item?.alias_display || "").trim() || tr("admin.msg.missing_value");
+    const email = String(item?.contact_email || "").trim() || tr("admin.msg.missing_value");
+    const joined = item?.joined_at ? (fmtDateEt(item.joined_at) || tr("admin.msg.missing_value")) : tr("admin.msg.missing_value");
+    return `<tr>
+      <td>${esc(alias)}</td>
+      <td>${esc(email)}</td>
+      <td>${esc(joined)}</td>
+      <td>
+        <button
+          class="organizerRemoveBtn"
+          type="button"
+          data-act="remove-participant"
+          data-participant-id="${participantId}"
+          data-participant-alias="${esc(alias)}"
+          title="${esc(tr("admin.participants.remove_btn"))}"
+          aria-label="${esc(tr("admin.participants.remove_btn"))}"
+        >${removeIconSvg()}</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function toggleParticipantsSort(key) {
+  if (participantsSortKey === key) {
+    participantsSortDir = participantsSortDir === "asc" ? "desc" : "asc";
+  } else {
+    participantsSortKey = key;
+    participantsSortDir = "asc";
+  }
+  renderParticipantsRows();
+}
+
+async function openParticipantsDialog() {
+  const competitionId = compId();
+  if (!competitionId) {
+    showMsg("topMsg", false, tr("admin.msg.select_competition_first"));
+    return;
+  }
+  showMsg("participantsMsg", true, "");
+  const response = await get(`/api/admin/participants?competition_id=${encodeURIComponent(String(competitionId))}`);
+  participantsItems = Array.isArray(response?.items)
+    ? response.items.filter((item) => Number(item?.competition_participant_id || 0) > 0)
+    : [];
+  participantsSortKey = "alias_display";
+  participantsSortDir = "asc";
+  renderParticipantsRows();
+  byId("participantsDialog").showModal();
+}
+
+function closeRemoveParticipantModal() {
+  pendingParticipantRemoval = null;
+  byId("removeParticipantText").textContent = "";
+  showMsg("removeParticipantMsg", true, "");
+  byId("removeParticipantActions").classList.remove("hidden");
+  byId("removeParticipantResultActions").classList.add("hidden");
+  byId("removeParticipantBackdrop").close();
+}
+
+function openRemoveParticipantModal(payload) {
+  pendingParticipantRemoval = payload;
+  byId("removeParticipantTitle").textContent = tr("admin.participants.remove.heading");
+  byId("removeParticipantText").textContent = formatTr("admin.participants.remove.confirm_msg", {
+    alias: payload.alias,
+    competition_name: payload.competitionName,
+  });
+  showMsg("removeParticipantMsg", true, "");
+  byId("removeParticipantActions").classList.remove("hidden");
+  byId("removeParticipantResultActions").classList.add("hidden");
+  byId("removeParticipantBackdrop").showModal();
+}
+
+async function removeParticipant() {
+  if (!pendingParticipantRemoval) return;
+  const payload = pendingParticipantRemoval;
+  await post("/api/admin/participants/delete", {
+    competition_id: payload.competitionId,
+    competition_participant_id: payload.competitionParticipantId,
+  });
+  participantsItems = participantsItems.filter((item) => Number(item?.competition_participant_id || 0) !== payload.competitionParticipantId);
+  renderParticipantsRows();
+  byId("removeParticipantText").textContent = "";
+  showMsg(
+    "removeParticipantMsg",
+    true,
+    formatTr("admin.participants.remove.removed_msg", {
+      alias: payload.alias,
+      competition_name: payload.competitionName,
+    })
+  );
+  byId("removeParticipantActions").classList.add("hidden");
+  byId("removeParticipantResultActions").classList.remove("hidden");
 }
 
 function toggleSort(key) {
@@ -1828,6 +2017,7 @@ byId("uiLang").onchange = async () => {
   refreshCompetitionTypeDisplay();
   rerenderCompetitionRouteTexts();
   renderRows();
+  renderParticipantsRows();
 };
 
 byId("uiLangApp").onchange = async () => {
@@ -1840,6 +2030,7 @@ byId("uiLangApp").onchange = async () => {
   refreshCompetitionTypeDisplay();
   rerenderCompetitionRouteTexts();
   renderRows();
+  renderParticipantsRows();
 };
 
 byId("uiLangNoOrg").onchange = async () => {
@@ -1852,6 +2043,7 @@ byId("uiLangNoOrg").onchange = async () => {
   refreshCompetitionTypeDisplay();
   rerenderCompetitionRouteTexts();
   renderRows();
+  renderParticipantsRows();
 };
 
 byId("loginIntroLink").onclick = async (e) => {
@@ -1873,6 +2065,12 @@ byId("noOrgIntroLink").onclick = async (e) => {
 };
 
 byId("introDialogClose").onclick = () => closeIntroDialog();
+byId("removeParticipantNoBtn").onclick = () => closeRemoveParticipantModal();
+byId("removeParticipantCloseBtn").onclick = () => closeRemoveParticipantModal();
+byId("removeParticipantYesBtn").onclick = () => removeParticipant().catch((e) => showMsg("removeParticipantMsg", false, humanizeError(e.message, e.details)));
+byId("removeParticipantBackdrop").addEventListener("click", (e) => {
+  if (e.target === byId("removeParticipantBackdrop")) closeRemoveParticipantModal();
+});
 
 byId("organizers").addEventListener("click", async (e) => {
   const btn = e.target.closest(".logout-btn-inline");
@@ -1894,11 +2092,29 @@ byId("organizers").addEventListener("click", async (e) => {
 
 byId("openCompetitionPickerBtn").onclick = () => byId("competitionPickerDialog").showModal();
 byId("copyCompetitionBtn").onclick = () => openCompetitionCopyDialog();
+byId("openParticipantsBtn").onclick = () => openParticipantsDialog().catch((e) => showMsg("topMsg", false, humanizeError(e.message, e.details)));
 byId("openResultsBtn").onclick = () => {
   const cid = compId();
   if (!cid) return;
   window.open(`/results.html?competition_id=${encodeURIComponent(String(cid))}`, "_blank", "noopener");
 };
+byId("participantsCloseBtn").onclick = () => {
+  showMsg("participantsMsg", true, "");
+  byId("participantsDialog").close();
+};
+byId("participantsSortAlias").onclick = () => toggleParticipantsSort("alias_display");
+byId("participantsSortEmail").onclick = () => toggleParticipantsSort("contact_email");
+byId("participantsSortJoined").onclick = () => toggleParticipantsSort("joined_at");
+byId("participantsRows").addEventListener("click", (e) => {
+  const btn = e.target.closest('[data-act="remove-participant"]');
+  if (!btn) return;
+  openRemoveParticipantModal({
+    competitionId: compId(),
+    competitionName: String(window.__lastCompetitionName || "").trim() || `#${compId() || "-"}`,
+    competitionParticipantId: Number(btn.dataset.participantId || 0),
+    alias: String(btn.dataset.participantAlias || "").trim() || tr("admin.msg.missing_value"),
+  });
+});
 byId("competitionPickerCancel").onclick = () => {
   byId("competitionPickerJoinCode").value = "";
   showMsg("competitionPickerJoinMsg", false, "");
@@ -1966,6 +2182,7 @@ byId("copyCompetitionSave").onclick = async () => {
 
 byId("copyCompetitorCodeBtn").innerHTML = copyIconSvg();
 byId("copyOrganizerCodeBtn").innerHTML = copyIconSvg();
+byId("openCompetitionQrBtn").innerHTML = qrIconSvg();
 byId("copyCompetitorCodeBtn").onclick = async () => {
   try {
     await copyTextToClipboard(byId("codeCompetitor").textContent || "");
@@ -1980,6 +2197,9 @@ byId("copyOrganizerCodeBtn").onclick = async () => {
     showMsg("topMsg", false, humanizeError(e.message));
   }
 };
+byId("openCompetitionQrBtn").onclick = () => openCompetitionQrDialog();
+byId("competitionQrCloseBtn").onclick = () => closeCompetitionQrDialog();
+byId("competitionQrDialog").addEventListener("close", clearCompetitionQrDialog);
 
 byId("regenCompetitor").onclick = () => {
   pendingCodeType = "COMPETITOR";

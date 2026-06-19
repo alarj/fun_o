@@ -2494,6 +2494,13 @@ create or replace package pkg_competitor as
     o_item_json out clob
   );
 
+  -- join_code_preview_json: Validates QR/manual code and returns lightweight competition metadata.
+  procedure join_code_preview_json(
+    p_user_id in number,
+    p_access_code in varchar2,
+    o_item_json out clob
+  );
+
   -- join_preview_json: Performs this business operation according to package rules.
   procedure join_preview_json(
     p_user_id in number,
@@ -2598,6 +2605,73 @@ end pkg_competitor;
 
 create or replace package body pkg_competitor as
   c_json_question_text constant varchar2(30) := 'question_text';
+
+  procedure resolve_join_access_code(
+    p_access_code in varchar2,
+    o_access_code_id out number,
+    o_competition_id out number,
+    o_max_uses out number,
+    o_used_count out number
+  ) is
+    l_now_utc_ts timestamp;
+  begin
+    if p_access_code is null then
+      raise_application_error(-20030, 'access_code is required');
+    end if;
+
+    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
+
+    begin
+      select c.access_code_id,
+             c.competition_id,
+             c.max_uses,
+             c.used_count
+        into o_access_code_id, o_competition_id, o_max_uses, o_used_count
+        from competition_access_codes c
+        join competitions comp on comp.competition_id = c.competition_id
+       where c.code = p_access_code
+         and c.code_type = 'COMPETITOR'
+         and (c.end_date is null or c.end_date > sysdate)
+         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
+         and c.status = 'ACTIVE'
+         and (comp.end_date is null or comp.end_date > sysdate)
+         and comp.status in ('INACTIVE', 'ACTIVE')
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20031, 'invalid or inactive access code');
+    end;
+
+    if o_max_uses is not null and o_used_count >= o_max_uses then
+      raise_application_error(-20032, 'access code usage limit reached');
+    end if;
+  end;
+
+  function user_already_active_for_comp(
+    p_user_id in number,
+    p_competition_id in number
+  ) return varchar2 is
+    l_already_active varchar2(1) := 'N';
+  begin
+    if p_user_id is null then
+      return 'N';
+    end if;
+
+    begin
+      select 'Y'
+        into l_already_active
+        from competition_participants cp
+       where cp.competition_id = p_competition_id
+         and cp.user_id = p_user_id
+         and cp.end_date is null
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_already_active := 'N';
+    end;
+
+    return l_already_active;
+  end;
 
   -- get_session_by_participant_json: Returns a JSON object for the requested session by participant.
   procedure get_session_by_participant_json(
@@ -2713,44 +2787,22 @@ create or replace package body pkg_competitor as
     l_terms_lang_code varchar2(10);
     l_terms_text clob;
     l_already_active varchar2(1) := 'N';
-    l_now_utc_ts timestamp;
     l_lang_code varchar2(10);
   begin
     o_item_json := null;
-    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
     l_lang_code := lower(nvl(trim(p_lang_code), 'et'));
 
-    if p_access_code is null then
-      raise_application_error(-20030, 'access_code is required');
-    end if;
     if p_alias_display is not null and trim(p_alias_display) is null then
       raise_application_error(-20101, 'alias is required');
     end if;
 
-    begin
-      select c.access_code_id,
-             c.competition_id,
-             c.max_uses,
-             c.used_count
-        into l_access_code_id, l_competition_id, l_max_uses, l_used_count
-        from competition_access_codes c
-        join competitions comp on comp.competition_id = c.competition_id
-       where c.code = p_access_code
-         and c.code_type = 'COMPETITOR'
-         and (c.end_date is null or c.end_date > sysdate)
-         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
-         and c.status = 'ACTIVE'
-         and (comp.end_date is null or comp.end_date > sysdate)
-         and comp.status in ('INACTIVE', 'ACTIVE')
-       fetch first 1 row only;
-    exception
-      when no_data_found then
-        raise_application_error(-20031, 'invalid or inactive access code');
-    end;
-
-    if l_max_uses is not null and l_used_count >= l_max_uses then
-      raise_application_error(-20032, 'access code usage limit reached');
-    end if;
+    resolve_join_access_code(
+      p_access_code => p_access_code,
+      o_access_code_id => l_access_code_id,
+      o_competition_id => l_competition_id,
+      o_max_uses => l_max_uses,
+      o_used_count => l_used_count
+    );
 
     begin
       select t.terms_id
@@ -2801,22 +2853,10 @@ create or replace package body pkg_competitor as
         end;
     end;
 
-    if p_user_id is not null then
-      begin
-        select 'Y'
-          into l_already_active
-          from competition_participants cp
-         where cp.competition_id = l_competition_id
-           and cp.user_id = p_user_id
-           and cp.end_date is null
-         fetch first 1 row only;
-      exception
-        when no_data_found then
-          l_already_active := 'N';
-      end;
-    else
-      l_already_active := 'N';
-    end if;
+    l_already_active := user_already_active_for_comp(
+      p_user_id => p_user_id,
+      p_competition_id => l_competition_id
+    );
 
     if l_already_active = 'Y' then
       raise_application_error(-20131, 'user is already active participant for this competition'); -- NOSONAR: S1192 repeated literal accepted for script readability/stability
@@ -2856,6 +2896,45 @@ create or replace package body pkg_competitor as
      where c.competition_id = l_competition_id;
   end;
 
+  -- join_code_preview_json: Validates QR/manual code and returns lightweight competition metadata.
+  procedure join_code_preview_json(
+    p_user_id in number,
+    p_access_code in varchar2,
+    o_item_json out clob
+  ) is
+    l_access_code_id number;
+    l_competition_id number;
+    l_max_uses number;
+    l_used_count number;
+    l_already_active varchar2(1);
+  begin
+    o_item_json := null;
+
+    resolve_join_access_code(
+      p_access_code => p_access_code,
+      o_access_code_id => l_access_code_id,
+      o_competition_id => l_competition_id,
+      o_max_uses => l_max_uses,
+      o_used_count => l_used_count
+    );
+
+    l_already_active := user_already_active_for_comp(
+      p_user_id => p_user_id,
+      p_competition_id => l_competition_id
+    );
+
+    select json_object(
+             'competition_id' value c.competition_id,
+             'competition_name' value c.name,
+             'competition_description' value c.description,
+             'already_active_for_user' value l_already_active
+             returning clob
+           )
+      into o_item_json
+      from competitions c
+     where c.competition_id = l_competition_id;
+  end;
+
   -- join_by_code: Performs this business operation according to package rules.
   procedure join_by_code(
     p_user_id in number,
@@ -2879,18 +2958,13 @@ create or replace package body pkg_competitor as
     l_current_competition_id number;
     l_existing_participant_id number;
     l_effective_user_id number;
-    l_now_utc_ts timestamp;
     l_alias_dummy number;
   begin
-    l_now_utc_ts := cast((systimestamp at time zone 'UTC') as timestamp);
     o_switched_from_participant_id := null;
     o_no_change := 'N';
     o_competition_participant_id := null;
     o_user_id := null;
 
-    if p_access_code is null then
-      raise_application_error(-20030, 'access_code is required');
-    end if;
     if trim(p_alias_display) is null then
       raise_application_error(-20101, 'alias is required');
     end if;
@@ -2910,30 +2984,13 @@ create or replace package body pkg_competitor as
     end if;
     o_user_id := l_effective_user_id;
 
-    begin
-      select c.access_code_id,
-             c.competition_id,
-             c.max_uses,
-             c.used_count
-        into l_access_code_id, o_competition_id, l_max_uses, l_used_count
-        from competition_access_codes c
-        join competitions comp on comp.competition_id = c.competition_id
-       where c.code = p_access_code
-         and c.code_type = 'COMPETITOR'
-         and (c.end_date is null or c.end_date > sysdate)
-         and (c.expires_at is null or c.expires_at > l_now_utc_ts)
-         and c.status = 'ACTIVE'
-         and (comp.end_date is null or comp.end_date > sysdate)
-         and comp.status in ('INACTIVE', 'ACTIVE')
-       fetch first 1 row only;
-    exception
-      when no_data_found then
-        raise_application_error(-20031, 'invalid or inactive access code');
-    end;
-
-    if l_max_uses is not null and l_used_count >= l_max_uses then
-      raise_application_error(-20032, 'access code usage limit reached');
-    end if;
+    resolve_join_access_code(
+      p_access_code => p_access_code,
+      o_access_code_id => l_access_code_id,
+      o_competition_id => o_competition_id,
+      o_max_uses => l_max_uses,
+      o_used_count => l_used_count
+    );
 
     begin
       select t.terms_id
@@ -4040,6 +4097,19 @@ create or replace package pkg_admin_content as
   procedure remove_competition_organizer(
     p_competition_id in number,
     p_user_id in number,
+    p_removed_by in number
+  );
+  -- list_competition_participants_json: Returns active competition participants for organizer modal.
+  procedure list_competition_participants_json(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  );
+  -- soft_delete_competition_participant: Soft-deletes one competition participant relation.
+  procedure soft_delete_competition_participant(
+    p_competition_id in number,
+    p_competition_participant_id in number,
     p_removed_by in number
   );
   -- update_competition_dates: Updates existing data for competition dates.
@@ -5930,6 +6000,118 @@ create or replace package body pkg_admin_content as
         json_object(
           'competition_id' value p_competition_id,
           'user_id' value p_user_id
+        )
+      )
+    );
+  end;
+
+  -- list_competition_participants_json: Returns active competition participants for organizer modal.
+  procedure list_competition_participants_json(
+    p_competition_id in number,
+    p_requester_user_id in number,
+    o_access_granted out varchar2,
+    o_items_json out clob
+  ) is
+    l_has_access number := 0;
+  begin
+    o_access_granted := 'N';
+    o_items_json := '[]';
+
+    if p_competition_id is null or p_requester_user_id is null then
+      return;
+    end if;
+
+    select count(*)
+      into l_has_access
+      from competition_organizers co
+     where co.competition_id = p_competition_id
+       and co.user_id = p_requester_user_id
+       and (co.end_date is null or co.end_date > sysdate);
+
+    if l_has_access = 0 then
+      return;
+    end if;
+
+    o_access_granted := 'Y';
+
+    select nvl(
+             json_arrayagg(
+               json_object(
+                 'competition_participant_id' value x.competition_participant_id,
+                 'alias_display' value x.alias_display,
+                 'contact_email' value x.contact_email,
+                 'joined_at' value to_char(x.joined_at, pkg_common.c_iso_ts_format)
+               ) returning clob
+             ),
+             to_clob('[]')
+           )
+      into o_items_json
+      from (
+        select cp.competition_participant_id,
+               cp.alias_display,
+               cp.contact_email,
+               cp.joined_at
+          from competition_participants cp
+         where cp.competition_id = p_competition_id
+           and (cp.end_date is null or cp.end_date > sysdate)
+         order by lower(nvl(cp.alias_display, '')), cp.competition_participant_id
+      ) x;
+  end;
+
+  -- soft_delete_competition_participant: Soft-deletes one competition participant relation.
+  procedure soft_delete_competition_participant(
+    p_competition_id in number,
+    p_competition_participant_id in number,
+    p_removed_by in number
+  ) is
+    l_has_access number := 0;
+    l_user_id competition_participants.user_id%type;
+  begin
+    if p_competition_id is null or p_competition_participant_id is null or p_removed_by is null then
+      raise_application_error(-20173, 'competition_id, competition_participant_id and removed_by are required');
+    end if;
+
+    select count(*)
+      into l_has_access
+      from competition_organizers co
+     where co.competition_id = p_competition_id
+       and co.user_id = p_removed_by
+       and (co.end_date is null or co.end_date > sysdate);
+
+    if l_has_access = 0 then
+      raise_application_error(-20174, 'active organizer relation not found for remover');
+    end if;
+
+    begin
+      select cp.user_id
+        into l_user_id
+        from competition_participants cp
+       where cp.competition_id = p_competition_id
+         and cp.competition_participant_id = p_competition_participant_id
+         and (cp.end_date is null or cp.end_date > sysdate)
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20175, 'active participant relation not found');
+    end;
+
+    update competition_participants
+       set end_date = sysdate
+     where competition_participant_id = p_competition_participant_id
+       and competition_id = p_competition_id
+       and (end_date is null or end_date > sysdate);
+
+    add_audit(
+      'COMPETITION_PARTICIPANT',
+      p_competition_participant_id,
+      'SOFT_DELETE',
+      p_removed_by,
+      null,
+      to_clob(
+        json_object(
+          'competition_id' value p_competition_id,
+          'competition_participant_id' value p_competition_participant_id,
+          'user_id' value l_user_id
         )
       )
     );

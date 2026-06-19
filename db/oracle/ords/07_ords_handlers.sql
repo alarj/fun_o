@@ -836,6 +836,49 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/competitor/join-code-preview?access_code=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-code-preview');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'competitor/join-code-preview',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.join_code_preview_json(
+          p_user_id => case when :user_id is not null then to_number(:user_id) else null end,
+          p_access_code => :access_code,
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(nvl(l_json, '{}'));
+      end;
+    ]'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/join-code-preview',
+    p_method             => 'GET',
+    p_name               => 'access_code',
+    p_bind_variable_name => 'access_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/join-code-preview',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
   -- POST /funo/competitor/join-preview
   ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-preview');
   ORDS.DEFINE_HANDLER(
@@ -1662,6 +1705,70 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/organizer/participants?competition_id=..&requester_user_id=..
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => c_module_name,
+    p_pattern     => 'organizer/participants'
+  );
+
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'organizer/participants',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'~ -- NOSONAR
+      declare
+        l_items_json clob;
+        l_output_json clob;
+        l_access_granted varchar2(1) := 'N';
+        l_len pls_integer;
+        l_pos pls_integer := 1;
+        l_step pls_integer := 2000;
+      begin
+        FUNO_APP.pkg_admin_content.list_competition_participants_json(
+          p_competition_id => to_number(:competition_id),
+          p_requester_user_id => to_number(:requester_user_id),
+          o_access_granted => l_access_granted,
+          o_items_json => l_items_json
+        );
+
+        l_output_json := '{"access_granted":"'
+          || case when nvl(l_access_granted, 'N') = 'Y' then 'Y' else 'N' end
+          || '","items":'
+          || nvl(l_items_json, '[]')
+          || '}';
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        l_len := dbms_lob.getlength(l_output_json);
+        while l_pos <= l_len loop
+          htp.prn(dbms_lob.substr(l_output_json, l_step, l_pos));
+          l_pos := l_pos + l_step;
+        end loop;
+      end;
+    ~'
+  );
+
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'organizer/participants',
+    p_method             => 'GET',
+    p_name               => 'competition_id',
+    p_bind_variable_name => 'competition_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'organizer/participants',
+    p_method             => 'GET',
+    p_name               => 'requester_user_id',
+    p_bind_variable_name => 'requester_user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
   -- GET /funo/organizer/participant-submissions?competition_id=..&user_id=..
   ORDS.DEFINE_TEMPLATE(
     p_module_name => c_module_name,
@@ -1946,6 +2053,31 @@ begin
     p_source_type        => 'URI',
     p_param_type         => 'STRING',
     p_access_method      => 'IN'
+  );
+
+  -- POST /funo/admin/participants/delete
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'admin/participants/delete');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'admin/participants/delete',
+    p_method      => 'POST',
+    p_source_type => ORDS.source_type_plsql,
+    p_mimes_allowed => 'application/json',
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_body json_object_t;
+      begin
+        l_body := json_object_t.parse(:body_text);
+        FUNO_APP.pkg_admin_content.soft_delete_competition_participant(
+          p_competition_id => l_body.get_number('competition_id'),
+          p_competition_participant_id => l_body.get_number('competition_participant_id'),
+          p_removed_by => l_body.get_number('removed_by')
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p('{"ok":true}');
+      end;
+    ]'
   );
 
   -- POST /funo/admin/checkpoints

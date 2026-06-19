@@ -152,6 +152,16 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimus võib olla vastatav, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
 - Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
 - `is_answered` on kasutajapõhine cache-andmestik.
+- FastAPI peab `is_answered` välja koostama kahe eri allika ühendamisel:
+  - `competitor/competition-content` annab ainult staatilise checkpoint/question sisu ega sisalda participant-specific `is_answered` välju;
+  - `competitor/checkpoint-state` annab ainult answered checkpoint id-de loendi kujul `{"items":[{"checkpoint_id":...}, ...]}`.
+- Need on eri semantikaga payloadid ja neid ei tohi sama reegliga parsida:
+  - `map-checkpoints` / `open-checkpoints` vahepayloadis võib `is_answered` välja juba olla ja sealt võib answered-seisu lugeda ainult `is_answered = 'Y'` järgi;
+  - ORDS `checkpoint-state` vastuses answered-seis tuleb lugeda ainult `checkpoint_id` olemasolu järgi, sest seal `is_answered` välja ei ole.
+- Kui need kaks tõlgendust segi lähevad, tekivad kaardipopupi äriloogikas valed eelotsused:
+  - kasutajale võidakse valesti näidata `START tuleb enne läbida`, kuigi `START` on DB järgi läbitud;
+  - või valesti `FINISH juba läbitud`, kuigi `FINISH` kirjet DB-s ei ole.
+- Seetõttu peavad popupi nupu nähtavuse eelotsus ja popupi nupu vajutuse järel tehtav backend kontroll tuginema samale participant-state tõele.
 - Cache võib olla pika TTL-iga, kuid staatus värskendatakse sündmuspõhiselt:
   - pärast edukat vastuse saatmist (`submit`) uuendatakse kasutaja KP staatus;
   - kui kasutaja avab `Tulemused` (`Kuva tulemused`), värskendatakse kasutaja kaardi KP staatus.

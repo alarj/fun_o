@@ -22,6 +22,11 @@
     integrity="sha256-xnX1c4jTWYY3xOD5/hVL1h37HCCGJx+USguyubBZsHQ="
     crossorigin="anonymous"
   ></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+    integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU"
+    crossorigin="anonymous"
+  ></script>
 </head>
 <body class="admin-booting">
   <div id="adminBootBackdrop" class="busyBackdrop admin-boot-backdrop-visible" aria-live="polite" aria-busy="true">
@@ -70,40 +75,52 @@
       </div>
 
       <div class="card" id="competitionOverviewCard">
-        <div class="tools adminTopLine">
-          <h1 id="cName">-</h1>
-          <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">&#128205;</span>
-          <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">?</span>
-          <span
-            id="cOverlayReadyBadge"
-            class="competition-overlay-ready-badge hidden"
-            data-i18n-title="admin.comp.overlay_ready_badge_title"
-            data-i18n-aria-label="admin.comp.overlay_ready_badge_title"
-            title="admin.comp.overlay_ready_badge_title"
-            aria-label="admin.comp.overlay_ready_badge_title"
-            role="img"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M3.5 6.5 8 3l4 3.5L16 3l4.5 3.5v11L16 21l-4-3.5L8 21l-4.5-3.5zM8 5.4 5.5 7.3v8.2L8 17.4zm1 0v12l2.5-2.2V7.6zm3.5 2.2v7.6l2.5 2.2v-12zm3.5-2.2v12l2.5-1.9V7.3z"/>
-              <path d="m9.1 11.7 2.1 2.1 4.2-4.2" class="overlay-ready-check"/>
-            </svg>
-          </span>
-          <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
-          <button id="copyCompetitionBtn" class="secondary" data-i18n="admin.comp.copy_comp_btn">admin.comp.copy_comp_btn</button>
-          <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
-          <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
-          <span class="adminTopLineSpacer"></span>
-          <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">admin.comp.pick_comp_btn</button>
-          <label for="uiLangApp" class="visually-hidden" data-i18n="admin.app.lang_select_label">admin.app.lang_select_label</label>
-          <select id="uiLangApp" class="superLangSelect"></select>
+        <div class="adminCompHeader">
+          <div class="adminCompHeaderTop">
+            <div class="adminCompTitleWrap">
+              <h1 class="adminCompTitleHeading">
+                <span id="cName">-</span>
+                <span class="adminCompTitleIcons">
+                  <span id="cLocationBadge" class="hidden" style="font-weight:700;color:#b74545;">&#128205;</span>
+                  <span id="cCompetitorLocationBadge" class="hidden" style="font-weight:700;color:#2f8cff;font-size:30px;line-height:1;transform:translateY(-1px);">?</span>
+                  <span
+                    id="cOverlayReadyBadge"
+                    class="competition-overlay-ready-badge hidden"
+                    data-i18n-title="admin.comp.overlay_ready_badge_title"
+                    data-i18n-aria-label="admin.comp.overlay_ready_badge_title"
+                    title="admin.comp.overlay_ready_badge_title"
+                    aria-label="admin.comp.overlay_ready_badge_title"
+                    role="img"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M3.5 6.5 8 3l4 3.5L16 3l4.5 3.5v11L16 21l-4-3.5L8 21l-4.5-3.5zM8 5.4 5.5 7.3v8.2L8 17.4zm1 0v12l2.5-2.2V7.6zm3.5 2.2v7.6l2.5 2.2v-12zm3.5-2.2v12l2.5-1.9V7.3z"/>
+                      <path d="m9.1 11.7 2.1 2.1 4.2-4.2" class="overlay-ready-check"/>
+                    </svg>
+                  </span>
+                </span>
+              </h1>
+            </div>
+            <div class="adminCompLangWrap">
+              <label for="uiLangApp" class="visually-hidden" data-i18n="admin.app.lang_select_label">admin.app.lang_select_label</label>
+              <select id="uiLangApp" class="superLangSelect"></select>
+            </div>
+          </div>
+          <div id="cDesc" class="adminCompDescription"></div>
+          <div class="tools adminCompActions">
+            <button id="openCompetitionPickerBtn" data-i18n="admin.comp.pick_comp_btn">admin.comp.pick_comp_btn</button>
+            <button id="openCompetitionEditBtn" class="secondary" data-i18n="admin.comp.edit_comp_btn">admin.comp.edit_comp_btn</button>
+            <button id="openTermsBtn" class="secondary" data-i18n="admin.comp.terms_btn">admin.comp.terms_btn</button>
+            <button id="openParticipantsBtn" class="secondary" data-i18n="admin.comp.participants_btn">admin.comp.participants_btn</button>
+            <button id="openResultsBtn" class="secondary" data-i18n="admin.comp.results_btn">admin.comp.results_btn</button>
+            <button id="copyCompetitionBtn" class="secondary" data-i18n="admin.comp.copy_comp_btn">admin.comp.copy_comp_btn</button>
+          </div>
         </div>
-        <div id="cDesc" style="margin-bottom:6px;"></div>
-        <div class="cols" style="margin-top:10px;">
+        <div class="cols adminCompStatsGrid" style="margin-top:10px;">
           <div><strong data-i18n="admin.comp.status_label">admin.comp.status_label</strong><div class="tools" style="align-items:center; margin-top:4px;"><div id="cStatus" style="min-width:72px;">-</div></div></div>
           <div><strong data-i18n="admin.comp.created_label">admin.comp.created_label</strong><div id="cCreated">-</div></div>
           <div><strong data-i18n="admin.comp.updated_label">admin.comp.updated_label</strong><div id="cUpdated">-</div></div>
         </div>
-        <div class="cols" style="margin-top:10px;">
+        <div class="cols adminCompStatsGrid" style="margin-top:10px;">
           <div>
             <strong data-i18n="admin.comp.starts_label">admin.comp.starts_label</strong>
             <div id="cStarts" style="margin-top:4px;">-</div>
@@ -117,13 +134,19 @@
             <div id="cType" style="margin-top:4px;">-</div>
           </div>
         </div>
-        <div class="cols" style="margin-top:14px;">
+        <div class="cols adminCompStatsGrid" style="margin-top:14px;">
           <div>
             <div class="field-label-with-info">
               <strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong>
               <button class="info-icon-btn" type="button" data-info-key="admin.comp.competitor_code_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
             </div>
-            <div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div>
+            <div class="tools" style="align-items:center; margin-top:4px;">
+              <div id="codeCompetitor" style="min-width:72px;">-</div>
+              <button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button>
+              <button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button>
+              <button id="openCompetitionQrBtn" class="iconBtn qr-trigger-btn" type="button" data-i18n-title="admin.comp.qr_btn_title" data-i18n-aria-label="admin.comp.qr_btn_title" title="admin.comp.qr_btn_title" aria-label="admin.comp.qr_btn_title"></button>
+              <button class="info-icon-btn" type="button" data-info-key="admin.comp.qr_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+            </div>
           </div>
           <div>
             <div class="field-label-with-info">
@@ -487,6 +510,43 @@
     </div>
   </dialog>
 
+  <dialog id="participantsDialog">
+    <div class="modal-head">
+      <h3 style="margin:0;" data-i18n="admin.participants.heading">admin.participants.heading</h3>
+      <button id="participantsCloseBtn" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+    </div>
+    <div id="participantsIntroText" class="muted admin-participants-intro" data-i18n="admin.participants.intro_text">admin.participants.intro_text</div>
+    <div id="participantsMsg"></div>
+    <div class="admin-participants-table-wrap">
+      <table class="table admin-participants-table">
+        <thead>
+          <tr>
+            <th><span data-i18n="admin.participants.alias_col">admin.participants.alias_col</span> <button class="sortBtn" id="participantsSortAlias" type="button">?</button></th>
+            <th><span data-i18n="admin.participants.email_col">admin.participants.email_col</span> <button class="sortBtn" id="participantsSortEmail" type="button">?</button></th>
+            <th><span data-i18n="admin.participants.joined_col">admin.participants.joined_col</span> <button class="sortBtn" id="participantsSortJoined" type="button">?</button></th>
+            <th style="width:42px;"></th>
+          </tr>
+        </thead>
+        <tbody id="participantsRows"></tbody>
+      </table>
+    </div>
+  </dialog>
+
+  <dialog id="competitionQrDialog" class="competition-qr-dialog">
+    <div class="competition-qr-shell">
+      <div class="competition-qr-topbar">
+        <div class="competition-qr-topbar-spacer" aria-hidden="true"></div>
+        <button id="competitionQrCloseBtn" class="secondary competition-qr-close-btn" type="button" data-i18n="admin.comp.qr_modal.close_btn">admin.comp.qr_modal.close_btn</button>
+      </div>
+      <div class="competition-qr-content">
+        <h2 id="competitionQrCompetitionName" class="competition-qr-title">-</h2>
+        <div id="competitionQrMsg"></div>
+        <div id="competitionQrCanvas" class="competition-qr-canvas" aria-live="polite"></div>
+        <p id="competitionQrInstructions" class="competition-qr-instructions" data-i18n="admin.comp.qr_modal.instructions">admin.comp.qr_modal.instructions</p>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="participantMapLayersDialog">
     <h3 data-i18n="admin.participant_layers.heading">admin.participant_layers.heading</h3>
     <div class="muted" data-i18n="admin.participant_layers.help_text">admin.participant_layers.help_text</div>
@@ -589,6 +649,21 @@
       <div></div>
       <div class="dialog-right">
         <button id="introDialogClose" class="secondary" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="removeParticipantBackdrop">
+    <div class="modalCard">
+      <h2 id="removeParticipantTitle" style="margin-top:0;" data-i18n="admin.participants.remove.heading">admin.participants.remove.heading</h2>
+      <div id="removeParticipantText" class="muted" style="margin-bottom:10px;"></div>
+      <div id="removeParticipantMsg"></div>
+      <div class="tools" id="removeParticipantActions" style="justify-content:flex-end;">
+        <button id="removeParticipantNoBtn" class="secondary" type="button" data-i18n="admin.common.no_btn">admin.common.no_btn</button>
+        <button id="removeParticipantYesBtn" type="button" data-i18n="admin.common.yes_btn">admin.common.yes_btn</button>
+      </div>
+      <div class="tools hidden" id="removeParticipantResultActions" style="justify-content:flex-end;">
+        <button id="removeParticipantCloseBtn" type="button" data-i18n="admin.common.close_btn">admin.common.close_btn</button>
       </div>
     </div>
   </dialog>
