@@ -850,6 +850,7 @@ class AdminUpdateCheckpointRequest(BaseModel):
     radius_m: float | None = None
     location_required: str | None = None
     mass_start_at: str | None = None
+    delete_active_question_confirmed: str | None = None
     updated_by: int | None = None
 
 
@@ -5115,6 +5116,8 @@ async def admin_update_checkpoint(req: AdminUpdateCheckpointRequest, request: Re
         payload["location_required"] = req.location_required
     if req.mass_start_at is not None:
         payload["mass_start_at"] = req.mass_start_at
+    if req.delete_active_question_confirmed is not None:
+        payload["delete_active_question_confirmed"] = req.delete_active_question_confirmed
 
     await _post_to_ords(
         "admin/checkpoints/update",

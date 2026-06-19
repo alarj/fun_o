@@ -159,6 +159,7 @@ const translateAdminError = (msg, detailsText) => {
   if (errorMatchesAny(msg, detailsText, ["ora-20197"])) return tr("admin.msg.cp_order_reserved");
   if (errorMatchesAny(msg, detailsText, ["ora-20198"])) return tr("admin.msg.cp_special_type_exists");
   if (errorMatchesAny(msg, detailsText, ["ora-20199"])) return tr("admin.msg.mass_start_at_required");
+  if (errorMatchesAny(msg, detailsText, ["ora-20200"])) return tr("admin.msg.cp_interaction_confirm_required");
   if (errorMatchesAny(msg, detailsText, ["ora-20183"])) return tr("admin.overlay.epk_required_for_overlay_option_msg");
   if (errorMatchesAny(msg, detailsText, ["ora-20188"])) return tr("admin.overlay.epk_required_before_save_msg");
   return "";

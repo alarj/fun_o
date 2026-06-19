@@ -171,6 +171,27 @@ Miks ei parandatud:
 Staatus:
 - teadlikult ignoreeritud madala väärtusega cleanup
 
+### 1.9 `javascript:S4144` kaks kinnituse-dialogi funktsiooni on sisult identsed
+
+Mõjutatud fail:
+- `frontend_dist/assets/admin-main.js`
+
+Mõjutatud ala:
+- `confirmMassStartWarning(...)`
+- `confirmCheckpointInteractionWarning(...)`
+
+Miks ei parandatud:
+- Sonari märkus on sisuliselt õige maintainability tähelepanek, mitte funktsionaalne viga;
+- mõlemad funktsioonid kasutavad praegu teadlikult sama väikest modal-confirm mustrit, sest teine hoiatus lisati olemasoleva mass-stardi hoiatuse kõrvale minimaalse diffiga;
+- ühise helperi tegemine on mõistlik järgmine cleanup-samm, kuid selle sidumine aktiivse äriloogika muudatusega oleks suurendanud asjatult diffi ja regressiooniriski.
+
+Staatus:
+- teadlikult edasi lükatud maintainability cleanup
+
+Millal uuesti hinnata:
+- kui admin hoiatusmodaleid tuleb veel juurde;
+- kui tehakse eraldi admin UI refaktor / Sonar cleanup pass.
+
 ## 2. Gemini teadlikult parandamata leiud
 
 ### 2.0 2026-06 overlay / results töövoo Gemini märkused

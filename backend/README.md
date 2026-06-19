@@ -443,7 +443,8 @@ Access code generation rule:
   - `checkpoint_id` PK, FK: `competition_id -> competitions`
   - `title`, `checkpoint_type` (`NORMAL|START|FINISH`; `NULL` handled as `NORMAL`), optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
   - `location_required` in `('Y','N')`
-  - invariant: `1 checkpoint = 1 active question`
+  - invariant: `1 checkpoint = 1 active interaction`
+  - when checkpoint interaction is changed away from `QUESTION` and checkpoint still has an active question, admin flow must require explicit confirmation before that question is soft-deleted
   - soft-delete/audit columns
 - `questions`
   - `question_id` PK, FK: `checkpoint_id -> checkpoints`
@@ -587,8 +588,9 @@ Important persisted fields in `competition_routes`:
 
 - Only active checkpoints of the target competition are considered.
 - Checkpoint must have both `latitude` and `longitude`.
-- Checkpoint must have an active question.
-- This is an intentional business rule: a checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
+- If `checkpoint_interaction = QUESTION`, checkpoint must also have an active question.
+- This is an intentional business rule: a `QUESTION` checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
+- If `checkpoint_interaction <> QUESTION`, the checkpoint may be included without any active question.
 - Checkpoints without coordinates are excluded from both the calculation and the source hash.
 - Competition type is part of the source hash, so changing `R <-> S` invalidates the old snapshot even if checkpoints themselves did not change.
 

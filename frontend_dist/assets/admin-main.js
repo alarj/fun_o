@@ -1426,6 +1426,12 @@ async function saveCheckpoint() {
       if (!shouldContinue) return;
     }
   }
+  const interactionWarning = buildCheckpointInteractionWarningState(form);
+  if (interactionWarning) {
+    const shouldContinue = await confirmCheckpointInteractionWarning(interactionWarning);
+    if (!shouldContinue) return;
+    form.deleteActiveQuestionConfirmed = "Y";
+  }
   await persistCheckpoint(form, massStartParsed);
   byId("cpDialog").close();
   await loadView();
@@ -1450,6 +1456,7 @@ async function persistCheckpoint(form, massStartParsed) {
   } else {
     const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title, checkpoint_interaction: form.checkpointInteraction };
     if (form.checkpointType === "START") payload.mass_start_at = massStartParsed;
+    if (form.deleteActiveQuestionConfirmed === "Y") payload.delete_active_question_confirmed = "Y";
     if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
@@ -1505,6 +1512,47 @@ function confirmMassStartWarning(rawValue, warning) {
         : "admin.mass_start_warning.delta_future",
       { value: formatMassStartWarningOffset(warning.diffMs) }
     );
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      noBtn.onclick = null;
+      yesBtn.onclick = null;
+      dialog.removeEventListener("close", handleClose);
+      if (dialog.open) dialog.close();
+      resolve(result);
+    };
+    const handleClose = () => finish(false);
+    noBtn.onclick = () => finish(false);
+    yesBtn.onclick = () => finish(true);
+    dialog.addEventListener("close", handleClose, { once: true });
+    dialog.showModal();
+  });
+}
+
+function buildCheckpointInteractionWarningState(form) {
+  if (!form.cpId) return null;
+  if (form.checkpointInteraction === "QUESTION") return null;
+  const row = checkpointsData.find((x) => Number(x?.checkpoint_id) === Number(form.cpId));
+  if (!row) return null;
+  if (normalizeCheckpointInteraction(row?.checkpoint_interaction) !== "QUESTION") return null;
+  if (!row?.question_id) return null;
+  return {
+    checkpointTitle: String(row?.checkpoint_title || row?.title || form.title || "").trim()
+  };
+}
+
+function confirmCheckpointInteractionWarning(warning) {
+  return new Promise((resolve) => {
+    const dialog = byId("checkpointInteractionWarningDialog");
+    const textEl = byId("checkpointInteractionWarningText");
+    const noBtn = byId("checkpointInteractionWarningNo");
+    const yesBtn = byId("checkpointInteractionWarningYes");
+    if (!dialog || !textEl || !noBtn || !yesBtn) {
+      resolve(true);
+      return;
+    }
+    textEl.innerHTML = `${esc(tr("admin.cp_interaction_warning.prompt_prefix"))} <strong style="font-size:22px;">${esc(warning?.checkpointTitle || "-")}</strong>?`;
     let settled = false;
     const finish = (result) => {
       if (settled) return;

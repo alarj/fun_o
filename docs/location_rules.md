@@ -29,6 +29,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `checkpoints.checkpoint_interaction`
   - KP aktiivse interaktsiooni liik: `QUESTION`, `CHECK_ONLY`, `MASS_START`.
   - `MASS_START` on lubatud ainult `START` checkpointil.
+  - Raja pikkuse arvutuses kehtib küsimuse olemasolu nõue ainult siis, kui interaktsioon on `QUESTION`.
+  - Kui checkpointi interaktsioon muudetakse `QUESTION`-ist mõneks muuks väärtuseks ja checkpointil on aktiivne küsimus, peab admin UI enne salvestust küsima kinnituse; ainult kinnituse järel lõpetab süsteem seotud aktiivse küsimuse (soft-delete).
 - `checkpoints.radius_m` (number, meetrites, nullable)
   - KP-spetsiifiline raadius. Kui puudub, kasutatakse `competitions.radius_m`.
 - `checkpoints.location_required` (`Y`/`N`)
