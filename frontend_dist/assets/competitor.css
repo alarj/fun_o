@@ -23,6 +23,7 @@ textarea { min-height: 110px; }
 button { background: var(--accent); color: #fff; border: 0; font-weight: 700; cursor: pointer; }
 button.secondary { background: #6f9498; }
 button:disabled { opacity: 0.5; }
+.hidden { display: none !important; }
 .msg { margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid transparent; font-size: 19px; }
 .ok { background: #e3f9e9; border-color: #8fd0a0; }
 .err { background: #ffe5e5; border-color: #e4aaaa; }
@@ -288,6 +289,21 @@ button:disabled { opacity: 0.5; }
 .termsBody p:last-child { margin-bottom: 0; }
 .termsBody ul, .termsBody ol { margin: 0 0 10px 20px; }
 .termsBody img { max-width: 100%; height: auto; }
+.joinCaptchaIntro {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  line-height: 1.4;
+  color: #33424a;
+}
+.joinCaptchaWidgetWrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 12px 0;
+  min-height: 82px;
+}
+#joinCaptchaWidget {
+  min-width: 304px;
+}
 .feedback-ok { background: #0b7a35; color: #fff; }
 .feedback-err { background: #d92424; color: #fff; }
 .feedback-ok button, .feedback-err button { background: #fff; color: #000; }

@@ -62,6 +62,7 @@ Mida teeb:
 - Verifitseerib Google id_token'i (README järgi tokeninfo MVP lähenemine).
 - Vahendab päringud ORDS-i ning kaardistab vead rakenduse veakoodideks.
 - Haldab sessiooniküpsist (`funo_session` vaikimisi) ja kasutaja sidumist päringutega.
+- Kontrollib competitor liitumisvoos enne ORDS `join-preview` / `join-complete` kutseid reCAPTCHA-d ning väljastab lühiajalise serveri-signeeritud `join_proof` tõendi.
 - Laeb i18n tõlked mällu ning pakub reload endpointi.
 - Pakub ka kaardikihtide konfiguratsiooni endpointi (`/api/map-layers`) README kirjelduse järgi.
 - Haldab võistluspõhiste oma kaartide uploadi, metadata salvestust, taustatöötluse käivitamist ning valmis tile'ide serveerimist admin vaadetele.
@@ -70,6 +71,7 @@ Mida teeb:
 Miks nii on tehtud:
 - Frontend ei pea teadma ORDS/Oracle detaili.
 - Autentimine, sessioon ja veakäsitlus on ühes kontrollitavas kihis.
+- Anti-bot kontroll jääb samuti FastAPI kihti, et ORDS-i ei koormataks bottide preview/join päringutega ning DB äriloogika ei sõltuks Google captcha integratsioonist.
 - Ühtne API leping lihtsustab frontend arendust.
 - Suured võistluspõhised kaardifailid saab töödelda taustas tile'ideks ilma ORDS-i või brauserit ühe suure rasteri renderdamisega koormamata.
 - Raja pikkust ei arvutata frontendis ega igal lugemisel uuesti, vaid FastAPI kasutab DB-s salvestatud snapshoti ainult siis, kui hash kinnitab selle värskuse.
@@ -89,6 +91,7 @@ Mida teeb:
 - Kuvab kasutajaliidest, mida nginx serveerib kataloogist `frontend_dist`.
 - Tarbib backendi `/api/*` endpointe.
 - Kasutab backendi antud andmeid võistluste, KP-de, küsimuste, tulemuste ja i18n kuvamiseks.
+- Competitor liitumisvoos kasutab vajadusel Google reCAPTCHA v3 ja ainult madala skoori korral v2 fallback challenge'it.
 - `results.html` võistleja modal kasutab `participant-submissions` andmeid, sh iga rea `delta_from_prev_seconds` ning kokkuvõtte väljasid `total_elapsed_seconds` / `total_distance_m`.
 - `results.html` automaatvärskendus töötab ainult lehe avamisel aktiivseks loetud võistlusel, mille `starts_at <= now` ja mille `ends_at` on kas tulevikus või `NULL`, ning peatub hiljemalt 1 tunni möödumisel lehe avamisest.
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).

@@ -60,6 +60,14 @@ class Settings:
     overlay_tile_min_zoom: int = int(os.getenv("OVERLAY_TILE_MIN_ZOOM", "5"))
     overlay_tile_max_zoom: int = int(os.getenv("OVERLAY_TILE_MAX_ZOOM", "14"))
     overlay_tile_token_ttl_seconds: int = int(os.getenv("OVERLAY_TILE_TOKEN_TTL_SECONDS", "86400"))
+    recaptcha_join_v3_site_key: str = os.getenv("RECAPTCHA_JOIN_V3_SITE_KEY", "").strip()
+    recaptcha_join_v3_secret_key: str = os.getenv("RECAPTCHA_JOIN_V3_SECRET_KEY", "").strip()
+    recaptcha_join_v2_site_key: str = os.getenv("RECAPTCHA_JOIN_V2_SITE_KEY", "").strip()
+    recaptcha_join_v2_secret_key: str = os.getenv("RECAPTCHA_JOIN_V2_SECRET_KEY", "").strip()
+    recaptcha_join_v3_action: str = os.getenv("RECAPTCHA_JOIN_V3_ACTION", "competitor_join_preview").strip() or "competitor_join_preview"
+    recaptcha_join_v3_score_threshold: float = float(os.getenv("RECAPTCHA_JOIN_V3_SCORE_THRESHOLD", "0.4"))
+    recaptcha_join_proof_ttl_seconds: int = int(os.getenv("RECAPTCHA_JOIN_PROOF_TTL_SECONDS", "900"))
+    recaptcha_verify_url: str = os.getenv("RECAPTCHA_VERIFY_URL", "https://www.google.com/recaptcha/api/siteverify").strip() or "https://www.google.com/recaptcha/api/siteverify"
 
 
 settings = Settings()
@@ -133,6 +141,8 @@ ADMIN_OVERLAY_IMAGE_FILE_SIZE_TOO_LARGE_MSG = "admin.overlay.image_file_size_too
 ADMIN_OVERLAY_IMAGE_DIMENSIONS_TOO_LARGE_MSG = "admin.overlay.image_dimensions_too_large_msg"
 ORDS_AUTH_USER_PROFILE_PATH = "auth/user-profile"
 TOKEN_KIND_REFRESH = "refresh"
+TOKEN_KIND_JOIN_PROOF = "competitor_join_proof"
+JOIN_RECAPTCHA_V3_ACTION = "competitor_join_preview"
 L_EST97_MIN_X = 300000.0
 L_EST97_MAX_X = 800000.0
 L_EST97_MIN_Y = 6300000.0
@@ -199,6 +209,47 @@ def _extract_http_exception_meta(exc: HTTPException) -> tuple[str | None, dict[s
     return code, details
 
 
+def _join_recaptcha_path(*, recaptcha_v3_token: str | None = None, recaptcha_v2_token: str | None = None) -> str:
+    if _normalize_join_value(recaptcha_v2_token):
+        return "v2"
+    if _normalize_join_value(recaptcha_v3_token):
+        return "v3"
+    return "none"
+
+
+def _join_request_context(
+    *,
+    user_id: int | None,
+    code: str,
+    alias_display: str | None = None,
+    lang_code: str | None = None,
+    recaptcha_v3_token: str | None = None,
+    recaptcha_v2_token: str | None = None,
+    current_participant_id: int | None = None,
+    terms_id: int | None = None,
+    terms_lang_code: str | None = None,
+) -> dict[str, Any]:
+    context: dict[str, Any] = {
+        "user_id": user_id,
+        "code_digest": _join_proof_digest(code)[:16],
+        "alias_digest": _join_proof_digest(alias_display or "")[:16],
+        "captcha_enabled": _recaptcha_join_is_enabled(),
+        "captcha_path": _join_recaptcha_path(
+            recaptcha_v3_token=recaptcha_v3_token,
+            recaptcha_v2_token=recaptcha_v2_token,
+        ),
+    }
+    if lang_code:
+        context["lang_code"] = lang_code
+    if current_participant_id is not None:
+        context["current_participant_id"] = current_participant_id
+    if terms_id is not None:
+        context["terms_id"] = terms_id
+    if terms_lang_code:
+        context["terms_lang_code"] = terms_lang_code
+    return context
+
+
 class ApiError(BaseModel):
     code: str
     message: str
@@ -261,6 +312,8 @@ class CompetitorJoinPreviewRequest(BaseModel):
     code: str = Field(min_length=1, max_length=200)
     lang_code: str | None = None
     alias_display: str | None = Field(default=None, max_length=120)
+    recaptcha_v3_token: str | None = Field(default=None, max_length=4096)
+    recaptcha_v2_token: str | None = Field(default=None, max_length=4096)
 
 
 class CompetitorJoinPreviewTerms(BaseModel):
@@ -275,6 +328,14 @@ class CompetitorJoinPreviewResponse(BaseModel):
     competition_description: str | None = None
     already_active_for_user: bool
     terms: CompetitorJoinPreviewTerms | None = None
+    join_proof: str | None = None
+
+
+class CompetitorJoinConfigResponse(BaseModel):
+    enabled: bool
+    v3_site_key: str | None = None
+    v2_site_key: str | None = None
+    v3_action: str | None = None
 
 
 class CompetitorJoinCodePreviewResponse(BaseModel):
@@ -296,6 +357,7 @@ class CompetitorJoinCompleteRequest(BaseModel):
     terms_id: int
     terms_lang_code: str = Field(min_length=2, max_length=10)
     accept_terms: bool
+    join_proof: str | None = Field(default=None, max_length=4096)
 
 
 class CompetitorJoinCompleteResponse(BaseModel):
@@ -1170,6 +1232,186 @@ def _signed_payload_is_expired(payload: dict[str, Any] | None) -> bool:
         return int(exp_value) < int(time.time())
     except Exception:
         return True
+
+
+def _recaptcha_join_is_enabled() -> bool:
+    return all(
+        [
+            settings.recaptcha_join_v3_site_key,
+            settings.recaptcha_join_v3_secret_key,
+            settings.recaptcha_join_v2_site_key,
+            settings.recaptcha_join_v2_secret_key,
+        ]
+    )
+
+
+def _masked_config(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "***"
+    return f"{value[:4]}***{value[-4:]}"
+
+
+def _recaptcha_join_is_misconfigured() -> bool:
+    configured_flags = [
+        bool(settings.recaptcha_join_v3_site_key),
+        bool(settings.recaptcha_join_v3_secret_key),
+        bool(settings.recaptcha_join_v2_site_key),
+        bool(settings.recaptcha_join_v2_secret_key),
+    ]
+    return any(configured_flags) and not all(configured_flags)
+
+
+def _normalize_join_value(value: str | None) -> str:
+    return str(value or "").strip()
+
+
+def _join_proof_digest(value: str) -> str:
+    digest = hmac.new(
+        settings.session_secret.encode("utf-8"),
+        _normalize_join_value(value).encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    return _b64url(digest)
+
+
+def _make_join_proof(
+    *,
+    user_id: int | None,
+    access_code: str,
+    alias_display: str,
+    competition_id: int,
+    terms_id: int,
+    terms_lang_code: str,
+) -> str:
+    ttl_seconds = max(60, int(settings.recaptcha_join_proof_ttl_seconds))
+    return _make_signed_token(
+        {
+            "token_kind": TOKEN_KIND_JOIN_PROOF,
+            "user_id": user_id,
+            "access_code_digest": _join_proof_digest(access_code),
+            "alias_display_digest": _join_proof_digest(alias_display),
+            "competition_id": competition_id,
+            "terms_id": terms_id,
+            "terms_lang_code": _normalize_join_value(terms_lang_code).lower(),
+            "exp": int(time.time()) + ttl_seconds,
+        }
+    )
+
+
+def _assert_valid_join_proof(
+    *,
+    proof_token: str | None,
+    current_user_id: int | None,
+    access_code: str,
+    alias_display: str,
+    terms_id: int,
+    terms_lang_code: str,
+) -> None:
+    payload = _read_signed_token(proof_token)
+    if _signed_payload_is_expired(payload):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if not isinstance(payload, dict) or payload.get("token_kind") != TOKEN_KIND_JOIN_PROOF:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if payload.get("user_id") != current_user_id:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if payload.get("access_code_digest") != _join_proof_digest(access_code):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if payload.get("alias_display_digest") != _join_proof_digest(alias_display):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if payload.get("terms_id") != terms_id:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+    if str(payload.get("terms_lang_code") or "").strip().lower() != _normalize_join_value(terms_lang_code).lower():
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
+
+
+def _get_request_client_ip(request: Request) -> str | None:
+    forwarded_for = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    if isinstance(forwarded_for, str) and forwarded_for.strip():
+        first_ip = forwarded_for.split(",", 1)[0].strip()
+        if first_ip:
+            return first_ip
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None)
+    return str(host).strip() if isinstance(host, str) and host.strip() else None
+
+
+async def _verify_recaptcha_token(secret_key: str, token: str, remote_ip: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "secret": secret_key,
+        "response": token,
+    }
+    if remote_ip:
+        payload["remoteip"] = remote_ip
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+            response = await client.post(settings.recaptcha_verify_url, data=payload)
+    except httpx.HTTPError:
+        _raise_api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "JOIN_CAPTCHA_UNAVAILABLE",
+            "api.error.join_captcha_unavailable",
+        )
+    if response.status_code >= 500:
+        _raise_api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "JOIN_CAPTCHA_UNAVAILABLE",
+            "api.error.join_captcha_unavailable",
+        )
+    try:
+        data = response.json()
+    except ValueError:
+        _raise_api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "JOIN_CAPTCHA_UNAVAILABLE",
+            "api.error.join_captcha_unavailable",
+        )
+    if not isinstance(data, dict):
+        _raise_api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "JOIN_CAPTCHA_UNAVAILABLE",
+            "api.error.join_captcha_unavailable",
+        )
+    return data
+
+
+async def _enforce_join_recaptcha(
+    request: Request,
+    *,
+    recaptcha_v3_token: str | None,
+    recaptcha_v2_token: str | None,
+) -> None:
+    if _recaptcha_join_is_misconfigured():
+        return
+    if not _recaptcha_join_is_enabled():
+        return
+
+    remote_ip = _get_request_client_ip(request)
+    v2_token = _normalize_join_value(recaptcha_v2_token)
+    if v2_token:
+        v2_data = await _verify_recaptcha_token(settings.recaptcha_join_v2_secret_key, v2_token, remote_ip)
+        if v2_data.get("success") is not True:
+            _raise_api_error(status.HTTP_403_FORBIDDEN, "JOIN_CAPTCHA_FAILED", "api.error.join_captcha_failed")
+        return
+
+    v3_token = _normalize_join_value(recaptcha_v3_token)
+    if not v3_token:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "JOIN_CAPTCHA_REQUIRED", "api.error.join_captcha_required")
+
+    v3_data = await _verify_recaptcha_token(settings.recaptcha_join_v3_secret_key, v3_token, remote_ip)
+    if v3_data.get("success") is not True:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "JOIN_CAPTCHA_FAILED", "api.error.join_captcha_failed")
+    action_value = str(v3_data.get("action") or "").strip()
+    expected_action = str(settings.recaptcha_join_v3_action or JOIN_RECAPTCHA_V3_ACTION).strip()
+    if action_value and action_value != expected_action:
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "JOIN_CAPTCHA_FAILED", "api.error.join_captcha_failed")
+    try:
+        score = float(v3_data.get("score"))
+    except (TypeError, ValueError):
+        score = 0.0
+    if score < float(settings.recaptcha_join_v3_score_threshold):
+        _raise_api_error(status.HTTP_403_FORBIDDEN, "JOIN_CAPTCHA_V2_REQUIRED", "api.error.join_captcha_v2_required")
 
 
 def _read_session_payload(request: Request) -> dict[str, Any] | None:
@@ -2917,6 +3159,17 @@ def _build_open_checkpoint_items(
 @app.on_event("startup")
 async def startup_event() -> None:
     _configure_logging()
+    if _recaptcha_join_is_misconfigured():
+        _log_structured(
+            logging.WARNING,
+            "competitor_join_captcha_misconfigured",
+            {
+                "v3_site_key": _masked_config(settings.recaptcha_join_v3_site_key),
+                "v3_secret_key": _masked_config(settings.recaptcha_join_v3_secret_key),
+                "v2_site_key": _masked_config(settings.recaptcha_join_v2_site_key),
+                "v2_secret_key": _masked_config(settings.recaptcha_join_v2_secret_key),
+            },
+        )
     await _load_i18n_cache()
     await _resume_pending_overlay_processing()
 
@@ -3294,35 +3547,100 @@ async def competitor_session(request: Request, response: Response) -> Competitor
 
 @app.post("/api/competitor/join-preview", response_model=CompetitorJoinPreviewResponse)
 async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Request) -> CompetitorJoinPreviewResponse:
+    started_at = time.monotonic()
     user_id = _read_competitor_session_user_id(request)
     lang_code = (req.lang_code or settings.lang_default or "et").strip().lower()
     if lang_code not in settings.lang_available:
         lang_code = settings.lang_default
+    log_context = _join_request_context(
+        user_id=user_id,
+        code=req.code,
+        alias_display=req.alias_display,
+        lang_code=lang_code,
+        recaptcha_v3_token=req.recaptcha_v3_token,
+        recaptcha_v2_token=req.recaptcha_v2_token,
+    )
+    try:
+        await _enforce_join_recaptcha(
+            request,
+            recaptcha_v3_token=req.recaptcha_v3_token,
+            recaptcha_v2_token=req.recaptcha_v2_token,
+        )
 
-    preview_payload: dict[str, Any] = {"access_code": req.code, "lang_code": lang_code}
-    if isinstance(user_id, int):
-        preview_payload["user_id"] = user_id
-    if req.alias_display is not None and req.alias_display.strip():
-        preview_payload["alias_display"] = req.alias_display.strip()
-    ords_response = await _post_to_ords("competitor/join-preview", preview_payload)
-    cid = ords_response.get("competition_id")
-    name = ords_response.get("competition_name")
-    if not isinstance(cid, int) or not isinstance(name, str):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    terms_raw = ords_response.get("terms")
-    terms: CompetitorJoinPreviewTerms | None = None
-    if isinstance(terms_raw, dict):
-        tid = terms_raw.get("terms_id")
-        t_lang = terms_raw.get("lang_code")
-        t_text = terms_raw.get("terms_text")
-        if isinstance(tid, int) and isinstance(t_lang, str) and isinstance(t_text, str):
-            terms = CompetitorJoinPreviewTerms(terms_id=tid, lang_code=t_lang, terms_text=t_text)
-    return CompetitorJoinPreviewResponse(
-        competition_id=cid,
-        competition_name=name,
-        competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
-        already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
-        terms=terms,
+        preview_payload: dict[str, Any] = {"access_code": req.code, "lang_code": lang_code}
+        if isinstance(user_id, int):
+            preview_payload["user_id"] = user_id
+        if req.alias_display is not None and req.alias_display.strip():
+            preview_payload["alias_display"] = req.alias_display.strip()
+        ords_response = await _post_to_ords("competitor/join-preview", preview_payload)
+        cid = ords_response.get("competition_id")
+        name = ords_response.get("competition_name")
+        if not isinstance(cid, int) or not isinstance(name, str):
+            _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+        terms_raw = ords_response.get("terms")
+        terms: CompetitorJoinPreviewTerms | None = None
+        if isinstance(terms_raw, dict):
+            tid = terms_raw.get("terms_id")
+            t_lang = terms_raw.get("lang_code")
+            t_text = terms_raw.get("terms_text")
+            if isinstance(tid, int) and isinstance(t_lang, str) and isinstance(t_text, str):
+                terms = CompetitorJoinPreviewTerms(terms_id=tid, lang_code=t_lang, terms_text=t_text)
+        join_proof: str | None = None
+        if terms is not None:
+            join_proof = _make_join_proof(
+                user_id=user_id,
+                access_code=req.code,
+                alias_display=req.alias_display or "",
+                competition_id=cid,
+                terms_id=terms.terms_id,
+                terms_lang_code=terms.lang_code,
+            )
+        response_payload = CompetitorJoinPreviewResponse(
+            competition_id=cid,
+            competition_name=name,
+            competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
+            already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
+            terms=terms,
+            join_proof=join_proof,
+        )
+        _log_structured(
+            logging.INFO,
+            "competitor_join_preview",
+            {
+                **log_context,
+                "result": "ok",
+                "competition_id": cid,
+                "already_active_for_user": response_payload.already_active_for_user,
+                "terms_present": terms is not None,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+        return response_payload
+    except HTTPException as exc:
+        error_code, error_details = _extract_http_exception_meta(exc)
+        _log_structured(
+            logging.INFO,
+            "competitor_join_preview",
+            {
+                **log_context,
+                "result": "error",
+                "status_code": exc.status_code,
+                "error_code": error_code,
+                "error_details": error_details,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+        raise
+
+
+@app.get("/api/competitor/join-config", response_model=CompetitorJoinConfigResponse)
+async def competitor_join_config() -> CompetitorJoinConfigResponse:
+    enabled = _recaptcha_join_is_enabled()
+    return CompetitorJoinConfigResponse(
+        enabled=enabled,
+        v3_site_key=settings.recaptcha_join_v3_site_key if enabled else None,
+        v2_site_key=settings.recaptcha_join_v2_site_key if enabled else None,
+        v3_action=settings.recaptcha_join_v3_action if enabled else None,
     )
 
 
@@ -3347,43 +3665,94 @@ async def competitor_join_code_preview(code: str, request: Request) -> Competito
 
 @app.post("/api/competitor/join-complete", response_model=CompetitorJoinCompleteResponse)
 async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: Request, response: Response) -> CompetitorJoinCompleteResponse:
+    started_at = time.monotonic()
     user_id = _read_competitor_session_user_id(request)
-    if not req.accept_terms:
-        _raise_api_error(status.HTTP_400_BAD_REQUEST, "TERMS_NOT_ACCEPTED", "api.error.terms_not_accepted")
-
     current_participant_id = _read_competitor_participation_id(request)
-    payload: dict[str, Any] = {
-        "access_code": req.code,
-        "alias_display": req.alias_display,
-        "terms_id": req.terms_id,
-        "terms_lang_code": req.terms_lang_code,
-        "accept_terms": "Y" if req.accept_terms else "N",
-    }
-    if isinstance(user_id, int):
-        payload["user_id"] = user_id
-    if req.contact_email:
-        payload["contact_email"] = req.contact_email
-    if current_participant_id is not None:
-        payload["current_competition_participant_id"] = current_participant_id
-
-    ords_response = await _post_to_ords("competitor/join-complete", payload)
-    effective_user_id = ords_response.get("user_id")
-    if not isinstance(effective_user_id, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    cp_id = ords_response.get("competition_participant_id")
-    cid = ords_response.get("competition_id")
-    if not isinstance(cp_id, int) or not isinstance(cid, int):
-        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
-    switched_from = ords_response.get("switched_from_participant_id")
-    switched_from_id = switched_from if isinstance(switched_from, int) else None
-    no_change = str(ords_response.get("no_change", "N")).upper() == "Y"
-    _set_competitor_cookies(response, user_id=effective_user_id, competition_participant_id=cp_id)
-    return CompetitorJoinCompleteResponse(
-        competition_participant_id=cp_id,
-        competition_id=cid,
-        switched_from_participant_id=switched_from_id,
-        no_change=no_change,
+    log_context = _join_request_context(
+        user_id=user_id,
+        code=req.code,
+        alias_display=req.alias_display,
+        current_participant_id=current_participant_id,
+        terms_id=req.terms_id,
+        terms_lang_code=req.terms_lang_code,
     )
+    try:
+        if not req.accept_terms:
+            _raise_api_error(status.HTTP_400_BAD_REQUEST, "TERMS_NOT_ACCEPTED", "api.error.terms_not_accepted")
+        if _recaptcha_join_is_enabled():
+            if not _normalize_join_value(req.join_proof):
+                _raise_api_error(status.HTTP_400_BAD_REQUEST, "JOIN_PROOF_REQUIRED", "api.error.join_proof_required")
+            _assert_valid_join_proof(
+                proof_token=req.join_proof,
+                current_user_id=user_id,
+                access_code=req.code,
+                alias_display=req.alias_display,
+                terms_id=req.terms_id,
+                terms_lang_code=req.terms_lang_code,
+            )
+
+        payload: dict[str, Any] = {
+            "access_code": req.code,
+            "alias_display": req.alias_display,
+            "terms_id": req.terms_id,
+            "terms_lang_code": req.terms_lang_code,
+            "accept_terms": "Y" if req.accept_terms else "N",
+        }
+        if isinstance(user_id, int):
+            payload["user_id"] = user_id
+        if req.contact_email:
+            payload["contact_email"] = req.contact_email
+        if current_participant_id is not None:
+            payload["current_competition_participant_id"] = current_participant_id
+
+        ords_response = await _post_to_ords("competitor/join-complete", payload)
+        effective_user_id = ords_response.get("user_id")
+        if not isinstance(effective_user_id, int):
+            _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+        cp_id = ords_response.get("competition_participant_id")
+        cid = ords_response.get("competition_id")
+        if not isinstance(cp_id, int) or not isinstance(cid, int):
+            _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+        switched_from = ords_response.get("switched_from_participant_id")
+        switched_from_id = switched_from if isinstance(switched_from, int) else None
+        no_change = str(ords_response.get("no_change", "N")).upper() == "Y"
+        _set_competitor_cookies(response, user_id=effective_user_id, competition_participant_id=cp_id)
+        result = CompetitorJoinCompleteResponse(
+            competition_participant_id=cp_id,
+            competition_id=cid,
+            switched_from_participant_id=switched_from_id,
+            no_change=no_change,
+        )
+        _log_structured(
+            logging.INFO,
+            "competitor_join_complete",
+            {
+                **log_context,
+                "result": "ok",
+                "effective_user_id": effective_user_id,
+                "competition_participant_id": cp_id,
+                "competition_id": cid,
+                "switched_from_participant_id": switched_from_id,
+                "no_change": no_change,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+        return result
+    except HTTPException as exc:
+        error_code, error_details = _extract_http_exception_meta(exc)
+        _log_structured(
+            logging.INFO,
+            "competitor_join_complete",
+            {
+                **log_context,
+                "result": "error",
+                "status_code": exc.status_code,
+                "error_code": error_code,
+                "error_details": error_details,
+                "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
+            },
+        )
+        raise
 
 
 @app.post("/api/competitor/terms-cache/reset")
