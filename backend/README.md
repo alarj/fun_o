@@ -587,8 +587,9 @@ Important persisted fields in `competition_routes`:
 
 - Only active checkpoints of the target competition are considered.
 - Checkpoint must have both `latitude` and `longitude`.
-- Checkpoint must have an active question.
-- This is an intentional business rule: a checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
+- If `checkpoint_interaction = QUESTION`, checkpoint must also have an active question.
+- This is an intentional business rule: a `QUESTION` checkpoint with coordinates but without an active question is excluded from route calculation and from the route source hash.
+- If `checkpoint_interaction <> QUESTION`, the checkpoint may be included without any active question.
 - Checkpoints without coordinates are excluded from both the calculation and the source hash.
 - Competition type is part of the source hash, so changing `R <-> S` invalidates the old snapshot even if checkpoints themselves did not change.
 

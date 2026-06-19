@@ -447,4 +447,6 @@ erDiagram
 - `evaluated_at` tähistab süsteemi tegelikku töötlemise või salvestamise aega.
 - `MASS_START` sündmuse korral on `submitted_at = competitions.mass_start_at`, kuid `evaluated_at` jääb rea tegelikuks loomise ajaks.
 - `app_settings` hoiab DB-poolseid route-arvutuse seadistusi, näiteks exact-läve ja batch-protsessi piiranguid.
-- Raja pikkuse arvutusse lähevad ainult aktiivsed KP-d, millel on koordinaadid ja vähemalt üks aktiivne küsimus; ainult koordinaatidest ei piisa.
+- Raja pikkuse arvutusse lähevad ainult aktiivsed KP-d, millel on koordinaadid.
+- Kui `checkpoint_interaction = QUESTION`, siis peab KP-l olema ka vähemalt üks aktiivne küsimus.
+- Kui `checkpoint_interaction <> QUESTION`, siis küsimuse olemasolu raja pikkuse arvutusse kaasamiseks ei nõuta.
