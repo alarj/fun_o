@@ -4285,6 +4285,7 @@ create or replace package pkg_admin_content as
     p_radius_m in number,
     p_location_required in varchar2,
     p_mass_start_at in timestamp,
+    p_delete_active_question_confirmed in varchar2 default 'N',
     p_updated_by in number
   );
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
@@ -7247,7 +7248,7 @@ create or replace package body pkg_admin_content as
   end;
 
   -- update_checkpoint: Updates existing data for checkpoint.
-  procedure update_checkpoint(p_checkpoint_id in number, p_title in varchar2, p_checkpoint_interaction in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_mass_start_at in timestamp, p_updated_by in number) is
+  procedure update_checkpoint(p_checkpoint_id in number, p_title in varchar2, p_checkpoint_interaction in varchar2, p_order_no in number, p_location_hint in varchar2, p_latitude in number, p_longitude in number, p_radius_m in number, p_location_required in varchar2, p_mass_start_at in timestamp, p_delete_active_question_confirmed in varchar2 default 'N', p_updated_by in number) is
     l_competition_id number;
     l_dummy number;
     l_use_location varchar2(1);
@@ -7255,6 +7256,7 @@ create or replace package body pkg_admin_content as
     l_location_required varchar2(1) := upper(trim(nvl(p_location_required, 'N')));
     l_checkpoint_type varchar2(10) := pkg_common.c_checkpoint_type_normal;
     l_checkpoint_interaction varchar2(20) := pkg_common.c_checkpoint_interaction_question;
+    l_delete_active_question_confirmed varchar2(1) := case when upper(trim(nvl(p_delete_active_question_confirmed, 'N'))) = 'Y' then 'Y' else 'N' end;
     l_title checkpoints.title%type := trim(p_title);
     l_order_no checkpoints.order_no%type := p_order_no;
     l_active_question_count number := 0;
@@ -7313,9 +7315,20 @@ create or replace package body pkg_admin_content as
         from questions q
        where q.checkpoint_id = p_checkpoint_id
          and (q.end_date is null or q.end_date > sysdate);
-      if l_active_question_count > 0
-         and l_checkpoint_type = pkg_common.c_checkpoint_type_normal then
-        raise_application_error(-20200, 'cannot switch NORMAL checkpoint interaction away from QUESTION while an active question exists');
+
+      if l_active_question_count > 0 then
+        if l_delete_active_question_confirmed <> 'Y' then
+          raise_application_error(-20200, 'active question delete confirmation is required before changing checkpoint interaction');
+        end if;
+
+        for q_rec in (
+          select q.question_id
+            from questions q
+           where q.checkpoint_id = p_checkpoint_id
+             and (q.end_date is null or q.end_date > sysdate)
+        ) loop
+          soft_delete_question(q_rec.question_id, p_updated_by);
+        end loop;
       end if;
     end if;
 

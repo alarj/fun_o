@@ -441,6 +441,7 @@ erDiagram
 
 - `checkpoint_interaction` lubatud äriväärtused on `QUESTION`, `CHECK_ONLY`, `MASS_START`.
 - `checkpoint_interaction = MASS_START` on lubatud ainult `START` tüüpi checkpointil.
+- Kui `checkpoint_interaction` muudetakse väärtusest `QUESTION` mõneks muuks väärtuseks ja checkpointil on aktiivne küsimus, nõuab süsteem enne muutuse salvestamist eraldi kinnitust; kinnituse järel soft-delete'itakse sama checkpointi aktiivne küsimus.
 - `submission_events` hoiab küsimuseta läbimise/stardi sündmusi (`CHECK_ONLY`, `MASS_START`).
 - `submissions_v` koondab `submissions` ja `submission_events` üheks lugemisvaateks ajajoone, progressi ja tulemuste jaoks.
 - `submitted_at` tähistab ärilist sündmuse aega.

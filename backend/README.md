@@ -443,7 +443,8 @@ Access code generation rule:
   - `checkpoint_id` PK, FK: `competition_id -> competitions`
   - `title`, `checkpoint_type` (`NORMAL|START|FINISH`; `NULL` handled as `NORMAL`), optional `order_no`, optional location fields (`latitude`, `longitude`, `radius_m`)
   - `location_required` in `('Y','N')`
-  - invariant: `1 checkpoint = 1 active question`
+  - invariant: `1 checkpoint = 1 active interaction`
+  - when checkpoint interaction is changed away from `QUESTION` and checkpoint still has an active question, admin flow must require explicit confirmation before that question is soft-deleted
   - soft-delete/audit columns
 - `questions`
   - `question_id` PK, FK: `checkpoint_id -> checkpoints`

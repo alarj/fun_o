@@ -2245,6 +2245,7 @@ begin
               then to_timestamp(substr(l_body.get_string('mass_start_at'), 1, 19), 'YYYY-MM-DD"T"HH24:MI:SS')
             else null
           end,
+          p_delete_active_question_confirmed => case when l_body.has('delete_active_question_confirmed') then l_body.get_string('delete_active_question_confirmed') else 'N' end,
           p_updated_by => case when l_body.has('updated_by') then l_body.get_number('updated_by') else null end
         );
         owa_util.mime_header('application/json', false);
