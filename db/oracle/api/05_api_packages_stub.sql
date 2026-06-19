@@ -4547,19 +4547,18 @@ create or replace package body pkg_competition_routes as
              cp.latitude,
              cp.longitude
         from checkpoints cp
-        left join questions q
-          on q.checkpoint_id = cp.checkpoint_id
-         and (q.end_date is null or q.end_date > sysdate)
        where cp.competition_id = p_competition_id
          and (cp.end_date is null or cp.end_date > sysdate)
          and cp.latitude is not null
          and cp.longitude is not null
          and (
-           (
-             pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question
-             and q.question_id is not null
+           pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
+           or exists (
+             select 1
+               from questions q
+              where q.checkpoint_id = cp.checkpoint_id
+                and (q.end_date is null or q.end_date > sysdate)
            )
-           or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
          )
        order by cp.checkpoint_id asc
     ) loop
@@ -4604,19 +4603,18 @@ create or replace package body pkg_competition_routes as
              cp.latitude,
              cp.longitude
         from checkpoints cp
-        left join questions q
-          on q.checkpoint_id = cp.checkpoint_id
-         and (q.end_date is null or q.end_date > sysdate)
        where cp.competition_id = p_competition_id
          and (cp.end_date is null or cp.end_date > sysdate)
          and cp.latitude is not null
          and cp.longitude is not null
          and (
-           (
-             pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) = pkg_common.c_checkpoint_interaction_question
-             and q.question_id is not null
+           pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
+           or exists (
+             select 1
+               from questions q
+              where q.checkpoint_id = cp.checkpoint_id
+                and (q.end_date is null or q.end_date > sysdate)
            )
-           or pkg_common.normalize_checkpoint_interaction(cp.checkpoint_interaction) <> pkg_common.c_checkpoint_interaction_question
          )
        order by
          case
