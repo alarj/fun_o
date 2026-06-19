@@ -22,6 +22,7 @@
     integrity="sha256-xnX1c4jTWYY3xOD5/hVL1h37HCCGJx+USguyubBZsHQ="
     crossorigin="anonymous"
   ></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
 </head>
 <body class="admin-booting">
   <div id="adminBootBackdrop" class="busyBackdrop admin-boot-backdrop-visible" aria-live="polite" aria-busy="true">
@@ -135,7 +136,13 @@
               <strong data-i18n="admin.comp.competitor_code_label">admin.comp.competitor_code_label</strong>
               <button class="info-icon-btn" type="button" data-info-key="admin.comp.competitor_code_label" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
             </div>
-            <div class="tools" style="align-items:center; margin-top:4px;"><div id="codeCompetitor" style="min-width:72px;">-</div><button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button><button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button></div>
+            <div class="tools" style="align-items:center; margin-top:4px;">
+              <div id="codeCompetitor" style="min-width:72px;">-</div>
+              <button id="copyCompetitorCodeBtn" class="copy-btn" type="button" data-i18n-title="admin.common.copy_code_title" data-i18n-aria-label="admin.common.copy_code_title" title="admin.common.copy_code_title" aria-label="admin.common.copy_code_title"></button>
+              <button id="regenCompetitor" data-i18n="admin.comp.regen_competitor_btn">admin.comp.regen_competitor_btn</button>
+              <button id="openCompetitionQrBtn" class="iconBtn qr-trigger-btn" type="button" data-i18n-title="admin.comp.qr_btn_title" data-i18n-aria-label="admin.comp.qr_btn_title" title="admin.comp.qr_btn_title" aria-label="admin.comp.qr_btn_title"></button>
+              <button class="info-icon-btn" type="button" data-info-key="admin.comp.qr_btn" data-i18n-title="admin.common.info_btn_title" data-i18n-aria-label="admin.common.info_btn_title" title="admin.common.info_btn_title" aria-label="admin.common.info_btn_title"><span aria-hidden="true">i</span></button>
+            </div>
           </div>
           <div>
             <div class="field-label-with-info">
@@ -518,6 +525,21 @@
         </thead>
         <tbody id="participantsRows"></tbody>
       </table>
+    </div>
+  </dialog>
+
+  <dialog id="competitionQrDialog" class="competition-qr-dialog">
+    <div class="competition-qr-shell">
+      <div class="competition-qr-topbar">
+        <div class="competition-qr-topbar-spacer" aria-hidden="true"></div>
+        <button id="competitionQrCloseBtn" class="secondary competition-qr-close-btn" type="button" data-i18n="admin.comp.qr_modal.close_btn">admin.comp.qr_modal.close_btn</button>
+      </div>
+      <div class="competition-qr-content">
+        <h2 id="competitionQrCompetitionName" class="competition-qr-title">-</h2>
+        <div id="competitionQrMsg"></div>
+        <div id="competitionQrCanvas" class="competition-qr-canvas" aria-live="polite"></div>
+        <p id="competitionQrInstructions" class="competition-qr-instructions" data-i18n="admin.comp.qr_modal.instructions">admin.comp.qr_modal.instructions</p>
+      </div>
     </div>
   </dialog>
 

@@ -221,6 +221,31 @@ button:disabled { opacity: 0.5; }
   font-size: 18px;
   line-height: 1.2;
 }
+.joinReadonlyHint {
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.35;
+  color: #4f5a61;
+}
+.joinReadonlyCode {
+  background: #edf4f2;
+  color: #3a464c;
+  cursor: default;
+}
+.joinSwitchWarningBody {
+  font-size: 20px;
+  line-height: 1.45;
+  color: #253238;
+}
+.joinSwitchWarningActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.joinSwitchWarningActions button {
+  flex: 1 1 220px;
+}
 .introCta { margin-top: 10px; font-size: 17px; color: #3f4b52; line-height: 1.35; }
 .introCta a { color: #145a8a; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .introModal {

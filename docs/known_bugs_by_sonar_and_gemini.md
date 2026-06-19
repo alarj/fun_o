@@ -519,6 +519,42 @@ Millal uuesti hinnata:
 - kui soovime vähendada just alglaadimise `429` vigu;
 - kui ORDS bootstrapi koormuse vähendamine muutub eraldi arhitektuurilise töövoo eesmärgiks.
 
+### 2a.13 Competitor payloadide answered-state semantika peab jääma rangelt eristatud
+
+Mõjutatud failid:
+- `backend/app/main.py`
+- `backend/README.md`
+- `docs/location_rules.md`
+
+Mõjutatud ala:
+- `competitor/competition-content`
+- `competitor/checkpoint-state`
+- FastAPI helperid, mis tuletavad answered checkpoint id-sid või `is_answered` overlay seisu
+
+Miks see on oluline:
+- competitor cache- ja popupivood kasutavad mitut eri payloadi, mille answered-state semantika ei ole sama;
+- `competition-content` on staatiline payload ja ei sisalda participant-specific `is_answered` välju;
+- `checkpoint-state` sisaldab ainult answered checkpoint id-de loendit kujul `{"items":[{"checkpoint_id":...}, ...]}`;
+- `map-checkpoints` / `open-checkpoints` vahepayloadis võib `is_answered` juba olemas olla, sest FastAPI on selle ise overlayna juurde ehitanud.
+
+Risk:
+- kui neid payloaditüüpe loetakse sama helperi või sama reegliga, võivad `START` / `FINISH` ärireeglid vaikides valeks minna;
+- reaalselt juba juhtunud rikked:
+  - vale `finished`, kuigi kasutaja ei olnud DB järgi lõpetanud;
+  - vale `start_required`, kuigi `START` oli DB järgi läbitud.
+
+Õige reegel:
+- payloadidest, kus `is_answered` on olemas, tohib answered-state'i lugeda ainult `is_answered = 'Y'` järgi;
+- `checkpoint-state` payloadist tuleb answered-state lugeda ainult `checkpoint_id` olemasolu järgi;
+- neid kahte tõlgendust ei tohi ühendada ega jagada sama parseri taha ilma väga teadliku eristamiseta.
+
+Staatus:
+- püsiv arhitektuurne hoiatus / review kontrollpunkt
+
+Millal uuesti hinnata:
+- iga kord, kui muudetakse competitor cache-helper'eid, popupi ligipääsuloogikat või answered-state overlay koostamist;
+- iga kord, kui tekib soov “lihtsustada” payloadi parsivaid helper'eid ühiseks üldfunktsiooniks.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

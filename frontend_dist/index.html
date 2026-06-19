@@ -115,6 +115,7 @@
         <h3 id="joinModalTitle"></h3>
         <label id="joinCodeLabel" for="joinCode"><span class="reqStar">*</span></label>
         <input id="joinCode" type="text" />
+        <div id="joinCodeReadonlyHint" class="joinReadonlyHint hidden" data-i18n="competitor.join.qr_readonly_hint">competitor.join.qr_readonly_hint</div>
         <label id="joinAliasLabel" for="joinAlias"><span class="reqStar">*</span></label>
         <input id="joinAlias" type="text" maxlength="120" />
         <label id="joinEmailLabel" for="joinEmail"></label>
@@ -142,6 +143,17 @@
         <div style="height:8px"></div>
         <button id="backFromTermsBtn" class="secondary"></button>
         <div id="joinTermsMsg"></div>
+      </div>
+    </div>
+    <div id="joinSwitchWarningBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3 id="joinSwitchWarningTitle"></h3>
+        <div id="joinSwitchWarningBody" class="joinSwitchWarningBody"></div>
+        <div class="joinSwitchWarningActions">
+          <button id="joinSwitchWarningContinueBtn"></button>
+          <button id="joinSwitchWarningCancelBtn" class="secondary"></button>
+        </div>
+        <div id="joinSwitchWarningMsg"></div>
       </div>
     </div>
     <div id="introBackdrop" class="modalBackdrop">

@@ -836,6 +836,49 @@ begin
     p_access_method      => 'IN'
   );
 
+  -- GET /funo/competitor/join-code-preview?access_code=..
+  ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-code-preview');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => c_module_name,
+    p_pattern     => 'competitor/join-code-preview',
+    p_method      => 'GET',
+    p_source_type => ORDS.source_type_plsql,
+    p_source      => q'[ -- NOSONAR
+      declare
+        l_json clob;
+      begin
+        FUNO_APP.pkg_competitor.join_code_preview_json(
+          p_user_id => case when :user_id is not null then to_number(:user_id) else null end,
+          p_access_code => :access_code,
+          o_item_json => l_json
+        );
+        owa_util.mime_header('application/json', false);
+        owa_util.http_header_close;
+        htp.p(nvl(l_json, '{}'));
+      end;
+    ]'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/join-code-preview',
+    p_method             => 'GET',
+    p_name               => 'access_code',
+    p_bind_variable_name => 'access_code',
+    p_source_type        => 'URI',
+    p_param_type         => 'STRING',
+    p_access_method      => 'IN'
+  );
+  ORDS.DEFINE_PARAMETER(
+    p_module_name        => c_module_name,
+    p_pattern            => 'competitor/join-code-preview',
+    p_method             => 'GET',
+    p_name               => 'user_id',
+    p_bind_variable_name => 'user_id',
+    p_source_type        => 'URI',
+    p_param_type         => 'INT',
+    p_access_method      => 'IN'
+  );
+
   -- POST /funo/competitor/join-preview
   ORDS.DEFINE_TEMPLATE(p_module_name => c_module_name, p_pattern => 'competitor/join-preview');
   ORDS.DEFINE_HANDLER(

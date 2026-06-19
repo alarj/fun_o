@@ -239,6 +239,58 @@ function removeIconSvg() {
   return `<svg class="removeIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 7V5h6v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="6" y="7" width="12" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
+function qrIconSvg() {
+  return `<svg class="qrIconSvg" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 3h7v7H3zm2 2v3h3V5zm6-2h10v10H11zm2 2v6h6V5zM3 14h7v7H3zm2 2v3h3v-3zm7-1h2v2h-2zm3 0h2v2h-2zm3 0h3v2h-3zm-6 3h5v3h-2v-1h-3zm6 0h2v2h-2zm-3 3h6v2h-6z"/></svg>`;
+}
+
+function buildCompetitionJoinUrl(accessCode) {
+  const url = new URL("/index.html", window.location.origin);
+  url.searchParams.set("join_code", String(accessCode || "").trim());
+  return url.toString();
+}
+
+function clearCompetitionQrDialog() {
+  showMsg("competitionQrMsg", false, "");
+  byId("competitionQrCanvas").replaceChildren();
+}
+
+function closeCompetitionQrDialog() {
+  if (byId("competitionQrDialog").open) {
+    byId("competitionQrDialog").close();
+  }
+  clearCompetitionQrDialog();
+}
+
+function renderCompetitionQrCode(joinUrl) {
+  const canvas = byId("competitionQrCanvas");
+  canvas.replaceChildren();
+  if (!window.QRCode) {
+    showMsg("competitionQrMsg", false, tr("admin.comp.qr_modal.unavailable_msg"));
+    return;
+  }
+  const qrSize = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.34)));
+  new window.QRCode(canvas, {
+    text: joinUrl,
+    width: qrSize,
+    height: qrSize,
+    correctLevel: window.QRCode.CorrectLevel.M,
+  });
+}
+
+function openCompetitionQrDialog() {
+  const accessCode = String(byId("codeCompetitor").textContent || "").trim();
+  if (!accessCode || accessCode === "-") {
+    showMsg("topMsg", false, tr("admin.comp.qr_modal.unavailable_msg"));
+    return;
+  }
+  byId("competitionQrCompetitionName").textContent = String(window.__lastCompetitionName || "").trim() || `#${compId() || "-"}`;
+  showMsg("competitionQrMsg", false, "");
+  if (!byId("competitionQrDialog").open) {
+    byId("competitionQrDialog").showModal();
+  }
+  renderCompetitionQrCode(buildCompetitionJoinUrl(accessCode));
+}
+
 function normalizeCompetitionRouteData(route) {
   if (!route || typeof route !== "object") return null;
   const normalized = { ...route };
@@ -2130,6 +2182,7 @@ byId("copyCompetitionSave").onclick = async () => {
 
 byId("copyCompetitorCodeBtn").innerHTML = copyIconSvg();
 byId("copyOrganizerCodeBtn").innerHTML = copyIconSvg();
+byId("openCompetitionQrBtn").innerHTML = qrIconSvg();
 byId("copyCompetitorCodeBtn").onclick = async () => {
   try {
     await copyTextToClipboard(byId("codeCompetitor").textContent || "");
@@ -2144,6 +2197,9 @@ byId("copyOrganizerCodeBtn").onclick = async () => {
     showMsg("topMsg", false, humanizeError(e.message));
   }
 };
+byId("openCompetitionQrBtn").onclick = () => openCompetitionQrDialog();
+byId("competitionQrCloseBtn").onclick = () => closeCompetitionQrDialog();
+byId("competitionQrDialog").addEventListener("close", clearCompetitionQrDialog);
 
 byId("regenCompetitor").onclick = () => {
   pendingCodeType = "COMPETITOR";

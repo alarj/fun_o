@@ -76,6 +76,8 @@ let myResultsSortDir = "desc";
 let introLoading = false;
 let helpLoading = false;
 let joinHasActiveBeforeOpen = false;
+let joinCodeReadonly = false;
+let pendingJoinSwitch = null;
 const competitionTermsCache = {};
 let i18nItems = {};
 let i18nMeta = { default_lang: "et", available_langs: ["et", "en"] };
@@ -127,6 +129,7 @@ function applyUiTranslations() {
   el("closeCompetitionPickerBtn").textContent = tr("competitor.common.close_btn");
   el("joinModalTitle").textContent = tr("competitor.join.title");
   el("joinCodeLabel").innerHTML = `${tr("competitor.join.code_label")} <span class="reqStar">*</span>`;
+  el("joinCodeReadonlyHint").textContent = tr("competitor.join.qr_readonly_hint");
   el("joinAliasLabel").innerHTML = `${tr("competitor.join.alias_label")} <span class="reqStar">*</span>`;
   el("joinEmailLabel").textContent = tr("competitor.join.email_label");
   el("joinBtn").textContent = tr("competitor.join.continue_btn");
@@ -138,6 +141,9 @@ function applyUiTranslations() {
   el("joinTermsTitle").textContent = tr("competitor.join.terms_title");
   el("confirmJoinBtn").textContent = tr("competitor.join.confirm_btn");
   el("backFromTermsBtn").textContent = tr("competitor.join.back_btn");
+  el("joinSwitchWarningTitle").textContent = tr("competitor.join.switch_warning_title");
+  el("joinSwitchWarningContinueBtn").textContent = tr("competitor.join.switch_warning_continue_btn");
+  el("joinSwitchWarningCancelBtn").textContent = tr("competitor.join.switch_warning_cancel_btn");
   el("introModalTitle").textContent = tr("competitor.intro.title");
   el("closeIntroBtn").textContent = tr("competitor.common.close_btn");
   el("helpModalTitle").textContent = tr("competitor.help.title");

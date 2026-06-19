@@ -175,7 +175,7 @@ def _configure_logging() -> None:
     root_logger = logging.getLogger()
     if not root_logger.handlers:
         logging.basicConfig(level=logging.DEBUG if level == logging.DEBUG else level)
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG if level == logging.DEBUG else level)
     for handler in root_logger.handlers:
         handler.setLevel(logging.DEBUG if level == logging.DEBUG else level)
     logging.getLogger("app").setLevel(level)
@@ -275,6 +275,14 @@ class CompetitorJoinPreviewResponse(BaseModel):
     competition_description: str | None = None
     already_active_for_user: bool
     terms: CompetitorJoinPreviewTerms | None = None
+
+
+class CompetitorJoinCodePreviewResponse(BaseModel):
+    competition_id: int
+    competition_name: str
+    competition_description: str | None = None
+    already_active_for_user: bool
+
 
 class CompetitorTermsResponse(BaseModel):
     competition_id: int
@@ -2394,10 +2402,25 @@ def _answered_checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
     for row in raw_items:
         if not isinstance(row, dict):
             continue
+        if str(row.get("is_answered") or "N").strip().upper() != "Y":
+            continue
         checkpoint_id = row.get("checkpoint_id")
         if isinstance(checkpoint_id, int):
             answered.add(checkpoint_id)
     return answered
+
+
+def _checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
+    checkpoint_ids: set[int] = set()
+    if not isinstance(raw_items, list):
+        return checkpoint_ids
+    for row in raw_items:
+        if not isinstance(row, dict):
+            continue
+        checkpoint_id = row.get("checkpoint_id")
+        if isinstance(checkpoint_id, int):
+            checkpoint_ids.add(checkpoint_id)
+    return checkpoint_ids
 
 
 def _overlay_answered_state_on_items(static_items: list[Any], answered_checkpoint_ids: set[int]) -> list[Any]:
@@ -2696,7 +2719,7 @@ async def _fetch_participant_checkpoint_state_from_ords(competition_id: int, use
         },
     )
     raw_items = ords_response.get("items") if isinstance(ords_response, dict) else []
-    answered_checkpoint_ids = _answered_checkpoint_ids_from_payload(raw_items)
+    answered_checkpoint_ids = _checkpoint_ids_from_payload(raw_items)
     return {
         "answered_checkpoint_ids": answered_checkpoint_ids,
     }
@@ -3299,6 +3322,25 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
         competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
         already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
         terms=terms,
+    )
+
+
+@app.get("/api/competitor/join-code-preview", response_model=CompetitorJoinCodePreviewResponse)
+async def competitor_join_code_preview(code: str, request: Request) -> CompetitorJoinCodePreviewResponse:
+    user_id = _read_competitor_session_user_id(request)
+    payload: dict[str, Any] = {"access_code": code}
+    if isinstance(user_id, int):
+        payload["user_id"] = user_id
+    ords_response = await _get_from_ords("competitor/join-code-preview", payload)
+    cid = ords_response.get("competition_id")
+    name = ords_response.get("competition_name")
+    if not isinstance(cid, int) or not isinstance(name, str):
+        _raise_api_error(status.HTTP_502_BAD_GATEWAY, "INVALID_ORDS_RESPONSE", API_ERROR_INVALID_ORDS_RESPONSE)
+    return CompetitorJoinCodePreviewResponse(
+        competition_id=cid,
+        competition_name=name,
+        competition_description=ords_response.get("competition_description") if isinstance(ords_response.get("competition_description"), str) else None,
+        already_active_for_user=str(ords_response.get("already_active_for_user", "N")).upper() == "Y",
     )
 
 

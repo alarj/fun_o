@@ -261,6 +261,8 @@ async function confirmJoinCompetition() {
   el("joinTermsBackdrop").style.display = "none";
   el("joinByCodeBackdrop").style.display = "none";
   el("competitionPickerBackdrop").style.display = "none";
+  closeJoinSwitchWarning();
+  clearJoinCodeFromUrl();
   setMsg("joinTermsMsg", tr("competitor.msg.join_ok"), true);
 }
 
@@ -277,8 +279,80 @@ function backFromTerms() {
 
 function getCodeFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
-  const code = (params.get("code") || "").trim();
+  const code = (params.get("join_code") || params.get("code") || "").trim();
   return code || null;
+}
+
+function clearJoinCodeFromUrl() {
+  const url = new URL(window.location.href);
+  let changed = false;
+  if (url.searchParams.has("join_code")) {
+    url.searchParams.delete("join_code");
+    changed = true;
+  }
+  if (url.searchParams.has("code")) {
+    url.searchParams.delete("code");
+    changed = true;
+  }
+  if (changed) {
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
+function setJoinCodeReadonly(readonly) {
+  joinCodeReadonly = readonly;
+  const input = el("joinCode");
+  input.readOnly = readonly;
+  input.classList.toggle("joinReadonlyCode", readonly);
+  el("joinCodeReadonlyHint").classList.toggle("hidden", !readonly);
+}
+
+function closeJoinSwitchWarning() {
+  el("joinSwitchWarningBackdrop").style.display = "none";
+  el("joinSwitchWarningBody").innerHTML = "";
+  setMsg("joinSwitchWarningMsg", "", true);
+  pendingJoinSwitch = null;
+}
+
+function openJoinSwitchWarning(nextCompetition) {
+  pendingJoinSwitch = nextCompetition;
+  el("joinSwitchWarningBody").innerHTML = trfBold("competitor.join.switch_warning_msg", {
+    current_competition: state.activeCompetition?.name || "-",
+    next_competition: nextCompetition?.competition_name || "-",
+  });
+  setMsg("joinSwitchWarningMsg", "", true);
+  el("joinSwitchWarningBackdrop").style.display = "flex";
+}
+
+async function resolveJoinCodePreview(joinCode) {
+  return apiGet(`/api/competitor/join-code-preview?code=${encodeURIComponent(joinCode)}`);
+}
+
+async function handleJoinCodeFromUrl(joinCode, hasActive) {
+  const previewRes = await resolveJoinCodePreview(joinCode);
+  if (!previewRes.ok || !previewRes.data) {
+    if (hasActive) {
+      setMsg("answerMsg", previewRes.userMessage || tr("competitor.msg.qr_code_not_valid"), false);
+      clearJoinCodeFromUrl();
+      return;
+    }
+    openJoinModal(joinCode, { showClose: false, hasActive: false, codeReadonly: false });
+    setMsg("joinMsg", previewRes.userMessage || tr("competitor.msg.qr_code_not_valid"), false);
+    return;
+  }
+  if (hasActive && Number(state.selectedCompetitionId || 0) === Number(previewRes.data.competition_id || 0)) {
+    clearJoinCodeFromUrl();
+    return;
+  }
+  if (hasActive) {
+    openJoinSwitchWarning({
+      code: joinCode,
+      competition_id: Number(previewRes.data.competition_id || 0),
+      competition_name: String(previewRes.data.competition_name || "").trim() || "-",
+    });
+    return;
+  }
+  openJoinModal(joinCode, { showClose: false, hasActive: false, codeReadonly: true });
 }
 
 function updateJoinContinueEnabled() {
@@ -289,6 +363,7 @@ function updateJoinContinueEnabled() {
 
 function openJoinModal(prefillCode = null, opts = {}) {
   const showClose = opts.showClose === true;
+  const codeReadonly = opts.codeReadonly === true;
   joinHasActiveBeforeOpen = opts.hasActive === true;
   setMsg("joinMsg", "", true);
   setMsg("joinTermsMsg", "", true);
@@ -298,7 +373,8 @@ function openJoinModal(prefillCode = null, opts = {}) {
   el("joinTermsBackdrop").style.display = "none";
   el("joinCloseWrap").style.display = showClose ? "block" : "none";
   el("joinIntroCta").style.display = showClose ? "none" : "block";
-  if (prefillCode) el("joinCode").value = prefillCode;
+  el("joinCode").value = prefillCode || "";
+  setJoinCodeReadonly(codeReadonly);
   updateJoinContinueEnabled();
   el("joinByCodeBackdrop").style.display = "flex";
 }
@@ -306,8 +382,16 @@ function openJoinModal(prefillCode = null, opts = {}) {
 async function bootstrapCompetitorView() {
   const ok = await ensureCompetitorSession();
   const hasActive = ok ? await loadSessionState() : false;
+  const urlJoinCode = getCodeFromUrl();
+  if (urlJoinCode) {
+    await handleJoinCodeFromUrl(urlJoinCode, hasActive);
+    if (!ok && !hasActive && !el("joinMsg").textContent) {
+      setMsg("joinMsg", tr("competitor.msg.session_create_failed_retry"), false);
+    }
+    return;
+  }
   if (!hasActive) {
-    openJoinModal(getCodeFromUrl(), { showClose: false, hasActive: false });
+    openJoinModal(null, { showClose: false, hasActive: false, codeReadonly: false });
     if (!ok) setMsg("joinMsg", tr("competitor.msg.session_create_failed_retry"), false);
   }
 }
@@ -408,10 +492,30 @@ async function init() {
   });
   el("openJoinByCodeBtn").addEventListener("click", () => {
     el("competitionPickerBackdrop").style.display = "none";
-    openJoinModal(null, { showClose: true, hasActive: true });
+    openJoinModal(null, { showClose: true, hasActive: true, codeReadonly: false });
   });
   el("closeJoinByCodeBtn").addEventListener("click", () => {
     el("joinByCodeBackdrop").style.display = "none";
+    if (joinCodeReadonly) clearJoinCodeFromUrl();
+  });
+  el("joinSwitchWarningContinueBtn").addEventListener("click", () => {
+    if (!pendingJoinSwitch?.code) {
+      closeJoinSwitchWarning();
+      return;
+    }
+    const nextCode = String(pendingJoinSwitch.code);
+    closeJoinSwitchWarning();
+    openJoinModal(nextCode, { showClose: true, hasActive: true, codeReadonly: true });
+  });
+  el("joinSwitchWarningCancelBtn").addEventListener("click", () => {
+    closeJoinSwitchWarning();
+    clearJoinCodeFromUrl();
+  });
+  el("joinSwitchWarningBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("joinSwitchWarningBackdrop")) {
+      closeJoinSwitchWarning();
+      clearJoinCodeFromUrl();
+    }
   });
   el("openIntroLink").addEventListener("click", (e) => {
     e.preventDefault();

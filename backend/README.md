@@ -104,6 +104,8 @@ Expected ORDS JSON responses:
   - payload ei sisalda participant-specific `is_answered` välju.
 - `competitor/checkpoint-state` -> `{ "items": [{"checkpoint_id":123}, ...] }`
   - payload sisaldab ainult participanti answered checkpoint id-de loendit.
+  - oluline: see vastus ei sisalda `is_answered` välja; answered-seis tuleb tuletada ainult `checkpoint_id` olemasolu järgi.
+  - seda payloadi ei tohi parsida sama helperiga, mis loeb `map-checkpoints` või `open-checkpoints` vahepayloadist `is_answered = 'Y'` lippe, sest vastasel juhul lähevad `START` / `FINISH` reeglid valeks.
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
   - ajajoon võib sisaldada nii `submission_source = SUBMISSION` kui `submission_source = EVENT` ridu.
@@ -805,6 +807,15 @@ Important:
 - Filled: first request per participant after cache miss / restart / invalidation.
 - Contents:
   - answered checkpoint id set
+- Source semantics:
+  - source endpoint is `GET /competitor/checkpoint-state?competition_id=...&user_id=...`
+  - ORDS response shape is `{"items":[{"checkpoint_id":...}, ...]}`
+  - FastAPI must treat that payload as plain answered checkpoint id list
+  - FastAPI must not expect `is_answered` field in that response
+- Important implementation rule:
+  - helpers that parse `map-checkpoints` / `open-checkpoints` payloads may derive answered state from `is_answered = 'Y'`
+  - helpers that parse `checkpoint-state` payload must derive answered state from `checkpoint_id` membership only
+  - mixing those two parsing rules causes wrong participant progress decisions such as false `start_required` or false `finished` in the map popup flow
 - Invalidated/reset:
   - automatic expiry purge on reads
   - competition-scoped clear via `_invalidate_competition_cache(...)`
@@ -967,7 +978,7 @@ How distance is computed in DB:
   - competitor submitted location (`submissions.latitude/longitude`) when available;
   - fallback to checkpoint location (`checkpoints.latitude/longitude`) when submission location is missing;
 - segment distances between consecutive points are summed;
-- formula is the same spherical/Haversine-style expression (`6371000 * 2 * asin(sqrt(...))`);
+- formula is the same spherical/Haversine-style expression (`6371000 * 2 * asin(sqrt(...))`), but the inner value is clamped to `[0,1]` before `asin` to avoid floating-point domain errors on long result chains;
 - result is rounded to meters (`round(sum(...))`).
 
 Competitor submit-popup usage:
