@@ -175,7 +175,7 @@ def _configure_logging() -> None:
     root_logger = logging.getLogger()
     if not root_logger.handlers:
         logging.basicConfig(level=logging.DEBUG if level == logging.DEBUG else level)
-    root_logger.setLevel(logging.DEBUG if level == logging.DEBUG else level)
+    root_logger.setLevel(level)
     for handler in root_logger.handlers:
         handler.setLevel(logging.DEBUG if level == logging.DEBUG else level)
     logging.getLogger("app").setLevel(level)
@@ -2418,7 +2418,7 @@ def _checkpoint_ids_from_payload(raw_items: Any) -> set[int]:
         if not isinstance(row, dict):
             continue
         checkpoint_id = row.get("checkpoint_id")
-        if isinstance(checkpoint_id, int):
+        if isinstance(checkpoint_id, int) and not isinstance(checkpoint_id, bool):
             checkpoint_ids.add(checkpoint_id)
     return checkpoint_ids
 
