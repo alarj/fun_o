@@ -151,6 +151,27 @@ async function ensureCompetitorSession() {
   return true;
 }
 
+async function loadJoinCaptchaConfig() {
+  const res = await apiGet("/api/competitor/join-config");
+  if (!res.ok || !res.data) {
+    joinCaptchaConfig = {
+      enabled: false,
+      v3SiteKey: "",
+      v2SiteKey: "",
+      v3Action: "competitor_join_preview",
+      unavailable: true,
+    };
+    return;
+  }
+  joinCaptchaConfig = {
+    enabled: res.data.enabled === true,
+    v3SiteKey: String(res.data.v3_site_key || ""),
+    v2SiteKey: String(res.data.v2_site_key || ""),
+    v3Action: String(res.data.v3_action || "competitor_join_preview"),
+    unavailable: false,
+  };
+}
+
 async function loadSessionState() {
   const res = await apiGet("/api/competitor/session");
   if (!res.ok || !res.data?.authenticated) {
@@ -183,9 +204,157 @@ async function loadSessionState() {
   return true;
 }
 
+function preferredJoinCaptchaLang() {
+  return String(
+    el("joinLangSelect")?.value ||
+    el("langSelect")?.value ||
+    i18nMeta.default_lang ||
+    "et"
+  ).trim().toLowerCase();
+}
+
+function closeJoinCaptchaModal() {
+  joinCaptchaPending = null;
+  setMsg("joinCaptchaMsg", "", true);
+  el("joinCaptchaBackdrop").style.display = "none";
+  if (globalThis.grecaptcha && joinRecaptchaWidgetId !== null) {
+    try {
+      globalThis.grecaptcha.reset(joinRecaptchaWidgetId);
+    } catch {}
+  }
+}
+
+async function ensureJoinRecaptchaApiLoaded() {
+  if (!joinCaptchaConfig.enabled) return false;
+  if (globalThis.grecaptcha?.ready) return true;
+  if (!joinRecaptchaScriptPromise) {
+    joinRecaptchaScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(joinCaptchaConfig.v3SiteKey)}&hl=${encodeURIComponent(preferredJoinCaptchaLang())}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        if (globalThis.grecaptcha?.ready) resolve(true);
+        else reject(new Error("grecaptcha_not_ready"));
+      };
+      script.onerror = () => reject(new Error("grecaptcha_load_failed"));
+      document.head.appendChild(script);
+    }).catch((err) => {
+      joinRecaptchaScriptPromise = null;
+      throw err;
+    });
+  }
+  await joinRecaptchaScriptPromise;
+  return true;
+}
+
+async function executeJoinRecaptchaV3() {
+  await ensureJoinRecaptchaApiLoaded();
+  if (!globalThis.grecaptcha?.ready) throw new Error("grecaptcha_not_available");
+  await new Promise((resolve) => globalThis.grecaptcha.ready(resolve));
+  return globalThis.grecaptcha.execute(joinCaptchaConfig.v3SiteKey, {
+    action: joinCaptchaConfig.v3Action || "competitor_join_preview",
+  });
+}
+
+async function ensureJoinCaptchaWidgetRendered() {
+  await ensureJoinRecaptchaApiLoaded();
+  if (!globalThis.grecaptcha?.ready) throw new Error("grecaptcha_not_available");
+  await new Promise((resolve) => globalThis.grecaptcha.ready(resolve));
+  if (joinRecaptchaWidgetId !== null) {
+    try {
+      globalThis.grecaptcha.reset(joinRecaptchaWidgetId);
+    } catch {}
+    return joinRecaptchaWidgetId;
+  }
+  joinRecaptchaWidgetId = globalThis.grecaptcha.render("joinCaptchaWidget", {
+    sitekey: joinCaptchaConfig.v2SiteKey,
+    callback: (token) => {
+      handleJoinCaptchaSolved(token).catch(() => {});
+    },
+    "expired-callback": () => {
+      setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_expired"), false);
+    },
+    "error-callback": () => {
+      setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_failed"), false);
+    },
+  });
+  return joinRecaptchaWidgetId;
+}
+
+async function openJoinCaptchaModal(context) {
+  joinCaptchaPending = context;
+  setMsg("joinCaptchaMsg", "", true);
+  el("joinCaptchaBackdrop").style.display = "flex";
+  try {
+    await ensureJoinCaptchaWidgetRendered();
+  } catch {
+    setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_load_failed"), false);
+  }
+}
+
+async function requestJoinPreview(accessCode, aliasDisplay, extraPayload = {}) {
+  const payload = {
+    code: accessCode,
+    lang_code: el("joinLangSelect")?.value || el("langSelect")?.value || "et",
+    alias_display: aliasDisplay,
+    ...extraPayload,
+  };
+  return apiPost("/api/competitor/join-preview", payload);
+}
+
+async function handleJoinCaptchaSolved(v2Token) {
+  const pending = joinCaptchaPending;
+  if (!pending?.accessCode || !pending?.aliasDisplay || !v2Token) {
+    setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_failed"), false);
+    return;
+  }
+  setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_verifying"), true);
+  const previewRes = await requestJoinPreview(pending.accessCode, pending.aliasDisplay, {
+    recaptcha_v2_token: v2Token,
+  });
+  if (!previewRes.ok) {
+    const errCode = previewRes.data?.detail?.code;
+    if (errCode === "JOIN_CAPTCHA_FAILED") {
+      setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_failed"), false);
+    } else if (errCode === "JOIN_CAPTCHA_UNAVAILABLE") {
+      setMsg("joinCaptchaMsg", tr("competitor.msg.join_captcha_unavailable"), false);
+    } else {
+      setMsg("joinCaptchaMsg", previewRes.userMessage || tr("competitor.msg.join_failed"), false);
+    }
+    if (globalThis.grecaptcha && joinRecaptchaWidgetId !== null) {
+      try {
+        globalThis.grecaptcha.reset(joinRecaptchaWidgetId);
+      } catch {}
+    }
+    return;
+  }
+  closeJoinCaptchaModal();
+  await finalizeJoinPreview(previewRes);
+}
+
+async function finalizeJoinPreview(previewRes) {
+  state.joinPreview = previewRes.data;
+  const termsText = state.joinPreview?.terms?.terms_text || "";
+  if (!state.joinPreview?.terms?.terms_id || !state.joinPreview?.join_proof) {
+    setMsg("joinMsg", tr("competitor.msg.terms_missing"), false);
+    return;
+  }
+  setMsg("joinMsg", "", true);
+  setMsg("joinTermsMsg", "", true);
+  setMsg("joinCaptchaMsg", "", true);
+  el("joinTermsCompName").textContent = state.joinPreview?.competition_name || "-";
+  el("joinTermsBody").innerHTML = sanitizeTermsHtml(termsText || "");
+  el("joinTermsBackdrop").style.display = "flex";
+}
+
 async function joinCompetition() {
   setMsg("joinMsg", "", true);
   setMsg("joinTermsMsg", "", true);
+  if (joinCaptchaConfig.unavailable) {
+    setMsg("joinMsg", tr("competitor.msg.join_captcha_unavailable"), false);
+    return;
+  }
   const accessCode = el("joinCode").value.trim();
   if (!accessCode) {
     setMsg("joinMsg", tr("competitor.msg.enter_code"), false);
@@ -196,29 +365,36 @@ async function joinCompetition() {
     setMsg("joinMsg", tr("competitor.msg.enter_alias"), false);
     return;
   }
-  const previewRes = await apiPost("/api/competitor/join-preview", {
-    code: accessCode,
-    lang_code: el("langSelect").value || "et",
-    alias_display: aliasDisplay,
-  });
+  let previewRes;
+  try {
+    if (joinCaptchaConfig.enabled) {
+      setMsg("joinMsg", tr("competitor.msg.join_captcha_verifying"), true);
+      const v3Token = await executeJoinRecaptchaV3();
+      previewRes = await requestJoinPreview(accessCode, aliasDisplay, { recaptcha_v3_token: v3Token });
+    } else {
+      previewRes = await requestJoinPreview(accessCode, aliasDisplay);
+    }
+  } catch {
+    setMsg("joinMsg", tr("competitor.msg.join_captcha_load_failed"), false);
+    return;
+  }
   if (!previewRes.ok) {
     const errCode = previewRes.data?.detail?.code;
+    if (errCode === "JOIN_CAPTCHA_V2_REQUIRED") {
+      setMsg("joinMsg", "", true);
+      await openJoinCaptchaModal({ accessCode, aliasDisplay });
+      return;
+    }
     if (errCode === "INVALID_ACCESS_CODE" || errCode === "ACCESS_CODE_LIMIT_REACHED") setMsg("joinMsg", tr("competitor.msg.join_not_possible"), false);
     else if (errCode === "ALREADY_PARTICIPANT") setMsg("joinMsg", tr("competitor.msg.already_participant"), false);
     else if (errCode === "ALIAS_TAKEN") setMsg("joinMsg", tr("competitor.msg.alias_not_suitable"), false);
     else if (errCode === "ORDS_ERROR") setMsg("joinMsg", tr("competitor.msg.join_service_unavailable"), false);
+    else if (errCode === "JOIN_CAPTCHA_UNAVAILABLE") setMsg("joinMsg", tr("competitor.msg.join_captcha_unavailable"), false);
+    else if (errCode === "JOIN_CAPTCHA_FAILED" || errCode === "JOIN_CAPTCHA_REQUIRED") setMsg("joinMsg", tr("competitor.msg.join_captcha_retry"), false);
     else setMsg("joinMsg", previewRes.userMessage || tr("competitor.msg.unknown_code"), false);
     return;
   }
-  state.joinPreview = previewRes.data;
-  const termsText = state.joinPreview?.terms?.terms_text || "";
-  if (!state.joinPreview?.terms?.terms_id) {
-    setMsg("joinMsg", tr("competitor.msg.terms_missing"), false);
-    return;
-  }
-  el("joinTermsCompName").textContent = state.joinPreview?.competition_name || "-";
-  el("joinTermsBody").innerHTML = sanitizeTermsHtml(termsText || "");
-  el("joinTermsBackdrop").style.display = "flex";
+  await finalizeJoinPreview(previewRes);
 }
 
 async function confirmJoinCompetition() {
@@ -235,8 +411,9 @@ async function confirmJoinCompetition() {
     alias_display: aliasDisplay,
     contact_email: el("joinEmail").value.trim() || null,
     terms_id: state.joinPreview.terms.terms_id,
-    terms_lang_code: state.joinPreview.terms.lang_code || (el("langSelect").value || "et"),
+    terms_lang_code: state.joinPreview.terms.lang_code || (el("langSelect").value || i18nMeta.default_lang),
     accept_terms: true,
+    join_proof: state.joinPreview.join_proof || null,
   });
   if (!completeRes.ok) {
     const errCode = completeRes.data?.detail?.code;
@@ -269,6 +446,8 @@ async function confirmJoinCompetition() {
 function backFromTerms() {
   el("joinTermsBackdrop").style.display = "none";
   setMsg("joinTermsMsg", "", true);
+  setMsg("joinMsg", "", true);
+  setMsg("joinCaptchaMsg", "", true);
   if (joinHasActiveBeforeOpen) {
     el("joinByCodeBackdrop").style.display = "none";
     el("competitionPickerBackdrop").style.display = "none";
@@ -365,6 +544,7 @@ function openJoinModal(prefillCode = null, opts = {}) {
   const showClose = opts.showClose === true;
   const codeReadonly = opts.codeReadonly === true;
   joinHasActiveBeforeOpen = opts.hasActive === true;
+  closeJoinCaptchaModal();
   setMsg("joinMsg", "", true);
   setMsg("joinTermsMsg", "", true);
   state.joinPreview = null;
@@ -476,6 +656,7 @@ async function openCompetitionTermsModal() {
 
 async function init() {
   await loadI18nMeta();
+  await loadJoinCaptchaConfig();
   renderLangOptions();
   const savedLang = (getCookie("funo_competitor_ui_lang") || "").trim().toLowerCase();
   const initialLang = (savedLang && i18nMeta.available_langs.includes(savedLang))
@@ -496,6 +677,7 @@ async function init() {
   });
   el("closeJoinByCodeBtn").addEventListener("click", () => {
     el("joinByCodeBackdrop").style.display = "none";
+    closeJoinCaptchaModal();
     if (joinCodeReadonly) clearJoinCodeFromUrl();
   });
   el("joinSwitchWarningContinueBtn").addEventListener("click", () => {
@@ -527,6 +709,12 @@ async function init() {
   });
   el("closeCompetitionTermsBtn").addEventListener("click", () => {
     el("competitionTermsBackdrop").style.display = "none";
+  });
+  el("joinCaptchaCloseBtn").addEventListener("click", () => {
+    closeJoinCaptchaModal();
+  });
+  el("joinCaptchaBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("joinCaptchaBackdrop")) closeJoinCaptchaModal();
   });
   el("competitionTermsBackdrop").addEventListener("click", (e) => {
     if (e.target === el("competitionTermsBackdrop")) el("competitionTermsBackdrop").style.display = "none";

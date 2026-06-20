@@ -8,6 +8,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - POST `/competitions/register` - registreerib kasutaja võistlusele osalejana ligipääsukoodi alusel.
 - POST `/organizers/register` - registreerib kasutaja võistluse korraldajaks korraldaja koodi alusel.
 - POST `/submissions` - salvestab vastuse või küsimuseta checkpointi sündmuse, hindab selle ja tagastab punktitulemuse koos competitor popupi jaoks vajalike lisaväljadega (õiged vastused, koguaeg, hetke koht ja tingimuslikult kumulatiivne linnulennuline vahemaa).
+- GET `/competitor/join-config` - tagastab competitor liitumisvoo anti-bot konfiguratsiooni (reCAPTCHA võtmed/flags).
 - POST `/competitor/join-preview` - valideerib liitumiskoodi ja tagastab liitumise eelvaate (võistlus + tingimused).
 - POST `/competitor/join-complete` - lõpetab liitumise, seob kasutaja osalusega ja salvestab tingimuste nõustumise.
 - GET `/competitor/competitions?user_id=...` - toob kasutaja aktiivsed/sobivad osalusega võistlused.
@@ -83,8 +84,18 @@ Expected ORDS JSON responses:
   - `current_rank` is the competitor rank immediately after the just-saved submission using the same ordering rule as results/leaderboard.
   - `distance_display_allowed = Y` only when the just-saved submission row itself contains `submissions.latitude` and `submissions.longitude` and the competition distance logic has at least two usable geo points; otherwise competitor UI must not show the distance line for that popup.
   - when `distance_display_allowed = Y`, `total_distance_m` is the cumulative as-the-crow-flies distance using the same DB-side calculation as organizer results.
-- `competitor/join-preview` -> `{ "competition_id": 1, "competition_name":"...", "already_active_for_user":"Y|N", "terms": {...} }`
+- `competitor/join-preview` -> `{ "competition_id": 1, "competition_name":"...", "already_active_for_user":"Y|N", "terms": {...}, "join_proof":"..." }`
+  - FastAPI kontrollib enne ORDS kutset competitor join anti-bot reeglit:
+    - vaikimisi reCAPTCHA v3 token (`recaptcha_v3_token`);
+    - madala skoori korral tagastab FastAPI vea `JOIN_CAPTCHA_V2_REQUIRED`, mille järel frontend kordab sama preview kutset reCAPTCHA v2 tokeniga (`recaptcha_v2_token`);
+    - ORDS-i ei kutsuta enne, kui FastAPI on captcha kontrolli aktsepteerinud või anti-bot kaitse on konfiguratsioonis välja lülitatud.
+    - kui `APP_ENV=production` ja reCAPTCHA võtmed on ainult osaliselt seadistatud, katkestab FastAPI voo veaga `JOIN_CAPTCHA_UNAVAILABLE` (fail-closed), mitte ei lülita kaitset vaikselt välja.
+  - `join_proof` on FastAPI signeeritud lühiajaline proof, mis seob preview tulemuse sama koodi, aliase, tingimuste versiooni ja anonüümse competitor sessiooniga.
+  - Join-preview katse logitakse alati struktureeritud `INFO` rea kujul sündmusega `competitor_join_preview`; logi sisaldab tulemust (`ok|error`), tehnilist veakoodi, ajakulu, captcha rada (`v3|v2|none`) ja maskeeritud sisendi digesteid.
+- `competitor/join-config` -> `{ "enabled": true|false, "v3_site_key":"...", "v2_site_key":"...", "v3_action":"competitor_join_preview" }`
 - `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
+  - Request peab alati sisaldama `join_proof` välja, mille FastAPI valideerib enne ORDS `join-complete` kutset ka siis, kui anti-bot kaitse on konfiguratsioonis välja lülitatud.
+  - Join-complete katse logitakse alati struktureeritud `INFO` rea kujul sündmusega `competitor_join_complete`; edulogi sisaldab loodud/seotud `competition_participant_id` väärtust ja vealogi sisaldab `status_code` + `error_code` välja.
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
   - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
@@ -194,6 +205,15 @@ Required backend env:
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
+- Optional competitor join anti-bot config:
+  - `RECAPTCHA_JOIN_V3_SITE_KEY`
+  - `RECAPTCHA_JOIN_V3_SECRET_KEY`
+  - `RECAPTCHA_JOIN_V2_SITE_KEY`
+  - `RECAPTCHA_JOIN_V2_SECRET_KEY`
+  - `RECAPTCHA_JOIN_V3_ACTION` (default `competitor_join_preview`)
+  - `RECAPTCHA_JOIN_V3_SCORE_THRESHOLD` (default `0.4`)
+  - `RECAPTCHA_JOIN_PROOF_TTL_SECONDS` (default `900`)
+  - `RECAPTCHA_VERIFY_URL` (default `https://www.google.com/recaptcha/api/siteverify`)
 - FastAPI loads i18n translations to in-memory cache on startup for every `LANG_AVAILABLE` language.
 - You can reload i18n cache without restarting backend: `POST /api/i18n/reload`
 - Results visibility rule: requester must be active organizer of the competition at request time.

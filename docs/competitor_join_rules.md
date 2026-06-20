@@ -19,12 +19,17 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
   - sisestab aliase
   - nõustub kasutustingimustega
   - (soovi korral) sisestab e-posti
+- Liitumisvoo esimese sammu ees töötab taustal anti-bot kontroll:
+  - vaikimisi reCAPTCHA v3;
+  - kui v3 riskiskoor jääb alla lävendi, suunatakse kasutaja reCAPTCHA v2 challenge'ile;
+  - kasutajale ei kuvata v2 challenge'it, kui v3 kontroll läheb läbi.
 
 ### 2) Alias
 
 - Alias on kohustuslik.
 - Alias peab olema sama võistluse piires unikaalne.
 - Aliaside võrdlus on case-insensitive (`karu`, `KARU`, `KaRu` on sama), kuid tähekuju säilib kuvamiseks.
+- Aliase algusest ja lõpust eemaldatakse tühikud enne valideerimist, `join_proof` loomist ja salvestust.
 - Erinevad sõned ja tühikute variandid on erinevad (`jääkaru` != `jää karu`).
 
 ### 3) E-post
@@ -162,6 +167,9 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Etapil 1 kasutatakse nuppu `Jätka võistlusega liitumist`.
   - Nupp on aktiivne ainult siis, kui kood ja alias on sisestatud.
   - Koodi/aliase valideerimine toimub enne tingimuste modali avamist.
+  - Enne ORDS `join-preview` kutset teeb FastAPI inimese-kontrolli:
+    - esmalt reCAPTCHA v3;
+    - vajadusel sama preview kordus reCAPTCHA v2 tokeniga.
 
 ### 2) Veateated etapil 1
 
@@ -174,6 +182,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 
 - Tingimused kuvatakse selle võistluse alusel, millega kasutaja liituda proovib.
 - Tingimuste kuvamine ei salvesta veel midagi.
+- Edukas `join-preview` tagastab lisaks lühiajalise serveripoolse `join_proof` tõendi.
 - Kasutajal on kaks valikut:
   - `Jah, olen nõus ja liitun võistlusega` -> kutsub `join-complete` (siin tekivad DB kirjed)
   - `Tagasi` -> salvestust ei tehta
@@ -184,12 +193,14 @@ Muidu tagastatakse viga (mitte edukas sisestus).
   - sulgeme liitumismodali(d) ja kasutaja jääb olemasoleva võistluse vaatesse
 - Kui kasutajal aktiivset võistlust ei olnud:
   - kasutaja viiakse tagasi koodi/aliase sisestamise modali juurde
+- Sammu vahetusel puhastatakse alati eelmise sammu staatus- ja veateated; tagasi liikudes ei tohi eelmise sammu vana teade jääda ekraanile.
 
 ### 5) Andmete loomine andmebaasis
 
 - `users` kirje ei tohi tekkida lihtsalt modali avamise, vale koodi või katkestamisega.
 - `users` kirje tekib ainult eduka `join-complete` korral.
 - `users` ja `competition_participants` kirjed tekivad samas DB transaktsioonis.
+- `join-complete` on lubatud ainult siis, kui requestis olev `join_proof` klapib sama koodi, aliase, tingimuste versiooni ja competitor sessiooniga.
 
 ## D. Sama võistlusega uuesti liitumine
 
@@ -273,7 +284,20 @@ Muidu tagastatakse viga (mitte edukas sisestus).
   - TTL: puudub
   - reload endpoint: `POST /api/i18n/reload`
 
-## G. Index vaate i18n reeglid
+## G. Anti-bot tehniline voog
+
+- Competitor join anti-bot töötab ainult FastAPI kihis; ORDS-i ega DB skeemi selle jaoks ei muudeta.
+- FastAPI endpoint `GET /api/competitor/join-config` annab frontendile teada, kas reCAPTCHA kaitse on sisse lülitatud ja milliseid public võtmeid kasutada.
+- Kui `APP_ENV=production` ja reCAPTCHA võtmed on ainult osaliselt seadistatud, vastab FastAPI fail-closed põhimõttel veaga ega lülita kaitset vaikselt välja.
+- `POST /api/competitor/join-preview` aktsepteerib:
+  - `recaptcha_v3_token` tavavoo jaoks;
+  - `recaptcha_v2_token` fallback-väärtusena pärast madalat v3 skoori.
+- reCAPTCHA skript laaditakse ühe korra aktiivse liitumiskeele järgi; kui kasutaja vahetab pärast seda keelt, jääb sama lehesessiooni challenge algselt laetud keelde.
+- Eduka preview järel tagastatav `join_proof` on HMAC-signeeritud ja lühiajaline.
+- `POST /api/competitor/join-complete` peab sama `join_proof` tõendi tagasi saatma.
+- Kui proof puudub, on aegunud või ei klapi requesti väljadega, katkestab FastAPI voo enne ORDS `join-complete` kutset.
+
+## H. Index vaate i18n reeglid
 
 - Kõik `index.html` UI tekstid (sh modalid ja kasutajale kuvatavad API veateated) peavad tulema `translations` tabelist.
 - Võtmete muster: `competitor.*` (nt `competitor.join.code_label`).
@@ -289,7 +313,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Keelevaliku valikud tulevad `.env` muutujast `LANG_AVAILABLE`.
 - Sama keelevalik rakendub ka tingimustele, kirjeldusele ja küsimustele; kui valitud keeles puudub sisu, kasutatakse fallback default keelt.
 
-## H. Multikeelsuse üldpõhimõte (kõik vaated)
+## I. Multikeelsuse üldpõhimõte (kõik vaated)
 
 - Sama fallback-reegel kehtib kõigis mitmekeelsetes vaadetes:
   - `index.html` (võistleja)
