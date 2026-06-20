@@ -80,6 +80,7 @@ map_layers_cache: dict[str, Any] = {"loaded_at": 0.0, "items": None}
 competitor_map_layers_cache: dict[int, dict[str, Any]] = {}
 competitor_terms_cache: dict[str, dict[str, Any]] = {}
 background_tasks: set[asyncio.Task[None]] = set()
+shared_http_client: httpx.AsyncClient | None = None
 
 COMPETITION_CHECKPOINT_STATIC_CACHE_FALLBACK_TTL_SECONDS = 43200.0
 PARTICIPANT_CHECKPOINT_STATE_CACHE_TTL_SECONDS = 900.0
@@ -1280,6 +1281,10 @@ def _normalize_join_value(value: str | None) -> str:
     return str(value or "").strip()
 
 
+def _normalize_join_alias(alias_display: str | None) -> str:
+    return _normalize_join_value(alias_display)
+
+
 def _join_proof_digest(value: str) -> str:
     digest = hmac.new(
         settings.session_secret.encode("utf-8"),
@@ -1361,7 +1366,11 @@ async def _verify_recaptcha_token(secret_key: str, token: str, remote_ip: str | 
     if remote_ip:
         payload["remoteip"] = remote_ip
     try:
-        async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+        client = shared_http_client
+        if client is None:
+            async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as temp_client:
+                response = await temp_client.post(settings.recaptcha_verify_url, data=payload)
+        else:
             response = await client.post(settings.recaptcha_verify_url, data=payload)
     except httpx.HTTPError:
         _raise_api_error(
@@ -3176,7 +3185,9 @@ def _build_open_checkpoint_items(
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    global shared_http_client
     _configure_logging()
+    shared_http_client = httpx.AsyncClient(timeout=settings.http_timeout_seconds)
     if _recaptcha_join_is_misconfigured():
         _log_structured(
             logging.WARNING,
@@ -3190,6 +3201,15 @@ async def startup_event() -> None:
         )
     await _load_i18n_cache()
     await _resume_pending_overlay_processing()
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    global shared_http_client
+    client = shared_http_client
+    shared_http_client = None
+    if client is not None:
+        await client.aclose()
 
 
 @app.middleware("http")
@@ -3567,13 +3587,15 @@ async def competitor_session(request: Request, response: Response) -> Competitor
 async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Request) -> CompetitorJoinPreviewResponse:
     started_at = time.monotonic()
     user_id = _read_competitor_session_user_id(request)
-    lang_code = (req.lang_code or settings.lang_default or "et").strip().lower()
+    lang_code = (req.lang_code or settings.lang_default).strip().lower()
     if lang_code not in settings.lang_available:
         lang_code = settings.lang_default
+    normalized_access_code = _normalize_join_value(req.code)
+    normalized_alias_display = _normalize_join_alias(req.alias_display)
     log_context = _join_request_context(
         user_id=user_id,
-        code=req.code,
-        alias_display=req.alias_display,
+        code=normalized_access_code,
+        alias_display=normalized_alias_display,
         lang_code=lang_code,
         recaptcha_v3_token=req.recaptcha_v3_token,
         recaptcha_v2_token=req.recaptcha_v2_token,
@@ -3585,11 +3607,11 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
             recaptcha_v2_token=req.recaptcha_v2_token,
         )
 
-        preview_payload: dict[str, Any] = {"access_code": req.code, "lang_code": lang_code}
+        preview_payload: dict[str, Any] = {"access_code": normalized_access_code, "lang_code": lang_code}
         if isinstance(user_id, int):
             preview_payload["user_id"] = user_id
-        if req.alias_display is not None and req.alias_display.strip():
-            preview_payload["alias_display"] = req.alias_display.strip()
+        if normalized_alias_display:
+            preview_payload["alias_display"] = normalized_alias_display
         ords_response = await _post_to_ords("competitor/join-preview", preview_payload)
         cid = ords_response.get("competition_id")
         name = ords_response.get("competition_name")
@@ -3607,8 +3629,8 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
         if terms is not None:
             join_proof = _make_join_proof(
                 user_id=user_id,
-                access_code=req.code,
-                alias_display=req.alias_display or "",
+                access_code=normalized_access_code,
+                alias_display=normalized_alias_display,
                 competition_id=cid,
                 terms_id=terms.terms_id,
                 terms_lang_code=terms.lang_code,
@@ -3688,10 +3710,12 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
     started_at = time.monotonic()
     user_id = _read_competitor_session_user_id(request)
     current_participant_id = _read_competitor_participation_id(request)
+    normalized_access_code = _normalize_join_value(req.code)
+    normalized_alias_display = _normalize_join_alias(req.alias_display)
     log_context = _join_request_context(
         user_id=user_id,
-        code=req.code,
-        alias_display=req.alias_display,
+        code=normalized_access_code,
+        alias_display=normalized_alias_display,
         current_participant_id=current_participant_id,
         terms_id=req.terms_id,
         terms_lang_code=req.terms_lang_code,
@@ -3704,15 +3728,15 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
         _assert_valid_join_proof(
             proof_token=req.join_proof,
             current_user_id=user_id,
-            access_code=req.code,
-            alias_display=req.alias_display,
+            access_code=normalized_access_code,
+            alias_display=normalized_alias_display,
             terms_id=req.terms_id,
             terms_lang_code=req.terms_lang_code,
         )
 
         payload: dict[str, Any] = {
-            "access_code": req.code,
-            "alias_display": req.alias_display,
+            "access_code": normalized_access_code,
+            "alias_display": normalized_alias_display,
             "terms_id": req.terms_id,
             "terms_lang_code": req.terms_lang_code,
             "accept_terms": "Y" if req.accept_terms else "N",

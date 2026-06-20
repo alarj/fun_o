@@ -29,6 +29,7 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 - Alias on kohustuslik.
 - Alias peab olema sama võistluse piires unikaalne.
 - Aliaside võrdlus on case-insensitive (`karu`, `KARU`, `KaRu` on sama), kuid tähekuju säilib kuvamiseks.
+- Aliase algusest ja lõpust eemaldatakse tühikud enne valideerimist, `join_proof` loomist ja salvestust.
 - Erinevad sõned ja tühikute variandid on erinevad (`jääkaru` != `jää karu`).
 
 ### 3) E-post
@@ -291,6 +292,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - `POST /api/competitor/join-preview` aktsepteerib:
   - `recaptcha_v3_token` tavavoo jaoks;
   - `recaptcha_v2_token` fallback-väärtusena pärast madalat v3 skoori.
+- reCAPTCHA skript laaditakse aktiivse liitumiskeele järgi; kui kasutaja vahetab keelt pärast skripti laadimist, puhastab frontend vana instantsi ja järgmine challenge laetakse uues keeles.
 - Eduka preview järel tagastatav `join_proof` on HMAC-signeeritud ja lühiajaline.
 - `POST /api/competitor/join-complete` peab sama `join_proof` tõendi tagasi saatma.
 - Kui proof puudub, on aegunud või ei klapi requesti väljadega, katkestab FastAPI voo enne ORDS `join-complete` kutset.
