@@ -608,6 +608,28 @@ Millal uuesti hinnata:
 - kui DB/session timezone eeldused muutuvad;
 - kui leitakse päris juhtum, kus `end_date` ja `expires_at` annavad vastuolulise tulemuse.
 
+### 2a.15 FastAPI `startup` / `shutdown` event handlerite viimine `lifespan` kontekstile
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Mõjutatud ala:
+- `@app.on_event("startup")`
+- `@app.on_event("shutdown")`
+- shared HTTP kliendi elutsükkel
+
+Miks ei parandatud kohe:
+- praegune käivituse/seiskamise loogika töötab funktsionaalselt korrektselt;
+- käesolevas töövoos oli eesmärk parandada esmalt join-flow funktsionaalsed ja turvalisusega seotud vead minimaalse diffiga;
+- `lifespan` peale üleviimine muudab rakenduse elutsükli wiring'ut korraga laiemalt kui ainult reCAPTCHA/join voog.
+
+Staatus:
+- teadlikult edasi lükatud moderniseerimine / maintainability cleanup
+
+Millal uuesti hinnata:
+- järgmises backend maintainability passis;
+- kui FastAPI upgrade või muu elutsüklit puudutav muudatus niikuinii toimub.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.

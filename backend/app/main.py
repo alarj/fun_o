@@ -8,6 +8,7 @@ import math
 import os
 import shutil
 import re
+import secrets
 import time
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
@@ -1334,13 +1335,16 @@ def _assert_valid_join_proof(
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
     if payload.get("user_id") != current_user_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
-    if payload.get("access_code_digest") != _join_proof_digest(access_code):
+    if not secrets.compare_digest(str(payload.get("access_code_digest") or ""), _join_proof_digest(access_code)):
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
-    if payload.get("alias_display_digest") != _join_proof_digest(alias_display):
+    if not secrets.compare_digest(str(payload.get("alias_display_digest") or ""), _join_proof_digest(alias_display)):
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
     if payload.get("terms_id") != terms_id:
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
-    if str(payload.get("terms_lang_code") or "").strip().lower() != _normalize_join_value(terms_lang_code).lower():
+    if not secrets.compare_digest(
+        str(payload.get("terms_lang_code") or "").strip().lower(),
+        _normalize_join_value(terms_lang_code).lower(),
+    ):
         _raise_api_error(status.HTTP_403_FORBIDDEN, "INVALID_JOIN_PROOF", "api.error.join_proof_invalid")
 
 
@@ -1372,7 +1376,15 @@ async def _verify_recaptcha_token(secret_key: str, token: str, remote_ip: str | 
                 response = await temp_client.post(settings.recaptcha_verify_url, data=payload)
         else:
             response = await client.post(settings.recaptcha_verify_url, data=payload)
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        _log_structured(
+            logging.ERROR,
+            "recaptcha_verification_network_error",
+            {
+                "verify_url": settings.recaptcha_verify_url,
+                "error": str(exc),
+            },
+        )
         _raise_api_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "JOIN_CAPTCHA_UNAVAILABLE",
@@ -3592,6 +3604,8 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
         lang_code = settings.lang_default
     normalized_access_code = _normalize_join_value(req.code)
     normalized_alias_display = _normalize_join_alias(req.alias_display)
+    if not normalized_access_code:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_ACCESS_CODE", "api.error.invalid_access_code")
     log_context = _join_request_context(
         user_id=user_id,
         code=normalized_access_code,
@@ -3712,6 +3726,8 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
     current_participant_id = _read_competitor_participation_id(request)
     normalized_access_code = _normalize_join_value(req.code)
     normalized_alias_display = _normalize_join_alias(req.alias_display)
+    if not normalized_access_code:
+        _raise_api_error(status.HTTP_400_BAD_REQUEST, "INVALID_ACCESS_CODE", "api.error.invalid_access_code")
     log_context = _join_request_context(
         user_id=user_id,
         code=normalized_access_code,

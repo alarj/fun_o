@@ -224,41 +224,13 @@ function closeJoinCaptchaModal() {
   }
 }
 
-function resetJoinRecaptchaApi() {
-  closeJoinCaptchaModal();
-  joinRecaptchaWidgetId = null;
-  joinRecaptchaScriptPromise = null;
-  joinRecaptchaScriptLang = "";
-  if (joinRecaptchaScriptEl?.parentNode) {
-    joinRecaptchaScriptEl.parentNode.removeChild(joinRecaptchaScriptEl);
-  }
-  joinRecaptchaScriptEl = null;
-  const widgetHost = el("joinCaptchaWidget");
-  if (widgetHost) widgetHost.innerHTML = "";
-  try {
-    delete globalThis.grecaptcha;
-  } catch {
-    globalThis.grecaptcha = undefined;
-  }
-  try {
-    delete globalThis.___grecaptcha_cfg;
-  } catch {
-    globalThis.___grecaptcha_cfg = undefined;
-  }
-}
-
 async function ensureJoinRecaptchaApiLoaded() {
   if (!joinCaptchaConfig.enabled) return false;
-  const preferredLang = preferredJoinCaptchaLang();
-  if (joinRecaptchaScriptPromise && joinRecaptchaScriptLang && joinRecaptchaScriptLang !== preferredLang) {
-    resetJoinRecaptchaApi();
-  }
-  if (globalThis.grecaptcha?.ready && joinRecaptchaScriptLang === preferredLang) return true;
+  if (globalThis.grecaptcha?.ready) return true;
   if (!joinRecaptchaScriptPromise) {
-    joinRecaptchaScriptLang = preferredLang;
     joinRecaptchaScriptPromise = new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(joinCaptchaConfig.v3SiteKey)}&hl=${encodeURIComponent(joinRecaptchaScriptLang)}`;
+      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(joinCaptchaConfig.v3SiteKey)}&hl=${encodeURIComponent(preferredJoinCaptchaLang())}`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
@@ -266,12 +238,9 @@ async function ensureJoinRecaptchaApiLoaded() {
         else reject(new Error("grecaptcha_not_ready"));
       };
       script.onerror = () => reject(new Error("grecaptcha_load_failed"));
-      joinRecaptchaScriptEl = script;
       document.head.appendChild(script);
     }).catch((err) => {
       joinRecaptchaScriptPromise = null;
-      joinRecaptchaScriptLang = "";
-      joinRecaptchaScriptEl = null;
       throw err;
     });
   }
@@ -281,6 +250,7 @@ async function ensureJoinRecaptchaApiLoaded() {
 
 async function executeJoinRecaptchaV3() {
   await ensureJoinRecaptchaApiLoaded();
+  if (!globalThis.grecaptcha?.ready) throw new Error("grecaptcha_not_available");
   await new Promise((resolve) => globalThis.grecaptcha.ready(resolve));
   return globalThis.grecaptcha.execute(joinCaptchaConfig.v3SiteKey, {
     action: joinCaptchaConfig.v3Action || "competitor_join_preview",
@@ -289,6 +259,7 @@ async function executeJoinRecaptchaV3() {
 
 async function ensureJoinCaptchaWidgetRendered() {
   await ensureJoinRecaptchaApiLoaded();
+  if (!globalThis.grecaptcha?.ready) throw new Error("grecaptcha_not_available");
   await new Promise((resolve) => globalThis.grecaptcha.ready(resolve));
   if (joinRecaptchaWidgetId !== null) {
     try {
@@ -892,19 +863,11 @@ async function init() {
   });
   el("feedbackCloseBtn").addEventListener("click", closeFeedback);
   el("langSelect").addEventListener("change", async (e) => {
-    const previousLang = preferredJoinCaptchaLang();
     await refreshQuestionsOnLanguageChange(e.target.value);
-    if (joinRecaptchaScriptPromise && previousLang !== preferredJoinCaptchaLang()) {
-      resetJoinRecaptchaApi();
-    }
     renderProgressBox();
   });
   el("joinLangSelect").addEventListener("change", async (e) => {
-    const previousLang = preferredJoinCaptchaLang();
     await refreshQuestionsOnLanguageChange(e.target.value);
-    if (joinRecaptchaScriptPromise && previousLang !== preferredJoinCaptchaLang()) {
-      resetJoinRecaptchaApi();
-    }
     renderProgressBox();
   });
 

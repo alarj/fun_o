@@ -292,7 +292,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - `POST /api/competitor/join-preview` aktsepteerib:
   - `recaptcha_v3_token` tavavoo jaoks;
   - `recaptcha_v2_token` fallback-väärtusena pärast madalat v3 skoori.
-- reCAPTCHA skript laaditakse aktiivse liitumiskeele järgi; kui kasutaja vahetab keelt pärast skripti laadimist, puhastab frontend vana instantsi ja järgmine challenge laetakse uues keeles.
+- reCAPTCHA skript laaditakse ühe korra aktiivse liitumiskeele järgi; kui kasutaja vahetab pärast seda keelt, jääb sama lehesessiooni challenge algselt laetud keelde.
 - Eduka preview järel tagastatav `join_proof` on HMAC-signeeritud ja lühiajaline.
 - `POST /api/competitor/join-complete` peab sama `join_proof` tõendi tagasi saatma.
 - Kui proof puudub, on aegunud või ei klapi requesti väljadega, katkestab FastAPI voo enne ORDS `join-complete` kutset.
