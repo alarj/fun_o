@@ -154,7 +154,13 @@ async function ensureCompetitorSession() {
 async function loadJoinCaptchaConfig() {
   const res = await apiGet("/api/competitor/join-config");
   if (!res.ok || !res.data) {
-    joinCaptchaConfig = { enabled: false, v3SiteKey: "", v2SiteKey: "", v3Action: "competitor_join_preview" };
+    joinCaptchaConfig = {
+      enabled: false,
+      v3SiteKey: "",
+      v2SiteKey: "",
+      v3Action: "competitor_join_preview",
+      unavailable: true,
+    };
     return;
   }
   joinCaptchaConfig = {
@@ -162,6 +168,7 @@ async function loadJoinCaptchaConfig() {
     v3SiteKey: String(res.data.v3_site_key || ""),
     v2SiteKey: String(res.data.v2_site_key || ""),
     v3Action: String(res.data.v3_action || "competitor_join_preview"),
+    unavailable: false,
   };
 }
 
@@ -331,6 +338,9 @@ async function finalizeJoinPreview(previewRes) {
     setMsg("joinMsg", tr("competitor.msg.terms_missing"), false);
     return;
   }
+  setMsg("joinMsg", "", true);
+  setMsg("joinTermsMsg", "", true);
+  setMsg("joinCaptchaMsg", "", true);
   el("joinTermsCompName").textContent = state.joinPreview?.competition_name || "-";
   el("joinTermsBody").innerHTML = sanitizeTermsHtml(termsText || "");
   el("joinTermsBackdrop").style.display = "flex";
@@ -339,6 +349,10 @@ async function finalizeJoinPreview(previewRes) {
 async function joinCompetition() {
   setMsg("joinMsg", "", true);
   setMsg("joinTermsMsg", "", true);
+  if (joinCaptchaConfig.unavailable) {
+    setMsg("joinMsg", tr("competitor.msg.join_captcha_unavailable"), false);
+    return;
+  }
   const accessCode = el("joinCode").value.trim();
   if (!accessCode) {
     setMsg("joinMsg", tr("competitor.msg.enter_code"), false);
@@ -430,6 +444,8 @@ async function confirmJoinCompetition() {
 function backFromTerms() {
   el("joinTermsBackdrop").style.display = "none";
   setMsg("joinTermsMsg", "", true);
+  setMsg("joinMsg", "", true);
+  setMsg("joinCaptchaMsg", "", true);
   if (joinHasActiveBeforeOpen) {
     el("joinByCodeBackdrop").style.display = "none";
     el("competitionPickerBackdrop").style.display = "none";

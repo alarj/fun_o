@@ -89,11 +89,12 @@ Expected ORDS JSON responses:
     - vaikimisi reCAPTCHA v3 token (`recaptcha_v3_token`);
     - madala skoori korral tagastab FastAPI vea `JOIN_CAPTCHA_V2_REQUIRED`, mille järel frontend kordab sama preview kutset reCAPTCHA v2 tokeniga (`recaptcha_v2_token`);
     - ORDS-i ei kutsuta enne, kui FastAPI on captcha kontrolli aktsepteerinud või anti-bot kaitse on konfiguratsioonis välja lülitatud.
+    - kui `APP_ENV=production` ja reCAPTCHA võtmed on ainult osaliselt seadistatud, katkestab FastAPI voo veaga `JOIN_CAPTCHA_UNAVAILABLE` (fail-closed), mitte ei lülita kaitset vaikselt välja.
   - `join_proof` on FastAPI signeeritud lühiajaline proof, mis seob preview tulemuse sama koodi, aliase, tingimuste versiooni ja anonüümse competitor sessiooniga.
   - Join-preview katse logitakse alati struktureeritud `INFO` rea kujul sündmusega `competitor_join_preview`; logi sisaldab tulemust (`ok|error`), tehnilist veakoodi, ajakulu, captcha rada (`v3|v2|none`) ja maskeeritud sisendi digesteid.
 - `competitor/join-config` -> `{ "enabled": true|false, "v3_site_key":"...", "v2_site_key":"...", "v3_action":"competitor_join_preview" }`
 - `competitor/join-complete` -> `{ "user_id":123, "competition_participant_id":456, "competition_id":1, "switched_from_participant_id":null, "no_change":"Y|N" }`
-  - Kui anti-bot kaitse on aktiveeritud, peab request sisaldama `join_proof` välja, mille FastAPI valideerib enne ORDS `join-complete` kutset.
+  - Request peab alati sisaldama `join_proof` välja, mille FastAPI valideerib enne ORDS `join-complete` kutset ka siis, kui anti-bot kaitse on konfiguratsioonis välja lülitatud.
   - Join-complete katse logitakse alati struktureeritud `INFO` rea kujul sündmusega `competitor_join_complete`; edulogi sisaldab loodud/seotud `competition_participant_id` väärtust ja vealogi sisaldab `status_code` + `error_code` välja.
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`

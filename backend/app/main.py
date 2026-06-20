@@ -1263,6 +1263,19 @@ def _recaptcha_join_is_misconfigured() -> bool:
     return any(configured_flags) and not all(configured_flags)
 
 
+def _recaptcha_join_fail_closed() -> bool:
+    return settings.app_env == "production" and _recaptcha_join_is_misconfigured()
+
+
+def _raise_join_captcha_unavailable(reason: str) -> None:
+    _raise_api_error(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "JOIN_CAPTCHA_UNAVAILABLE",
+        "api.error.join_captcha_unavailable",
+        {"reason": reason},
+    )
+
+
 def _normalize_join_value(value: str | None) -> str:
     return str(value or "").strip()
 
@@ -1327,11 +1340,14 @@ def _assert_valid_join_proof(
 
 
 def _get_request_client_ip(request: Request) -> str | None:
+    real_ip = request.headers.get("x-real-ip") or request.headers.get("X-Real-IP")
+    if isinstance(real_ip, str) and real_ip.strip():
+        return real_ip.strip()
     forwarded_for = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
     if isinstance(forwarded_for, str) and forwarded_for.strip():
-        first_ip = forwarded_for.split(",", 1)[0].strip()
-        if first_ip:
-            return first_ip
+        parts = [part.strip() for part in forwarded_for.split(",") if part.strip()]
+        if parts:
+            return parts[-1]
     client = getattr(request, "client", None)
     host = getattr(client, "host", None)
     return str(host).strip() if isinstance(host, str) and host.strip() else None
@@ -1382,6 +1398,8 @@ async def _enforce_join_recaptcha(
     recaptcha_v3_token: str | None,
     recaptcha_v2_token: str | None,
 ) -> None:
+    if _recaptcha_join_fail_closed():
+        _raise_join_captcha_unavailable("misconfigured")
     if _recaptcha_join_is_misconfigured():
         return
     if not _recaptcha_join_is_enabled():
@@ -3635,6 +3653,8 @@ async def competitor_join_preview(req: CompetitorJoinPreviewRequest, request: Re
 
 @app.get("/api/competitor/join-config", response_model=CompetitorJoinConfigResponse)
 async def competitor_join_config() -> CompetitorJoinConfigResponse:
+    if _recaptcha_join_fail_closed():
+        _raise_join_captcha_unavailable("misconfigured")
     enabled = _recaptcha_join_is_enabled()
     return CompetitorJoinConfigResponse(
         enabled=enabled,
@@ -3679,17 +3699,16 @@ async def competitor_join_complete(req: CompetitorJoinCompleteRequest, request: 
     try:
         if not req.accept_terms:
             _raise_api_error(status.HTTP_400_BAD_REQUEST, "TERMS_NOT_ACCEPTED", "api.error.terms_not_accepted")
-        if _recaptcha_join_is_enabled():
-            if not _normalize_join_value(req.join_proof):
-                _raise_api_error(status.HTTP_400_BAD_REQUEST, "JOIN_PROOF_REQUIRED", "api.error.join_proof_required")
-            _assert_valid_join_proof(
-                proof_token=req.join_proof,
-                current_user_id=user_id,
-                access_code=req.code,
-                alias_display=req.alias_display,
-                terms_id=req.terms_id,
-                terms_lang_code=req.terms_lang_code,
-            )
+        if not _normalize_join_value(req.join_proof):
+            _raise_api_error(status.HTTP_400_BAD_REQUEST, "JOIN_PROOF_REQUIRED", "api.error.join_proof_required")
+        _assert_valid_join_proof(
+            proof_token=req.join_proof,
+            current_user_id=user_id,
+            access_code=req.code,
+            alias_display=req.alias_display,
+            terms_id=req.terms_id,
+            terms_lang_code=req.terms_lang_code,
+        )
 
         payload: dict[str, Any] = {
             "access_code": req.code,

@@ -43,3 +43,4 @@ docker compose exec nginx nginx -s reload
 - Port `80` and `443` must be open in OCI Security List / NSG.
 - DNS must already point to this server.
 - Renewal runs every 12h in the `certbot` service.
+- Reverse proxy must overwrite client IP headers for FastAPI. Current nginx config forwards `X-Real-IP` and overwrites `X-Forwarded-For` with `$remote_addr` so competitor join anti-bot does not trust client-supplied spoofed header chains.

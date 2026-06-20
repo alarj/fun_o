@@ -192,6 +192,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
   - sulgeme liitumismodali(d) ja kasutaja jääb olemasoleva võistluse vaatesse
 - Kui kasutajal aktiivset võistlust ei olnud:
   - kasutaja viiakse tagasi koodi/aliase sisestamise modali juurde
+- Sammu vahetusel puhastatakse alati eelmise sammu staatus- ja veateated; tagasi liikudes ei tohi eelmise sammu vana teade jääda ekraanile.
 
 ### 5) Andmete loomine andmebaasis
 
@@ -286,6 +287,7 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 
 - Competitor join anti-bot töötab ainult FastAPI kihis; ORDS-i ega DB skeemi selle jaoks ei muudeta.
 - FastAPI endpoint `GET /api/competitor/join-config` annab frontendile teada, kas reCAPTCHA kaitse on sisse lülitatud ja milliseid public võtmeid kasutada.
+- Kui `APP_ENV=production` ja reCAPTCHA võtmed on ainult osaliselt seadistatud, vastab FastAPI fail-closed põhimõttel veaga ega lülita kaitset vaikselt välja.
 - `POST /api/competitor/join-preview` aktsepteerib:
   - `recaptcha_v3_token` tavavoo jaoks;
   - `recaptcha_v2_token` fallback-väärtusena pärast madalat v3 skoori.
