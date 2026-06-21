@@ -36,12 +36,14 @@
       <div class="card competitorRouteCard" id="competitionRouteCard" style="display:none;">
         <div class="competitorRouteSummary" id="competitionRouteSummary"></div>
         <div class="competitorMassStartSummary" id="competitionMassStartSummary" style="display:none;"></div>
+        <div class="competitorRouteActions" id="competitionRouteActions" style="display:none;">
+          <button id="mapBtn"></button>
+        </div>
       </div>
 
       <div class="card answerCardBig" id="answerCard" style="display:none;">
         <div class="topRow" style="margin-bottom:10px;">
           <button id="showKpBtn" style="width:190px;"></button>
-          <button id="mapBtn" style="width:190px; display:none;"></button>
           <div class="grow"></div>
         </div>
         <label id="checkpointSelectLabel" for="checkpointSelect"></label>
@@ -223,6 +225,7 @@
           </svg>
         </div>
         <div id="compMapGpsStatus" class="mapStatusNote"></div>
+        <div id="compMapNotice" class="msg compMapNotice"></div>
         <button id="compMapHeadingBtn" class="mapHeadingFab is-off" type="button" title="Heading-up">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="8.5"></circle>
@@ -249,6 +252,24 @@
         <div id="compMapLayerList" class="mapLayerList"></div>
         <div style="height:8px"></div>
         <button id="compMapLayerCloseBtn" class="secondary"></button>
+      </div>
+    </div>
+    <div id="mapQuestionBackdrop" class="modalBackdrop">
+      <div class="modal">
+        <h3 id="mapQuestionTitle"></h3>
+        <div id="mapQuestionCheckpoint" class="subline"></div>
+        <div id="mapQuestionMsg"></div>
+        <div id="mapQuestionText" class="mapQuestionText"></div>
+        <div id="mapQuestionSingleChoiceBlock" style="display:none;"></div>
+        <div id="mapQuestionTextBlock" style="display:none;">
+          <label for="mapQuestionTextAnswer" class="visually-hidden" id="mapQuestionTextLabel">competitor.map.question_modal.text_input_label</label>
+          <textarea id="mapQuestionTextAnswer" rows="4"></textarea>
+          <div style="height:10px"></div>
+          <button id="mapQuestionSubmitBtn"></button>
+        </div>
+        <div class="mapQuestionActions">
+          <button id="mapQuestionCloseBtn" class="secondary"></button>
+        </div>
       </div>
     </div>
 

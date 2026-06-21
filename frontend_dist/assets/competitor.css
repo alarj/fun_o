@@ -76,6 +76,14 @@ button:disabled { opacity: 0.5; }
   font-weight: 700;
   color: var(--ink);
 }
+.competitorRouteActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+.competitorRouteActions button {
+  width: min(280px, 100%);
+}
 .mainHeadRight {
   display: flex;
   flex-direction: column;
@@ -307,6 +315,7 @@ button:disabled { opacity: 0.5; }
 .feedback-ok { background: #0b7a35; color: #fff; }
 .feedback-err { background: #d92424; color: #fff; }
 .feedback-ok button, .feedback-err button { background: #fff; color: #000; }
+#feedbackBackdrop { z-index: 1304; }
 #feedbackBody,
 #feedbackAnswerLine,
 #feedbackDistanceLine,
@@ -521,6 +530,17 @@ button:disabled { opacity: 0.5; }
   display: none;
   white-space: pre-line;
 }
+.compMapNotice {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 24px));
+  margin: 0;
+  z-index: 1251;
+  display: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
 @media (max-width: 520px) {
   .mapNorthIndicator {
     top: 56px;
@@ -566,10 +586,27 @@ button:disabled { opacity: 0.5; }
   font-weight: 700;
 }
 #compMapLayerBackdrop { z-index: var(--comp-map-layer-backdrop-z); }
+#mapQuestionBackdrop { z-index: 1303; }
 .layerIconSvg {
   width: 22px;
   height: 22px;
   display: block;
+}
+.mapQuestionText {
+  margin: 0 0 14px 0;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.mapQuestionActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.mapQuestionActions button {
+  width: auto;
+  min-width: 120px;
 }
 .myResCard { display:none; }
 .myResCollapsed { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }

@@ -19,6 +19,7 @@ const state = {
   mapRoute: null,
   mapDeclination: 0,
   mapDeclinationUpdatedAt: null,
+  mapQuestionItem: null,
 };
 let compMap = null;
 let compMapLayer = null;
@@ -114,10 +115,17 @@ function setMsg(targetId, text, ok) {
   box.textContent = text;
 }
 
+function setMapNotice(text, ok) {
+  const box = el("compMapNotice");
+  if (!box) return;
+  setMsg("compMapNotice", text, ok);
+  box.style.display = text ? "block" : "none";
+}
+
 function applyUiTranslations() {
   el("switchCompetitionBtn").textContent = tr("competitor.main.new_btn");
   el("showKpBtn").textContent = tr("competitor.main.show_cp_btn");
-  el("mapBtn").textContent = tr("competitor.main.map_btn");
+  el("mapBtn").textContent = tr("competitor.route_summary.map_open_btn");
   el("checkpointSelectLabel").textContent = tr("competitor.main.select_open_cp_label");
   el("textAnswer").placeholder = tr("competitor.answer.text_placeholder");
   el("textSubmitBtn").textContent = tr("competitor.answer.submit_btn");
@@ -165,10 +173,17 @@ function applyUiTranslations() {
   el("compMapCloseBtn").title = tr("competitor.common.close_btn");
   el("compMapLayerTitle").textContent = tr("competitor.map.layer_title");
   el("compMapLayerCloseBtn").textContent = tr("competitor.common.close_btn");
+  el("mapQuestionTitle").textContent = tr("competitor.map.question_modal.title");
+  el("mapQuestionTextLabel").textContent = tr("competitor.map.question_modal.text_input_label");
+  el("mapQuestionSubmitBtn").textContent = tr("competitor.map.question_modal.submit_btn");
+  el("mapQuestionCloseBtn").textContent = tr("competitor.map.question_modal.close_btn");
   el("myAnswerDetailTitle").textContent = tr("competitor.answer_detail.title");
   el("myAnswerDetailCloseBtn").textContent = tr("competitor.common.close_btn");
   el("termsAndLicenseLine").innerHTML = `${tr("competitor.main.terms_prefix")} <a id="openCompetitionTermsLink" href="#">${tr("competitor.main.terms_link")}</a> | ${tr("competitor.main.license_line")}`;
   renderCompetitionRouteSummary();
+  if (state.mapQuestionItem) {
+    renderMapQuestionModal();
+  }
   refreshCompetitorBusyText();
 }
 
@@ -653,21 +668,30 @@ function renderCompetitionRouteSummary() {
   const card = el("competitionRouteCard");
   const summary = el("competitionRouteSummary");
   const massStartSummary = el("competitionMassStartSummary");
-  if (!card || !summary || !massStartSummary) return;
+  const actions = el("competitionRouteActions");
+  if (!card || !summary || !massStartSummary || !actions) return;
   const route = state.mapRoute;
   const distanceKm = formatCompetitionRouteDistanceKm(route?.route_length_m);
-  const show = selectedCompetitionUsesLocation() && distanceKm != null;
+  const usesLocation = selectedCompetitionUsesLocation();
+  const show = usesLocation;
   card.style.display = show ? "block" : "none";
   if (!show) {
     summary.textContent = "";
     massStartSummary.textContent = "";
     massStartSummary.style.display = "none";
+    actions.style.display = "none";
     return;
   }
-  const routeLabelKey = selectedCompetitionType() === "S"
-    ? "competitor.route_summary.text_s"
-    : "competitor.route_summary.text_r";
-  summary.innerHTML = buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm);
+  if (distanceKm != null) {
+    const routeLabelKey = selectedCompetitionType() === "S"
+      ? "competitor.route_summary.text_s"
+      : "competitor.route_summary.text_r";
+    summary.innerHTML = buildCompetitionRouteSummaryHtml(routeLabelKey, distanceKm);
+    summary.style.display = "block";
+  } else {
+    summary.innerHTML = "";
+    summary.style.display = "none";
+  }
   const massStartAt = String(getSelectedCompetition()?.mass_start_at || "").trim();
   if (massStartAt) {
     massStartSummary.innerHTML = buildCompetitionMassStartSummaryHtml(massStartAt);
@@ -676,6 +700,7 @@ function renderCompetitionRouteSummary() {
     massStartSummary.innerHTML = "";
     massStartSummary.style.display = "none";
   }
+  actions.style.display = usesLocation ? "flex" : "none";
 }
 
 function getSelectedCompetition() {
@@ -798,6 +823,83 @@ function optionLabel(opt) {
   return t || `[${opt.option_code || "?"}]`;
 }
 
+function buildQuestionPromptText(item) {
+  const inputType = (item.input_type || "").toUpperCase();
+  const maxLen = Number(item.input_max_length || 0);
+  if ((item.question_type || "").toUpperCase() === "SINGLE_CHOICE") {
+    return tr("competitor.msg.select_answer");
+  }
+  if (inputType === "NUMERIC") {
+    return maxLen > 0 ? trf("competitor.answer.number_placeholder_max", { max: maxLen }) : tr("competitor.answer.number_placeholder");
+  }
+  return maxLen > 0 ? trf("competitor.answer.text_placeholder_max", { max: maxLen }) : tr("competitor.answer.text_placeholder");
+}
+
+function validateQuestionTextAnswer(item, rawAnswer) {
+  const trimmed = (rawAnswer || "").trim();
+  if (!trimmed) return tr("competitor.msg.answer_required");
+  const inputType = (item.input_type || "").toUpperCase();
+  const maxLen = Number(item.input_max_length || 0);
+  if (inputType === "NUMERIC" && !/^-?\d+$/.test(trimmed)) {
+    return tr("competitor.msg.answer_must_be_number");
+  }
+  if (maxLen > 0 && trimmed.length > maxLen) {
+    return trf("competitor.msg.answer_too_long", { max: maxLen });
+  }
+  return "";
+}
+
+function closeMapQuestionModal() {
+  state.mapQuestionItem = null;
+  setMsg("mapQuestionMsg", "", true);
+  el("mapQuestionBackdrop").style.display = "none";
+}
+
+function renderMapQuestionModal() {
+  const item = state.mapQuestionItem;
+  if (!item) return;
+  el("mapQuestionTitle").textContent = tr("competitor.map.question_modal.title");
+  el("mapQuestionCheckpoint").textContent = trf("competitor.map.question_modal.checkpoint_line", {
+    value: item?.checkpoint_title || tr("competitor.common.checkpoint_short"),
+  });
+  el("mapQuestionText").textContent = pickLocalized(item, "text_et", "text_en") || tr("competitor.msg.question_text_missing");
+  const singleChoiceBox = el("mapQuestionSingleChoiceBlock");
+  const textBlock = el("mapQuestionTextBlock");
+  const textArea = el("mapQuestionTextAnswer");
+  setMsg("mapQuestionMsg", "", true);
+  singleChoiceBox.innerHTML = "";
+  singleChoiceBox.style.display = "none";
+  textBlock.style.display = "none";
+  textArea.value = "";
+  textArea.placeholder = buildQuestionPromptText(item);
+
+  if ((item.question_type || "").toUpperCase() === "SINGLE_CHOICE") {
+    const opts = Array.isArray(item.options) ? item.options : [];
+    opts.forEach((opt, idx) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `optionBtn opt${idx % 6} mapQuestionOptionBtn`;
+      b.textContent = optionLabel(opt);
+      b.onclick = () => submitAnswer(item, { selected_option_id: opt.option_id }, {
+        messageTargetId: "mapQuestionMsg",
+        beforeFeedback: () => closeMapQuestionModal(),
+      });
+      singleChoiceBox.appendChild(b);
+    });
+    singleChoiceBox.style.display = "block";
+  } else {
+    textBlock.style.display = "block";
+  }
+  setSubmissionBusy(state.submissionInFlight);
+}
+
+function openMapQuestionModal(item) {
+  if (!item) return;
+  state.mapQuestionItem = item;
+  renderMapQuestionModal();
+  el("mapQuestionBackdrop").style.display = "flex";
+}
+
 function renderQuestionForSelectedCheckpoint() {
   const item = getSelectedOpenItem();
   setMsg("answerMsg", "", true);
@@ -824,17 +926,7 @@ function renderQuestionForSelectedCheckpoint() {
     return;
   }
   el("questionText").textContent = pickLocalized(item, "text_et", "text_en") || tr("competitor.msg.question_text_missing");
-  const inputType = (item.input_type || "").toUpperCase();
-  const maxLen = Number(item.input_max_length || 0);
-  let promptText;
-  if ((item.question_type || "").toUpperCase() === "SINGLE_CHOICE") {
-    promptText = tr("competitor.msg.select_answer");
-  } else if (inputType === "NUMERIC") {
-    promptText = maxLen > 0 ? trf("competitor.answer.number_placeholder_max", { max: maxLen }) : tr("competitor.answer.number_placeholder");
-  } else {
-    promptText = maxLen > 0 ? trf("competitor.answer.text_placeholder_max", { max: maxLen }) : tr("competitor.answer.text_placeholder");
-  }
-  el("questionMeta").textContent = promptText;
+  el("questionMeta").textContent = buildQuestionPromptText(item);
   el("singleChoiceBlock").style.display = "none";
   el("textBlock").style.display = "none";
 
@@ -917,15 +1009,27 @@ function setSubmissionBusy(isBusy) {
   if (textSubmitBtn) textSubmitBtn.disabled = state.submissionInFlight;
   const checkpointSelect = el("checkpointSelect");
   if (checkpointSelect) checkpointSelect.disabled = state.submissionInFlight;
+  const mapQuestionTextAnswer = el("mapQuestionTextAnswer");
+  if (mapQuestionTextAnswer) mapQuestionTextAnswer.disabled = state.submissionInFlight;
+  const mapQuestionCloseBtn = el("mapQuestionCloseBtn");
+  if (mapQuestionCloseBtn) mapQuestionCloseBtn.disabled = state.submissionInFlight;
+  const mapQuestionSubmitBtn = el("mapQuestionSubmitBtn");
+  if (mapQuestionSubmitBtn) mapQuestionSubmitBtn.disabled = state.submissionInFlight;
   const optionButtons = Array.from(document.querySelectorAll("#singleChoiceBlock .optionBtn"));
   optionButtons.forEach((btn) => {
     btn.disabled = state.submissionInFlight;
   });
+  const mapOptionButtons = Array.from(document.querySelectorAll("#mapQuestionSingleChoiceBlock .optionBtn"));
+  mapOptionButtons.forEach((btn) => {
+    btn.disabled = state.submissionInFlight;
+  });
 }
 
-async function submitAnswer(item, extra) {
+async function submitAnswer(item, extra, opts = {}) {
   if (state.feedbackOpen || state.submissionInFlight) return;
-  setMsg("answerMsg", "", true);
+  const messageTargetId = String(opts?.messageTargetId || "answerMsg");
+  if (messageTargetId === "compMapNotice") setMapNotice("", true);
+  else setMsg(messageTargetId, "", true);
   const payload = {
     competition_id: state.selectedCompetitionId,
     checkpoint_id: item.checkpoint_id,
@@ -940,7 +1044,8 @@ async function submitAnswer(item, extra) {
   try {
     const res = await apiPost("/api/submissions", payload);
     if (!res.ok) {
-      setMsg("answerMsg", res.userMessage || tr("competitor.msg.submit_failed"), false);
+      if (messageTargetId === "compMapNotice") setMapNotice(res.userMessage || tr("competitor.msg.submit_failed"), false);
+      else setMsg(messageTargetId, res.userMessage || tr("competitor.msg.submit_failed"), false);
       return;
     }
     const d = res.data || {};
@@ -965,10 +1070,14 @@ async function submitAnswer(item, extra) {
         }
       });
     }
+    if (typeof opts?.beforeFeedback === "function") {
+      opts.beforeFeedback(d);
+    }
     showFeedback({ ...d, event: item?.checkpoint_interaction || "QUESTION" });
   } catch (err) {
     console.error("submitAnswer failed", err);
-    setMsg("answerMsg", tr("competitor.msg.submit_failed"), false);
+    if (messageTargetId === "compMapNotice") setMapNotice(tr("competitor.msg.submit_failed"), false);
+    else setMsg(messageTargetId, tr("competitor.msg.submit_failed"), false);
   } finally {
     if (!state.feedbackOpen) setSubmissionBusy(false);
   }
@@ -1000,7 +1109,7 @@ async function loadOpenCheckpoints(opts = {}) {
     state.openItems = [...openCheckpointsClientCache.items];
     state.openItemsLoaded = true;
     renderCheckpointSelect(preferredCheckpointId);
-    return;
+    return true;
   }
 
   const res = await apiGet(`/api/competitor/open-checkpoints?competition_id=${state.selectedCompetitionId}&lang_code=${encodeURIComponent(requestLang)}${geoParams}`);
@@ -1009,7 +1118,7 @@ async function loadOpenCheckpoints(opts = {}) {
     state.openItems = [];
     state.openItemsLoaded = true;
     renderCheckpointSelect(preferredCheckpointId);
-    return;
+    return false;
   }
   state.openItems = Array.isArray(res.data.items) ? res.data.items : [];
   if (state.activeCompetition && state.openItems[0]?.competition_type) {
@@ -1025,14 +1134,25 @@ async function loadOpenCheckpoints(opts = {}) {
   if (typeof refreshCompMapPopupContents === "function") {
     refreshCompMapPopupContents();
   }
+  return true;
 }
 
 async function refreshQuestionsOnLanguageChange(langCode) {
   const previousCheckpointId = Number(el("checkpointSelect")?.value || 0) || null;
+  const previousMapQuestionCheckpointId = Number(state.mapQuestionItem?.checkpoint_id || 0) || null;
   await setLanguage(langCode);
   renderQuestionForSelectedCheckpoint();
   if (state.selectedCompetitionId && state.openItemsLoaded) {
     await loadOpenCheckpoints({ force: true, preferredCheckpointId: previousCheckpointId });
+  }
+  if (previousMapQuestionCheckpointId > 0) {
+    const refreshedItem = state.openItems.find((x) => Number(x?.checkpoint_id || 0) === previousMapQuestionCheckpointId) || null;
+    if (refreshedItem) {
+      state.mapQuestionItem = refreshedItem;
+      renderMapQuestionModal();
+    } else {
+      closeMapQuestionModal();
+    }
   }
 }
 
