@@ -870,9 +870,7 @@ async function init() {
     if (!state.submissionInFlight) closeMapQuestionModal();
   });
   el("mapQuestionBackdrop").addEventListener("click", (e) => {
-    if (e.target === el("mapQuestionBackdrop") && !state.submissionInFlight) {
-      closeMapQuestionModal();
-    }
+    if (e.target === el("mapQuestionBackdrop")) e.preventDefault();
   });
   el("feedbackCloseBtn").addEventListener("click", closeFeedback);
   el("langSelect").addEventListener("change", async (e) => {

@@ -1321,7 +1321,10 @@ async function handleMapCheckpointClick(cp) {
     return;
   }
   if (normalizeCheckpointInteraction(item?.checkpoint_interaction) === "CHECK_ONLY") {
-    submitAnswer(item, {}, { messageTargetId: "compMapNotice" });
+    submitAnswer(item, {}, {
+      messageTargetId: "compMapNotice",
+      busyNoticeKey: "competitor.check_only.submitting_notice",
+    });
     return;
   }
   openMapQuestionModal(item);

@@ -123,6 +123,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - heading/compass olek säilib;
   - aktiivne kaardikiht säilib;
   - kaart jääb samasse keskpunkti ja zoomi, kui kasutaja ise neid ei muuda.
+- `CHECK_ONLY` checkpointi läbimise salvestamisel peab kaardivaates olema nähtav ajutine busy-tagasiside samal kaardiekraanil; kasutajale ei tohi jääda muljet, et klikk ei töötanud.
+- Kaardil avatud küsimuse modaal ei sulgu taustaloorile vajutades; sulgemine käib ainult modali enda sulgemisnupu kaudu, et vältida tekstivastuse juhuslikku kaotust.
+- Tekstivastusega küsimuse modali avamisel seatakse fookus kohe tekstiväljale, kui submit parajasti ei käi.
 - Kui kaardivaate taustal töötav GPS jälgimine katkeb või GPS signaal puudub:
   - kaardivaates kuvatakse alati väike staatustekst `GPS signaal puudub` / `No GPS` samas visuaalses stiilis nagu heading debug kast;
   - kui kasutaja asukoha markerit selle võistluse jaoks kuvatakse ja viimane teadaolev asukoht on olemas, jääb marker viimasesse teadaolevasse punkti, kuid muutub halliks;

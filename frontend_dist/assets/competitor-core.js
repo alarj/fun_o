@@ -119,6 +119,15 @@ function setMapNotice(text, ok) {
   const box = el("compMapNotice");
   if (!box) return;
   setMsg("compMapNotice", text, ok);
+  box.classList.remove("busy");
+  box.style.display = text ? "block" : "none";
+}
+
+function setMapNoticeBusy(text) {
+  const box = el("compMapNotice");
+  if (!box) return;
+  setMsg("compMapNotice", text, true);
+  box.classList.add("busy");
   box.style.display = text ? "block" : "none";
 }
 
@@ -898,6 +907,12 @@ function openMapQuestionModal(item) {
   state.mapQuestionItem = item;
   renderMapQuestionModal();
   el("mapQuestionBackdrop").style.display = "flex";
+  if ((item.question_type || "").toUpperCase() !== "SINGLE_CHOICE") {
+    requestAnimationFrame(() => {
+      const textArea = el("mapQuestionTextAnswer");
+      if (textArea && !state.submissionInFlight) textArea.focus();
+    });
+  }
 }
 
 function renderQuestionForSelectedCheckpoint() {
@@ -1028,7 +1043,10 @@ function setSubmissionBusy(isBusy) {
 async function submitAnswer(item, extra, opts = {}) {
   if (state.feedbackOpen || state.submissionInFlight) return;
   const messageTargetId = String(opts?.messageTargetId || "answerMsg");
-  if (messageTargetId === "compMapNotice") setMapNotice("", true);
+  if (messageTargetId === "compMapNotice") {
+    if (opts?.busyNoticeKey) setMapNoticeBusy(tr(String(opts.busyNoticeKey)));
+    else setMapNotice("", true);
+  }
   else setMsg(messageTargetId, "", true);
   const payload = {
     competition_id: state.selectedCompetitionId,
@@ -1073,6 +1091,7 @@ async function submitAnswer(item, extra, opts = {}) {
     if (typeof opts?.beforeFeedback === "function") {
       opts.beforeFeedback(d);
     }
+    if (messageTargetId === "compMapNotice") setMapNotice("", true);
     showFeedback({ ...d, event: item?.checkpoint_interaction || "QUESTION" });
   } catch (err) {
     console.error("submitAnswer failed", err);

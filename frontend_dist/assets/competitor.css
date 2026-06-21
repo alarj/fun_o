@@ -541,6 +541,23 @@ button:disabled { opacity: 0.5; }
   display: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
+.compMapNotice.busy {
+  padding-left: 44px;
+  position: absolute;
+}
+.compMapNotice.busy::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  border: 3px solid rgba(25, 124, 135, 0.22);
+  border-top-color: #197c87;
+  border-radius: 50%;
+  animation: busySpin 0.9s linear infinite;
+}
 @media (max-width: 520px) {
   .mapNorthIndicator {
     top: 56px;
