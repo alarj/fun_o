@@ -338,6 +338,13 @@ Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sa
 ## 12. Admin UI käitumine (kokkulepitud)
 
 - Asukohaandmete muutmine toimub võistluse ühisest “Muuda võistlust” vormist.
+- Osaleja kaartide valiku dialoog ei tohi näidata ühtegi kaarti vaikimisi valituna ainult `map_layers.json` participant-default alusel, kui `competition_participant_map_layers` tabelis selle võistluse kohta aktiivset kirjet ei ole.
+- Uuel võistlusel on kõik osaleja kaardid valimata, kuni admin need päriselt salvestab.
+- Reegel `vähemalt üks kaart peab olema valitud` kehtib ainult siis, kui võistlus on ühtaegu:
+  - `use_location = 'Y'`;
+  - `status = 'ACTIVE'`.
+- Kui aktiivsel kaardiga võistlusel proovitakse salvestada tühja osaleja kaardivalikut, peab admin UI selle blokeerima ja nõudma vähemalt ühe kaardi valimist.
+- Kui võistlus viiakse `ACTIVE` staatusesse olukorras, kus `use_location = 'Y'`, peab süsteem enne aktiveerimist kontrollima, et `competition_participant_map_layers` sisaldab vähemalt üht aktiivset kaarti; vastasel juhul tuleb aktiveerimine blokeerida.
 - KP muutmisaknas:
   - kaart kuvatakse ainult siis, kui `use_location='Y'`;
   - KP raadius mõjutab kaardil kuvatavat ringi;

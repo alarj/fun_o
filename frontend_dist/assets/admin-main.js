@@ -1760,15 +1760,6 @@ async function loadCompetitionParticipantMapLayers() {
   if (!currentCompetitionOverlay?.exists || String(currentCompetitionOverlay?.processing_status || "").toUpperCase() !== "READY") {
     competitionParticipantLayerCodes = competitionParticipantLayerCodes.filter((code) => code !== EPK_OVERLAY_LAYER_CODE);
   }
-  if (!competitionParticipantLayerCodes.length && availableMapLayers.length) {
-    const participantDefaults = availableMapLayers.filter((x) => x.participant_default).map((x) => x.code);
-    if (participantDefaults.length) {
-      competitionParticipantLayerCodes = [...participantDefaults];
-    } else {
-      const osm = availableMapLayers.find((x) => x.code === "osm");
-      competitionParticipantLayerCodes = [osm ? osm.code : availableMapLayers[0].code];
-    }
-  }
   refreshAdminMapLayerOptions();
   updateMetaMapLayersButtonLabel();
 }
@@ -1825,6 +1816,12 @@ function normalizeParticipantLayerSelection(selected) {
   return cleaned;
 }
 
+function locationCompetitionRequiresSavedMap(statusValue = null, useLocationValue = null) {
+  const statusText = String(statusValue ?? window.__lastCompetitionStatus ?? "ACTIVE").trim().toUpperCase();
+  const useLocationText = String(useLocationValue ?? window.__lastCompetitionUseLocation ?? "N").trim().toUpperCase();
+  return statusText === "ACTIVE" && useLocationText === "Y";
+}
+
 async function openParticipantMapLayersDialog() {
   showMsg("participantMapLayersMsg", false, "");
   await loadMapLayersConfig();
@@ -1836,8 +1833,8 @@ async function openParticipantMapLayersDialog() {
 
 async function saveParticipantMapLayersDialog() {
   const selected = normalizeParticipantLayerSelection(selectedParticipantLayersFromDialog());
-  if (!selected.length) {
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
+  if (!selected.length && locationCompetitionRequiresSavedMap()) {
+    showMsg("participantMapLayersMsg", false, tr("admin.msg.location_competition_map_required"));
     return;
   }
   const compareLayerCodes = (a, b) => String(a || "").localeCompare(String(b || ""), "en", { sensitivity: "base" });
@@ -2022,6 +2019,10 @@ async function saveMetaDialog() {
     }
     if (String(payload.status || "").toUpperCase() === "ACTIVE" && hasMassStartCheckpoint && !payload.mass_start_at) {
       showMsg("metaMsg", false, tr("admin.msg.mass_start_at_required"));
+      return;
+    }
+    if (locationCompetitionRequiresSavedMap(payload.status, payload.use_location) && !competitionParticipantLayerCodes.length) {
+      showMsg("metaMsg", false, tr("admin.msg.location_competition_map_required"));
       return;
     }
     const startParsed = parseEtInput(byId("metaStartsEt").value);
@@ -2356,10 +2357,7 @@ byId("cpDialog").addEventListener("close", () => {
 });
 
 byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
-  if (!selectedParticipantLayersFromDialog().length) {
-    e.preventDefault();
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
-  }
+  showMsg("participantMapLayersMsg", false, "");
 });
 
 byId("cpOpenQuestion").onclick = () => {
@@ -2392,10 +2390,6 @@ byId("overlayCancelBtn").onclick = () => byId("overlayDialog").close();
 byId("overlaySaveBtn").onclick = () => saveOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
 byId("overlayDeleteBtn").onclick = () => deleteOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
 byId("participantMapLayersCancel").onclick = () => {
-  if (!selectedParticipantLayersFromDialog().length) {
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
-    return;
-  }
   byId("participantMapLayersDialog").close();
 };
 byId("participantMapLayersSave").onclick = () => saveParticipantMapLayersDialog().catch((e) => showMsg("participantMapLayersMsg", false, humanizeError(e.message, e.details)));

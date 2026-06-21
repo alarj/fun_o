@@ -158,6 +158,13 @@ Expected ORDS JSON responses:
 - `admin/competitions/overlay/processing` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/competitions/overlay/delete` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
+
+Admin participant-map-layer rule:
+- `map_layers.json` participant-default values must not be treated as already-saved participant map selections for a competition.
+- If `competitions.use_location = 'Y'` and competition status is `ACTIVE`, then at least one active row must exist in `competition_participant_map_layers`.
+- This rule is enforced in two places:
+  - when saving participant map-layer selection for an already active location competition;
+  - when saving competition meta that would result in `status = ACTIVE` together with `use_location = 'Y'`.
 - `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
 - `superadmin/translations` -> `{ "items": [...] }`
 - `superadmin/organizers/remove` -> `{ "ok": true }` or empty 200 JSON
