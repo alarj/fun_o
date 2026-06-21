@@ -973,6 +973,11 @@ Competitor map popup flow:
 - popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
 - user geolocation updates must not force content refresh for every closed popup; only currently open popup content should be refreshed on GPS movement.
 - after a positive `checkpoint-access` decision, the actual question payload still comes from `open-checkpoints`, but in the normal path that list is assembled locally in FastAPI without an extra ORDS roundtrip.
+- for location competitions, `index.html` no longer shows a competitor question list in the middle area; question opening happens from the map only.
+- when the clicked checkpoint interaction is `QUESTION`, frontend opens a lightweight question modal on top of the still-open map and submits through the normal `POST /api/submissions` flow.
+- when the clicked checkpoint interaction is `CHECK_ONLY`, frontend does not open a question modal; it submits the pass-through action directly from the map popup.
+- after a successful submit, the question modal closes first and the existing competitor feedback modal is shown on top of the same map view.
+- if submit fails, the question modal remains open and shows the error in-place; frontend must not reset the underlying map view state because of that failure.
 
 ORDS/PLSQL side:
 - ORDS still remains authoritative for persisted submission/order rules in `submissions`.

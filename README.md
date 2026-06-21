@@ -81,6 +81,8 @@ Võistleja UI (`frontend_dist/index.html`) kasutab eraldi staatilisi asset-faile
 - kaardi, suuna ja kaardikihtide loogika: `frontend_dist/assets/competitor-map.js`
 - bootstrap, modalid ja sündmuste sidumine: `frontend_dist/assets/competitor-main.js`
 - võistluse tingimuste rich HTML sanitiseeritakse brauseris DOMPurify abil enne renderdamist
+- kaardiga võistlusel kasutatakse kaarti põhiküsimusvoona: avalehe keskmises alas näidatakse raja info + `Kaart` nupp ning küsimused avatakse KP popupist kaardi peal modalis
+- kaardita võistlusel jääb avalehe keskmine ala listipõhiseks (`Kuva KP-d` / küsimuse valik), ilma kaardinuputa
 
 Admin UI (`frontend_dist/admin.html`) kasutab samuti eraldi staatilisi asset-faile:
 - üldine UI/API/i18n loogika: `frontend_dist/assets/admin-core.js`
