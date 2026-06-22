@@ -602,6 +602,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   padding: 0;
   font: inherit;
   cursor: pointer;
+  text-align: left;
 }
 .name-link:hover { color: #0b4b70; }
 .correct { color: #198754; font-weight: 700; }
@@ -1028,11 +1029,11 @@ body.admin-booting .wrap {
       font-weight: 700;
     }
     .cp-overview-footer {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: end;
+      display: flex;
+      align-items: flex-end;
       gap: 12px;
       margin-top: 12px;
+      min-width: 0;
     }
     .cp-overview-footer-left {
       display: flex;
@@ -1040,6 +1041,7 @@ body.admin-booting .wrap {
       justify-content: flex-start;
       gap: 10px;
       min-width: 0;
+      flex: 0 1 auto;
     }
     .cp-overview-layer-wrap {
       display: inline-flex;
@@ -1058,8 +1060,14 @@ body.admin-booting .wrap {
       display: block;
       text-align: left;
       min-width: 0;
+      flex: 1 1 auto;
     }
-    .cp-overview-footer-center .field-label-with-info {
+    .cp-overview-route-inline {
+      display: inline;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .cp-overview-route-inline .cp-overview-route-text {
       display: inline;
       min-width: 0;
       max-width: 100%;
@@ -1073,10 +1081,14 @@ body.admin-booting .wrap {
     .cp-overview-route-stale-note {
       color: #6b7280;
     }
-    .cp-overview-footer-center .info-icon-btn {
+    .cp-overview-route-inline .info-icon-btn {
       display: inline-flex;
       vertical-align: baseline;
       margin-left: 6px;
+    }
+    .cp-overview-route-inline .cp-overview-route-state-icon {
+      display: inline-flex;
+      vertical-align: text-bottom;
     }
     .cp-overview-route-actions {
       display: flex;
@@ -1084,6 +1096,7 @@ body.admin-booting .wrap {
       align-items: flex-end;
       gap: 10px;
       min-width: 0;
+      flex: 0 0 auto;
     }
     .cp-overview-action-with-info {
       display: inline-flex;
@@ -1297,7 +1310,8 @@ body.admin-booting .wrap {
         flex-wrap: wrap;
       }
       .cp-overview-footer {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
       }
       .cp-overview-footer-left,
       .cp-overview-footer-center,

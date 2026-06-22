@@ -58,6 +58,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `FINISH.order_no = 9999`.
 - See `order_no` reegel kehtib nii `R` kui `S` tüüpi võistlustel.
 - Admin kasutaja ei sisesta ega muuda `START`/`FINISH` `order_no` väärtust käsitsi.
+- Admini `Uus KP / Muuda KP` modalis kuvatakse `order_no` sisestusväli ainult `S` tüüpi võistlustel tavalise `NORMAL` KP jaoks.
+- `R` tüüpi võistlustel ei kuvata admini `Uus KP / Muuda KP` modalis `order_no` sisestusvälja ega saadeta selle väärtust checkpointi salvestusel.
 
 ## 3. Asukohaloogika sisse/välja
 

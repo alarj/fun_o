@@ -138,13 +138,14 @@ function fillCheckpointInteractionSelect(selectedInteraction = "QUESTION", check
 function syncCheckpointTypeUi() {
   const checkpointType = normalizeCheckpointType(byId("cpType").value);
   const isSpecial = isSpecialCheckpointType(checkpointType);
+  const isSequentialCompetition = String(currentCompetitionType || "R").toUpperCase() === "S";
   const checkpointInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   const cpName = byId("cpName");
   const cpOrder = byId("cpOrder");
   fillCheckpointInteractionSelect(checkpointInteraction, checkpointType);
   const effectiveInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   byId("cpNameRow").style.display = "";
-  byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+  byId("cpOrderRow").style.display = (!isSpecial && isSequentialCompetition) ? "" : "none";
   byId("cpMassStartRow").style.display = (checkpointType === "START" && effectiveInteraction === "MASS_START") ? "" : "none";
   byId("cpType").disabled = byId("cpId").value !== "";
   if (checkpointType === "START") {
@@ -1441,7 +1442,7 @@ async function persistCheckpoint(form, massStartParsed) {
   if (!form.cpId) {
     const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType, checkpoint_interaction: form.checkpointInteraction };
     if (massStartParsed) payload.mass_start_at = massStartParsed;
-    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
       if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
@@ -1457,7 +1458,7 @@ async function persistCheckpoint(form, massStartParsed) {
     const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title, checkpoint_interaction: form.checkpointInteraction };
     if (form.checkpointType === "START") payload.mass_start_at = massStartParsed;
     if (form.deleteActiveQuestionConfirmed === "Y") payload.delete_active_question_confirmed = "Y";
-    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
       if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
