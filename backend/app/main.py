@@ -5068,16 +5068,7 @@ async def admin_competition_map_layers(
     x_user_id: int | None = Header(default=None),
 ) -> AdminCompetitionMapLayersResponse:
     _ = _require_google_session_user(request, x_user_id)
-    data = await _get_from_ords("admin/competitions/map-layers", {"competition_id": competition_id})
-    raw_items = data.get("items") if isinstance(data, dict) else []
-    layer_codes: list[str] = []
-    if isinstance(raw_items, list):
-        for item in raw_items:
-            if not isinstance(item, dict):
-                continue
-            code = str(item.get("layer_code", "")).strip()
-            if code:
-                layer_codes.append(code)
+    layer_codes = await _get_admin_competition_layer_codes(competition_id)
     return AdminCompetitionMapLayersResponse(competition_id=competition_id, layer_codes=layer_codes)
 
 

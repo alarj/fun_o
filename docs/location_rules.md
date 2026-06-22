@@ -124,6 +124,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - aktiivne kaardikiht säilib;
   - kaart jääb samasse keskpunkti ja zoomi, kui kasutaja ise neid ei muuda.
 - `CHECK_ONLY` checkpointi läbimise salvestamisel peab kaardivaates olema nähtav ajutine busy-tagasiside samal kaardiekraanil; kasutajale ei tohi jääda muljet, et klikk ei töötanud.
+- Kui kaardilt klikitud KP nõuab asukohta, peab GPS/asukoha tuvastamise ajal olema samal kaardivaates nähtav ajutine busy-tagasiside; kasutajale ei tohi jääda muljet, et rakendus hangus või klikk ei registreerunud.
 - Kaardil avatud küsimuse modaal ei sulgu taustaloorile vajutades; sulgemine käib ainult modali enda sulgemisnupu kaudu, et vältida tekstivastuse juhuslikku kaotust.
 - Tekstivastusega küsimuse modali avamisel seatakse fookus kohe tekstiväljale, kui submit parajasti ei käi.
 - Kui kaardivaate taustal töötav GPS jälgimine katkeb või GPS signaal puudub:

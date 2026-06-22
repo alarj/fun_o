@@ -1291,7 +1291,9 @@ async function handleMapCheckpointClick(cp) {
   setMapNotice("", true);
   const requiresLocation = String(cp?.location_required || "N").toUpperCase() === "Y";
   if (requiresLocation) {
+    setMapNoticeBusy(tr("competitor.map.detecting_location_notice"));
     await requestGeolocation({ maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
+    setMapNotice("", true);
     if (!state.geo.enabled) {
       if (state.geo.error) setMapNotice(state.geo.error, false);
       return;
