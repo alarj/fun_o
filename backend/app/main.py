@@ -5068,6 +5068,11 @@ async def admin_competition_map_layers(
     x_user_id: int | None = Header(default=None),
 ) -> AdminCompetitionMapLayersResponse:
     _ = _require_google_session_user(request, x_user_id)
+    layer_codes = await _get_admin_competition_layer_codes(competition_id)
+    return AdminCompetitionMapLayersResponse(competition_id=competition_id, layer_codes=layer_codes)
+
+
+async def _get_admin_competition_layer_codes(competition_id: int) -> list[str]:
     data = await _get_from_ords("admin/competitions/map-layers", {"competition_id": competition_id})
     raw_items = data.get("items") if isinstance(data, dict) else []
     layer_codes: list[str] = []
@@ -5078,7 +5083,21 @@ async def admin_competition_map_layers(
             code = str(item.get("layer_code", "")).strip()
             if code:
                 layer_codes.append(code)
-    return AdminCompetitionMapLayersResponse(competition_id=competition_id, layer_codes=layer_codes)
+    return layer_codes
+
+
+async def _competition_requires_saved_map(competition_id: int, *, status_value: str | None = None, use_location_value: str | None = None) -> bool:
+    status_text = str(status_value or "").strip().upper()
+    use_location_text = str(use_location_value or "").strip().upper()
+    if status_text and use_location_text:
+        return status_text == "ACTIVE" and use_location_text == "Y"
+    overview = await _get_from_ords("admin/competition-overview", {"competition_id": competition_id})
+    if not isinstance(overview, dict):
+        return False
+    return (
+        str(overview.get("status", "")).strip().upper() == "ACTIVE"
+        and str(overview.get("use_location", "N")).strip().upper() == "Y"
+    )
 
 
 @app.post("/api/admin/competitions/map-layers")
@@ -5099,6 +5118,12 @@ async def admin_competition_map_layers_update(
             continue
         seen.add(low)
         cleaned_codes.append(code)
+    if not cleaned_codes and await _competition_requires_saved_map(req.competition_id):
+        _raise_api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "MAP_LAYER_REQUIRED",
+            "admin.msg.location_competition_map_required",
+        )
     await _post_to_ords(
         "admin/competitions/map-layers",
         {
@@ -5646,6 +5671,18 @@ async def admin_update_competition_dates(req: AdminUpdateCompetitionDatesRequest
 async def admin_update_competition_meta(req: AdminUpdateCompetitionMetaRequest, request: Request, x_user_id: int | None = Header(default=None)) -> dict[str, bool]:
     user_id = _require_google_session_user(request, x_user_id)
     competition_type = str(req.type or "R").strip().upper() or "R"
+    if await _competition_requires_saved_map(
+        req.competition_id,
+        status_value=req.status,
+        use_location_value=req.use_location,
+    ):
+        layer_codes = await _get_admin_competition_layer_codes(req.competition_id)
+        if not layer_codes:
+            _raise_api_error(
+                status.HTTP_400_BAD_REQUEST,
+                "MAP_LAYER_REQUIRED",
+                "admin.msg.location_competition_map_required",
+            )
     await _post_to_ords(
         "admin/competitions/meta",
         {

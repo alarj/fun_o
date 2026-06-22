@@ -58,6 +58,8 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - `FINISH.order_no = 9999`.
 - See `order_no` reegel kehtib nii `R` kui `S` tüüpi võistlustel.
 - Admin kasutaja ei sisesta ega muuda `START`/`FINISH` `order_no` väärtust käsitsi.
+- Admini `Uus KP / Muuda KP` modalis kuvatakse `order_no` sisestusväli ainult `S` tüüpi võistlustel tavalise `NORMAL` KP jaoks.
+- `R` tüüpi võistlustel ei kuvata admini `Uus KP / Muuda KP` modalis `order_no` sisestusvälja ega saadeta selle väärtust checkpointi salvestusel.
 
 ## 3. Asukohaloogika sisse/välja
 
@@ -85,6 +87,19 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - `S` tähendab etteantud läbimise järjekorda: pärast `START`i saab vastata ainult järgmisele vastamata `NORMAL` KP-le `order_no` järgi.
   - `S` tüübil ei sõltu järgmise KP avanemine sellest, kas eelmine vastus oli õige või vale; oluline on, et eelmine KP oleks vastatud.
 
+### 4a. `index.html` keskmise ala reeglid
+
+- `index.html` ülemine blokk (võistluse nimi, keelevahetus, uuele võistlusele liitumine) jääb samaks sõltumata võistluse liigist.
+- `index.html` alumine blokk (progress + `Tulemused`) jääb samaks sõltumata võistluse liigist.
+- Muutuv osa on ainult keskmine ala.
+- Kui `competition.use_location='Y'`:
+  - keskmises alas kuvatakse raja pikkuse / massstardi infoplokk;
+  - sama ploki all kuvatakse keskele joondatud `Kaart` nupp;
+  - küsimuste nimekirja ega `Kuva KP-d` plokki avalehel ei kuvata.
+- Kui `competition.use_location='N'`:
+  - keskmises alas kuvatakse tavapärane küsimuste/KP-de plokk;
+  - `Kaart` nuppu ei kuvata.
+
 ## 5. Kaardivaade ja avamise reeglid
 
 - Kaardivaate aluskiht (`layer`) salvestatakse cookie-sse võistlusepõhiselt.
@@ -105,6 +120,15 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Kaardi avamine ei tohi follow-režiimi kasutaja eest sunniviisiliselt sisse lülitada ega muuta:
   - follow olek säilib kasutaja viimase valiku järgi;
   - võistluspõhise oma kaardi valik ei tohi ise muuta follow käitumist.
+- Kaardil küsimuse avamine, sellele vastamine ja vastuse feedback-modali näitamine ei tohi muuta kaardi vaateolekut:
+  - follow olek säilib;
+  - heading/compass olek säilib;
+  - aktiivne kaardikiht säilib;
+  - kaart jääb samasse keskpunkti ja zoomi, kui kasutaja ise neid ei muuda.
+- `CHECK_ONLY` checkpointi läbimise salvestamisel peab kaardivaates olema nähtav ajutine busy-tagasiside samal kaardiekraanil; kasutajale ei tohi jääda muljet, et klikk ei töötanud.
+- Kui kaardilt klikitud KP nõuab asukohta, peab GPS/asukoha tuvastamise ajal olema samal kaardivaates nähtav ajutine busy-tagasiside; kasutajale ei tohi jääda muljet, et rakendus hangus või klikk ei registreerunud.
+- Kaardil avatud küsimuse modaal ei sulgu taustaloorile vajutades; sulgemine käib ainult modali enda sulgemisnupu kaudu, et vältida tekstivastuse juhuslikku kaotust.
+- Tekstivastusega küsimuse modali avamisel seatakse fookus kohe tekstiväljale, kui submit parajasti ei käi.
 - Kui kaardivaate taustal töötav GPS jälgimine katkeb või GPS signaal puudub:
   - kaardivaates kuvatakse alati väike staatustekst `GPS signaal puudub` / `No GPS` samas visuaalses stiilis nagu heading debug kast;
   - kui kasutaja asukoha markerit selle võistluse jaoks kuvatakse ja viimane teadaolev asukoht on olemas, jääb marker viimasesse teadaolevasse punkti, kuid muutub halliks;
@@ -153,6 +177,22 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimust ei saa praeguses seisus veel vastata, kuvatakse põhjuspõhine lühisõnum tõlgetest (näiteks puuduv asukoht, liiga kaugel, START enne vajalik, vale järjekord, finish juba läbitud või küsimus puudub);
   - kui FastAPI/cache-põhine UI-eelotsus ütleb, et küsimus võib olla vastatav, kuvatakse mobiilisõbralik nupp `Vasta küsimusele.` / `Answer!`.
 - Küsimuse tegelik avamise voog käivitub ainult popupi nupu vajutusel.
+- Kui popupis vajutatakse `Vasta küsimusele`, avaneb küsimus kaardi peal eraldi modalis, mitte enam `index.html` küsimusteplokis.
+- See modal on teadlikult lakooniline ja sisaldab ainult:
+  - KP tunnust;
+  - küsimust;
+  - vastusevariante või tekstivälja;
+  - `Saada vastus` nuppu;
+  - `Sulge` nuppu.
+- Kui submit õnnestub:
+  - küsimuse modal sulgub;
+  - olemasolev vastuse/feedback modal avaneb samuti kaardi peal.
+- Kui submit ebaõnnestub:
+  - küsimuse modal jääb avatuks;
+  - viga kuvatakse samas modalis;
+  - kasutaja saab vastust parandada või modali sulgeda.
+- `location_required='N'` kaardiga KP puhul avaneb küsimuse modal ka siis, kui kasutaja ei viibi KP piirkonnas.
+- Kaardiga võistlusel ei kuvata kasutajale eraldi küsimuste listi; küsimuse või läbimise tegevuse ainus sissepääs on kaardil oleva KP tähise popup.
 - `is_answered` on kasutajapõhine cache-andmestik.
 - FastAPI peab `is_answered` välja koostama kahe eri allika ühendamisel:
   - `competitor/competition-content` annab ainult staatilise checkpoint/question sisu ega sisalda participant-specific `is_answered` välju;
@@ -170,6 +210,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Kaardipopupi nupu nähtavus ei tohi teha eraldi `open-checkpoints` masspäringut; see otsus peab tuginema olemasolevale `map-checkpoints` cache'ile ja viimasele teadaolevale kasutaja asukohale.
 - Kaardipopupi sisu ei tohi GPS uuendusel kõigi KP-de jaoks igal sammul ümber renderdada; GPS muutuse järel värskendatakse ainult parajasti avatud popupide sisu.
 - `location_required='N'` KP puhul võib küsimus avaneda kohe.
+- Kui `checkpoint_interaction='CHECK_ONLY'`, siis küsimuse modali ei avata:
+  - kasutaja vajutab tegevusnuppu KP popupis;
+  - läbimine registreeritakse kohe `submissions` voo kaudu;
+  - edukal juhul avaneb olemasolev feedback modal kaardi peal.
 - `map-checkpoints` peab asukohanõudega KP-de puhul tagastama iga KP kohta efektiivse vastamisraadiuse:
   - kui `checkpoints.radius_m` on määratud, kasutatakse seda;
   - muidu kasutatakse `competitions.radius_m`;
@@ -300,6 +344,13 @@ Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sa
 ## 12. Admin UI käitumine (kokkulepitud)
 
 - Asukohaandmete muutmine toimub võistluse ühisest “Muuda võistlust” vormist.
+- Osaleja kaartide valiku dialoog ei tohi näidata ühtegi kaarti vaikimisi valituna ainult `map_layers.json` participant-default alusel, kui `competition_participant_map_layers` tabelis selle võistluse kohta aktiivset kirjet ei ole.
+- Uuel võistlusel on kõik osaleja kaardid valimata, kuni admin need päriselt salvestab.
+- Reegel `vähemalt üks kaart peab olema valitud` kehtib ainult siis, kui võistlus on ühtaegu:
+  - `use_location = 'Y'`;
+  - `status = 'ACTIVE'`.
+- Kui aktiivsel kaardiga võistlusel proovitakse salvestada tühja osaleja kaardivalikut, peab admin UI selle blokeerima ja nõudma vähemalt ühe kaardi valimist.
+- Kui võistlus viiakse `ACTIVE` staatusesse olukorras, kus `use_location = 'Y'`, peab süsteem enne aktiveerimist kontrollima, et `competition_participant_map_layers` sisaldab vähemalt üht aktiivset kaarti; vastasel juhul tuleb aktiveerimine blokeerida.
 - KP muutmisaknas:
   - kaart kuvatakse ainult siis, kui `use_location='Y'`;
   - KP raadius mõjutab kaardil kuvatavat ringi;

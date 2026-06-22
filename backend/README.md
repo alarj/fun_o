@@ -158,6 +158,13 @@ Expected ORDS JSON responses:
 - `admin/competitions/overlay/processing` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/competitions/overlay/delete` -> `{ "ok": true }` või tühi 200 JSON
 - `admin/*/update|delete|dates|meta|map-layers|terms` -> `{ "ok": true }` or empty 200 JSON
+
+Admin participant-map-layer rule:
+- `map_layers.json` participant-default values must not be treated as already-saved participant map selections for a competition.
+- If `competitions.use_location = 'Y'` and competition status is `ACTIVE`, then at least one active row must exist in `competition_participant_map_layers`.
+- This rule is enforced in two places:
+  - when saving participant map-layer selection for an already active location competition;
+  - when saving competition meta that would result in `status = ACTIVE` together with `use_location = 'Y'`.
 - `superadmin/competitions` -> `{ "items": [...] }` (GET) or `{ "competition_id":..., "organizer_code":"..." }` (POST/copy)
 - `superadmin/translations` -> `{ "items": [...] }`
 - `superadmin/organizers/remove` -> `{ "ok": true }` or empty 200 JSON
@@ -973,6 +980,11 @@ Competitor map popup flow:
 - popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
 - user geolocation updates must not force content refresh for every closed popup; only currently open popup content should be refreshed on GPS movement.
 - after a positive `checkpoint-access` decision, the actual question payload still comes from `open-checkpoints`, but in the normal path that list is assembled locally in FastAPI without an extra ORDS roundtrip.
+- for location competitions, `index.html` no longer shows a competitor question list in the middle area; question opening happens from the map only.
+- when the clicked checkpoint interaction is `QUESTION`, frontend opens a lightweight question modal on top of the still-open map and submits through the normal `POST /api/submissions` flow.
+- when the clicked checkpoint interaction is `CHECK_ONLY`, frontend does not open a question modal; it submits the pass-through action directly from the map popup.
+- after a successful submit, the question modal closes first and the existing competitor feedback modal is shown on top of the same map view.
+- if submit fails, the question modal remains open and shows the error in-place; frontend must not reset the underlying map view state because of that failure.
 
 ORDS/PLSQL side:
 - ORDS still remains authoritative for persisted submission/order rules in `submissions`.

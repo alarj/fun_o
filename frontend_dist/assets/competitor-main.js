@@ -191,7 +191,6 @@ async function loadSessionState() {
   renderCompetitionText();
   renderCompetitionPicker();
   el("mainCard").style.display = "block";
-  el("answerCard").style.display = "block";
   el("myResultsCard").style.display = "block";
   renderCompetitionRouteSummary();
   setMyResultsOpen(false);
@@ -846,20 +845,32 @@ async function init() {
     const item = getSelectedOpenItem();
     if (!item) return;
     const answer = el("textAnswer").value;
-    const trimmed = (answer || "").trim();
-    if (!trimmed) return;
-
-    const inputType = (item.input_type || "").toUpperCase();
-    const maxLen = Number(item.input_max_length || 0);
-    if (inputType === "NUMERIC" && !/^-?\d+$/.test(trimmed)) {
-      setMsg("answerMsg", tr("competitor.msg.answer_must_be_number"), false);
+    const errorText = validateQuestionTextAnswer(item, answer);
+    if (errorText) {
+      setMsg("answerMsg", errorText, false);
       return;
     }
-    if (maxLen > 0 && trimmed.length > maxLen) {
-      setMsg("answerMsg", trf("competitor.msg.answer_too_long", { max: maxLen }), false);
+    submitAnswer(item, { answer_text: (answer || "").trim() });
+  });
+  el("mapQuestionSubmitBtn").addEventListener("click", () => {
+    const item = state.mapQuestionItem;
+    if (!item) return;
+    const answer = el("mapQuestionTextAnswer").value;
+    const errorText = validateQuestionTextAnswer(item, answer);
+    if (errorText) {
+      setMsg("mapQuestionMsg", errorText, false);
       return;
     }
-    submitAnswer(item, { answer_text: trimmed });
+    submitAnswer(item, { answer_text: (answer || "").trim() }, {
+      messageTargetId: "mapQuestionMsg",
+      beforeFeedback: () => closeMapQuestionModal(),
+    });
+  });
+  el("mapQuestionCloseBtn").addEventListener("click", () => {
+    if (!state.submissionInFlight) closeMapQuestionModal();
+  });
+  el("mapQuestionBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("mapQuestionBackdrop")) e.stopPropagation();
   });
   el("feedbackCloseBtn").addEventListener("click", closeFeedback);
   el("langSelect").addEventListener("change", async (e) => {

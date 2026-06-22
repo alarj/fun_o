@@ -1288,11 +1288,14 @@ async function checkCheckpointAccess(checkpointIds) {
 async function handleMapCheckpointClick(cp) {
   const cpId = Number(cp?.checkpoint_id || 0);
   if (!cpId || state.feedbackOpen) return;
+  setMapNotice("", true);
   const requiresLocation = String(cp?.location_required || "N").toUpperCase() === "Y";
   if (requiresLocation) {
+    setMapNoticeBusy(tr("competitor.map.detecting_location_notice"));
     await requestGeolocation({ maximumAge: 10000, timeout: 5000, enableHighAccuracy: true });
+    setMapNotice("", true);
     if (!state.geo.enabled) {
-      if (state.geo.error) setMsg("answerMsg", state.geo.error, false);
+      if (state.geo.error) setMapNotice(state.geo.error, false);
       return;
     }
   }
@@ -1306,13 +1309,27 @@ async function handleMapCheckpointClick(cp) {
       return;
     }
     const reasonMessage = checkpointAccessReasonMessage(access?.reason);
-    if (reasonMessage) setMsg("answerMsg", reasonMessage, false);
+    if (reasonMessage) setMapNotice(reasonMessage, false);
     return;
   }
-  await loadOpenCheckpoints({ force: true, preferredCheckpointId: cpId });
-  if (openQuestionFromCheckpointId(cpId)) {
-    closeCompMapModal();
+  const loaded = await loadOpenCheckpoints({ force: true, preferredCheckpointId: cpId });
+  if (!loaded) {
+    setMapNotice(tr("competitor.msg.open_cp_load_failed"), false);
+    return;
   }
+  const item = getOpenItemByCheckpointId(cpId);
+  if (!item) {
+    setMapNotice(tr("competitor.map.popup_question_missing"), false);
+    return;
+  }
+  if (normalizeCheckpointInteraction(item?.checkpoint_interaction) === "CHECK_ONLY") {
+    submitAnswer(item, {}, {
+      messageTargetId: "compMapNotice",
+      busyNoticeKey: "competitor.check_only.submitting_notice",
+    });
+    return;
+  }
+  openMapQuestionModal(item);
 }
 
 function renderCompMap(items, opts = {}) {
@@ -1445,6 +1462,7 @@ async function openCompMapModal() {
   mapViewPersistenceEnabled = false;
   mapGpsSignalLost = false;
   mapHeadingPermissionAsked = false;
+  setMapNotice("", true);
   if (!selectedCompetitionShowsUserLocationMarker()) {
     mapFollowUser = false;
   }
@@ -1508,14 +1526,17 @@ function closeCompMapModal() {
   mapHeadingPermissionAsked = false;
   stopMapGeolocationWatch();
   syncMapGpsSignalState(true);
+  setMapNotice("", true);
+  closeMapQuestionModal();
   el("compMapLayerBackdrop").style.display = "none";
   el("compMapBackdrop").style.display = "none";
 }
 
 async function applyCheckpointLoadingMode() {
   const needsLocation = selectedCompetitionUsesLocation();
-  el("showKpBtn").style.display = needsLocation ? "inline-block" : "none";
-  el("mapBtn").style.display = needsLocation ? "inline-block" : "none";
+  closeMapQuestionModal();
+  el("answerCard").style.display = needsLocation ? "none" : "block";
+  el("showKpBtn").style.display = needsLocation ? "none" : "inline-block";
   state.openItems = [];
   state.openItemsLoaded = false;
   renderCheckpointSelect();

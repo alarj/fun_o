@@ -138,13 +138,14 @@ function fillCheckpointInteractionSelect(selectedInteraction = "QUESTION", check
 function syncCheckpointTypeUi() {
   const checkpointType = normalizeCheckpointType(byId("cpType").value);
   const isSpecial = isSpecialCheckpointType(checkpointType);
+  const isSequentialCompetition = String(currentCompetitionType || "R").toUpperCase() === "S";
   const checkpointInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   const cpName = byId("cpName");
   const cpOrder = byId("cpOrder");
   fillCheckpointInteractionSelect(checkpointInteraction, checkpointType);
   const effectiveInteraction = normalizeCheckpointInteraction(byId("cpInteraction").value);
   byId("cpNameRow").style.display = "";
-  byId("cpOrderRow").style.display = isSpecial ? "none" : "";
+  byId("cpOrderRow").style.display = (!isSpecial && isSequentialCompetition) ? "" : "none";
   byId("cpMassStartRow").style.display = (checkpointType === "START" && effectiveInteraction === "MASS_START") ? "" : "none";
   byId("cpType").disabled = byId("cpId").value !== "";
   if (checkpointType === "START") {
@@ -1441,7 +1442,7 @@ async function persistCheckpoint(form, massStartParsed) {
   if (!form.cpId) {
     const payload = { competition_id: compId(), title: form.title, checkpoint_type: form.checkpointType, checkpoint_interaction: form.checkpointInteraction };
     if (massStartParsed) payload.mass_start_at = massStartParsed;
-    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
       if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
@@ -1457,7 +1458,7 @@ async function persistCheckpoint(form, massStartParsed) {
     const payload = { competition_id: compId(), checkpoint_id: Number(form.cpId), title: form.title, checkpoint_interaction: form.checkpointInteraction };
     if (form.checkpointType === "START") payload.mass_start_at = massStartParsed;
     if (form.deleteActiveQuestionConfirmed === "Y") payload.delete_active_question_confirmed = "Y";
-    if (!form.isSpecial && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
+    if (!form.isSpecial && currentCompetitionType === "S" && form.orderRaw !== "") payload.order_no = Number(form.orderRaw);
     if (form.location) payload.location_hint = form.location;
     if (currentCompetitionUseLocation === "Y") {
       if (form.latRaw !== "") payload.latitude = Number(form.latRaw);
@@ -1760,15 +1761,6 @@ async function loadCompetitionParticipantMapLayers() {
   if (!currentCompetitionOverlay?.exists || String(currentCompetitionOverlay?.processing_status || "").toUpperCase() !== "READY") {
     competitionParticipantLayerCodes = competitionParticipantLayerCodes.filter((code) => code !== EPK_OVERLAY_LAYER_CODE);
   }
-  if (!competitionParticipantLayerCodes.length && availableMapLayers.length) {
-    const participantDefaults = availableMapLayers.filter((x) => x.participant_default).map((x) => x.code);
-    if (participantDefaults.length) {
-      competitionParticipantLayerCodes = [...participantDefaults];
-    } else {
-      const osm = availableMapLayers.find((x) => x.code === "osm");
-      competitionParticipantLayerCodes = [osm ? osm.code : availableMapLayers[0].code];
-    }
-  }
   refreshAdminMapLayerOptions();
   updateMetaMapLayersButtonLabel();
 }
@@ -1825,6 +1817,12 @@ function normalizeParticipantLayerSelection(selected) {
   return cleaned;
 }
 
+function locationCompetitionRequiresSavedMap(statusValue = null, useLocationValue = null) {
+  const statusText = String(statusValue ?? window.__lastCompetitionStatus ?? "ACTIVE").trim().toUpperCase();
+  const useLocationText = String(useLocationValue ?? window.__lastCompetitionUseLocation ?? "N").trim().toUpperCase();
+  return statusText === "ACTIVE" && useLocationText === "Y";
+}
+
 async function openParticipantMapLayersDialog() {
   showMsg("participantMapLayersMsg", false, "");
   await loadMapLayersConfig();
@@ -1836,8 +1834,8 @@ async function openParticipantMapLayersDialog() {
 
 async function saveParticipantMapLayersDialog() {
   const selected = normalizeParticipantLayerSelection(selectedParticipantLayersFromDialog());
-  if (!selected.length) {
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
+  if (!selected.length && locationCompetitionRequiresSavedMap()) {
+    showMsg("participantMapLayersMsg", false, tr("admin.msg.location_competition_map_required"));
     return;
   }
   const compareLayerCodes = (a, b) => String(a || "").localeCompare(String(b || ""), "en", { sensitivity: "base" });
@@ -2022,6 +2020,10 @@ async function saveMetaDialog() {
     }
     if (String(payload.status || "").toUpperCase() === "ACTIVE" && hasMassStartCheckpoint && !payload.mass_start_at) {
       showMsg("metaMsg", false, tr("admin.msg.mass_start_at_required"));
+      return;
+    }
+    if (locationCompetitionRequiresSavedMap(payload.status, payload.use_location) && !competitionParticipantLayerCodes.length) {
+      showMsg("metaMsg", false, tr("admin.msg.location_competition_map_required"));
       return;
     }
     const startParsed = parseEtInput(byId("metaStartsEt").value);
@@ -2356,10 +2358,7 @@ byId("cpDialog").addEventListener("close", () => {
 });
 
 byId("participantMapLayersDialog").addEventListener("cancel", (e) => {
-  if (!selectedParticipantLayersFromDialog().length) {
-    e.preventDefault();
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
-  }
+  showMsg("participantMapLayersMsg", false, "");
 });
 
 byId("cpOpenQuestion").onclick = () => {
@@ -2392,10 +2391,6 @@ byId("overlayCancelBtn").onclick = () => byId("overlayDialog").close();
 byId("overlaySaveBtn").onclick = () => saveOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
 byId("overlayDeleteBtn").onclick = () => deleteOverlayDialog().catch((e) => showMsg("overlayMsg", false, humanizeError(e.message, e.details)));
 byId("participantMapLayersCancel").onclick = () => {
-  if (!selectedParticipantLayersFromDialog().length) {
-    showMsg("participantMapLayersMsg", false, tr("admin.msg.select_at_least_one_map"));
-    return;
-  }
   byId("participantMapLayersDialog").close();
 };
 byId("participantMapLayersSave").onclick = () => saveParticipantMapLayersDialog().catch((e) => showMsg("participantMapLayersMsg", false, humanizeError(e.message, e.details)));

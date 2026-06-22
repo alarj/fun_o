@@ -630,6 +630,48 @@ Millal uuesti hinnata:
 - järgmises backend maintainability passis;
 - kui FastAPI upgrade või muu elutsüklit puudutav muudatus niikuinii toimub.
 
+### 2a.16 Kaardiga aktiivse võistluse map-layer nõude autoriteetne jõustamine PL/SQL / ORDS kihis
+
+Mõjutatud failid / kihid:
+- `backend/app/main.py`
+- ORDS / PL/SQL admin entrypointid, mis muudavad võistluse staatust või participant map-layer ridu
+
+Praegune seis:
+- reegel `ACTIVE + use_location = 'Y' => vähemalt üks aktiivne participant map-layer` on jõustatud FastAPI BFF kihis;
+- see katab tavapärase admin UI voo, kuid ei ole veel viidud autoriteetsesse DB/ORDS kihti.
+
+Miks jäi praegu backlogi:
+- käesoleva töö eesmärk oli parandada päris kasutajani jõudnud UX/andmevoo probleem minimaalse diffiga;
+- PL/SQL taseme jõustamine on õige järgmine samm, kuid see puudutab laiemalt seda, milline kiht on staatusemuudatuste autoriteetne värav;
+- enne DB-poolset lisamist tasub otsus teha teadlikult, et vältida sama reegli hajutamist mitmesse sõltumatusse kohta.
+
+Staatus:
+- teadlikult edasi lükatud andmetervikluse tugevdamine / backlog
+
+Millal uuesti hinnata:
+- kui järgmine töövoog puudutab admin staatusemuudatuste ORDS/PLSQL autoriteetsust;
+- kui leitakse mõni tegelik bypass FastAPI-välise sisestuskanali kaudu.
+
+### 2a.17 Admin competition meta oleku hoidmine ühes koond-state objektis
+
+Mõjutatud fail:
+- `frontend_dist/assets/admin-main.js`
+
+Praegune seis:
+- map-layer nõude frontend-valideerimine toetub väärtustele `window.__lastCompetitionStatus` ja `window.__lastCompetitionUseLocation`;
+- praeguses voos laetakse need pärast edukat salvestust uuesti `loadView()` kaudu, seega kinnitatud bugi ei ole.
+
+Miks jäi praegu backlogi:
+- teema on eelkõige maintainability/refaktori küsimus, mitte kinnitatud funktsionaalne rike;
+- olemasolev töövoog töötab ja käesoleva muudatuse eesmärk ei olnud admin state-halduse laiem ümberkorraldus.
+
+Staatus:
+- teadlikult edasi lükatud state-halduse puhastus / backlog
+
+Millal uuesti hinnata:
+- kui admin-vaatesse lisandub rohkem sama võistluse jooksva oleku peale toetuvat valideerimist;
+- kui `window.__last...` väärtuste hulk kasvab või nende sünkroonsus muutub päriselt hapraks.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
