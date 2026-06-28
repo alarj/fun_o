@@ -234,6 +234,7 @@ Praegune otsus on:
 - Leafleti kaart jääb samal kujul alles;
 - seda ei plaanita esimeses etapis asendada native kaardikomponendiga;
 - olemasolev `competitor-map.js` loogika jääb põhiliseks ka äpis.
+- kaardi avavaade peab arvutuma alles pärast seda, kui KP-d on päriselt laetud ja kaardile joonistatud; avavaadet ei tohi otsustada varasema oletusliku vaheoleku põhjal.
 
 Mida tuleb siiski kontrollida:
 
@@ -263,6 +264,29 @@ Praegune otsus:
 - esimest lahendust ei ehitata live updates peale;
 - live updates ei ole esimeses etapis arhitektuuri keskne eeldus;
 - seda võib hiljem hinnata eraldi, kui bundled suund muutub aktuaalseks.
+
+## Kaardi avamise ja vaikekihi täpsustatud reeglid
+
+Esimese Android äpi käitumine peab kaardi avamisel järgima samu ärireegleid nagu veebivaade.
+
+- Kui võistlusel `show_competitor_location = N`, siis:
+  - `follow` vaikeseis on `OFF`;
+  - kaart avaneb võistluse kõigi koordinaatidega KP-de `fitBounds` vaates;
+  - kasutaja GPS asukohta ei kasutata avavaate keskpunktina isegi siis, kui see on teada.
+- Kui võistlusel `show_competitor_location = Y`, siis:
+  - `follow` vaikeseis on `ON`;
+  - kaart avaneb kasutaja asukoha peale nii, et sinine marker jääb ekraani keskele.
+- Kaardi esmane tsentreerimine ja suum arvutatakse alles pärast seda, kui:
+  - KP-d on FastAPI kaudu kätte saadud;
+  - KP markerid on kaardile joonistatud;
+  - WebView kaart on nähtava suuruse saanud (`invalidateSize()` etapp).
+
+Vaikimisi kaardikihi valik esimesel avamisel:
+
+- kui kasutajal on sellest võistlusest juba salvestatud kaardivalik, kasutatakse seda;
+- muidu eelistatakse võistluse oma kaarti (`overlay`), kui see on olemas ja lubatud;
+- kui overlay'd ei ole, kasutatakse esimest lubatud `participant_default = true` kihti;
+- kui ka seda ei ole, kasutatakse esimest lubatud kaarti üldse.
 
 ## Android build väljund
 

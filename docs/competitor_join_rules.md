@@ -146,6 +146,11 @@ See dokument koondab võistleja liitumise ja võistluse nähtavuse reeglid:
 
 - Kui cookie puudub, aegub või ei valideeru:
   - suuna liitumisvoogu (kood + alias + terms + optional e-post)
+- Kui aktiivse võistlusvaate ajal avastab süsteem mõne competitor API kutse käigus, et kasutaja ei ole enam selle võistluse aktiivne osaleja (näiteks backend/ORDS tagastab `NOT_PARTICIPANT`):
+  - kasutajale ei näidata parandamatut äriveateadet modalis ega kaardil;
+  - aktiivne competitor-vaade lõpetatakse kohe;
+  - kasutaja viiakse tagasi liitumisvaatesse;
+  - see üleminek ei tohi lisada eraldi täiendavat ORDS kontrollpäringut ainult selleks, et sama seisu uuesti kinnitada.
 
 ### 5) Vastuste salvestamise lubamine
 

@@ -265,6 +265,47 @@ function ensureCompMapInit() {
   setTimeout(() => { mapProgrammaticMove = false; }, 250);
 }
 
+function applyInitialCompMapViewport(checkpointBounds, opts = {}) {
+  if (!compMap) return;
+  const forceInitialFit = opts && opts.forceInitialFit === true;
+  const hasUserGeo = opts && opts.hasUserGeo === true;
+  const restored = forceInitialFit ? false : restoreCompMapView();
+  if (mapFollowUser && selectedCompetitionShowsUserLocationMarker() && hasUserGeo) {
+    if (restored) {
+      compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
+    } else {
+      compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+    }
+    return;
+  }
+  if (checkpointBounds.length) {
+    if (!restored || forceInitialFit) {
+      compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
+      const openedZoom = Number(compMap.getZoom() || 0);
+      const minOpenZoom = 10;
+      if (openedZoom > 0 && openedZoom < minOpenZoom) {
+        compMap.setZoom(minOpenZoom);
+      }
+    }
+    return;
+  }
+  if (hasUserGeo) {
+    compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+    return;
+  }
+  if (!restored) {
+    compMap.setView([58.8, 25.4], 8, { animate: false });
+  }
+}
+
+function getDefaultAllowedMapLayerCode() {
+  const overlayLayer = allowedMapLayers.find((layer) => isCompetitionOverlaySelection(layer));
+  if (overlayLayer?.code) return String(overlayLayer.code).toLowerCase();
+  const participantDefault = allowedMapLayers.find((layer) => layer && layer.participant_default === true);
+  if (participantDefault?.code) return String(participantDefault.code).toLowerCase();
+  return String(allowedMapLayers[0]?.code || "").toLowerCase();
+}
+
 function updateFollowButton() {
   const btn = el("compMapFollowBtn");
   if (!btn) return;
@@ -1373,33 +1414,13 @@ function renderCompMap(items, opts = {}) {
   }
   updateMapGpsStatus();
   mapProgrammaticMove = true;
-  if (!preserveViewport) {
-    const restored = forceInitialFit ? false : restoreCompMapView();
-    if (mapFollowUser && hasUserGeo) {
-      if (restored) {
-        compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
-      } else {
-        compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
-      }
-    } else if (checkpointBounds.length) {
-      if (!restored || forceInitialFit) {
-        compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
-        const openedZoom = Number(compMap.getZoom() || 0);
-        const minOpenZoom = 10;
-        if (openedZoom > 0 && openedZoom < minOpenZoom) {
-          compMap.setZoom(minOpenZoom);
-        }
-      }
-    } else if (hasUserGeo) {
-      compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
-    } else if (!restored) {
-      compMap.setView([58.8, 25.4], 8, { animate: false });
-    }
-  }
   setMapInfoVisibility(mapInfoVisible);
   setTimeout(() => {
     if (!compMap) return;
     compMap.invalidateSize();
+    if (!preserveViewport) {
+      applyInitialCompMapViewport(checkpointBounds, { forceInitialFit, hasUserGeo });
+    }
     refreshCompMapRouteDecorations();
     if (mapHeadingMode && Number.isFinite(mapHeadingCurrent)) {
       applyMapHeading(mapHeadingCurrent);
@@ -1471,9 +1492,7 @@ async function openCompMapModal() {
   mapGpsSignalLost = false;
   mapHeadingPermissionAsked = false;
   setMapNotice("", true);
-  if (!selectedCompetitionShowsUserLocationMarker()) {
-    mapFollowUser = false;
-  }
+  mapFollowUser = selectedCompetitionShowsUserLocationMarker();
   updateFollowButton();
   updateHeadingButton();
   await requestFreshGeolocationForMapOpen();
@@ -1505,8 +1524,7 @@ async function openCompMapModal() {
   if (rememberedLayerCode && mapLayersByCode[rememberedLayerCode]) {
     activeMapLayerCode = rememberedLayerCode;
   } else if (!activeMapLayerCode || !mapLayersByCode[activeMapLayerCode]) {
-    const participantDefault = allowedMapLayers.find((x) => x && x.participant_default === true);
-    activeMapLayerCode = String((participantDefault?.code || allowedMapLayers[0].code || "")).toLowerCase();
+    activeMapLayerCode = getDefaultAllowedMapLayerCode();
   }
   applyBaseLayer(activeMapLayerCode);
   const layerBtn = el("compMapLayerBtn");

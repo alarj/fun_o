@@ -428,6 +428,16 @@ function enrichErrorMessage(status, data, retryAfterSeconds) {
   return message;
 }
 
+function isCompetitorSessionInvalidationResponse(status, data) {
+  const code = String(data?.detail?.code || "").trim().toUpperCase();
+  const message = String(data?.detail?.message || "").trim().toLowerCase();
+  if (code === "NOT_PARTICIPANT") return true;
+  if (status === 401 && (code === "UNAUTHENTICATED" || code === "NOT_AUTHENTICATED" || code === "UNAUTHORIZED")) {
+    return true;
+  }
+  return message === "api.error.not_participant";
+}
+
 async function apiRequest(url, init, options = {}) {
   const allowRetry429 = options.allowRetry429 === true;
   const maxAttempts = allowRetry429 ? 2 : 1;
@@ -444,7 +454,21 @@ async function apiRequest(url, init, options = {}) {
       continue;
     }
 
-    return { ok: r.ok, status: r.status, data, userMessage, retryAfterSeconds };
+    const sessionEnded = !r.ok && isCompetitorSessionInvalidationResponse(r.status, data);
+    if (sessionEnded) {
+      try {
+        globalThis.funoHandleCompetitorSessionEnded?.();
+      } catch {}
+    }
+
+    return {
+      ok: r.ok,
+      status: r.status,
+      data,
+      userMessage: sessionEnded ? "" : userMessage,
+      retryAfterSeconds,
+      sessionEnded,
+    };
   }
 
   return {
