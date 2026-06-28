@@ -44,8 +44,17 @@
 
   async function ensureNativeLocationPermission() {
     const geolocation = getPlugin("Geolocation");
-    if (!geolocation?.requestPermissions) return true;
-    await geolocation.requestPermissions();
+    if (!geolocation) return true;
+    if (typeof geolocation.checkPermissions === "function") {
+      const permissions = await geolocation.checkPermissions();
+      const locationState = String(
+        permissions?.location || permissions?.coarseLocation || permissions?.permission || ""
+      ).toLowerCase();
+      if (locationState === "granted") return true;
+    }
+    if (typeof geolocation.requestPermissions === "function") {
+      await geolocation.requestPermissions();
+    }
     return true;
   }
 
@@ -72,8 +81,14 @@
     };
 
     nativeGeo.watchPosition = function watchPosition(success, error, options) {
-      const localWatchId = String(watchSeq++);
-      ensureNativeLocationPermission()
+      const localWatchId = watchSeq++;
+      const watchState = {
+        cancelled: false,
+        pluginWatchId: null,
+      };
+      watchMap.set(localWatchId, watchState);
+
+      const registrationPromise = ensureNativeLocationPermission()
         .then(() => geolocation.watchPosition(options || {}, (position, err) => {
           if (err) {
             if (typeof error === "function") error(toDomPositionError(err));
@@ -82,20 +97,30 @@
           if (position && typeof success === "function") success(toDomPosition(position));
         }))
         .then((pluginWatchId) => {
-          watchMap.set(localWatchId, pluginWatchId);
+          watchState.pluginWatchId = pluginWatchId;
+          if (watchState.cancelled && pluginWatchId) {
+            return geolocation.clearWatch({ id: pluginWatchId }).catch(() => {});
+          }
+          return null;
         })
         .catch((err) => {
-          watchMap.delete(localWatchId);
+          if (watchMap.get(localWatchId) === watchState) {
+            watchMap.delete(localWatchId);
+          }
           if (typeof error === "function") error(toDomPositionError(err));
         });
+      watchState.registrationPromise = registrationPromise;
       return localWatchId;
     };
 
     nativeGeo.clearWatch = function clearWatch(localWatchId) {
-      const pluginWatchId = watchMap.get(String(localWatchId));
-      watchMap.delete(String(localWatchId));
-      if (!pluginWatchId) return;
-      geolocation.clearWatch({ id: pluginWatchId }).catch(() => {});
+      const normalizedId = Number(localWatchId);
+      const watchState = watchMap.get(normalizedId);
+      watchMap.delete(normalizedId);
+      if (!watchState) return;
+      watchState.cancelled = true;
+      if (!watchState.pluginWatchId) return;
+      geolocation.clearWatch({ id: watchState.pluginWatchId }).catch(() => {});
     };
   }
 
