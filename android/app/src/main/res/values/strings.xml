@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">fun_o Competitor</string>
-    <string name="title_activity_main">fun_o Competitor</string>
+    <string name="app_name">Fun-O</string>
+    <string name="title_activity_main">Fun-O</string>
     <string name="package_name">ee.funo.competitor</string>
     <string name="custom_url_scheme">ee.funo.competitor</string>
 </resources>
