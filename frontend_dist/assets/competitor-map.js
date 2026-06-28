@@ -53,12 +53,20 @@ function saveCompMapView() {
   setCookie(getMapViewCookieKey(), `${c.lat.toFixed(7)},${c.lng.toFixed(7)},${z}`, 30);
 }
 
-function restoreCompMapView() {
+function getSavedCompMapViewRaw() {
   const key = getMapViewCookieKey();
   const raw = getCookie(key);
   const legacyCid = Number(state.selectedCompetitionId || 0);
   const legacyKey = legacyCid > 0 ? `funo_comp_map_view_c${legacyCid}` : "funo_comp_map_view";
-  const effectiveRaw = raw || getCookie(legacyKey);
+  return raw || getCookie(legacyKey) || "";
+}
+
+function hasSavedCompMapView() {
+  return !!getSavedCompMapViewRaw();
+}
+
+function restoreCompMapView() {
+  const effectiveRaw = getSavedCompMapViewRaw();
   if (!effectiveRaw) return false;
   const parts = effectiveRaw.split(",");
   if (parts.length !== 3) return false;
@@ -1499,7 +1507,8 @@ async function openCompMapModal() {
   }
   renderCompMapLayerList();
   compMap.invalidateSize();
-  renderCompMap(state.mapItems, { forceInitialFit: false });
+  const forceInitialFit = !selectedCompetitionShowsUserLocationMarker() && !hasSavedCompMapView();
+  renderCompMap(state.mapItems, { forceInitialFit });
   if (mapHeadingMode) {
     refreshHeadingOutput("compass");
   }

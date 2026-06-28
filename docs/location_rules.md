@@ -115,6 +115,11 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
     - kasutaja asukoht olemas -> `setView(user, 15)`;
     - kasutaja asukohta pole, kuid KP-d on olemas -> `fitBounds(KP-d)` + minimaalne avasuum 10;
     - puuduvad nii asukoht kui KP-d -> vaikimisi Eesti vaade (`58.8, 25.4`, zoom 8).
+- Kui `show_competitor_location='N'` ja selle võistluse jaoks salvestatud kaardivaadet veel ei ole:
+  - kaarti ei tohi avada kasutaja asukoha peale isegi siis, kui GPS on saadaval;
+  - esmane avavaade peab tulema võistluse checkpointide järgi;
+  - kui aktiivne `START` eksisteerib, peab see jääma checkpointide üldisesse `fitBounds` avavaatesse loomulikult sisse;
+  - praktiline reegel on: ava kaart kõigi olemasolevate koordinaatidega KP-de `fitBounds` vaates, minimaalse avasuumiga 10.
 - Kui GPS asukoht saabub viitega pärast kaardi avamist:
   - follow-režiimis tehakse `panTo(user)` (keskpunkt uuendatakse) ilma zoomi jõuga muutmata.
 - Kaardi avamine ei tohi follow-režiimi kasutaja eest sunniviisiliselt sisse lülitada ega muuta:
