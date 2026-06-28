@@ -1489,6 +1489,14 @@ async function openCompMapModal() {
     return;
   }
   state.mapItems = await loadMapCheckpoints();
+  const shouldRetryInitialCheckpointFit =
+    !selectedCompetitionShowsUserLocationMarker()
+    && !hasSavedCompMapView()
+    && !state.mapItems.length;
+  if (shouldRetryInitialCheckpointFit) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    state.mapItems = await loadMapCheckpoints();
+  }
   el("compMapBackdrop").style.display = "block";
   await new Promise((resolve) => requestAnimationFrame(() => resolve()));
   mapProgrammaticMove = true;

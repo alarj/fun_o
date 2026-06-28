@@ -9,5 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FunoAppPlugin.class);
         super.onCreate(savedInstanceState);
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().getSettings().setTextZoom(100);
+        }
     }
 }
