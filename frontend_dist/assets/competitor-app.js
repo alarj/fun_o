@@ -42,20 +42,25 @@
     return domError;
   }
 
+  function normalizeLocationPermissionState(payload) {
+    return String(
+      payload?.location || payload?.coarseLocation || payload?.permission || ""
+    ).toLowerCase();
+  }
+
   async function ensureNativeLocationPermission() {
     const geolocation = getPlugin("Geolocation");
     if (!geolocation) return true;
     if (typeof geolocation.checkPermissions === "function") {
       const permissions = await geolocation.checkPermissions();
-      const locationState = String(
-        permissions?.location || permissions?.coarseLocation || permissions?.permission || ""
-      ).toLowerCase();
+      const locationState = normalizeLocationPermissionState(permissions);
       if (locationState === "granted") return true;
     }
     if (typeof geolocation.requestPermissions === "function") {
-      await geolocation.requestPermissions();
+      const requested = await geolocation.requestPermissions();
+      return normalizeLocationPermissionState(requested) === "granted";
     }
-    return true;
+    return false;
   }
 
   function installNativeGeolocationShim() {

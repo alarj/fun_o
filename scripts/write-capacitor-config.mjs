@@ -44,7 +44,7 @@ const config = {
   appendUserAgent: " fun_o-competitor-app/0.1",
   android: {
     path: "android",
-    webContentsDebuggingEnabled
+    webContentsDebuggingEnabled: webDebuggingEnabled
   },
   plugins: {
     StatusBar: {
