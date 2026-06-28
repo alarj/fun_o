@@ -1515,6 +1515,7 @@ async function openCompMapModal() {
     setHeadingMode(false);
   }
   startMapGeolocationWatch();
+  window.funoApp?.setMapKeepAwake?.(true).catch?.(() => {});
   } finally {
     hideCompetitorBusy();
   }
@@ -1530,6 +1531,7 @@ function closeCompMapModal() {
   closeMapQuestionModal();
   el("compMapLayerBackdrop").style.display = "none";
   el("compMapBackdrop").style.display = "none";
+  window.funoApp?.setMapKeepAwake?.(false).catch?.(() => {});
 }
 
 async function applyCheckpointLoadingMode() {

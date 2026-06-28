@@ -654,6 +654,7 @@ async function openCompetitionTermsModal() {
 }
 
 async function init() {
+  await window.funoApp?.initialize?.();
   await loadI18nMeta();
   await loadJoinCaptchaConfig();
   renderLangOptions();

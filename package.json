@@ -1,0 +1,23 @@
+{
+  "name": "funo-competitor-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor shell for the fun_o competitor UI",
+  "scripts": {
+    "cap:config:hosted": "node scripts/write-capacitor-config.mjs hosted",
+    "cap:config:bundled": "node scripts/write-capacitor-config.mjs bundled",
+    "cap:add:android": "npm run cap:config:hosted && npx cap add android",
+    "cap:sync:android": "npm run cap:config:hosted && npx cap sync android",
+    "cap:open:android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/geolocation": "^7.0.0",
+    "@capacitor/screen-orientation": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
+  }
+}

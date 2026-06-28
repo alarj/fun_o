@@ -363,3 +363,80 @@ Kui hakatakse tehnilist lahendust tegema, siis järgmised loogilised sammud on:
 5. kehtestada äpile portrait-orientatsioon;
 6. testida geolokatsiooni, kompassi ja Leafleti kaarti päris Android seadmes;
 7. alles pärast stabiliseerumist otsustada, kas iOS suunas minna hosted või bundled lähenemisega.
+
+## Teostuse seis
+
+Repos on nüüd loodud esimene Capacitori-põhine Android shell, mille eesmärk on:
+
+- hoida brauseri competitor UI alles;
+- toetada hosted-first lähenemist;
+- valmistada frontend ette future-bundled variandiks;
+- lisada Android native kiht ainult seal, kus veeb üksi ei piisa.
+
+Tehtud tehnilised sammud:
+
+- lisatud Capacitori projekt ja Android alamprojekt;
+- lisatud competitor UI app-bridge, mis võimaldab runtime-konfiguratsiooni;
+- API URL lahendamine on tehtud app-shell-sõbralikuks;
+- kaardivaate avamisel/sulgemisel on võimalik native kihis lülitada ekraani ärkvelhoidu;
+- Android activity on lukustatud portrait-orientatsiooni;
+- Androidi jaoks on lisatud native plugin `FunoApp`, mis lülitab `FLAG_KEEP_SCREEN_ON`;
+- Capacitori geolokatsioon on seotud olemasoleva `navigator.geolocation` kasutusega shim'i kaudu, et senine Leafleti ja competitor loogika saaks võimalikult muutumatult edasi töötada.
+
+## Build ja käivitamine
+
+### Hosted Android shell
+
+Hosted variandi jaoks tuleb enne sünkroniseerimist anda äpile teada, mis URL-ilt competitor UI laadida.
+
+Näide PowerShellis:
+
+```powershell
+$env:FUNO_COMPETITOR_APP_URL = "https://sinu-domeen.ee/index.html"
+npm run cap:sync:android
+```
+
+Kui Android projekt pole veel loodud, siis:
+
+```powershell
+$env:FUNO_COMPETITOR_APP_URL = "https://sinu-domeen.ee/index.html"
+npm run cap:add:android
+```
+
+Android Studio avamiseks:
+
+```powershell
+npm run cap:open:android
+```
+
+### Future bundled variant
+
+Kui hiljem minnakse bundled variandile, siis tuleb enne sync'i kirjutada bundled config:
+
+```powershell
+npm run cap:config:bundled
+npx cap sync android
+```
+
+Sel juhul kasutab äpp lokaalselt `frontend_dist` varasid ja competitor frontend peab saama API baas-URL-i runtime-konfiguratsioonist.
+
+## APK/AAB build väljund
+
+Kui Android build keskkond on olemas ja build õnnestub, tekivad väljundid tüüpiliselt siia:
+
+- `android/app/build/outputs/apk/debug/app-debug.apk`
+- `android/app/build/outputs/apk/release/...`
+- `android/app/build/outputs/bundle/release/app-release.aab`
+
+## Praegune piirang selles töökeskkonnas
+
+Android projekt loodi ja Capacitori pluginad sünkroniseeriti edukalt, kuid APK build jäi siin keskkonnas pooleli, sest:
+
+- `JAVA_HOME` ei olnud määratud;
+- `java` ei olnud käsureal saadaval.
+
+Seetõttu on käesoleva töö tulemus:
+
+- Android shelli lähtekood on repos olemas;
+- native plugin ja konfiguratsioon on lisatud;
+- valmis APK/AAB faili selles keskkonnas ei tekkinud veel.

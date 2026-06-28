@@ -382,12 +382,12 @@ async function ensureProgressLoaded(forceRefresh = false) {
 }
 
 async function apiGet(url) {
-  return apiRequest(url, { method: "GET" }, { allowRetry429: true });
+  return apiRequest(resolveAppApiUrl(url), { method: "GET" }, { allowRetry429: true });
 }
 
 async function apiPost(url, payload) {
   return apiRequest(
-    url,
+    resolveAppApiUrl(url),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -399,6 +399,15 @@ async function apiPost(url, payload) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveAppApiUrl(url) {
+  try {
+    if (window.funoApp && typeof window.funoApp.resolveApiUrl === "function") {
+      return window.funoApp.resolveApiUrl(url);
+    }
+  } catch {}
+  return url;
 }
 
 function parseRetryAfterSeconds(value) {
