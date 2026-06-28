@@ -90,6 +90,21 @@ let competitorBusyDepth = 0;
 let competitorBusyKey = "competitor.map.open_loading_msg";
 let competitorBusyKeys = [];
 
+function createOpenCheckpointsClientCache() {
+  return { key: "", ts: 0, items: [] };
+}
+
+function createProgressCache(key = "") {
+  return { key, updatedAt: 0, totalKp: 0, answeredKp: 0, score: 0 };
+}
+
+function resetCompetitorClientCaches() {
+  openCheckpointsClientCache = createOpenCheckpointsClientCache();
+  progressCache = createProgressCache();
+}
+
+globalThis.funoResetCompetitorClientCaches = resetCompetitorClientCaches;
+
 const el = (id) => document.getElementById(id);
 const tr = (key) => i18nItems[key] || key;
 function trf(key, vars) {
@@ -403,8 +418,8 @@ function sleep(ms) {
 
 function resolveAppApiUrl(url) {
   try {
-    if (window.funoApp && typeof window.funoApp.resolveApiUrl === "function") {
-      return window.funoApp.resolveApiUrl(url);
+    if (globalThis.funoApp && typeof globalThis.funoApp.resolveApiUrl === "function") {
+      return globalThis.funoApp.resolveApiUrl(url);
     }
   } catch {}
   return url;

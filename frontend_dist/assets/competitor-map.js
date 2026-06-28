@@ -265,27 +265,35 @@ function ensureCompMapInit() {
   setTimeout(() => { mapProgrammaticMove = false; }, 250);
 }
 
+function setCompMapViewToUserLocation(restored) {
+  if (restored) {
+    compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
+    return;
+  }
+  compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+}
+
+function fitCompMapToCheckpointBounds(checkpointBounds) {
+  compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
+  const openedZoom = Number(compMap.getZoom() || 0);
+  const minOpenZoom = 10;
+  if (openedZoom > 0 && openedZoom < minOpenZoom) {
+    compMap.setZoom(minOpenZoom);
+  }
+}
+
 function applyInitialCompMapViewport(checkpointBounds, opts = {}) {
   if (!compMap) return;
-  const forceInitialFit = opts && opts.forceInitialFit === true;
-  const hasUserGeo = opts && opts.hasUserGeo === true;
+  const forceInitialFit = opts?.forceInitialFit === true;
+  const hasUserGeo = opts?.hasUserGeo === true;
   const restored = forceInitialFit ? false : restoreCompMapView();
   if (mapFollowUser && selectedCompetitionShowsUserLocationMarker() && hasUserGeo) {
-    if (restored) {
-      compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
-    } else {
-      compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
-    }
+    setCompMapViewToUserLocation(restored);
     return;
   }
   if (checkpointBounds.length) {
     if (!restored || forceInitialFit) {
-      compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
-      const openedZoom = Number(compMap.getZoom() || 0);
-      const minOpenZoom = 10;
-      if (openedZoom > 0 && openedZoom < minOpenZoom) {
-        compMap.setZoom(minOpenZoom);
-      }
+      fitCompMapToCheckpointBounds(checkpointBounds);
     }
     return;
   }
@@ -301,7 +309,7 @@ function applyInitialCompMapViewport(checkpointBounds, opts = {}) {
 function getDefaultAllowedMapLayerCode() {
   const overlayLayer = allowedMapLayers.find((layer) => isCompetitionOverlaySelection(layer));
   if (overlayLayer?.code) return String(overlayLayer.code).toLowerCase();
-  const participantDefault = allowedMapLayers.find((layer) => layer && layer.participant_default === true);
+  const participantDefault = allowedMapLayers.find((layer) => layer?.participant_default === true);
   if (participantDefault?.code) return String(participantDefault.code).toLowerCase();
   return String(allowedMapLayers[0]?.code || "").toLowerCase();
 }
@@ -399,7 +407,15 @@ function resetMapHeadingRotation() {
   const pane = compMap.getPane && compMap.getPane("mapPane");
   if (!pane) return;
   pane.style.transformOrigin = "";
-  pane.style.transform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+  pane.style.transform = stripRotateTransform(pane.style.transform);
+}
+
+function stripRotateTransform(transformValue) {
+  return String(transformValue || "")
+    .split(/\s+/)
+    .filter((part) => part && !part.startsWith("rotate("))
+    .join(" ")
+    .trim();
 }
 
 function applyMapHeading(headingDeg) {
@@ -412,7 +428,7 @@ function applyMapHeading(headingDeg) {
   }
   const pane = compMap.getPane && compMap.getPane("mapPane");
   if (!pane) return;
-  const baseTransform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+  const baseTransform = stripRotateTransform(pane.style.transform);
   pane.style.transformOrigin = "50% 50%";
   pane.style.transform = `${baseTransform} rotate(${bearing}deg)`.trim();
 }
@@ -1550,7 +1566,7 @@ async function openCompMapModal() {
     setHeadingMode(false);
   }
   startMapGeolocationWatch();
-  window.funoApp?.setMapKeepAwake?.(true).catch?.(() => {});
+  globalThis.funoApp?.setMapKeepAwake?.(true).catch?.(() => {});
   } finally {
     hideCompetitorBusy();
   }
@@ -1566,7 +1582,7 @@ function closeCompMapModal() {
   closeMapQuestionModal();
   el("compMapLayerBackdrop").style.display = "none";
   el("compMapBackdrop").style.display = "none";
-  window.funoApp?.setMapKeepAwake?.(false).catch?.(() => {});
+  globalThis.funoApp?.setMapKeepAwake?.(false).catch?.(() => {});
 }
 
 async function applyCheckpointLoadingMode() {

@@ -173,8 +173,7 @@ function handleCompetitorSessionEnded() {
   state.geo.radius_m = null;
   state.geo.error = null;
   state.mapRoute = null;
-  openCheckpointsClientCache = { key: "", ts: 0, items: [] };
-  progressCache = { key: "", updatedAt: 0, totalKp: 0, answeredKp: 0, score: 0 };
+  globalThis.funoResetCompetitorClientCaches?.();
   setActiveCompetitionFromSession(null);
   el("competitionPickerBackdrop").style.display = "none";
   el("joinTermsBackdrop").style.display = "none";
@@ -705,7 +704,7 @@ async function openCompetitionTermsModal() {
 }
 
 async function init() {
-  await window.funoApp?.initialize?.();
+  await globalThis.funoApp?.initialize?.();
   await loadI18nMeta();
   await loadJoinCaptchaConfig();
   renderLangOptions();

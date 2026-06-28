@@ -28,7 +28,11 @@ if (mode === "bundled" && !bundledApiBaseUrl) {
 }
 
 function normalizeBaseUrl(url) {
-  return String(url || "").trim().replace(/\/+$/, "");
+  let normalized = String(url || "").trim();
+  while (normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
 }
 
 const runtimeConfig = {
@@ -65,7 +69,7 @@ if (mode === "hosted") {
 await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 await fs.writeFile(
   runtimeConfigPath,
-  `window.__FUNO_APP_RUNTIME_CONFIG__ = ${JSON.stringify(runtimeConfig, null, 2)};\n`,
+  `globalThis.__FUNO_APP_RUNTIME_CONFIG__ = ${JSON.stringify(runtimeConfig, null, 2)};\n`,
   "utf8"
 );
 process.stdout.write(`Wrote ${path.basename(configPath)} for ${mode} mode.\n`);

@@ -192,6 +192,27 @@ Millal uuesti hinnata:
 - kui admin hoiatusmodaleid tuleb veel juurde;
 - kui tehakse eraldi admin UI refaktor / Sonar cleanup pass.
 
+### 1.10 `text:S8569` Gradle dependency locking puudub Android shellis
+
+Mõjutatud fail:
+- `android/build.gradle`
+
+Märkus:
+- Sonar soovib kas `gradle.lockfile` või `gradle/verification-metadata.xml` kasutust, et dependency resolution oleks täielikult ettearvatav.
+
+Miks ei parandatud:
+- sisuline parandus eeldab lockfile või verification metadata genereerimist kanonilisest Android build-keskkonnast, mitte käsitsi oletamist;
+- käsitsi loodud või poolik lockfile võib buildi muuta hapraks ja tekitada raskemini diagnoositavaid CI / lokaalbuildi erinevusi;
+- praeguses töövoos oli mõistlikum parandada kohe need Android hardening teemad, mis ei eelda dependency resolution protsessi ümberseadistamist.
+
+Staatus:
+- teadlikult edasi lükatud build-hardening
+
+Millal uuesti hinnata:
+- kui Android release build viiakse püsivalt CI peale;
+- kui lisatakse signed release AAB/APK pipeline;
+- kui võetakse kasutusele Gradle dependency locking või verification metadata ühe kontrollitud buildi pealt genereerituna.
+
 ## 2. Gemini teadlikult parandamata leiud
 
 ### 2.0 2026-06 overlay / results töövoo Gemini märkused

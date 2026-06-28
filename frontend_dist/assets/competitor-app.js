@@ -74,6 +74,40 @@
     const watchMap = new Map();
     let watchSeq = 1;
 
+    function handleWatchPositionUpdate(success, error, position, err) {
+      if (err) {
+        if (typeof error === "function") error(toDomPositionError(err));
+        return;
+      }
+      if (position && typeof success === "function") success(toDomPosition(position));
+    }
+
+    function cleanupPluginWatch(pluginWatchId) {
+      if (!pluginWatchId) return Promise.resolve(null);
+      return geolocation.clearWatch({ id: pluginWatchId }).catch(() => {});
+    }
+
+    function handleWatchRegistrationFailure(localWatchId, watchState, error, err) {
+      if (watchMap.get(localWatchId) === watchState) {
+        watchMap.delete(localWatchId);
+      }
+      if (typeof error === "function") error(toDomPositionError(err));
+    }
+
+    function registerPluginWatch(localWatchId, watchState, success, error, options) {
+      return geolocation.watchPosition(options || {}, (position, err) => {
+        handleWatchPositionUpdate(success, error, position, err);
+      }).then((pluginWatchId) => {
+        watchState.pluginWatchId = pluginWatchId;
+        if (watchState.cancelled) {
+          return cleanupPluginWatch(pluginWatchId);
+        }
+        return null;
+      }).catch((err) => {
+        handleWatchRegistrationFailure(localWatchId, watchState, error, err);
+      });
+    }
+
     nativeGeo.getCurrentPosition = function getCurrentPosition(success, error, options) {
       ensureNativeLocationPermission()
         .then(() => geolocation.getCurrentPosition(options || {}))
@@ -94,26 +128,7 @@
       watchMap.set(localWatchId, watchState);
 
       const registrationPromise = ensureNativeLocationPermission()
-        .then(() => geolocation.watchPosition(options || {}, (position, err) => {
-          if (err) {
-            if (typeof error === "function") error(toDomPositionError(err));
-            return;
-          }
-          if (position && typeof success === "function") success(toDomPosition(position));
-        }))
-        .then((pluginWatchId) => {
-          watchState.pluginWatchId = pluginWatchId;
-          if (watchState.cancelled && pluginWatchId) {
-            return geolocation.clearWatch({ id: pluginWatchId }).catch(() => {});
-          }
-          return null;
-        })
-        .catch((err) => {
-          if (watchMap.get(localWatchId) === watchState) {
-            watchMap.delete(localWatchId);
-          }
-          if (typeof error === "function") error(toDomPositionError(err));
-        });
+        .then(() => registerPluginWatch(localWatchId, watchState, success, error, options));
       watchState.registrationPromise = registrationPromise;
       return localWatchId;
     };
@@ -131,7 +146,11 @@
 
   function normalizeBaseUrl(url) {
     if (!url) return "";
-    return String(url).replace(/\/+$/, "");
+    let normalized = String(url);
+    while (normalized.endsWith("/")) {
+      normalized = normalized.slice(0, -1);
+    }
+    return normalized;
   }
 
   function resolveApiUrl(url) {
@@ -182,4 +201,4 @@
     resolveApiUrl,
     setMapKeepAwake,
   };
-})(window);
+})(globalThis);
