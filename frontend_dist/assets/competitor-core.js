@@ -459,7 +459,22 @@ async function apiRequest(url, init, options = {}) {
   let attempt = 0;
   while (attempt < maxAttempts) {
     attempt += 1;
-    const r = await fetch(url, init);
+    let r;
+    try {
+      r = await fetch(url, {
+        credentials: "include",
+        ...(init || {}),
+      });
+    } catch {
+      return {
+        ok: false,
+        status: 0,
+        data: { detail: { code: "NETWORK_ERROR", message: "api.error.ords_unreachable" } },
+        userMessage: tr("api.error.ords_unreachable"),
+        retryAfterSeconds: 0,
+        sessionEnded: false,
+      };
+    }
     const data = await r.json().catch(() => ({}));
     const retryAfterSeconds = parseRetryAfterSeconds(r.headers.get("Retry-After"));
     const userMessage = enrichErrorMessage(r.status, data, retryAfterSeconds);

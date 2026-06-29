@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 from PIL import Image
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -69,6 +70,15 @@ class Settings:
     recaptcha_join_v3_score_threshold: float = float(os.getenv("RECAPTCHA_JOIN_V3_SCORE_THRESHOLD", "0.4"))
     recaptcha_join_proof_ttl_seconds: int = int(os.getenv("RECAPTCHA_JOIN_PROOF_TTL_SECONDS", "900"))
     recaptcha_verify_url: str = os.getenv("RECAPTCHA_VERIFY_URL", "https://www.google.com/recaptcha/api/siteverify").strip() or "https://www.google.com/recaptcha/api/siteverify"
+    cors_allowed_origins: list[str] = [
+        x.strip()
+        for x in os.getenv(
+            "CORS_ALLOWED_ORIGINS",
+            "http://localhost,https://localhost,capacitor://localhost",
+        ).split(",")
+        if x.strip()
+    ]
+    competitor_cookie_samesite: str = os.getenv("COMPETITOR_COOKIE_SAMESITE", "").strip().lower()
 
 
 settings = Settings()
@@ -175,6 +185,25 @@ ORACLE_ERROR_MAP: tuple[tuple[tuple[str, ...], tuple[str, str]], ...] = (
     (("ORA-20102", "ORA-20103", "ORA-20104", "ORA-20196", "ORA-20197", "ORA-20198"), ("INVALID_CHECKPOINT_PAYLOAD", "api.error.invalid_submission")),
     (("ORA-02290",), ("CONSTRAINT_VIOLATION", "api.error.invalid_submission")),
 )
+
+
+def _normalize_competitor_cookie_samesite(raw_value: str | None) -> str:
+    value = str(raw_value or "").strip().lower()
+    if value in {"lax", "strict", "none"}:
+        return value
+    return "none" if settings.session_cookie_secure else "lax"
+
+
+COMPETITOR_COOKIE_SAMESITE = _normalize_competitor_cookie_samesite(settings.competitor_cookie_samesite)
+
+if settings.cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 
 def _resolve_log_level(level_name: str) -> int:
@@ -3450,7 +3479,7 @@ async def dev_login(req: DevLoginRequest, response: Response) -> DevLoginRespons
         value=session_token,
         httponly=True,
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=COMPETITOR_COOKIE_SAMESITE,
         path="/",
     )
     return DevLoginResponse(user_id=user_id)
@@ -3530,7 +3559,7 @@ def _set_competitor_cookies(response: Response, user_id: int, competition_partic
         value=session_token,
         httponly=True,
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=COMPETITOR_COOKIE_SAMESITE,
         max_age=max_age_seconds,
         path="/",
     )
@@ -3539,7 +3568,7 @@ def _set_competitor_cookies(response: Response, user_id: int, competition_partic
         value=participation_token,
         httponly=True,
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=COMPETITOR_COOKIE_SAMESITE,
         max_age=max_age_seconds,
         path="/",
     )
@@ -3550,7 +3579,7 @@ def _delete_competitor_participation_cookie(response: Response) -> None:
         key=settings.competitor_participation_cookie_name,
         path="/",
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=COMPETITOR_COOKIE_SAMESITE,
     )
 
 

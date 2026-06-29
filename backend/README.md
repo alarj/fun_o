@@ -186,6 +186,10 @@ Session cookie flow:
   - `COMPETITOR_SESSION_COOKIE_NAME` (signed session payload incl. user/participant)
   - `COMPETITOR_PARTICIPATION_COOKIE_NAME` (active participant id token)
 - `GET /api/competitor/session` validates competitor cookies against ORDS (`competitor/session-by-participant`) and refreshes cookie TTL.
+- Bundled mobile app note:
+  - competitor API requests must be sent with credentials enabled from the WebView/client;
+  - backend must allow the bundled app origin via CORS;
+  - competitor cookies must use a cross-site compatible SameSite policy when the app calls API from `localhost` / `capacitor://localhost` origin.
 - `POST /api/auth/logout` clears both admin cookies (`SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`).
 - Protected admin/superadmin endpoints resolve user from `SESSION_COOKIE_NAME`; competitor endpoints resolve user from competitor cookies.
 - `user_id` in payload and `x-user-id` header are optional guards; if sent, they must match session user.
@@ -193,7 +197,7 @@ Session cookie flow:
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
+- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `COMPETITOR_COOKIE_SAMESITE`, `CORS_ALLOWED_ORIGINS`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
 - Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
@@ -212,6 +216,10 @@ Required backend env:
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
+- Bundled competitor app recommended backend config:
+  - `CORS_ALLOWED_ORIGINS=http://localhost,https://localhost,capacitor://localhost`
+  - `COMPETITOR_COOKIE_SAMESITE=none`
+  - `SESSION_COOKIE_SECURE=true`
 - Optional competitor join anti-bot config:
   - `RECAPTCHA_JOIN_V3_SITE_KEY`
   - `RECAPTCHA_JOIN_V3_SECRET_KEY`
