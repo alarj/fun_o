@@ -49,8 +49,10 @@ jobs:
 
       - name: Restore Android upload keystore
         shell: bash
+        env:
+          FUNO_RELEASE_KEYSTORE_BASE64: ${{ secrets.FUNO_RELEASE_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.FUNO_RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/funo-upload-key.jks
+          printf '%s' "$FUNO_RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/funo-upload-key.jks
 
       - name: Sync Capacitor Android in bundled release mode
         run: npm run cap:sync:android:bundled:release
