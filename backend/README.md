@@ -320,6 +320,7 @@ Competition-specific own map overlay in competitor UI:
   - overlay visibility must not depend on GPS availability, current user location or follow mode;
   - follow mode may change only map center movement;
   - user location marker may change only user-location rendering.
+  - bundled mobile app mode must resolve relative tile URLs against the configured API base URL, not against the local WebView origin.
 - If participant layer selection contains `maaamet_pohikaart_overlay`, backend treats `maaamet_pohikaart` as its technical prerequisite.
 - Overlay tile media is served by FastAPI endpoint:
   - `GET /api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=...`

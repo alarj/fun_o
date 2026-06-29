@@ -87,8 +87,20 @@ async function loadAllowedMapLayers() {
   return items;
 }
 
+function resolveMapLayerUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (/^[a-z]+:\/\//i.test(raw) || raw.startsWith("//")) return raw;
+  try {
+    if (globalThis.funoApp && typeof globalThis.funoApp.resolveApiUrl === "function") {
+      return globalThis.funoApp.resolveApiUrl(raw);
+    }
+  } catch {}
+  return raw;
+}
+
 function createBaseLayer(layer, options = {}) {
-  const url = String(layer.url_template || "");
+  const url = resolveMapLayerUrl(layer.url_template || "");
   const attrib = options.suppressAttribution ? "" : String(layer.attribution || "");
   const minZoom = Number(layer.min_zoom ?? 0);
   const maxZoom = Number(layer.max_zoom ?? 19);
@@ -121,7 +133,7 @@ function resolveBaseLayerForSelection(layer) {
 }
 
 function createCompetitionOverlayTileLayer(layer) {
-  const url = String(layer?.overlay_tile_url_template || "").trim();
+  const url = resolveMapLayerUrl(layer?.overlay_tile_url_template || "");
   if (!url) return null;
   return L.tileLayer(url, {
     minZoom: Number(layer?.overlay_tile_min_zoom ?? 0),
