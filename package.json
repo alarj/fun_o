@@ -5,9 +5,13 @@
   "description": "Capacitor shell for the fun_o competitor UI",
   "scripts": {
     "cap:config:hosted": "node scripts/write-capacitor-config.mjs hosted",
+    "cap:config:hosted:release": "node scripts/write-capacitor-config.mjs hosted release",
     "cap:config:bundled": "node scripts/write-capacitor-config.mjs bundled",
+    "cap:config:bundled:release": "node scripts/write-capacitor-config.mjs bundled release",
     "cap:add:android": "npm run cap:config:hosted && npx cap add android",
     "cap:sync:android": "npm run cap:config:hosted && npx cap sync android",
+    "cap:sync:android:bundled": "npm run cap:config:bundled && npx cap sync android",
+    "cap:sync:android:bundled:release": "npm run cap:config:bundled:release && npx cap sync android",
     "cap:open:android": "npx cap open android"
   },
   "dependencies": {

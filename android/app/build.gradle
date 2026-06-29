@@ -1,5 +1,28 @@
 apply plugin: 'com.android.application'
 
+def resolveConfigValue = { String propName, String envName, def defaultValue = null ->
+    if (project.hasProperty(propName)) {
+        return project.property(propName)
+    }
+    def envValue = System.getenv(envName)
+    if (envValue != null && String.valueOf(envValue).trim()) {
+        return envValue
+    }
+    return defaultValue
+}
+
+def resolveIntConfigValue = { String propName, String envName, int defaultValue ->
+    return Integer.parseInt(String.valueOf(resolveConfigValue(propName, envName, defaultValue)).trim())
+}
+
+def funoVersionCode = resolveIntConfigValue("funoVersionCode", "FUNO_VERSION_CODE", 20500)
+def funoVersionName = String.valueOf(resolveConfigValue("funoVersionName", "FUNO_VERSION_NAME", "2.5")).trim()
+def funoReleaseStoreFile = String.valueOf(resolveConfigValue("funoReleaseStoreFile", "FUNO_RELEASE_STORE_FILE", "")).trim()
+def funoReleaseStorePassword = String.valueOf(resolveConfigValue("funoReleaseStorePassword", "FUNO_RELEASE_STORE_PASSWORD", "")).trim()
+def funoReleaseKeyAlias = String.valueOf(resolveConfigValue("funoReleaseKeyAlias", "FUNO_RELEASE_KEY_ALIAS", "")).trim()
+def funoReleaseKeyPassword = String.valueOf(resolveConfigValue("funoReleaseKeyPassword", "FUNO_RELEASE_KEY_PASSWORD", "")).trim()
+def hasReleaseSigning = funoReleaseStoreFile && funoReleaseStorePassword && funoReleaseKeyAlias && funoReleaseKeyPassword
+
 android {
     namespace "ee.funo.competitor"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +30,8 @@ android {
         applicationId "ee.funo.competitor"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode funoVersionCode
+        versionName funoVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,9 +39,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(funoReleaseStoreFile)
+                storePassword funoReleaseStorePassword
+                keyAlias funoReleaseKeyAlias
+                keyPassword funoReleaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
