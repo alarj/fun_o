@@ -192,6 +192,27 @@ Millal uuesti hinnata:
 - kui admin hoiatusmodaleid tuleb veel juurde;
 - kui tehakse eraldi admin UI refaktor / Sonar cleanup pass.
 
+### 1.10 `text:S8569` Gradle dependency locking puudub Android shellis
+
+Mõjutatud fail:
+- `android/build.gradle`
+
+Märkus:
+- Sonar soovib kas `gradle.lockfile` või `gradle/verification-metadata.xml` kasutust, et dependency resolution oleks täielikult ettearvatav.
+
+Miks ei parandatud:
+- sisuline parandus eeldab lockfile või verification metadata genereerimist kanonilisest Android build-keskkonnast, mitte käsitsi oletamist;
+- käsitsi loodud või poolik lockfile võib buildi muuta hapraks ja tekitada raskemini diagnoositavaid CI / lokaalbuildi erinevusi;
+- praeguses töövoos oli mõistlikum parandada kohe need Android hardening teemad, mis ei eelda dependency resolution protsessi ümberseadistamist.
+
+Staatus:
+- teadlikult edasi lükatud build-hardening
+
+Millal uuesti hinnata:
+- kui Android release build viiakse püsivalt CI peale;
+- kui lisatakse signed release AAB/APK pipeline;
+- kui võetakse kasutusele Gradle dependency locking või verification metadata ühe kontrollitud buildi pealt genereerituna.
+
 ## 2. Gemini teadlikult parandamata leiud
 
 ### 2.0 2026-06 overlay / results töövoo Gemini märkused
@@ -262,8 +283,39 @@ Parandatud Gemini leiud, mida siia ei käsitleta avatud punktidena:
 - `sanitizeTermsHtml` home-brew sanitizer -> asendatud DOMPurifyga
 - `deviceorientation` + `deviceorientationabsolute` dubleeritud listener -> korrigeeritud ühe aktiivse allika peale
 - `watchPosition` tühi veacallback -> asendatud kaardisisese GPS signaali kadumise UX-iga
+- Capacitori geolocation shim `watchPosition` / `clearWatch` võidusooks -> parandatud nii, et tühistamine jääb kehtima ka siis, kui native watch ID saabub asünkroonselt
+- Android instrumented testide paketinimi `com.getcapacitor.app` -> parandatud projektipõhiseks `ee.funo.competitor`
+- Capacitori `webContentsDebuggingEnabled` toodangu jaoks -> viidud build-režiimipõhiseks (`release => false`)
 
 ## 2a. Gemini backlog / UX täpsustused
+
+### 2a.0 2026-06 Android hosted app järelmärkused
+
+Mõjutatud failid / kihid:
+- `backend/app/main.py`
+- `db/oracle/api/05_api_packages_stub.sql`
+- Android/Capacitor build ja release protsess
+- arendusdokumentatsioon
+
+Märkused, mida ei parandatud selles töövoos:
+- Hosted appi cookie/session käitumise audit juhul, kui tulevikus UI ja API originid lahknevad
+- Kontrollpunkti läbimise salvestuse idempotentsuse eraldi kinnitamine PL/SQL/ORDS kihis dubleerpäringute vastu
+- `ACCESS_BACKGROUND_LOCATION` / foreground-service tee tulevikuks, kui kunagi tekib nõue jälgida asukohta ka taustal või ekraani kustumisel
+- Android build keskkonna piirang ARM64 Ubuntu hostil; build tuleb teha x86_64 runneris või muul toetatud hostil
+- Arendaja setup dokumentatsiooni täiendamine Java/Android SDK/GitHub Actions praktiliste sammudega
+
+Miks ei parandatud kohe:
+- need punktid on kas süsteemitaseme auditid, tulevikunõuded või build-keskkonna piirangud, mitte vahetud koodivead selles commitis;
+- hosted Android shell sai funktsionaalselt tööle ilma neid alasid lahti tegemata;
+- osa neist nõuab arhitektuurilist või infrastruktuurilist otsust, mitte ainult lokaalse faili muutmist.
+
+Staatus:
+- teadlikult edasi lükatud audit / release-hardening / dokumentatsiooni backlog
+
+Millal uuesti hinnata:
+- enne iOS või bundled tee päris realiseerimist;
+- enne release AAB laiema kasutuselevõtu või Play Store submissioni finaliseerimist;
+- kui UI ja API originid tulevikus lahknevad.
 
 ### ~~2a.1 Competitor map popupi üldsõnaline teade `Küsimusi ei ole..`~~
 

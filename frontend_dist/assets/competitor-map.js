@@ -53,12 +53,20 @@ function saveCompMapView() {
   setCookie(getMapViewCookieKey(), `${c.lat.toFixed(7)},${c.lng.toFixed(7)},${z}`, 30);
 }
 
-function restoreCompMapView() {
+function getSavedCompMapViewRaw() {
   const key = getMapViewCookieKey();
   const raw = getCookie(key);
   const legacyCid = Number(state.selectedCompetitionId || 0);
   const legacyKey = legacyCid > 0 ? `funo_comp_map_view_c${legacyCid}` : "funo_comp_map_view";
-  const effectiveRaw = raw || getCookie(legacyKey);
+  return raw || getCookie(legacyKey) || "";
+}
+
+function hasSavedCompMapView() {
+  return !!getSavedCompMapViewRaw();
+}
+
+function restoreCompMapView() {
+  const effectiveRaw = getSavedCompMapViewRaw();
   if (!effectiveRaw) return false;
   const parts = effectiveRaw.split(",");
   if (parts.length !== 3) return false;
@@ -257,6 +265,55 @@ function ensureCompMapInit() {
   setTimeout(() => { mapProgrammaticMove = false; }, 250);
 }
 
+function setCompMapViewToUserLocation(restored) {
+  if (restored) {
+    compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
+    return;
+  }
+  compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+}
+
+function fitCompMapToCheckpointBounds(checkpointBounds) {
+  compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
+  const openedZoom = Number(compMap.getZoom() || 0);
+  const minOpenZoom = 10;
+  if (openedZoom > 0 && openedZoom < minOpenZoom) {
+    compMap.setZoom(minOpenZoom);
+  }
+}
+
+function applyInitialCompMapViewport(checkpointBounds, opts = {}) {
+  if (!compMap) return;
+  const forceInitialFit = opts?.forceInitialFit === true;
+  const hasUserGeo = opts?.hasUserGeo === true;
+  const restored = forceInitialFit ? false : restoreCompMapView();
+  if (mapFollowUser && selectedCompetitionShowsUserLocationMarker() && hasUserGeo) {
+    setCompMapViewToUserLocation(restored);
+    return;
+  }
+  if (checkpointBounds.length) {
+    if (!restored || forceInitialFit) {
+      fitCompMapToCheckpointBounds(checkpointBounds);
+    }
+    return;
+  }
+  if (hasUserGeo) {
+    compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
+    return;
+  }
+  if (!restored) {
+    compMap.setView([58.8, 25.4], 8, { animate: false });
+  }
+}
+
+function getDefaultAllowedMapLayerCode() {
+  const overlayLayer = allowedMapLayers.find((layer) => isCompetitionOverlaySelection(layer));
+  if (overlayLayer?.code) return String(overlayLayer.code).toLowerCase();
+  const participantDefault = allowedMapLayers.find((layer) => layer?.participant_default === true);
+  if (participantDefault?.code) return String(participantDefault.code).toLowerCase();
+  return String(allowedMapLayers[0]?.code || "").toLowerCase();
+}
+
 function updateFollowButton() {
   const btn = el("compMapFollowBtn");
   if (!btn) return;
@@ -350,7 +407,15 @@ function resetMapHeadingRotation() {
   const pane = compMap.getPane && compMap.getPane("mapPane");
   if (!pane) return;
   pane.style.transformOrigin = "";
-  pane.style.transform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+  pane.style.transform = stripRotateTransform(pane.style.transform);
+}
+
+function stripRotateTransform(transformValue) {
+  return String(transformValue || "")
+    .split(/\s+/)
+    .filter((part) => part && !part.startsWith("rotate("))
+    .join(" ")
+    .trim();
 }
 
 function applyMapHeading(headingDeg) {
@@ -363,7 +428,7 @@ function applyMapHeading(headingDeg) {
   }
   const pane = compMap.getPane && compMap.getPane("mapPane");
   if (!pane) return;
-  const baseTransform = String(pane.style.transform || "").replace(/\s*rotate\([^)]*\)\s*/g, " ").trim();
+  const baseTransform = stripRotateTransform(pane.style.transform);
   pane.style.transformOrigin = "50% 50%";
   pane.style.transform = `${baseTransform} rotate(${bearing}deg)`.trim();
 }
@@ -1365,33 +1430,13 @@ function renderCompMap(items, opts = {}) {
   }
   updateMapGpsStatus();
   mapProgrammaticMove = true;
-  if (!preserveViewport) {
-    const restored = forceInitialFit ? false : restoreCompMapView();
-    if (mapFollowUser && hasUserGeo) {
-      if (restored) {
-        compMap.panTo([state.geo.latitude, state.geo.longitude], { animate: false });
-      } else {
-        compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
-      }
-    } else if (checkpointBounds.length) {
-      if (!restored || forceInitialFit) {
-        compMap.fitBounds(checkpointBounds, { padding: [24, 24], maxZoom: 18 });
-        const openedZoom = Number(compMap.getZoom() || 0);
-        const minOpenZoom = 10;
-        if (openedZoom > 0 && openedZoom < minOpenZoom) {
-          compMap.setZoom(minOpenZoom);
-        }
-      }
-    } else if (hasUserGeo) {
-      compMap.setView([state.geo.latitude, state.geo.longitude], 15, { animate: false });
-    } else if (!restored) {
-      compMap.setView([58.8, 25.4], 8, { animate: false });
-    }
-  }
   setMapInfoVisibility(mapInfoVisible);
   setTimeout(() => {
     if (!compMap) return;
     compMap.invalidateSize();
+    if (!preserveViewport) {
+      applyInitialCompMapViewport(checkpointBounds, { forceInitialFit, hasUserGeo });
+    }
     refreshCompMapRouteDecorations();
     if (mapHeadingMode && Number.isFinite(mapHeadingCurrent)) {
       applyMapHeading(mapHeadingCurrent);
@@ -1463,9 +1508,7 @@ async function openCompMapModal() {
   mapGpsSignalLost = false;
   mapHeadingPermissionAsked = false;
   setMapNotice("", true);
-  if (!selectedCompetitionShowsUserLocationMarker()) {
-    mapFollowUser = false;
-  }
+  mapFollowUser = selectedCompetitionShowsUserLocationMarker();
   updateFollowButton();
   updateHeadingButton();
   await requestFreshGeolocationForMapOpen();
@@ -1481,6 +1524,14 @@ async function openCompMapModal() {
     return;
   }
   state.mapItems = await loadMapCheckpoints();
+  const shouldRetryInitialCheckpointFit =
+    !selectedCompetitionShowsUserLocationMarker()
+    && !hasSavedCompMapView()
+    && !state.mapItems.length;
+  if (shouldRetryInitialCheckpointFit) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    state.mapItems = await loadMapCheckpoints();
+  }
   el("compMapBackdrop").style.display = "block";
   await new Promise((resolve) => requestAnimationFrame(() => resolve()));
   mapProgrammaticMove = true;
@@ -1489,8 +1540,7 @@ async function openCompMapModal() {
   if (rememberedLayerCode && mapLayersByCode[rememberedLayerCode]) {
     activeMapLayerCode = rememberedLayerCode;
   } else if (!activeMapLayerCode || !mapLayersByCode[activeMapLayerCode]) {
-    const participantDefault = allowedMapLayers.find((x) => x && x.participant_default === true);
-    activeMapLayerCode = String((participantDefault?.code || allowedMapLayers[0].code || "")).toLowerCase();
+    activeMapLayerCode = getDefaultAllowedMapLayerCode();
   }
   applyBaseLayer(activeMapLayerCode);
   const layerBtn = el("compMapLayerBtn");
@@ -1499,7 +1549,8 @@ async function openCompMapModal() {
   }
   renderCompMapLayerList();
   compMap.invalidateSize();
-  renderCompMap(state.mapItems, { forceInitialFit: false });
+  const forceInitialFit = !selectedCompetitionShowsUserLocationMarker() && !hasSavedCompMapView();
+  renderCompMap(state.mapItems, { forceInitialFit });
   if (mapHeadingMode) {
     refreshHeadingOutput("compass");
   }
@@ -1515,6 +1566,7 @@ async function openCompMapModal() {
     setHeadingMode(false);
   }
   startMapGeolocationWatch();
+  globalThis.funoApp?.setMapKeepAwake?.(true).catch?.(() => {});
   } finally {
     hideCompetitorBusy();
   }
@@ -1530,6 +1582,7 @@ function closeCompMapModal() {
   closeMapQuestionModal();
   el("compMapLayerBackdrop").style.display = "none";
   el("compMapBackdrop").style.display = "none";
+  globalThis.funoApp?.setMapKeepAwake?.(false).catch?.(() => {});
 }
 
 async function applyCheckpointLoadingMode() {

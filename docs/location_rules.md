@@ -115,10 +115,23 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
     - kasutaja asukoht olemas -> `setView(user, 15)`;
     - kasutaja asukohta pole, kuid KP-d on olemas -> `fitBounds(KP-d)` + minimaalne avasuum 10;
     - puuduvad nii asukoht kui KP-d -> vaikimisi Eesti vaade (`58.8, 25.4`, zoom 8).
+- Kaardi esmaavamise avavaate arvutus ei tohi toimuda enne, kui checkpointid on laetud, markerid kaardile joonistatud ja kaart on `invalidateSize()` etapiga nähtava suuruse saanud.
+  - praktiline reegel on: esmane `fitBounds(KP-d)` või muu avavaade arvutatakse viimases sammus, mitte enne KP-de renderdust;
+  - olukord, kus KP-d on kaardil nähtavad, kuid avavaade jääb siiski Eesti keskkohta, on käsitletav veana.
+- Kui `show_competitor_location='N'` ja selle võistluse jaoks salvestatud kaardivaadet veel ei ole:
+  - kaarti ei tohi avada kasutaja asukoha peale isegi siis, kui GPS on saadaval;
+  - `follow` peab vaikimisi olema `OFF`;
+  - esmane avavaade peab tulema võistluse checkpointide järgi;
+  - kui aktiivne `START` eksisteerib, peab see jääma checkpointide üldisesse `fitBounds` avavaatesse loomulikult sisse;
+  - praktiline reegel on: ava kaart kõigi olemasolevate koordinaatidega KP-de `fitBounds` vaates, minimaalse avasuumiga 10.
+- Kui `show_competitor_location='Y'` ja selle võistluse jaoks salvestatud kaardivaadet veel ei ole:
+  - `follow` peab vaikimisi olema `ON`;
+  - kaart tuleb avada kasutaja asukoha peale nii, et sinine asukohamarker jääks ekraani keskele.
 - Kui GPS asukoht saabub viitega pärast kaardi avamist:
   - follow-režiimis tehakse `panTo(user)` (keskpunkt uuendatakse) ilma zoomi jõuga muutmata.
 - Kaardi avamine ei tohi follow-režiimi kasutaja eest sunniviisiliselt sisse lülitada ega muuta:
-  - follow olek säilib kasutaja viimase valiku järgi;
+  - kaardi avamisel rakendatakse esmane follow vaikeolek `show_competitor_location` reegli järgi;
+  - pärast avamist võib kasutaja follow olekut ise muuta ning küsimuse/popupi vood ei tohi seda enam omakorda muuta;
   - võistluspõhise oma kaardi valik ei tohi ise muuta follow käitumist.
 - Kaardil küsimuse avamine, sellele vastamine ja vastuse feedback-modali näitamine ei tohi muuta kaardi vaateolekut:
   - follow olek säilib;
@@ -157,6 +170,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - See valik ei ole iseseisev aluskaart, vaid komposiit:
   - aluskaart on `maaamet_pohikaart`;
   - selle peale renderdatakse võistluspõhise kaardi tile layer.
+- Kui selle võistluse jaoks ei ole kasutajal veel varasemat salvestatud kaardivalikut, rakendub vaikimisi kaardivaliku prioriteet:
+  - esimesena võistluspõhine oma kaart (`maaamet_pohikaart_overlay`), kui see on olemas ja lubatud;
+  - muidu esimene lubatud `participant_default = true` kaart `map_layers.json` konfiguratsioonist;
+  - muidu esimene lubatud kaart üldse.
 - Võistleja vaates käsitletakse overlay'd tavalise kaardikihina:
   - overlay renderdatakse EPK peale eraldi tile-layerina;
   - selle nähtavus ei tohi sõltuda kasutaja GPS asukohast, asukohamarkerist ega follow-režiimist;

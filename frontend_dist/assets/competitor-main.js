@@ -141,6 +141,54 @@ function setActiveCompetitionFromSession(sessionData) {
   };
 }
 
+let competitorSessionEndedHandled = false;
+
+function handleCompetitorSessionEnded() {
+  if (competitorSessionEndedHandled) return;
+  competitorSessionEndedHandled = true;
+  try {
+    if (el("compMapBackdrop")?.style?.display === "block" && typeof closeCompMapModal === "function") {
+      closeCompMapModal();
+    }
+  } catch {}
+  try {
+    state.feedbackOpen = false;
+    el("feedbackBackdrop").style.display = "none";
+  } catch {}
+  try {
+    if (typeof closeMapQuestionModal === "function") closeMapQuestionModal();
+  } catch {}
+  try {
+    setSubmissionBusy(false);
+  } catch {}
+  state.hasAuthenticatedCompetitionSession = false;
+  state.openItems = [];
+  state.openItemsLoaded = false;
+  state.mapItems = [];
+  state.mapQuestionItem = null;
+  state.joinPreview = null;
+  state.geo.enabled = false;
+  state.geo.latitude = null;
+  state.geo.longitude = null;
+  state.geo.radius_m = null;
+  state.geo.error = null;
+  state.mapRoute = null;
+  globalThis.funoResetCompetitorClientCaches?.();
+  setActiveCompetitionFromSession(null);
+  el("competitionPickerBackdrop").style.display = "none";
+  el("joinTermsBackdrop").style.display = "none";
+  el("joinSwitchWarningBackdrop").style.display = "none";
+  el("myAnswerDetailBackdrop").style.display = "none";
+  el("mainCard").style.display = "none";
+  el("competitionRouteCard").style.display = "none";
+  el("answerCard").style.display = "none";
+  el("myResultsCard").style.display = "none";
+  renderCompetitionRouteSummary();
+  openJoinModal(null, { showClose: false, hasActive: false, codeReadonly: false });
+}
+
+globalThis.funoHandleCompetitorSessionEnded = handleCompetitorSessionEnded;
+
 async function ensureCompetitorSession() {
   const res = await apiPost("/api/competitor/ensure-session", {});
   if (!res.ok) {
@@ -173,6 +221,7 @@ async function loadJoinCaptchaConfig() {
 }
 
 async function loadSessionState() {
+  competitorSessionEndedHandled = false;
   const res = await apiGet("/api/competitor/session");
   if (!res.ok || !res.data?.authenticated) {
     state.hasAuthenticatedCompetitionSession = false;
@@ -555,6 +604,7 @@ function openJoinModal(prefillCode = null, opts = {}) {
   el("joinCode").value = prefillCode || "";
   setJoinCodeReadonly(codeReadonly);
   updateJoinContinueEnabled();
+  competitorSessionEndedHandled = false;
   el("joinByCodeBackdrop").style.display = "flex";
 }
 
@@ -654,6 +704,7 @@ async function openCompetitionTermsModal() {
 }
 
 async function init() {
+  await globalThis.funoApp?.initialize?.();
   await loadI18nMeta();
   await loadJoinCaptchaConfig();
   renderLangOptions();

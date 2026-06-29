@@ -10,6 +10,10 @@
 }
 
 * { box-sizing: border-box; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Segoe UI", Tahoma, sans-serif; }
 .wrap { max-width: 620px; margin: 0 auto; padding: 12px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
@@ -577,6 +581,13 @@ button:disabled { opacity: 0.5; }
   padding: 8px 12px;
   font-size: 16px;
   line-height: 1.2;
+}
+#compMapFollowBtn {
+  flex: 0 1 auto;
+  max-width: 132px;
+  padding-inline: 10px;
+  white-space: normal;
+  word-break: keep-all;
 }
 .iconBtn {
   width: 42px !important;

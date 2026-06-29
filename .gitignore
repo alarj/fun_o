@@ -2,3 +2,9 @@
 db/oracle/translations/
 cookies.txt
 __pycache__/
+node_modules/
+capacitor.config.json
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/

@@ -90,6 +90,21 @@ let competitorBusyDepth = 0;
 let competitorBusyKey = "competitor.map.open_loading_msg";
 let competitorBusyKeys = [];
 
+function createOpenCheckpointsClientCache() {
+  return { key: "", ts: 0, items: [] };
+}
+
+function createProgressCache(key = "") {
+  return { key, updatedAt: 0, totalKp: 0, answeredKp: 0, score: 0 };
+}
+
+function resetCompetitorClientCaches() {
+  openCheckpointsClientCache = createOpenCheckpointsClientCache();
+  progressCache = createProgressCache();
+}
+
+globalThis.funoResetCompetitorClientCaches = resetCompetitorClientCaches;
+
 const el = (id) => document.getElementById(id);
 const tr = (key) => i18nItems[key] || key;
 function trf(key, vars) {
@@ -382,12 +397,12 @@ async function ensureProgressLoaded(forceRefresh = false) {
 }
 
 async function apiGet(url) {
-  return apiRequest(url, { method: "GET" }, { allowRetry429: true });
+  return apiRequest(resolveAppApiUrl(url), { method: "GET" }, { allowRetry429: true });
 }
 
 async function apiPost(url, payload) {
   return apiRequest(
-    url,
+    resolveAppApiUrl(url),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -399,6 +414,15 @@ async function apiPost(url, payload) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveAppApiUrl(url) {
+  try {
+    if (globalThis.funoApp && typeof globalThis.funoApp.resolveApiUrl === "function") {
+      return globalThis.funoApp.resolveApiUrl(url);
+    }
+  } catch {}
+  return url;
 }
 
 function parseRetryAfterSeconds(value) {
@@ -419,6 +443,16 @@ function enrichErrorMessage(status, data, retryAfterSeconds) {
   return message;
 }
 
+function isCompetitorSessionInvalidationResponse(status, data) {
+  const code = String(data?.detail?.code || "").trim().toUpperCase();
+  const message = String(data?.detail?.message || "").trim().toLowerCase();
+  if (code === "NOT_PARTICIPANT") return true;
+  if (status === 401 && (code === "UNAUTHENTICATED" || code === "NOT_AUTHENTICATED" || code === "UNAUTHORIZED")) {
+    return true;
+  }
+  return message === "api.error.not_participant";
+}
+
 async function apiRequest(url, init, options = {}) {
   const allowRetry429 = options.allowRetry429 === true;
   const maxAttempts = allowRetry429 ? 2 : 1;
@@ -435,7 +469,21 @@ async function apiRequest(url, init, options = {}) {
       continue;
     }
 
-    return { ok: r.ok, status: r.status, data, userMessage, retryAfterSeconds };
+    const sessionEnded = !r.ok && isCompetitorSessionInvalidationResponse(r.status, data);
+    if (sessionEnded) {
+      try {
+        globalThis.funoHandleCompetitorSessionEnded?.();
+      } catch {}
+    }
+
+    return {
+      ok: r.ok,
+      status: r.status,
+      data,
+      userMessage: sessionEnded ? "" : userMessage,
+      retryAfterSeconds,
+      sessionEnded,
+    };
   }
 
   return {
