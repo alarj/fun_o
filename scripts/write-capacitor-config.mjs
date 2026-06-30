@@ -8,6 +8,7 @@ const configPath = path.join(rootDir, "capacitor.config.json");
 const runtimeConfigPath = path.join(rootDir, "frontend_dist", "assets", "competitor-app-config.js");
 const hostedUrl = String(process.env.FUNO_COMPETITOR_APP_URL || "").trim();
 const bundledApiBaseUrl = String(process.env.FUNO_COMPETITOR_API_BASE_URL || "").trim();
+const appVersion = String(process.env.FUNO_VERSION_NAME || "2.5").trim();
 const cleartext = String(process.env.FUNO_COMPETITOR_APP_ALLOW_CLEARTEXT || "").trim().toLowerCase() === "true";
 const webDebuggingEnabled = buildMode !== "release";
 
@@ -41,6 +42,7 @@ function normalizeBaseUrl(url) {
 
 const runtimeConfig = {
   apiBaseUrl: mode === "bundled" ? normalizeBaseUrl(bundledApiBaseUrl) : "",
+  appVersion: mode === "bundled" ? appVersion : "",
   mode,
 };
 
