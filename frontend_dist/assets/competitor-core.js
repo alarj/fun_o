@@ -702,6 +702,19 @@ function renderCompetitionText() {
   el("competitionLine").textContent = c ? c.name : "-";
   el("competitionDescLine").textContent = c?.description || "";
   el("userLine").textContent = aliasOrName;
+  const versionLine = el("appVersionLine");
+  const runtimeConfig = globalThis.funoApp?.config || {};
+  const runtimeMode = String(runtimeConfig.mode || "").trim().toLowerCase();
+  const appVersion = String(runtimeConfig.appVersion || "").trim();
+  if (versionLine) {
+    if (runtimeMode === "bundled" && appVersion) {
+      versionLine.textContent = `Ver ${appVersion}`;
+      versionLine.style.display = "block";
+    } else {
+      versionLine.textContent = "";
+      versionLine.style.display = "none";
+    }
+  }
 }
 
 function normalizeCompetitionRouteSnapshot(route) {
