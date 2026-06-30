@@ -40,7 +40,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
-- POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete.
+- POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete; kui KP-l on aktiivne küsimus, lõpetatakse see enne automaatselt soft-delete'iga.
 - POST `/admin/questions` - loob uue küsimuse kontrollpunkti alla.
 - POST `/admin/questions/update` - uuendab küsimust ja seotud valikuid/vastuseid.
 - POST `/admin/questions/delete` - teeb küsimuse soft-delete.

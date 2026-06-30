@@ -417,6 +417,7 @@ erDiagram
 - Kui `checkpoint_type` on `NULL`, käsitletakse seda rakenduse äriloogikas kui `NORMAL`.
 - Ühel aktiivsel võistlusel võib olla maksimaalselt üks aktiivne `START` ja üks aktiivne `FINISH`.
 - Aktiivse sisu reegel on `1 checkpoint = 1 active question`.
+- Kui checkpoint ise soft-delete'itakse, siis selle all olevad aktiivsed küsimused soft-delete'itakse automaatselt enne checkpointi lõpetamist.
 - `submissions` tabelis kehtib unikaalsusreegel `(competition_id, user_id, checkpoint_id, question_id)`, st sama osaleja ei saa sama KP sama küsimust rohkem kui ühe korra esitada.
 
 ## Kaardikihid ja overlay märkused

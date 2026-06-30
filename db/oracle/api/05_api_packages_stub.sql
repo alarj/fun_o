@@ -7356,11 +7356,17 @@ create or replace package body pkg_admin_content as
   end;
 
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
+  -- If the checkpoint still has active question(s), they are soft-deleted first.
   procedure soft_delete_checkpoint(p_checkpoint_id in number, p_deleted_by in number) is
-    l_cnt number;
   begin
-    select count(*) into l_cnt from questions q where q.checkpoint_id = p_checkpoint_id and (q.end_date is null or q.end_date > sysdate);
-    if l_cnt > 0 then raise_application_error(-20104, 'cannot delete checkpoint with active questions'); end if;
+    for q_rec in (
+      select q.question_id
+        from questions q
+       where q.checkpoint_id = p_checkpoint_id
+         and (q.end_date is null or q.end_date > sysdate)
+    ) loop
+      soft_delete_question(q_rec.question_id, p_deleted_by);
+    end loop;
 
     update checkpoints
        set end_date = trunc(sysdate), updated_by = p_deleted_by, updated_at = systimestamp
