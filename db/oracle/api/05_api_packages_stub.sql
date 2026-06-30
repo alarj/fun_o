@@ -2566,6 +2566,7 @@ create or replace package pkg_competitor as
     o_items_json out clob,
     o_competition_type out varchar2,
     o_use_location out varchar2,
+    o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
@@ -3620,6 +3621,7 @@ create or replace package body pkg_competitor as
     o_items_json out clob,
     o_competition_type out varchar2,
     o_use_location out varchar2,
+    o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
@@ -3628,11 +3630,13 @@ create or replace package body pkg_competitor as
     begin
       select nvl(c.type, 'R'),
              nvl(c.use_location, 'N'),
+             case when nvl(c.use_location, 'N') = 'Y' then nvl(c.show_competitor_location, 'Y') else 'N' end,
              to_char(c.mass_start_at, pkg_common.c_iso_ts_format),
              nvl(cd.declination, 0),
              to_char(cd.last_updated, pkg_common.c_iso_ts_format)
         into o_competition_type,
              o_use_location,
+             o_show_competitor_location,
              o_mass_start_at,
              o_declination,
              o_declination_last_updated
@@ -3646,6 +3650,7 @@ create or replace package body pkg_competitor as
       when no_data_found then
         o_competition_type := 'R';
         o_use_location := 'N';
+        o_show_competitor_location := 'N';
         o_mass_start_at := null;
         o_declination := 0;
         o_declination_last_updated := null;

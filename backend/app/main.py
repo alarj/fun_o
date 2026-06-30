@@ -461,6 +461,7 @@ class CompetitorOpenCheckpointsResponse(BaseModel):
     competition_type: str | None = None
     current_source_hash: str | None = None
     mass_start_at: str | None = None
+    show_competitor_location: str | None = None
     declination: float = 0.0
     declination_last_updated: str | None = None
     route: dict[str, Any] | None = None
@@ -2965,6 +2966,8 @@ async def _fetch_competition_checkpoint_static_payload_from_ords(competition_id:
     mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
     use_location_raw = ords_response.get("use_location") if isinstance(ords_response, dict) else None
     use_location = str(use_location_raw or "N").strip().upper() or "N"
+    show_competitor_location_raw = ords_response.get("show_competitor_location") if isinstance(ords_response, dict) else None
+    show_competitor_location = str(show_competitor_location_raw or "Y").strip().upper() or "Y"
     declination_raw = ords_response.get("declination") if isinstance(ords_response, dict) else 0
     declination = float(declination_raw) if isinstance(declination_raw, (int, float)) else 0.0
     declination_last_updated = ords_response.get("declination_last_updated") if isinstance(ords_response, dict) else None
@@ -2981,6 +2984,7 @@ async def _fetch_competition_checkpoint_static_payload_from_ords(competition_id:
         "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
         "mass_start_at": mass_start_at,
         "use_location": "Y" if use_location == "Y" else "N",
+        "show_competitor_location": "Y" if show_competitor_location == "Y" else "N",
         "items": items,
         "declination": declination,
         "declination_last_updated": declination_last_updated if isinstance(declination_last_updated, str) else None,
@@ -3116,6 +3120,7 @@ def _build_map_checkpoints_payload(
         "current_source_hash": static_payload.get("current_source_hash"),
         "mass_start_at": static_payload.get("mass_start_at"),
         "use_location": static_payload.get("use_location"),
+        "show_competitor_location": static_payload.get("show_competitor_location"),
         "items": items,
         "declination": static_payload.get("declination"),
         "declination_last_updated": static_payload.get("declination_last_updated"),
@@ -4147,6 +4152,7 @@ async def competitor_open_checkpoints(
         response_source=response_source,
         competition_type=static_payload.get("competition_type") if isinstance(static_payload.get("competition_type"), str) else None,
         mass_start_at=static_payload.get("mass_start_at") if isinstance(static_payload.get("mass_start_at"), str) else None,
+        show_competitor_location=static_payload.get("show_competitor_location") if isinstance(static_payload.get("show_competitor_location"), str) else None,
         items=items,
     )
 
@@ -4180,6 +4186,7 @@ async def competitor_map_checkpoints(
         competition_type=payload.get("competition_type") if isinstance(payload.get("competition_type"), str) else None,
         current_source_hash=payload.get("current_source_hash") if isinstance(payload.get("current_source_hash"), str) else None,
         mass_start_at=payload.get("mass_start_at") if isinstance(payload.get("mass_start_at"), str) else None,
+        show_competitor_location=payload.get("show_competitor_location") if isinstance(payload.get("show_competitor_location"), str) else None,
         items=payload.get("items") if isinstance(payload.get("items"), list) else [],
         declination=float(payload.get("declination", 0.0)) if isinstance(payload.get("declination"), (int, float)) else 0.0,
         declination_last_updated=payload.get("declination_last_updated") if isinstance(payload.get("declination_last_updated"), str) else None,

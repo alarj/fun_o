@@ -99,19 +99,20 @@ Expected ORDS JSON responses:
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
   - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
-- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"..." }`
+- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"...", "show_competitor_location":"Y|N" }`
   - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
     - `checkpoints.radius_m`, kui see on määratud;
     - muidu `competitions.radius_m`;
     - kui kumbki puudub, tagastatakse `0`.
-  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at` ja `route`.
+  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at`, `show_competitor_location` ja `route`.
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
-- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
+- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "show_competitor_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
   - payload sisaldab competitor-flow jaoks vajalikku staatilist checkpoint/question sisu:
     - checkpoint metadata
     - küsimuse tekstid
     - `SINGLE_CHOICE` valikud
     - efektiivne `radius_m`
+    - võistluse kaardikäitumise lipp `show_competitor_location`
   - payload ei sisalda participant-specific `is_answered` välju.
 - `competitor/checkpoint-state` -> `{ "items": [{"checkpoint_id":123}, ...] }`
   - payload sisaldab ainult participanti answered checkpoint id-de loendit.
@@ -220,6 +221,9 @@ Required backend env:
   - `CORS_ALLOWED_ORIGINS=http://localhost,https://localhost,capacitor://localhost`
   - `COMPETITOR_COOKIE_SAMESITE=none`
   - `SESSION_COOKIE_SECURE=true`
+- Bundled competitor app external-service allowlist notes:
+  - Google reCAPTCHA web keys used by competitor join must allow `localhost` in their allowed domains, otherwise bundled app join-preview fails before ORDS.
+  - Mapy.cz API keys used by `mapycz_outdoor` must allow bundled WebView referrers such as `localhost` (and in practice `127.0.0.1` may also be needed), otherwise tiles return provider-side invalid API key errors only in bundled app mode.
 - Optional competitor join anti-bot config:
   - `RECAPTCHA_JOIN_V3_SITE_KEY`
   - `RECAPTCHA_JOIN_V3_SECRET_KEY`

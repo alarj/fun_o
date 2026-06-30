@@ -155,6 +155,9 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - `Heading-up` on kasutatav;
   - asukohapõhiste KP-de avatavuse kontroll kasutab GPS-i samadel reeglitel.
 - Kui `show_competitor_location='N'`, siis ainus erinevus on see, et sinist kasutaja asukohamarkerit kaardile ei joonistata.
+- Tehniline sidumisreegel:
+  - `show_competitor_location` peab jõudma competitor kaardivaatesse sama `map-checkpoints` payloadi kaudu, mille invalidate/lazy-reload mehhanism juba toob sisse KP muudatused;
+  - seda lippu ei tohi käsitleda ainult varasemast session-bootstrapist pärineva frontend state'ina, sest vastasel juhul KP muudatused võivad äppi jõuda, kuid sinise täpi lipp jääb aegunuks.
 
 ### 5b. Võistleja võistluspõhine oma kaart
 

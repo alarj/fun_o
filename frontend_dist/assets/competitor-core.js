@@ -1255,6 +1255,10 @@ async function loadMapCheckpoints() {
   }
   if (state.activeCompetition) {
     state.activeCompetition.mass_start_at = typeof res.data?.mass_start_at === "string" ? res.data.mass_start_at : null;
+    if (typeof res.data?.show_competitor_location === "string") {
+      state.activeCompetition.show_competitor_location =
+        String(res.data.show_competitor_location || "N").toUpperCase() === "Y" ? "Y" : "N";
+    }
   }
   state.mapRoute = normalizeCompetitionRouteSnapshot(res.data?.route);
   const declination = Number(res.data?.declination);

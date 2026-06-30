@@ -1520,9 +1520,6 @@ async function openCompMapModal() {
   mapGpsSignalLost = false;
   mapHeadingPermissionAsked = false;
   setMapNotice("", true);
-  mapFollowUser = selectedCompetitionShowsUserLocationMarker();
-  updateFollowButton();
-  updateHeadingButton();
   await requestFreshGeolocationForMapOpen();
   syncMapGpsSignalState(state.geo.error == null && state.geo.enabled);
   allowedMapLayers = await loadAllowedMapLayers();
@@ -1536,6 +1533,9 @@ async function openCompMapModal() {
     return;
   }
   state.mapItems = await loadMapCheckpoints();
+  mapFollowUser = selectedCompetitionShowsUserLocationMarker();
+  updateFollowButton();
+  updateHeadingButton();
   const shouldRetryInitialCheckpointFit =
     !selectedCompetitionShowsUserLocationMarker()
     && !hasSavedCompMapView()

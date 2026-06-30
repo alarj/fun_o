@@ -301,6 +301,10 @@ Muidu tagastatakse viga (mitte edukas sisestus).
 - Eduka preview järel tagastatav `join_proof` on HMAC-signeeritud ja lühiajaline.
 - `POST /api/competitor/join-complete` peab sama `join_proof` tõendi tagasi saatma.
 - Kui proof puudub, on aegunud või ei klapi requesti väljadega, katkestab FastAPI voo enne ORDS `join-complete` kutset.
+- Bundled mobiiliäpi erisus:
+  - Capacitori bundled Android app kasutab WebView `localhost` originit;
+  - seetõttu peab competitor join reCAPTCHA web key allowlist sisaldama lisaks `fun-o.eu` domeenile ka `localhost`;
+  - vastasel juhul hosted web võib töötada, kuid bundled app join-preview ebaõnnestub enne ORDS kutset.
 
 ## H. Index vaate i18n reeglid
 
