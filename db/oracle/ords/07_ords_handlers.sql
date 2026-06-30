@@ -1043,6 +1043,7 @@ begin
         l_json clob;
         l_competition_type varchar2(1);
         l_use_location varchar2(1);
+        l_show_competitor_location varchar2(1);
         l_mass_start_at varchar2(30);
         l_declination number;
         l_declination_last_updated varchar2(30);
@@ -1061,6 +1062,7 @@ begin
           o_items_json => l_json,
           o_competition_type => l_competition_type,
           o_use_location => l_use_location,
+          o_show_competitor_location => l_show_competitor_location,
           o_mass_start_at => l_mass_start_at,
           o_declination => l_declination,
           o_declination_last_updated => l_declination_last_updated
@@ -1086,6 +1088,7 @@ begin
         end;
         l_output_obj.put('competition_type', nvl(l_competition_type, 'R'));
         l_output_obj.put('use_location', nvl(l_use_location, 'N'));
+        l_output_obj.put('show_competitor_location', nvl(l_show_competitor_location, 'N'));
         if l_current_hash is null then
           l_output_obj.put_null('current_source_hash');
         else

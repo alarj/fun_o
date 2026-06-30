@@ -459,7 +459,22 @@ async function apiRequest(url, init, options = {}) {
   let attempt = 0;
   while (attempt < maxAttempts) {
     attempt += 1;
-    const r = await fetch(url, init);
+    let r;
+    try {
+      r = await fetch(url, {
+        credentials: "include",
+        ...(init || {}),
+      });
+    } catch {
+      return {
+        ok: false,
+        status: 0,
+        data: { detail: { code: "NETWORK_ERROR", message: "api.error.ords_unreachable" } },
+        userMessage: tr("api.error.ords_unreachable"),
+        retryAfterSeconds: 0,
+        sessionEnded: false,
+      };
+    }
     const data = await r.json().catch(() => ({}));
     const retryAfterSeconds = parseRetryAfterSeconds(r.headers.get("Retry-After"));
     const userMessage = enrichErrorMessage(r.status, data, retryAfterSeconds);
@@ -1240,6 +1255,10 @@ async function loadMapCheckpoints() {
   }
   if (state.activeCompetition) {
     state.activeCompetition.mass_start_at = typeof res.data?.mass_start_at === "string" ? res.data.mass_start_at : null;
+    if (typeof res.data?.show_competitor_location === "string") {
+      state.activeCompetition.show_competitor_location =
+        String(res.data.show_competitor_location || "N").toUpperCase() === "Y" ? "Y" : "N";
+    }
   }
   state.mapRoute = normalizeCompetitionRouteSnapshot(res.data?.route);
   const declination = Number(res.data?.declination);

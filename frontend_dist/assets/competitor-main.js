@@ -940,5 +940,8 @@ async function init() {
 }
 
 init().catch(() => {
+  try {
+    openJoinModal(null, { showClose: false, hasActive: false, codeReadonly: false });
+  } catch {}
   setMsg("joinMsg", "competitor.msg.bootstrap_failed", false);
 });

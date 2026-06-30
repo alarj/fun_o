@@ -40,7 +40,7 @@ FastAPI expects these ORDS endpoints under `{ORDS_BASE_URL}`:
 - GET `/admin/competitions/terms?competition_id=...&lang_code=...` - tagastab adminile tingimuste teksti redigeerimiseks.
 - POST `/admin/checkpoints` - loob uue kontrollpunkti.
 - POST `/admin/checkpoints/update` - uuendab kontrollpunkti andmeid.
-- POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete.
+- POST `/admin/checkpoints/delete` - teeb kontrollpunkti soft-delete; kui KP-l on aktiivne küsimus, lõpetatakse see enne automaatselt soft-delete'iga.
 - POST `/admin/questions` - loob uue küsimuse kontrollpunkti alla.
 - POST `/admin/questions/update` - uuendab küsimust ja seotud valikuid/vastuseid.
 - POST `/admin/questions/delete` - teeb küsimuse soft-delete.
@@ -99,19 +99,20 @@ Expected ORDS JSON responses:
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
 - `competitor/open-checkpoints` -> `{ "items": [...] }`
   - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
-- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"..." }`
+- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"...", "show_competitor_location":"Y|N" }`
   - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
     - `checkpoints.radius_m`, kui see on määratud;
     - muidu `competitions.radius_m`;
     - kui kumbki puudub, tagastatakse `0`.
-  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at` ja `route`.
+  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at`, `show_competitor_location` ja `route`.
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
-- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
+- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "show_competitor_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
   - payload sisaldab competitor-flow jaoks vajalikku staatilist checkpoint/question sisu:
     - checkpoint metadata
     - küsimuse tekstid
     - `SINGLE_CHOICE` valikud
     - efektiivne `radius_m`
+    - võistluse kaardikäitumise lipp `show_competitor_location`
   - payload ei sisalda participant-specific `is_answered` välju.
 - `competitor/checkpoint-state` -> `{ "items": [{"checkpoint_id":123}, ...] }`
   - payload sisaldab ainult participanti answered checkpoint id-de loendit.
@@ -186,6 +187,10 @@ Session cookie flow:
   - `COMPETITOR_SESSION_COOKIE_NAME` (signed session payload incl. user/participant)
   - `COMPETITOR_PARTICIPATION_COOKIE_NAME` (active participant id token)
 - `GET /api/competitor/session` validates competitor cookies against ORDS (`competitor/session-by-participant`) and refreshes cookie TTL.
+- Bundled mobile app note:
+  - competitor API requests must be sent with credentials enabled from the WebView/client;
+  - backend must allow the bundled app origin via CORS;
+  - competitor cookies must use a cross-site compatible SameSite policy when the app calls API from `localhost` / `capacitor://localhost` origin.
 - `POST /api/auth/logout` clears both admin cookies (`SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`).
 - Protected admin/superadmin endpoints resolve user from `SESSION_COOKIE_NAME`; competitor endpoints resolve user from competitor cookies.
 - `user_id` in payload and `x-user-id` header are optional guards; if sent, they must match session user.
@@ -193,7 +198,7 @@ Session cookie flow:
 Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
-- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
+- Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `COMPETITOR_COOKIE_SAMESITE`, `CORS_ALLOWED_ORIGINS`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
 - Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
@@ -212,6 +217,13 @@ Required backend env:
 - Optional magnetic declination config: `DECLINATION_SERVICE_URL_TEMPLATE`, `DECLINATION_REFRESH_DAYS`
 - Optional map-provider keys: `MAPYCZ_API_KEY`, `MAPTILER_API_KEY`, `MML_API_KEY`
 - Optional i18n config: `LANG_AVAILABLE` (for example `et,en`), `LANG_DEFAULT` (for example `et`)
+- Bundled competitor app recommended backend config:
+  - `CORS_ALLOWED_ORIGINS=http://localhost,https://localhost,capacitor://localhost`
+  - `COMPETITOR_COOKIE_SAMESITE=none`
+  - `SESSION_COOKIE_SECURE=true`
+- Bundled competitor app external-service allowlist notes:
+  - Google reCAPTCHA web keys used by competitor join must allow `localhost` in their allowed domains, otherwise bundled app join-preview fails before ORDS.
+  - Mapy.cz API keys used by `mapycz_outdoor` must allow bundled WebView referrers such as `localhost` (and in practice `127.0.0.1` may also be needed), otherwise tiles return provider-side invalid API key errors only in bundled app mode.
 - Optional competitor join anti-bot config:
   - `RECAPTCHA_JOIN_V3_SITE_KEY`
   - `RECAPTCHA_JOIN_V3_SECRET_KEY`
@@ -312,6 +324,7 @@ Competition-specific own map overlay in competitor UI:
   - overlay visibility must not depend on GPS availability, current user location or follow mode;
   - follow mode may change only map center movement;
   - user location marker may change only user-location rendering.
+  - bundled mobile app mode must resolve relative tile URLs against the configured API base URL, not against the local WebView origin.
 - If participant layer selection contains `maaamet_pohikaart_overlay`, backend treats `maaamet_pohikaart` as its technical prerequisite.
 - Overlay tile media is served by FastAPI endpoint:
   - `GET /api/competitor/competitions/overlay/tiles/{overlay_id}/{z}/{x}/{y}.png?token=...`

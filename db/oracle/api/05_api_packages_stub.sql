@@ -2566,6 +2566,7 @@ create or replace package pkg_competitor as
     o_items_json out clob,
     o_competition_type out varchar2,
     o_use_location out varchar2,
+    o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
@@ -3620,6 +3621,7 @@ create or replace package body pkg_competitor as
     o_items_json out clob,
     o_competition_type out varchar2,
     o_use_location out varchar2,
+    o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
     o_declination out number,
     o_declination_last_updated out varchar2
@@ -3628,11 +3630,13 @@ create or replace package body pkg_competitor as
     begin
       select nvl(c.type, 'R'),
              nvl(c.use_location, 'N'),
+             case when nvl(c.use_location, 'N') = 'Y' then nvl(c.show_competitor_location, 'Y') else 'N' end,
              to_char(c.mass_start_at, pkg_common.c_iso_ts_format),
              nvl(cd.declination, 0),
              to_char(cd.last_updated, pkg_common.c_iso_ts_format)
         into o_competition_type,
              o_use_location,
+             o_show_competitor_location,
              o_mass_start_at,
              o_declination,
              o_declination_last_updated
@@ -3646,6 +3650,7 @@ create or replace package body pkg_competitor as
       when no_data_found then
         o_competition_type := 'R';
         o_use_location := 'N';
+        o_show_competitor_location := 'N';
         o_mass_start_at := null;
         o_declination := 0;
         o_declination_last_updated := null;
@@ -7351,11 +7356,17 @@ create or replace package body pkg_admin_content as
   end;
 
   -- soft_delete_checkpoint: Soft-deletes the target record by end-dating it.
+  -- If the checkpoint still has active question(s), they are soft-deleted first.
   procedure soft_delete_checkpoint(p_checkpoint_id in number, p_deleted_by in number) is
-    l_cnt number;
   begin
-    select count(*) into l_cnt from questions q where q.checkpoint_id = p_checkpoint_id and (q.end_date is null or q.end_date > sysdate);
-    if l_cnt > 0 then raise_application_error(-20104, 'cannot delete checkpoint with active questions'); end if;
+    for q_rec in (
+      select q.question_id
+        from questions q
+       where q.checkpoint_id = p_checkpoint_id
+         and (q.end_date is null or q.end_date > sysdate)
+    ) loop
+      soft_delete_question(q_rec.question_id, p_deleted_by);
+    end loop;
 
     update checkpoints
        set end_date = trunc(sysdate), updated_by = p_deleted_by, updated_at = systimestamp
