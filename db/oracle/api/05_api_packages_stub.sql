@@ -7382,16 +7382,23 @@ create or replace package body pkg_admin_content as
     p_question_text in varchar2, p_created_by in number, o_question_id out number
   ) is
     l_lang varchar2(10);
-    l_exists number;
+    l_exists number := 0;
   begin
     if p_checkpoint_id is null or p_question_type is null or trim(p_question_text) is null then
       raise_application_error(-20110, 'checkpoint_id, question_type and question_text are required');
     end if;
 
-    select count(*) into l_exists
-      from questions q
-     where q.checkpoint_id = p_checkpoint_id
-       and (q.end_date is null or q.end_date > sysdate);
+    begin
+      select 1
+        into l_exists
+        from questions q
+       where q.checkpoint_id = p_checkpoint_id
+         and (q.end_date is null or q.end_date > sysdate)
+         fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_exists := 0;
+    end;
     if l_exists > 0 then
       raise_application_error(-20113, 'target checkpoint already has another active question');
     end if;
@@ -7415,18 +7422,37 @@ create or replace package body pkg_admin_content as
     p_lang_code in varchar2, p_question_text in varchar2, p_updated_by in number
   ) is
     l_lang varchar2(10);
-    l_exists number;
+    l_exists number := 0;
   begin
     if p_question_id is null or p_checkpoint_id is null or p_question_type is null or trim(p_question_text) is null then
       raise_application_error(-20115, 'question_id, checkpoint_id, question_type and question_text are required');
     end if;
     l_lang := nvl(p_lang_code, 'et');
 
-    select count(*) into l_exists
-      from questions q
-     where q.checkpoint_id = p_checkpoint_id
-       and q.question_id <> p_question_id
-       and (q.end_date is null or q.end_date > sysdate);
+    begin
+      select 1
+        into l_exists
+        from questions q
+       where q.question_id = p_question_id
+         and (q.end_date is null or q.end_date > sysdate)
+         fetch first 1 row only;
+    exception
+      when no_data_found then
+        raise_application_error(-20115, 'active question not found');
+    end;
+
+    begin
+      select 1
+        into l_exists
+        from questions q
+       where q.checkpoint_id = p_checkpoint_id
+         and q.question_id <> p_question_id
+         and (q.end_date is null or q.end_date > sysdate)
+         fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_exists := 0;
+    end;
     if l_exists > 0 then
       raise_application_error(-20113, 'target checkpoint already has another active question');
     end if;
