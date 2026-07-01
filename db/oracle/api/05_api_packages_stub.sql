@@ -7415,11 +7415,21 @@ create or replace package body pkg_admin_content as
     p_lang_code in varchar2, p_question_text in varchar2, p_updated_by in number
   ) is
     l_lang varchar2(10);
+    l_exists number;
   begin
     if p_question_id is null or p_checkpoint_id is null or p_question_type is null or trim(p_question_text) is null then
       raise_application_error(-20115, 'question_id, checkpoint_id, question_type and question_text are required');
     end if;
     l_lang := nvl(p_lang_code, 'et');
+
+    select count(*) into l_exists
+      from questions q
+     where q.checkpoint_id = p_checkpoint_id
+       and q.question_id <> p_question_id
+       and (q.end_date is null or q.end_date > sysdate);
+    if l_exists > 0 then
+      raise_application_error(-20113, 'target checkpoint already has another active question');
+    end if;
 
     update questions
        set checkpoint_id = p_checkpoint_id, question_type = p_question_type, input_type = p_input_type,
