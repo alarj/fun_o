@@ -97,16 +97,16 @@ Expected ORDS JSON responses:
   - Request peab alati sisaldama `join_proof` välja, mille FastAPI valideerib enne ORDS `join-complete` kutset ka siis, kui anti-bot kaitse on konfiguratsioonis välja lülitatud.
   - Join-complete katse logitakse alati struktureeritud `INFO` rea kujul sündmusega `competitor_join_complete`; edulogi sisaldab loodud/seotud `competition_participant_id` väärtust ja vealogi sisaldab `status_code` + `error_code` välja.
 - `competitor/competitions` -> `{ "items": [{ "competition_id": 1, "name": "...", "type": "R|S" }] }`
-- `competitor/open-checkpoints` -> `{ "items": [...] }`
+- `competitor/open-checkpoints` -> `{ "items": [...], "status":"ACTIVE|...", "starts_at":"...", "ends_at":"..." }`
   - iga checkpoint võib sisaldada välja `checkpoint_interaction` väärtustega `QUESTION`, `CHECK_ONLY`, `MASS_START`.
-- `competitor/map-checkpoints` -> `{ "items": [...], "mass_start_at":"...", "show_competitor_location":"Y|N" }`
+- `competitor/map-checkpoints` -> `{ "items": [...], "status":"ACTIVE|...", "starts_at":"...", "ends_at":"...", "mass_start_at":"...", "show_competitor_location":"Y|N" }`
   - asukohanõudega KP (`location_required = Y`) `radius_m` on efektiivne vastamisraadius:
     - `checkpoints.radius_m`, kui see on määratud;
     - muidu `competitions.radius_m`;
     - kui kumbki puudub, tagastatakse `0`.
-  - payload võib lisaks sisaldada `competition_type`, `current_source_hash`, `mass_start_at`, `show_competitor_location` ja `route`.
+  - payload võib lisaks sisaldada `competition_type`, `status`, `starts_at`, `ends_at`, `current_source_hash`, `mass_start_at`, `show_competitor_location` ja `route`.
   - `route` väljastatakse ainult siis, kui salvestatud raja snapshoti `calculated_source_hash` klapib jooksva `current_source_hash` väärtusega.
-- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "use_location":"Y|N", "show_competitor_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
+- `competitor/competition-content` -> `{ "items": [...], "competition_type":"R|S", "status":"ACTIVE|...", "starts_at":"...", "ends_at":"...", "use_location":"Y|N", "show_competitor_location":"Y|N", "mass_start_at":"...", "current_source_hash":"...", "route":{...} }`
   - payload sisaldab competitor-flow jaoks vajalikku staatilist checkpoint/question sisu:
     - checkpoint metadata
     - küsimuse tekstid
@@ -199,6 +199,7 @@ Required backend env:
 - `ORDS_BASE_URL`
 - `SESSION_SECRET` (required for cookie signing)
 - Optional: `SESSION_COOKIE_NAME`, `SESSION_REFRESH_COOKIE_NAME`, `SESSION_ACCESS_TTL_MINUTES`, `SESSION_REFRESH_TTL_DAYS`, `COMPETITOR_SESSION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_NAME`, `COMPETITOR_PARTICIPATION_COOKIE_TTL_HOURS`, `SESSION_COOKIE_SECURE`, `COMPETITOR_COOKIE_SAMESITE`, `CORS_ALLOWED_ORIGINS`, `ORDS_USERNAME`, `ORDS_PASSWORD`, `GOOGLE_CLIENT_ID`, `APP_ENV`, `LOG_LEVEL`
+- Optional bundled-app prompt config: `FUNO_ANDROID_APP_DOWNLOAD_URL`
 - Optional admin onboarding / anti-spam config: `ADD_EMPTY_COMPETITION_TO_NEW_ADMIN`, `MAX_NEW_COMPETITIONS`, `MAX_COMPETITION_ADMIN`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`
 - Optional overlay config: `OVERLAY_STORAGE_DIR`, `OVERLAY_MAX_UPLOAD_BYTES`, `OVERLAY_MAX_DIMENSION_PX`, `OVERLAY_TILE_MIN_ZOOM`, `OVERLAY_TILE_MAX_ZOOM`, `OVERLAY_TILE_TOKEN_TTL_SECONDS`
@@ -224,6 +225,10 @@ Required backend env:
 - Bundled competitor app external-service allowlist notes:
   - Google reCAPTCHA web keys used by competitor join must allow `localhost` in their allowed domains, otherwise bundled app join-preview fails before ORDS.
   - Mapy.cz API keys used by `mapycz_outdoor` must allow bundled WebView referrers such as `localhost` (and in practice `127.0.0.1` may also be needed), otherwise tiles return provider-side invalid API key errors only in bundled app mode.
+- Bundled competitor web-entry prompt note:
+  - `/api/competitor/mobile-app-config` is a lightweight FastAPI-only endpoint; it does not call ORDS.
+  - `FUNO_ANDROID_APP_DOWNLOAD_URL` lets the competitor web page show a sideload download link for the bundled Android app.
+  - current browser-to-app handoff uses Android custom scheme `funo://open`.
 - Optional competitor join anti-bot config:
   - `RECAPTCHA_JOIN_V3_SITE_KEY`
   - `RECAPTCHA_JOIN_V3_SECRET_KEY`
@@ -889,6 +894,9 @@ Important:
   - uses the composed map payload built from `competition_checkpoint_static_cache` + `participant_checkpoint_state_cache`.
   - uses ORDS only as a fallback when local checkpoint metadata is insufficient for a FastAPI-side decision.
 - Rules:
+  - if competition `status <> ACTIVE` -> `can_open=false, reason=not_open`
+  - if competition `starts_at > now_utc` -> `can_open=false, reason=not_started`
+  - if competition `ends_at <= now_utc` -> `can_open=false, reason=competition_ended`
   - if `FINISH` is already answered -> `can_open=false, reason=finished`
   - if active `START` exists and is not answered yet -> only `START` may open, other map clicks return `reason=start_required`
   - if `competition_type='S'` -> only the next unanswered `NORMAL` checkpoint may open; after all normal checkpoints only `FINISH` may open (`reason=wrong_order` for others)
@@ -991,6 +999,10 @@ Final authority:
 Competitor map popup flow:
 - map popup open must not trigger an `open-checkpoints` bulk fetch just to decide whether to show the popup answer button.
 - popup answer-button visibility is a FastAPI/client-side UI predecision based on cached `competitor/map-checkpoints` data plus the latest known user geolocation.
+- competition submit-window gate has the highest priority in popup reasoning:
+  - before `starts_at`, popup must show the translated "competition not started yet" reason instead of submit CTA;
+  - after `ends_at`, popup must show the translated "competition has ended" reason instead of submit CTA;
+  - only when the competition is temporally open may popup continue to `START`, order, answered-state and geofence reasons.
 - user geolocation updates must not force content refresh for every closed popup; only currently open popup content should be refreshed on GPS movement.
 - after a positive `checkpoint-access` decision, the actual question payload still comes from `open-checkpoints`, but in the normal path that list is assembled locally in FastAPI without an extra ORDS roundtrip.
 - for location competitions, `index.html` no longer shows a competitor question list in the middle area; question opening happens from the map only.

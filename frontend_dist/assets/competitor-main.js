@@ -1,3 +1,8 @@
+let competitorMobileAppConfig = {
+  androidOpenUrl: "funo://open",
+  androidDownloadUrl: "",
+};
+
 function mySortIconFor(key) {
   if (myResultsSortKey !== key) return "\u2630";
   return myResultsSortDir === "asc" ? "\u25B2" : "\u25BC";
@@ -132,6 +137,9 @@ function setActiveCompetitionFromSession(sessionData) {
     name: p.competition_name || "-",
     description: p.competition_description || "",
     type: p.competition_type || "R",
+    status: p.status || null,
+    starts_at: p.starts_at || null,
+    ends_at: p.ends_at || null,
     mass_start_at: null,
     alias_display: p.alias_display || null,
     competitor_name: p.competitor_name || null,
@@ -218,6 +226,58 @@ async function loadJoinCaptchaConfig() {
     v3Action: String(res.data.v3_action || "competitor_join_preview"),
     unavailable: false,
   };
+}
+
+function isAndroidBrowserContext() {
+  if (globalThis.funoApp?.isNativePlatform?.()) return false;
+  const ua = String(globalThis.navigator?.userAgent || "").toLowerCase();
+  return ua.includes("android");
+}
+
+function canShowCompetitorAppPrompt() {
+  if (!isAndroidBrowserContext()) return false;
+  try {
+    return globalThis.sessionStorage?.getItem("funo_competitor_app_prompt_dismissed") !== "1";
+  } catch {
+    return true;
+  }
+}
+
+function dismissCompetitorAppPrompt() {
+  try {
+    globalThis.sessionStorage?.setItem("funo_competitor_app_prompt_dismissed", "1");
+  } catch {}
+  el("competitorAppPromptBackdrop").style.display = "none";
+}
+
+function updateCompetitorAppPromptButtons() {
+  const downloadUrl = String(competitorMobileAppConfig.androidDownloadUrl || "").trim();
+  const hasDownloadUrl = !!downloadUrl;
+  el("competitorAppPromptDownloadBtn").style.display = hasDownloadUrl ? "block" : "none";
+  el("competitorAppPromptDownloadHint").style.display = hasDownloadUrl ? "block" : "none";
+}
+
+async function loadCompetitorMobileAppConfig() {
+  const res = await apiGet("/api/competitor/mobile-app-config");
+  if (!res.ok || !res.data) {
+    competitorMobileAppConfig = {
+      androidOpenUrl: "funo://open",
+      androidDownloadUrl: "",
+    };
+    updateCompetitorAppPromptButtons();
+    return;
+  }
+  competitorMobileAppConfig = {
+    androidOpenUrl: String(res.data.android_open_url || "funo://open").trim() || "funo://open",
+    androidDownloadUrl: String(res.data.android_download_url || "").trim(),
+  };
+  updateCompetitorAppPromptButtons();
+}
+
+function maybeShowCompetitorAppPrompt() {
+  if (!canShowCompetitorAppPrompt()) return;
+  updateCompetitorAppPromptButtons();
+  el("competitorAppPromptBackdrop").style.display = "flex";
 }
 
 async function loadSessionState() {
@@ -707,6 +767,7 @@ async function init() {
   await globalThis.funoApp?.initialize?.();
   await loadI18nMeta();
   await loadJoinCaptchaConfig();
+  await loadCompetitorMobileAppConfig();
   renderLangOptions();
   const savedLang = (getCookie("funo_competitor_ui_lang") || "").trim().toLowerCase();
   const initialLang = (savedLang && i18nMeta.available_langs.includes(savedLang))
@@ -729,6 +790,21 @@ async function init() {
     el("joinByCodeBackdrop").style.display = "none";
     closeJoinCaptchaModal();
     if (joinCodeReadonly) clearJoinCodeFromUrl();
+  });
+  el("competitorAppPromptOpenBtn").addEventListener("click", () => {
+    const openUrl = String(competitorMobileAppConfig.androidOpenUrl || "funo://open").trim() || "funo://open";
+    globalThis.location.href = openUrl;
+  });
+  el("competitorAppPromptBrowserBtn").addEventListener("click", () => {
+    dismissCompetitorAppPrompt();
+  });
+  el("competitorAppPromptDownloadBtn").addEventListener("click", () => {
+    const downloadUrl = String(competitorMobileAppConfig.androidDownloadUrl || "").trim();
+    if (!downloadUrl) return;
+    globalThis.location.href = downloadUrl;
+  });
+  el("competitorAppPromptBackdrop").addEventListener("click", (e) => {
+    if (e.target === el("competitorAppPromptBackdrop")) dismissCompetitorAppPrompt();
   });
   el("joinSwitchWarningContinueBtn").addEventListener("click", () => {
     if (!pendingJoinSwitch?.code) {
@@ -933,10 +1009,11 @@ async function init() {
     renderProgressBox();
   });
 
-  bootstrapCompetitorView().catch(() => {
+  await bootstrapCompetitorView().catch(() => {
     openJoinModal(getCodeFromUrl());
     setMsg("joinMsg", tr("competitor.msg.bootstrap_failed"), false);
   });
+  maybeShowCompetitorAppPrompt();
 }
 
 init().catch(() => {

@@ -2565,6 +2565,9 @@ create or replace package pkg_competitor as
     p_competition_id in number,
     o_items_json out clob,
     o_competition_type out varchar2,
+    o_competition_status out varchar2,
+    o_starts_at out varchar2,
+    o_ends_at out varchar2,
     o_use_location out varchar2,
     o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
@@ -3620,6 +3623,9 @@ create or replace package body pkg_competitor as
     p_competition_id in number,
     o_items_json out clob,
     o_competition_type out varchar2,
+    o_competition_status out varchar2,
+    o_starts_at out varchar2,
+    o_ends_at out varchar2,
     o_use_location out varchar2,
     o_show_competitor_location out varchar2,
     o_mass_start_at out varchar2,
@@ -3629,12 +3635,18 @@ create or replace package body pkg_competitor as
   begin
     begin
       select nvl(c.type, 'R'),
+             c.status,
+             to_char(c.starts_at, pkg_common.c_iso_ts_format),
+             to_char(c.ends_at, pkg_common.c_iso_ts_format),
              nvl(c.use_location, 'N'),
              case when nvl(c.use_location, 'N') = 'Y' then nvl(c.show_competitor_location, 'Y') else 'N' end,
              to_char(c.mass_start_at, pkg_common.c_iso_ts_format),
              nvl(cd.declination, 0),
              to_char(cd.last_updated, pkg_common.c_iso_ts_format)
         into o_competition_type,
+             o_competition_status,
+             o_starts_at,
+             o_ends_at,
              o_use_location,
              o_show_competitor_location,
              o_mass_start_at,
@@ -3649,6 +3661,9 @@ create or replace package body pkg_competitor as
     exception
       when no_data_found then
         o_competition_type := 'R';
+        o_competition_status := 'INACTIVE';
+        o_starts_at := null;
+        o_ends_at := null;
         o_use_location := 'N';
         o_show_competitor_location := 'N';
         o_mass_start_at := null;

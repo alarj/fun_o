@@ -771,6 +771,17 @@ function hasMassStartBegun() {
   return !!massStartDate && massStartDate.getTime() <= Date.now();
 }
 
+function currentCompetitionSubmissionWindowReason() {
+  const competition = getSelectedCompetition();
+  const statusText = String(competition?.status || "").trim().toUpperCase();
+  if (statusText && statusText !== "ACTIVE") return "not_open";
+  const startsAt = parseUtcDate(competition?.starts_at);
+  if (startsAt && startsAt.getTime() > Date.now()) return "not_started";
+  const endsAt = parseUtcDate(competition?.ends_at);
+  if (endsAt && endsAt.getTime() <= Date.now()) return "competition_ended";
+  return null;
+}
+
 function isLogicalStartAnswered(rows) {
   const normalizedRows = Array.isArray(rows) ? rows : [];
   const explicitStartAnswered = normalizedRows.some((row) => (
@@ -832,6 +843,17 @@ function getCheckpointPopupState(cp) {
   }
   if (String(cp?.is_answered || "N").toUpperCase() === "Y") {
     return { canAnswer: false, messageKey: "competitor.map.popup_question_missing" };
+  }
+
+  const submissionWindowReason = currentCompetitionSubmissionWindowReason();
+  if (submissionWindowReason === "not_started") {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_not_started" };
+  }
+  if (submissionWindowReason === "competition_ended") {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_competition_ended" };
+  }
+  if (submissionWindowReason === "not_open") {
+    return { canAnswer: false, messageKey: "competitor.map.access_reason_not_open" };
   }
 
   const rows = mapCheckpointRows();
@@ -1319,6 +1341,8 @@ function refreshCompMapRouteDecorations() {
 
 function checkpointAccessReasonMessage(reason) {
   const key = {
+    not_started: "competitor.map.access_reason_not_started",
+    competition_ended: "competitor.map.access_reason_competition_ended",
     missing_location: "competitor.map.access_reason_missing_location",
     too_far: "competitor.map.access_reason_too_far",
     finished: "competitor.map.access_reason_finished",

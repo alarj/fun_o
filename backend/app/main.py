@@ -70,6 +70,7 @@ class Settings:
     recaptcha_join_v3_score_threshold: float = float(os.getenv("RECAPTCHA_JOIN_V3_SCORE_THRESHOLD", "0.4"))
     recaptcha_join_proof_ttl_seconds: int = int(os.getenv("RECAPTCHA_JOIN_PROOF_TTL_SECONDS", "900"))
     recaptcha_verify_url: str = os.getenv("RECAPTCHA_VERIFY_URL", "https://www.google.com/recaptcha/api/siteverify").strip() or "https://www.google.com/recaptcha/api/siteverify"
+    android_app_download_url: str = os.getenv("FUNO_ANDROID_APP_DOWNLOAD_URL", "").strip()
     cors_allowed_origins: list[str] = [
         x.strip()
         for x in os.getenv(
@@ -369,6 +370,11 @@ class CompetitorJoinConfigResponse(BaseModel):
     v3_action: str | None = None
 
 
+class CompetitorMobileAppConfigResponse(BaseModel):
+    android_open_url: str
+    android_download_url: str | None = None
+
+
 class CompetitorJoinCodePreviewResponse(BaseModel):
     competition_id: int
     competition_name: str
@@ -446,6 +452,7 @@ class CompetitorCompetition(BaseModel):
     name: str
     description: str | None = None
     type: str | None = None
+    status: str | None = None
     starts_at: str | None = None
     ends_at: str | None = None
     use_location: str | None = None
@@ -459,7 +466,10 @@ class CompetitorCompetitionsResponse(BaseModel):
 class CompetitorOpenCheckpointsResponse(BaseModel):
     response_source: str | None = None
     competition_type: str | None = None
+    status: str | None = None
     current_source_hash: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
     mass_start_at: str | None = None
     show_competitor_location: str | None = None
     declination: float = 0.0
@@ -2833,6 +2843,24 @@ def _has_mass_start_begun(value: Any) -> bool:
     return dt <= datetime.now(timezone.utc)
 
 
+def _competition_submission_window_reason(
+    status_value: Any,
+    starts_at_value: Any,
+    ends_at_value: Any,
+) -> str | None:
+    status_text = str(status_value or "").strip().upper()
+    now_utc = datetime.now(timezone.utc)
+    if status_text != "ACTIVE":
+        return "not_open"
+    starts_at = _parse_utc_datetime(starts_at_value)
+    if starts_at is not None and starts_at > now_utc:
+        return "not_started"
+    ends_at = _parse_utc_datetime(ends_at_value)
+    if ends_at is not None and ends_at <= now_utc:
+        return "competition_ended"
+    return None
+
+
 def _format_declination_service_url(latitude: float, longitude: float, date_value: datetime) -> str:
     template = (settings.declination_service_url_template or "").strip()
     return template.format(
@@ -2964,6 +2992,10 @@ async def _fetch_competition_checkpoint_static_payload_from_ords(competition_id:
     current_source_hash = current_source_hash_raw if isinstance(current_source_hash_raw, str) and current_source_hash_raw.strip() else None
     mass_start_at_raw = ords_response.get("mass_start_at") if isinstance(ords_response, dict) else None
     mass_start_at = mass_start_at_raw if isinstance(mass_start_at_raw, str) and mass_start_at_raw.strip() else None
+    competition_status_raw = ords_response.get("status") if isinstance(ords_response, dict) else None
+    competition_status = str(competition_status_raw or "INACTIVE").strip().upper() or "INACTIVE"
+    starts_at = ords_response.get("starts_at") if isinstance(ords_response.get("starts_at"), str) else None
+    ends_at = ords_response.get("ends_at") if isinstance(ords_response.get("ends_at"), str) else None
     use_location_raw = ords_response.get("use_location") if isinstance(ords_response, dict) else None
     use_location = str(use_location_raw or "N").strip().upper() or "N"
     show_competitor_location_raw = ords_response.get("show_competitor_location") if isinstance(ords_response, dict) else None
@@ -2981,7 +3013,10 @@ async def _fetch_competition_checkpoint_static_payload_from_ords(competition_id:
         route = None
     return {
         "competition_type": competition_type,
+        "status": competition_status,
         "current_source_hash": current_source_hash if current_source_hash == locally_computed_hash else locally_computed_hash,
+        "starts_at": starts_at,
+        "ends_at": ends_at,
         "mass_start_at": mass_start_at,
         "use_location": "Y" if use_location == "Y" else "N",
         "show_competitor_location": "Y" if show_competitor_location == "Y" else "N",
@@ -3117,7 +3152,10 @@ def _build_map_checkpoints_payload(
         "static_source": static_source,
         "state_source": state_source,
         "competition_type": static_payload.get("competition_type"),
+        "status": static_payload.get("status"),
         "current_source_hash": static_payload.get("current_source_hash"),
+        "starts_at": static_payload.get("starts_at"),
+        "ends_at": static_payload.get("ends_at"),
         "mass_start_at": static_payload.get("mass_start_at"),
         "use_location": static_payload.get("use_location"),
         "show_competitor_location": static_payload.get("show_competitor_location"),
@@ -3156,6 +3194,13 @@ def _build_open_checkpoint_items(
     static_items = static_payload.get("items") if isinstance(static_payload.get("items"), list) else []
     answered_checkpoint_ids = participant_state.get("answered_checkpoint_ids")
     answered_ids = answered_checkpoint_ids if isinstance(answered_checkpoint_ids, set) else set()
+    submission_window_reason = _competition_submission_window_reason(
+        static_payload.get("status"),
+        static_payload.get("starts_at"),
+        static_payload.get("ends_at"),
+    )
+    if submission_window_reason is not None:
+        return []
     competition_type = str(static_payload.get("competition_type") or "R")
     mass_start_at = static_payload.get("mass_start_at") if isinstance(static_payload.get("mass_start_at"), str) else None
     use_location = str(static_payload.get("use_location") or "N").strip().upper() == "Y"
@@ -3734,6 +3779,14 @@ async def competitor_join_config() -> CompetitorJoinConfigResponse:
     )
 
 
+@app.get("/api/competitor/mobile-app-config", response_model=CompetitorMobileAppConfigResponse)
+async def competitor_mobile_app_config() -> CompetitorMobileAppConfigResponse:
+    return CompetitorMobileAppConfigResponse(
+        android_open_url="funo://open",
+        android_download_url=settings.android_app_download_url or None,
+    )
+
+
 @app.get("/api/competitor/join-code-preview", response_model=CompetitorJoinCodePreviewResponse)
 async def competitor_join_code_preview(code: str, request: Request) -> CompetitorJoinCodePreviewResponse:
     user_id = _read_competitor_session_user_id(request)
@@ -4104,7 +4157,16 @@ async def competitor_open_checkpoints(
                         "duration_ms": round((time.monotonic() - started_at) * 1000.0, 3),
                     },
                 )
-            return CompetitorOpenCheckpointsResponse(response_source="cache", items=previous_items)
+            return CompetitorOpenCheckpointsResponse(
+                response_source="cache",
+                competition_type=previous.get("competition_type") if isinstance(previous.get("competition_type"), str) else None,
+                status=previous.get("status") if isinstance(previous.get("status"), str) else None,
+                starts_at=previous.get("starts_at") if isinstance(previous.get("starts_at"), str) else None,
+                ends_at=previous.get("ends_at") if isinstance(previous.get("ends_at"), str) else None,
+                mass_start_at=previous.get("mass_start_at") if isinstance(previous.get("mass_start_at"), str) else None,
+                show_competitor_location=previous.get("show_competitor_location") if isinstance(previous.get("show_competitor_location"), str) else None,
+                items=previous_items,
+            )
 
     try:
         static_payload, static_source = await _get_competition_checkpoint_static_payload(competition_id)
@@ -4132,7 +4194,17 @@ async def competitor_open_checkpoints(
         latitude=latitude,
         longitude=longitude,
     )
-    open_checkpoints_last_response[key] = {"response_at": now, "items": items, "signature": req_signature}
+    open_checkpoints_last_response[key] = {
+        "response_at": now,
+        "items": items,
+        "signature": req_signature,
+        "competition_type": static_payload.get("competition_type"),
+        "status": static_payload.get("status"),
+        "starts_at": static_payload.get("starts_at"),
+        "ends_at": static_payload.get("ends_at"),
+        "mass_start_at": static_payload.get("mass_start_at"),
+        "show_competitor_location": static_payload.get("show_competitor_location"),
+    }
     response_source = "ords" if static_source == "ords" or state_source == "ords" else "fastapi"
     if logger.isEnabledFor(logging.DEBUG):
         _log_structured(
@@ -4151,7 +4223,10 @@ async def competitor_open_checkpoints(
     return CompetitorOpenCheckpointsResponse(
         response_source=response_source,
         competition_type=static_payload.get("competition_type") if isinstance(static_payload.get("competition_type"), str) else None,
+        status=static_payload.get("status") if isinstance(static_payload.get("status"), str) else None,
         mass_start_at=static_payload.get("mass_start_at") if isinstance(static_payload.get("mass_start_at"), str) else None,
+        starts_at=static_payload.get("starts_at") if isinstance(static_payload.get("starts_at"), str) else None,
+        ends_at=static_payload.get("ends_at") if isinstance(static_payload.get("ends_at"), str) else None,
         show_competitor_location=static_payload.get("show_competitor_location") if isinstance(static_payload.get("show_competitor_location"), str) else None,
         items=items,
     )
@@ -4184,7 +4259,10 @@ async def competitor_map_checkpoints(
     return CompetitorOpenCheckpointsResponse(
         response_source=payload.get("response_source") if isinstance(payload.get("response_source"), str) else None,
         competition_type=payload.get("competition_type") if isinstance(payload.get("competition_type"), str) else None,
+        status=payload.get("status") if isinstance(payload.get("status"), str) else None,
         current_source_hash=payload.get("current_source_hash") if isinstance(payload.get("current_source_hash"), str) else None,
+        starts_at=payload.get("starts_at") if isinstance(payload.get("starts_at"), str) else None,
+        ends_at=payload.get("ends_at") if isinstance(payload.get("ends_at"), str) else None,
         mass_start_at=payload.get("mass_start_at") if isinstance(payload.get("mass_start_at"), str) else None,
         show_competitor_location=payload.get("show_competitor_location") if isinstance(payload.get("show_competitor_location"), str) else None,
         items=payload.get("items") if isinstance(payload.get("items"), list) else [],
@@ -4239,6 +4317,25 @@ async def competitor_checkpoint_access(
     lon = req.longitude if isinstance(req.longitude, (int, float)) else None
     competition_type = str(map_payload.get("competition_type") or "R")
     mass_start_at = map_payload.get("mass_start_at") if isinstance(map_payload.get("mass_start_at"), str) else None
+    submission_window_reason = _competition_submission_window_reason(
+        map_payload.get("status"),
+        map_payload.get("starts_at"),
+        map_payload.get("ends_at"),
+    )
+    if submission_window_reason is not None:
+        reason_value = submission_window_reason
+        return CompetitorCheckpointAccessResponse(
+            ords_called=False,
+            items=[
+                CompetitorCheckpointAccessEntry(
+                    checkpoint_id=cp_id,
+                    can_open=False,
+                    reason=reason_value,
+                )
+                for cp_id in req.checkpoint_ids
+                if isinstance(cp_id, int)
+            ],
+        )
     progress = _participant_progress_context(competition_type, map_items, _answered_checkpoint_ids_from_payload(map_items), mass_start_at)
     comp_type = str(progress.get("competition_type") or "R")
     start_exists = bool(progress.get("start_exists"))

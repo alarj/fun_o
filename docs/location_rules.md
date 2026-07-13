@@ -243,6 +243,10 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - frontend saadab geolokatsiooni FastAPI-le alles siis, kui kasutaja vajutab popupi vastamise nuppu;
   - FastAPI teeb eelkontrolli ja tavapärase open-listi koostamise lokaalselt (distants + participant-state + staatiline payload);
   - FastAPI küsib ORDS-ist ainult siis, kui lokaalset otsust ei saa teha olemasoleva metadata põhjal.
+- Kontrollide prioriteet popupis ja FastAPI eelotsuses:
+  - kõigepealt kontrollitakse, kas võistlus on submit'i jaoks ajaliselt avatud (`status='ACTIVE'`, `starts_at <= now`, `ends_at is null` või `now < ends_at`);
+  - kui see kontroll ebaõnnestub, kuvatakse vastav põhjus (`Võistlus ei ole veel alanud!` / `Võistlus on lõppenud!`) ja kauguse, `START`-i, järjekorra ega muude põhjuste kontrolli kasutajale enam ei kuvata;
+  - alles ajaliselt avatud võistluse korral rakenduvad `START`, järjekorra, answered-seisu ja geopiirde põhjused.
 - Tavapärases voos ei vaja küsimuse avatavuse lõplik otsus enam eraldi ORDS roundtrip'i; autoriteetne lõplik ärikontroll jääb `submissions` teenusele.
 - Kui aktiivne `START` on olemas ja seda pole veel läbitud, siis enne `START` läbimist ei avata ühtegi muud KP-d.
 - Sellises seisus võib `open-checkpoints` tagastada ainult `START` kontrollpunkti.
@@ -335,12 +339,16 @@ KP efektiivne raadius:
 
 ## 10. Liitumise ja aktiivsuse reeglid (võistleja)
 
-Koodiga liituda saab ainult võistlusega, mis on:
+Koodiga liituda saab võistlusega, mis on:
 
 - `status='ACTIVE'`;
-- `starts_at <= nüüd`;
-- `ends_at IS NULL` või `ends_at > nüüd`;
 - mitte soft-deleted (`end_date IS NULL`).
+
+Täpsustus:
+
+- enne `starts_at` aega võib võistleja võistlusega liituda ja selle sisu vaadata;
+- enne `starts_at` aega ei tohi vastuseid ega `CHECK_ONLY` läbimisi salvestada;
+- pärast `ends_at` aega ei tohi vastuseid ega `CHECK_ONLY` läbimisi salvestada.
 
 Vale, aegunud, mitteaktiivne või kustutatud võistluse kood annab kasutajale sama üldise teate (detaili ei avaldata).
 
