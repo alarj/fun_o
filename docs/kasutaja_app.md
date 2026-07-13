@@ -198,6 +198,29 @@ Kui competitor UI tehakse kohe bundle-ready põhimõttel, siis on hiljem võimal
 
 Ülemineku eelduseks on, et competitor UI ei sõltu jäigalt ainult ühest käivitusviisist.
 
+## Bundled äpi avamise pakkumine veebist
+
+Bundled Android äpi jaoks on lisatud competitor-vaatesse eraldi veebivoog, mis ei puuduta admini, superadmini ega tulemuste vaadet.
+
+Põhimõte:
+
+- kui kasutaja avab võistleja vaate Androidi brauseris, võib veeb pakkuda jätkamist bundled äpis;
+- kasutajale näidatakse valikuid `Ava äpis` ja `Jätkan brauseris`;
+- kui Android äpp ei ole veel telefonis, saab samast promptist pakkuda APK allalaadimise linki;
+- see allalaadimislink ei ole kõvakodeeritud frontendis, vaid tuleb FastAPI keskkonnamuutujast `FUNO_ANDROID_APP_DOWNLOAD_URL`.
+
+Praegune tehniline lahendus:
+
+- veeb küsib FastAPI endpointilt `/api/competitor/mobile-app-config` bundled äpi avamise ja allalaadimise konfiguratsiooni;
+- Android bundled äpp registreerib custom scheme deep linki `funo://open`;
+- veebis nupu `Ava äpis` vajutus üritab avada selle deep linki;
+- nupu `Laadi Android äpp` URL tuleb ainult backendist, et seda saaks muuta ilma frontend koodi muutmata.
+
+Oluline piirang:
+
+- see voog on hetkel mõeldud ainult competitor `index.html` jaoks;
+- iOS-i jaoks ei ole siin veel eraldi äpiavamise ega allalaadimise loogikat tehtud.
+
 ## Native võimekused, mida äpis on vaja
 
 Praeguse arutelu põhjal on kriitilised kaks võimekust.

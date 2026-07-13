@@ -245,6 +245,31 @@ button:disabled { opacity: 0.5; }
   color: #3a464c;
   cursor: default;
 }
+.competitorAppPromptBackdrop {
+  z-index: 1100;
+}
+.competitorAppPromptModal {
+  max-width: 520px;
+}
+.competitorAppPromptBody,
+.competitorAppPromptHint {
+  font-size: 20px;
+  line-height: 1.45;
+  color: #253238;
+}
+.competitorAppPromptHint {
+  margin-top: 10px;
+  color: #4f5a61;
+}
+.competitorAppPromptActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.competitorAppPromptActions button {
+  flex: 1 1 220px;
+}
 .joinSwitchWarningBody {
   font-size: 20px;
   line-height: 1.45;

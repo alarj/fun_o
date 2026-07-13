@@ -180,6 +180,12 @@ function applyUiTranslations() {
   el("joinCaptchaTitle").textContent = tr("competitor.join.captcha_title");
   el("joinCaptchaIntro").textContent = tr("competitor.join.captcha_intro");
   el("joinCaptchaCloseBtn").textContent = tr("competitor.join.captcha_close_btn");
+  el("competitorAppPromptTitle").textContent = tr("competitor.app_prompt.title");
+  el("competitorAppPromptBody").textContent = tr("competitor.app_prompt.body");
+  el("competitorAppPromptDownloadHint").textContent = tr("competitor.app_prompt.download_hint");
+  el("competitorAppPromptOpenBtn").textContent = tr("competitor.app_prompt.open_app_btn");
+  el("competitorAppPromptBrowserBtn").textContent = tr("competitor.app_prompt.continue_browser_btn");
+  el("competitorAppPromptDownloadBtn").textContent = tr("competitor.app_prompt.download_android_btn");
   el("joinSwitchWarningTitle").textContent = tr("competitor.join.switch_warning_title");
   el("joinSwitchWarningContinueBtn").textContent = tr("competitor.join.switch_warning_continue_btn");
   el("joinSwitchWarningCancelBtn").textContent = tr("competitor.join.switch_warning_cancel_btn");
@@ -1219,6 +1225,11 @@ async function loadOpenCheckpoints(opts = {}) {
   if (state.activeCompetition && state.openItems[0]?.competition_type) {
     state.activeCompetition.type = String(state.openItems[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
   }
+  if (state.activeCompetition) {
+    state.activeCompetition.status = typeof res.data?.status === "string" ? res.data.status : state.activeCompetition.status || null;
+    state.activeCompetition.starts_at = typeof res.data?.starts_at === "string" ? res.data.starts_at : state.activeCompetition.starts_at || null;
+    state.activeCompetition.ends_at = typeof res.data?.ends_at === "string" ? res.data.ends_at : state.activeCompetition.ends_at || null;
+  }
   state.openItemsLoaded = true;
   openCheckpointsClientCache = {
     key: requestKey,
@@ -1267,6 +1278,9 @@ async function loadMapCheckpoints() {
     state.activeCompetition.type = String(items[0].competition_type || "R").toUpperCase() === "S" ? "S" : "R";
   }
   if (state.activeCompetition) {
+    state.activeCompetition.status = typeof res.data?.status === "string" ? res.data.status : state.activeCompetition.status || null;
+    state.activeCompetition.starts_at = typeof res.data?.starts_at === "string" ? res.data.starts_at : state.activeCompetition.starts_at || null;
+    state.activeCompetition.ends_at = typeof res.data?.ends_at === "string" ? res.data.ends_at : state.activeCompetition.ends_at || null;
     state.activeCompetition.mass_start_at = typeof res.data?.mass_start_at === "string" ? res.data.mass_start_at : null;
     if (typeof res.data?.show_competitor_location === "string") {
       state.activeCompetition.show_competitor_location =

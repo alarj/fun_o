@@ -700,7 +700,7 @@ begin
     p_method      => 'POST',
     p_source_type => ORDS.source_type_plsql,
     p_mimes_allowed => 'application/json',
-    p_source      => q'~declare l_body json_object_t; l_submission_id number; l_is_correct varchar2(1); l_awarded_points number; l_total_score number; l_correct_answer_texts_json clob; l_other_correct_answer_texts_json clob; l_total_elapsed_seconds number; l_total_distance_m number; l_distance_display_allowed varchar2(1); l_current_rank number; begin l_body := json_object_t.parse(:body_text); FUNO_APP.pkg_submissions.submit_answer(p_user_id => l_body.get_number('user_id'), p_competition_id => l_body.get_number('competition_id'), p_checkpoint_id => l_body.get_number('checkpoint_id'), p_question_id => case when l_body.has('question_id') then l_body.get_number('question_id') else null end, p_lang_code => case when l_body.has('lang_code') then l_body.get_string('lang_code') else 'et' end, p_default_lang_code => case when l_body.has('default_lang_code') then l_body.get_string('default_lang_code') else 'et' end, p_answer_text => case when l_body.has('answer_text') then l_body.get_string('answer_text') else null end, p_selected_option_id => case when l_body.has('selected_option_id') then l_body.get_number('selected_option_id') else null end, p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end, p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end, p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end, o_submission_id => l_submission_id, o_is_correct => l_is_correct, o_awarded_points => l_awarded_points, o_total_score => l_total_score, o_correct_answer_texts_json => l_correct_answer_texts_json, o_other_correct_answer_texts_json => l_other_correct_answer_texts_json, o_total_elapsed_seconds => l_total_elapsed_seconds, o_total_distance_m => l_total_distance_m, o_distance_display_allowed => l_distance_display_allowed, o_current_rank => l_current_rank); owa_util.mime_header('application/json', false); owa_util.http_header_close; htp.p(json_object('submission_id' value l_submission_id, 'is_correct' value l_is_correct, 'awarded_points' value nvl(l_awarded_points, 0), 'total_score' value nvl(l_total_score, 0), 'correct_answer_texts' value nvl(l_correct_answer_texts_json, '[]') format json, 'other_correct_answer_texts' value nvl(l_other_correct_answer_texts_json, '[]') format json, 'total_elapsed_seconds' value l_total_elapsed_seconds, 'total_distance_m' value l_total_distance_m, 'distance_display_allowed' value case when nvl(l_distance_display_allowed, 'N') = 'Y' then 'Y' else 'N' end, 'current_rank' value l_current_rank)); end;~'
+    p_source      => q'~declare l_body json_object_t; l_submission_id number; l_is_correct varchar2(1); l_awarded_points number; l_total_score number; l_correct_answer_texts_json clob; l_other_correct_answer_texts_json clob; l_total_elapsed_seconds number; l_total_distance_m number; l_distance_display_allowed varchar2(1); l_current_rank number; begin l_body := json_object_t.parse(:body_text); FUNO_APP.pkg_submissions.submit_answer(p_user_id => l_body.get_number('user_id'), p_competition_id => l_body.get_number('competition_id'), p_checkpoint_id => l_body.get_number('checkpoint_id'), p_question_id => case when l_body.has('question_id') and l_body.get('question_id') is not null and not l_body.get('question_id').is_null then l_body.get_number('question_id') else null end, p_lang_code => case when l_body.has('lang_code') and l_body.get('lang_code') is not null and not l_body.get('lang_code').is_null then l_body.get_string('lang_code') else 'et' end, p_default_lang_code => case when l_body.has('default_lang_code') and l_body.get('default_lang_code') is not null and not l_body.get('default_lang_code').is_null then l_body.get_string('default_lang_code') else 'et' end, p_answer_text => case when l_body.has('answer_text') and l_body.get('answer_text') is not null and not l_body.get('answer_text').is_null then l_body.get_string('answer_text') else null end, p_selected_option_id => case when l_body.has('selected_option_id') and l_body.get('selected_option_id') is not null and not l_body.get('selected_option_id').is_null then l_body.get_number('selected_option_id') else null end, p_latitude => case when l_body.has('latitude') and l_body.get('latitude') is not null and not l_body.get('latitude').is_null then l_body.get_number('latitude') else null end, p_longitude => case when l_body.has('longitude') and l_body.get('longitude') is not null and not l_body.get('longitude').is_null then l_body.get_number('longitude') else null end, p_radius_m => case when l_body.has('radius_m') and l_body.get('radius_m') is not null and not l_body.get('radius_m').is_null then l_body.get_number('radius_m') else null end, o_submission_id => l_submission_id, o_is_correct => l_is_correct, o_awarded_points => l_awarded_points, o_total_score => l_total_score, o_correct_answer_texts_json => l_correct_answer_texts_json, o_other_correct_answer_texts_json => l_other_correct_answer_texts_json, o_total_elapsed_seconds => l_total_elapsed_seconds, o_total_distance_m => l_total_distance_m, o_distance_display_allowed => l_distance_display_allowed, o_current_rank => l_current_rank); owa_util.mime_header('application/json', false); owa_util.http_header_close; htp.p(json_object('submission_id' value l_submission_id, 'is_correct' value l_is_correct, 'awarded_points' value nvl(l_awarded_points, 0), 'total_score' value nvl(l_total_score, 0), 'correct_answer_texts' value nvl(l_correct_answer_texts_json, '[]') format json, 'other_correct_answer_texts' value nvl(l_other_correct_answer_texts_json, '[]') format json, 'total_elapsed_seconds' value l_total_elapsed_seconds, 'total_distance_m' value l_total_distance_m, 'distance_display_allowed' value case when nvl(l_distance_display_allowed, 'N') = 'Y' then 'Y' else 'N' end, 'current_rank' value l_current_rank)); end;~'
   );
 
   -- GET /funo/competitor/competitions?user_id=..
@@ -1042,6 +1042,9 @@ begin
       declare
         l_json clob;
         l_competition_type varchar2(1);
+        l_competition_status varchar2(30);
+        l_starts_at varchar2(30);
+        l_ends_at varchar2(30);
         l_use_location varchar2(1);
         l_show_competitor_location varchar2(1);
         l_mass_start_at varchar2(30);
@@ -1061,6 +1064,9 @@ begin
           p_competition_id => to_number(:competition_id),
           o_items_json => l_json,
           o_competition_type => l_competition_type,
+          o_competition_status => l_competition_status,
+          o_starts_at => l_starts_at,
+          o_ends_at => l_ends_at,
           o_use_location => l_use_location,
           o_show_competitor_location => l_show_competitor_location,
           o_mass_start_at => l_mass_start_at,
@@ -1087,6 +1093,17 @@ begin
             null;
         end;
         l_output_obj.put('competition_type', nvl(l_competition_type, 'R'));
+        l_output_obj.put('status', nvl(l_competition_status, 'INACTIVE'));
+        if l_starts_at is null then
+          l_output_obj.put_null('starts_at');
+        else
+          l_output_obj.put('starts_at', l_starts_at);
+        end if;
+        if l_ends_at is null then
+          l_output_obj.put_null('ends_at');
+        else
+          l_output_obj.put('ends_at', l_ends_at);
+        end if;
         l_output_obj.put('use_location', nvl(l_use_location, 'N'));
         l_output_obj.put('show_competitor_location', nvl(l_show_competitor_location, 'N'));
         if l_current_hash is null then
@@ -2105,7 +2122,7 @@ begin
           p_location_hint => case when l_body.has('location_hint') then l_body.get_string('location_hint') else null end,
           p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
           p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
-          p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          p_radius_m => case when l_body.has('radius_m') and l_body.get('radius_m') is not null and not l_body.get('radius_m').is_null then l_body.get_number('radius_m') else null end,
           p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
           p_mass_start_at => case
             when l_body.has('mass_start_at')
@@ -2239,7 +2256,7 @@ begin
           p_location_hint => case when l_body.has('location_hint') then l_body.get_string('location_hint') else null end,
           p_latitude => case when l_body.has('latitude') then l_body.get_number('latitude') else null end,
           p_longitude => case when l_body.has('longitude') then l_body.get_number('longitude') else null end,
-          p_radius_m => case when l_body.has('radius_m') then l_body.get_number('radius_m') else null end,
+          p_radius_m => case when l_body.has('radius_m') and l_body.get('radius_m') is not null and not l_body.get('radius_m').is_null then l_body.get_number('radius_m') else null end,
           p_location_required => case when l_body.has('location_required') then l_body.get_string('location_required') else null end,
           p_mass_start_at => case
             when l_body.has('mass_start_at')

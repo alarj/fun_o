@@ -18,6 +18,7 @@
 
 - Ärireeglid peavad elama võimalikult tsentraalselt ja järjekindlalt; väldi reeglite dubleerimist eri kihtides.
 - Muudatused peavad olema minimaalsed, sihitud ja kooskõlas olemasoleva arhitektuuriga.
+- Töötavat koodi ei tohi igaks juhuks muuta ega "ennetavalt parandada". Kui mingi osa töötab ja ei ole uuritava vea tõendatud juurpõhjus, siis seda ei muudeta.
 - Ära muuda kõrvalisi faile ega paranda mitteseotud probleeme.
 - Kõrge mõjuga otsuste puhul eelista juurpõhjuse parandamist, mitte lokaalseid ümberkäike.
 

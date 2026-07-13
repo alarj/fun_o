@@ -14,6 +14,24 @@ Ulatus:
 
 ## 1. SonarQube teadlikult parandamata leiud
 
+### 1.0 2026-07 competitor app prompt tühja headingu accessibility märkus
+
+Mõjutatud fail:
+- `frontend_dist/index.html`
+
+Märkus:
+- `Web:S6850` Sonar märgib competitor mobile app prompt modali pealkirja, sest HTML-is on dünaamiliselt täidetav tühi heading:
+  - `<h3 id="competitorAppPromptTitle"></h3>`
+
+Miks ei parandatud:
+- projektis kehtib reegel, et koodis ei tohi olla fallback-ekraanitekste ega muid "igaks juhuks" kõvakodeeritud kasutajaliidese tekste;
+- selle headingu sisu täidetakse JavaScriptiga tõlgete kaudu;
+- Sonari rahuldamine kõige lihtsama variandiga tähendaks siia fallback-teksti või muu staatilise ligipääsetava teksti lisamist HTML-i, mis läheks vastuollu projekti i18n- ja fallback-reeglitega;
+- seetõttu on tegemist teadliku kompromissiga: funktsionaalsus on korrektne, kuid staatiline analüüs näeb algses HTML-is tühja semantilist headingut.
+
+Staatus:
+- teadlikult aktsepteeritud accessibility / staatilise analüüsi kompromiss
+
 ### 1.0 2026-06 overlay / results töövoo Sonar leiud
 
 Mõjutatud failid:
@@ -231,6 +249,39 @@ Miks ei parandatud:
 
 Staatus:
 - teadlikult aktsepteeritud keskkonnaspetsiifiline eeldus / ärireegel
+
+### 2.0a 2026-07 `_parse_utc_datetime` timezone-hoiatus
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Märkus:
+- Gemini tõstatas riski, et `_competition_submission_window_reason(...)` võib võrrelda timezone-aware ja timezone-naive `datetime` objekte.
+
+Miks ei parandatud:
+- praeguse koodi põhjal ei ole see leid kinnitust leidnud;
+- `_parse_utc_datetime(...)` kasutab `datetime.fromisoformat(raw.replace("Z", "+00:00"))`, mis tagastab `Z`-sufiksiga sisendi korral timezone-aware UTC `datetime` objekti;
+- sama fail võrdleb seda `datetime.now(timezone.utc)` väärtusega, mis on samuti timezone-aware;
+- seega ei ole review käigus tuvastatud tegelikku offset-naive vs offset-aware veaolukorda.
+
+Staatus:
+- teadlikult aktsepteeritud valepositiiv / ülevaatuse väärjäreldus
+
+### 2.0b 2026-07 protsessipõhise in-memory cache tähelepanek
+
+Mõjutatud fail:
+- `backend/app/main.py`
+
+Märkus:
+- Gemini juhtis tähelepanu sellele, et globaalsed in-memory cache struktuurid (nt `open_checkpoints_last_response`) on protsessipõhised ega jagune automaatselt mitme worker-protsessi vahel.
+
+Miks ei parandatud:
+- tähelepanek on arhitektuuriliselt õige, kuid see ei ole praeguse töövoo funktsionaalne viga ega regressioon;
+- olemasolev cache on teadlikult lokaalne protsessisisene optimeering;
+- selle ümbertegemine jagatud cache lahenduseks oleks eraldi arhitektuurne muudatus, mitte sihitud veaparandus.
+
+Staatus:
+- teadlikult aktsepteeritud arhitektuuriline piirang, mitte aktiivne bug
 
 ### 2.1 DB päringutes `normalize_checkpoint_type(...)` funktsiooni kasutamine WHERE tingimuses
 
