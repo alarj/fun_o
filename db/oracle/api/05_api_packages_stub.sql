@@ -3635,7 +3635,7 @@ create or replace package body pkg_competitor as
   begin
     begin
       select nvl(c.type, 'R'),
-             c.status,
+             nvl(c.status, 'INACTIVE'),
              to_char(c.starts_at, pkg_common.c_iso_ts_format),
              to_char(c.ends_at, pkg_common.c_iso_ts_format),
              nvl(c.use_location, 'N'),
