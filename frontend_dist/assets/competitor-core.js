@@ -25,6 +25,7 @@ let compMap = null;
 let compMapLayer = null;
 let compMapRouteLayer = null;
 let userPosMarker = null;
+let compMapAttributionResizeObserver = null;
 let mapInfoVisible = false;
 let mapRings = [];
 let mapRoutePoints = [];

@@ -162,6 +162,10 @@ function createCompMap(targetCrs) {
     compMap = null;
     compMapLayer = null;
     compMapRouteLayer = null;
+    if (compMapAttributionResizeObserver) {
+      try { compMapAttributionResizeObserver.disconnect(); } catch {}
+      compMapAttributionResizeObserver = null;
+    }
     baseMapLayer = null;
     competitionOverlayTileLayer = null;
     mapRings = [];
@@ -205,6 +209,7 @@ function createCompMap(targetCrs) {
   compMap.on("moveend zoomend", () => {
     saveCompMapView();
     refreshCompMapRouteDecorations();
+    syncCompMapScaleOffset();
   });
   compMap.on("movestart", () => {
     if (!mapProgrammaticMove) {
@@ -212,8 +217,39 @@ function createCompMap(targetCrs) {
       updateFollowButton();
     }
   });
+  bindCompMapAttributionObserver();
+  syncCompMapScaleOffset();
   compMapCurrentCrs = targetCrs;
   return previousView;
+}
+
+function syncCompMapScaleOffset() {
+  const panel = el("compMapBackdrop")?.querySelector?.(".mapPanel");
+  if (!panel) return;
+  const attribution = panel.querySelector(".leaflet-control-attribution");
+  const scale = panel.querySelector(".leaflet-control-scale");
+  const attributionHeight = Math.ceil(attribution?.getBoundingClientRect?.().height || 0);
+  const offsetPx = Math.max(12, attributionHeight + 8);
+  if (scale?.style) {
+    scale.style.marginBottom = `${offsetPx}px`;
+  }
+}
+
+function bindCompMapAttributionObserver() {
+  const panel = el("compMapBackdrop")?.querySelector?.(".mapPanel");
+  const attribution = panel?.querySelector?.(".leaflet-control-attribution");
+  if (compMapAttributionResizeObserver) {
+    try { compMapAttributionResizeObserver.disconnect(); } catch {}
+    compMapAttributionResizeObserver = null;
+  }
+  if (!panel || !attribution || typeof ResizeObserver !== "function") {
+    syncCompMapScaleOffset();
+    return;
+  }
+  compMapAttributionResizeObserver = new ResizeObserver(() => {
+    syncCompMapScaleOffset();
+  });
+  compMapAttributionResizeObserver.observe(attribution);
 }
 
 function renderCompMapLayerList() {
@@ -1480,6 +1516,7 @@ function renderCompMap(items, opts = {}) {
     if (!preserveViewport) {
       applyInitialCompMapViewport(checkpointBounds, { forceInitialFit, hasUserGeo });
     }
+    syncCompMapScaleOffset();
     refreshCompMapRouteDecorations();
     if (mapHeadingMode && Number.isFinite(mapHeadingCurrent)) {
       applyMapHeading(mapHeadingCurrent);
@@ -1592,6 +1629,7 @@ async function openCompMapModal() {
   }
   renderCompMapLayerList();
   compMap.invalidateSize();
+  syncCompMapScaleOffset();
   const forceInitialFit = !selectedCompetitionShowsUserLocationMarker() && !hasSavedCompMapView();
   renderCompMap(state.mapItems, { forceInitialFit });
   if (mapHeadingMode) {
