@@ -3940,7 +3940,6 @@ create or replace package body pkg_competitor as
                 on cp.checkpoint_id = s.checkpoint_id
              where s.user_id = p_user_id
                and s.competition_id = p_competition_id
-               and (cp.end_date is null or cp.end_date > sysdate)
           ) y
          order by y.submitted_at desc, y.id desc
       ) x;

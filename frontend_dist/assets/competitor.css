@@ -785,6 +785,9 @@ button:disabled { opacity: 0.5; }
 .myResTable td:nth-child(4) {
   width: 22%;
 }
+.myResTable td:nth-child(4) {
+  text-align: right;
+}
 .myResTable th > span {
   display: block;
 }

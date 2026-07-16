@@ -23,6 +23,7 @@ function sortMyResults() {
     if (myResultsSortKey === "leg_distance_m") {
       const av = Number.isFinite(Number(a.leg_distance_m)) ? Number(a.leg_distance_m) : Number.POSITIVE_INFINITY;
       const bv = Number.isFinite(Number(b.leg_distance_m)) ? Number(b.leg_distance_m) : Number.POSITIVE_INFINITY;
+      if (av === bv) return 0;
       return (av - bv) * dir;
     }
     const av = a.submitted_at ? (parseUtcDate(a.submitted_at)?.getTime() ?? 0) : 0;
