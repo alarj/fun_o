@@ -3878,26 +3878,70 @@ create or replace package body pkg_competitor as
                   when x.submitted_at is not null then to_char(x.submitted_at, pkg_common.c_iso_ts_format)
                  else null
                end,
-               'awarded_points' value x.awarded_points
+               'awarded_points' value x.awarded_points,
+               'leg_distance_m' value x.leg_distance_m
              ) returning clob
            )
       into o_items_json
       from (
-        select cp.title as checkpoint_title,
-               s.id,
-               s.submission_id,
-               s.submission_event_id,
-               s.submission_source,
-               s.event,
-               s.submitted_at,
-               nvl(s.awarded_points, 0) as awarded_points
-          from submissions_v s
-          join checkpoints cp
-            on cp.checkpoint_id = s.checkpoint_id
-         where s.user_id = p_user_id
-           and s.competition_id = p_competition_id
-           and (cp.end_date is null or cp.end_date > sysdate)
-         order by s.submitted_at desc, s.id desc
+        select y.checkpoint_title,
+               y.id,
+               y.submission_id,
+               y.submission_event_id,
+               y.submission_source,
+               y.event,
+               y.submitted_at,
+               y.awarded_points,
+               case
+                 when y.seq_no = 1 then 0
+                 when y.prev_effective_latitude is null
+                   or y.prev_effective_longitude is null
+                   or y.effective_latitude is null
+                   or y.effective_longitude is null then null
+                 else round(
+                   6371000 * 2 * asin(
+                     sqrt(
+                       least(
+                         1,
+                         greatest(
+                           0,
+                           power(sin((y.effective_latitude - y.prev_effective_latitude) * 0.008726646259971648), 2) +
+                           cos(y.prev_effective_latitude * 0.017453292519943295) *
+                           cos(y.effective_latitude * 0.017453292519943295) *
+                           power(sin((y.effective_longitude - y.prev_effective_longitude) * 0.008726646259971648), 2)
+                         )
+                       )
+                     )
+                   )
+                 )
+               end as leg_distance_m
+          from (
+            select cp.title as checkpoint_title,
+                   s.id,
+                   s.submission_id,
+                   s.submission_event_id,
+                   s.submission_source,
+                   s.event,
+                   s.submitted_at,
+                   nvl(s.awarded_points, 0) as awarded_points,
+                   coalesce(s.latitude, cp.latitude) as effective_latitude,
+                   coalesce(s.longitude, cp.longitude) as effective_longitude,
+                   lag(coalesce(s.latitude, cp.latitude)) over (
+                     order by s.submitted_at asc, s.id asc
+                   ) as prev_effective_latitude,
+                   lag(coalesce(s.longitude, cp.longitude)) over (
+                     order by s.submitted_at asc, s.id asc
+                   ) as prev_effective_longitude,
+                   row_number() over (
+                     order by s.submitted_at asc, s.id asc
+                   ) as seq_no
+              from submissions_v s
+              join checkpoints cp
+                on cp.checkpoint_id = s.checkpoint_id
+             where s.user_id = p_user_id
+               and s.competition_id = p_competition_id
+          ) y
+         order by y.submitted_at desc, y.id desc
       ) x;
 
     if o_items_json is null then
