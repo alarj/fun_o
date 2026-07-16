@@ -513,6 +513,7 @@ class CompetitorMySubmissionEntry(BaseModel):
     event: str | None = None
     submitted_at: str | None = None
     awarded_points: int = 0
+    leg_distance_m: int | None = None
 
 
 class CompetitorMySubmissionsResponse(BaseModel):
@@ -4553,6 +4554,7 @@ async def competitor_my_submissions(  # NOSONAR
                     event=item.get("event") if isinstance(item.get("event"), str) else None,
                     submitted_at=item.get("submitted_at") if isinstance(item.get("submitted_at"), str) else None,
                     awarded_points=item.get("awarded_points") if isinstance(item.get("awarded_points"), int) else 0,
+                    leg_distance_m=item.get("leg_distance_m") if isinstance(item.get("leg_distance_m"), int) else None,
                 )
             )
     return CompetitorMySubmissionsResponse(items=items)

@@ -158,6 +158,7 @@ function applyUiTranslations() {
   el("myResultsCloseBtn").textContent = tr("competitor.common.close_btn");
   el("myResThKp").textContent = tr("competitor.results.col_checkpoint");
   el("myResThTime").textContent = tr("competitor.results.col_time");
+  el("myResThDistance").textContent = tr("competitor.results.col_leg_distance");
   el("myResThPoints").textContent = tr("competitor.results.col_points");
   el("competitionPickerLine1").textContent = tr("competitor.picker.line1");
   el("competitionPickerLine2").textContent = tr("competitor.picker.line2");

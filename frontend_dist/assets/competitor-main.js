@@ -11,6 +11,7 @@ function mySortIconFor(key) {
 function refreshMySortIcons() {
   el("mrSortTitle").textContent = mySortIconFor("checkpoint_title");
   el("mrSortTime").textContent = mySortIconFor("submitted_at");
+  el("mrSortDistance").textContent = mySortIconFor("leg_distance_m");
 }
 
 function sortMyResults() {
@@ -19,17 +20,75 @@ function sortMyResults() {
     if (myResultsSortKey === "checkpoint_title") {
       return String(a.checkpoint_title || "").localeCompare(String(b.checkpoint_title || ""), "et", { sensitivity: "base" }) * dir;
     }
+    if (myResultsSortKey === "leg_distance_m") {
+      const av = Number.isFinite(Number(a.leg_distance_m)) ? Number(a.leg_distance_m) : Number.POSITIVE_INFINITY;
+      const bv = Number.isFinite(Number(b.leg_distance_m)) ? Number(b.leg_distance_m) : Number.POSITIVE_INFINITY;
+      return (av - bv) * dir;
+    }
     const av = a.submitted_at ? (parseUtcDate(a.submitted_at)?.getTime() ?? 0) : 0;
     const bv = b.submitted_at ? (parseUtcDate(b.submitted_at)?.getTime() ?? 0) : 0;
     return (av - bv) * dir;
   });
 }
 
+function renderMyResultsSummary() {
+  const summaryEl = el("myResultsSummary");
+  if (!summaryEl) return;
+  const ordered = [...myResultsItems]
+    .filter((item) => item && item.submitted_at)
+    .sort((a, b) => {
+      const av = parseUtcDate(a.submitted_at)?.getTime() ?? 0;
+      const bv = parseUtcDate(b.submitted_at)?.getTime() ?? 0;
+      if (av !== bv) return av - bv;
+      return Number(a.id || 0) - Number(b.id || 0);
+    });
+  if (!ordered.length) {
+    summaryEl.textContent = "";
+    summaryEl.style.display = "none";
+    return;
+  }
+  const firstTs = parseUtcDate(ordered[0].submitted_at)?.getTime();
+  const lastTs = parseUtcDate(ordered[ordered.length - 1].submitted_at)?.getTime();
+  const elapsedSeconds = Number.isFinite(firstTs) && Number.isFinite(lastTs)
+    ? Math.max(0, Math.round((lastTs - firstTs) / 1000))
+    : null;
+  let totalDistanceM = 0;
+  let distanceKnown = true;
+  ordered.forEach((item, index) => {
+    if (index === 0) return;
+    const legDistanceM = Number(item?.leg_distance_m);
+    if (Number.isFinite(legDistanceM) && legDistanceM >= 0) {
+      totalDistanceM += legDistanceM;
+    } else {
+      distanceKnown = false;
+    }
+  });
+  const elapsedText = elapsedSeconds == null ? "-" : fmtHhMmSs(elapsedSeconds);
+  const distanceText = distanceKnown
+    ? trf("competitor.results.summary_distance_value", { distance_km: fmtDistanceKmFromMeters(totalDistanceM) })
+    : "-";
+  const template = String(tr("competitor.results.summary_time_distance") || "");
+  const parts = template.match(/^([\s\S]*?)\{elapsed\}([\s\S]*?)\{distance\}([\s\S]*)$/);
+  if (parts) {
+    const beforeElapsed = parts[1] || "";
+    const between = parts[2] || "";
+    const afterDistance = parts[3] || "";
+    summaryEl.innerHTML = `${beforeElapsed ? `<strong>${esc(beforeElapsed)}</strong>` : ""}${esc(elapsedText)}${between ? `<strong>${esc(between)}</strong>` : ""}${esc(distanceText)}${afterDistance ? esc(afterDistance) : ""}`;
+  } else {
+    summaryEl.textContent = trf("competitor.results.summary_time_distance", {
+      elapsed: elapsedText,
+      distance: distanceText,
+    });
+  }
+  summaryEl.style.display = "block";
+}
+
 function renderMyResults() {
   const rows = sortMyResults();
   const box = el("myResultsRows");
+  renderMyResultsSummary();
   if (!rows.length) {
-    box.innerHTML = `<tr><td colspan="3">${tr("competitor.msg.no_completed_cp")}</td></tr>`;
+    box.innerHTML = `<tr><td colspan="4">${tr("competitor.msg.no_completed_cp")}</td></tr>`;
     refreshMySortIcons();
     return;
   }
@@ -39,9 +98,14 @@ function renderMyResults() {
     const titleHtml = isSubmission && detailId > 0
       ? `<button class="kpLink" data-sub-id="${detailId}">${esc(r.checkpoint_title || "-")}</button>`
       : `<span>${esc(r.checkpoint_title || "-")}</span>`;
+    const legDistanceM = Number(r.leg_distance_m);
+    const legDistanceText = Number.isFinite(legDistanceM) && legDistanceM >= 0
+      ? trf("competitor.results.row_distance_value", { distance_km: fmtDistanceKmFromMeters(legDistanceM) })
+      : "-";
     return `<tr>
     <td>${titleHtml}</td>
     <td>${esc(fmtEtLocal(r.submitted_at))}</td>
+    <td>${esc(legDistanceText)}</td>
     <td>${Number(r.awarded_points || 0)}</td>
   </tr>`;
   }).join("");
@@ -950,6 +1014,7 @@ async function init() {
   });
   el("mrSortTitle").addEventListener("click", () => setMySort("checkpoint_title"));
   el("mrSortTime").addEventListener("click", () => setMySort("submitted_at"));
+  el("mrSortDistance").addEventListener("click", () => setMySort("leg_distance_m"));
   el("myResultsRows").addEventListener("click", (e) => {
     const btn = e.target.closest(".kpLink");
     if (!btn) return;

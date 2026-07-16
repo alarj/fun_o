@@ -121,6 +121,8 @@ Expected ORDS JSON responses:
 - `competitor/progress` -> `{ "total_checkpoints": 10, "answered_checkpoints": 3, "score": 30 }`
 - `competitor/my-submissions` -> `{ "items": [...] }`
   - ajajoon võib sisaldada nii `submission_source = SUBMISSION` kui `submission_source = EVENT` ridu.
+  - iga item võib sisaldada välja `leg_distance_m`, mis tähendab linnulennulist lõiku eelmisest ajaliselt läbitud checkpointist sellesse checkpointi.
+  - esimese ajaliselt läbitud checkpointi `leg_distance_m` väärtus on `0`.
 - `competitor/my-submission-detail` -> `{ ... }`
 - `competitor/session-by-participant` -> `{ "participant": {...} }`
   - participant may include `competition_type` (`R|S`) in addition to name/description/location flags.

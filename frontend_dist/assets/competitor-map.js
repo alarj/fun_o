@@ -193,6 +193,13 @@ function createCompMap(targetCrs) {
   if (compMap?.rotateControl && typeof compMap.rotateControl.remove === "function") {
     compMap.rotateControl.remove();
   }
+  if (window.L?.control?.scale) {
+    L.control.scale({
+      position: "bottomleft",
+      imperial: false,
+      maxWidth: 120
+    }).addTo(compMap);
+  }
   compMapRouteLayer = L.layerGroup().addTo(compMap);
   compMapLayer = L.layerGroup().addTo(compMap);
   compMap.on("moveend zoomend", () => {

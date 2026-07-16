@@ -79,7 +79,10 @@
         </div>
         <div id="myResExpanded" class="myResExpanded">
           <div class="myResHead">
-            <h2 class="myResTitle" id="myResultsTitle"></h2>
+            <div class="myResTitleWrap">
+              <h2 class="myResTitle" id="myResultsTitle"></h2>
+              <div id="myResultsSummary" class="myResSummary"></div>
+            </div>
             <button id="myResultsCloseBtn" class="secondary miniBtn"></button>
           </div>
           <table class="myResTable">
@@ -87,6 +90,7 @@
               <tr>
                 <th><span id="myResThKp"></span> <button id="mrSortTitle" class="sortTiny">?</button></th>
                 <th><span id="myResThTime"></span> <button id="mrSortTime" class="sortTiny">?</button></th>
+                <th><span id="myResThDistance"></span> <button id="mrSortDistance" class="sortTiny">?</button></th>
                 <th id="myResThPoints"></th>
               </tr>
             </thead>
