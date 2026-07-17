@@ -184,10 +184,36 @@
     }
   }
 
+  function readBottomViewportInset() {
+    const visualViewport = global.visualViewport;
+    if (!visualViewport) return 0;
+    const layoutHeight = Number(global.innerHeight || 0);
+    const viewportHeight = Number(visualViewport.height || 0);
+    const viewportOffsetTop = Number(visualViewport.offsetTop || 0);
+    if (!layoutHeight || !viewportHeight) return 0;
+    return Math.max(0, Math.round(layoutHeight - (viewportHeight + viewportOffsetTop)));
+  }
+
+  function applyBottomViewportInset() {
+    const insetPx = readBottomViewportInset();
+    global.document?.documentElement?.style?.setProperty("--funo-bottom-viewport-inset", `${insetPx}px`);
+  }
+
+  function installBottomViewportInsetSync() {
+    applyBottomViewportInset();
+    const visualViewport = global.visualViewport;
+    global.addEventListener?.("resize", applyBottomViewportInset, { passive: true });
+    global.addEventListener?.("orientationchange", applyBottomViewportInset, { passive: true });
+    if (!visualViewport?.addEventListener) return;
+    visualViewport.addEventListener("resize", applyBottomViewportInset, { passive: true });
+    visualViewport.addEventListener("scroll", applyBottomViewportInset, { passive: true });
+  }
+
   async function initialize() {
     if (isNativePlatform()) {
       global.document?.documentElement?.classList?.add("is-capacitor-app");
       installNativeGeolocationShim();
+      installBottomViewportInsetSync();
       await lockPortrait();
     }
   }
