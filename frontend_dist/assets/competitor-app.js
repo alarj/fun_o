@@ -1,5 +1,6 @@
 (function initFunoAppBridge(global) {
   const runtimeConfig = global.__FUNO_APP_RUNTIME_CONFIG__ || {};
+  let bottomViewportInsetFramePending = false;
 
   function getCapacitor() {
     return global.Capacitor || null;
@@ -184,10 +185,46 @@
     }
   }
 
+  function readBottomViewportInset() {
+    const visualViewport = global.visualViewport;
+    if (!visualViewport) return 0;
+    const layoutHeight = Number(global.innerHeight || 0);
+    const viewportHeight = Number(visualViewport.height || 0);
+    const viewportOffsetTop = Number(visualViewport.offsetTop || 0);
+    if (!layoutHeight || !viewportHeight) return 0;
+    return Math.max(0, Math.round(layoutHeight - (viewportHeight + viewportOffsetTop)));
+  }
+
+  function applyBottomViewportInset() {
+    if (bottomViewportInsetFramePending) return;
+    bottomViewportInsetFramePending = true;
+    const flushInset = () => {
+      bottomViewportInsetFramePending = false;
+      const insetPx = readBottomViewportInset();
+      global.document?.documentElement?.style?.setProperty("--funo-bottom-viewport-inset", `${insetPx}px`);
+    };
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(flushInset);
+      return;
+    }
+    flushInset();
+  }
+
+  function installBottomViewportInsetSync() {
+    applyBottomViewportInset();
+    const visualViewport = global.visualViewport;
+    global.addEventListener?.("resize", applyBottomViewportInset, { passive: true });
+    global.addEventListener?.("orientationchange", applyBottomViewportInset, { passive: true });
+    if (!visualViewport?.addEventListener) return;
+    visualViewport.addEventListener("resize", applyBottomViewportInset, { passive: true });
+    visualViewport.addEventListener("scroll", applyBottomViewportInset, { passive: true });
+  }
+
   async function initialize() {
     if (isNativePlatform()) {
       global.document?.documentElement?.classList?.add("is-capacitor-app");
       installNativeGeolocationShim();
+      installBottomViewportInsetSync();
       await lockPortrait();
     }
   }
