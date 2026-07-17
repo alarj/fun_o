@@ -1,5 +1,6 @@
 (function initFunoAppBridge(global) {
   const runtimeConfig = global.__FUNO_APP_RUNTIME_CONFIG__ || {};
+  let bottomViewportInsetFramePending = false;
 
   function getCapacitor() {
     return global.Capacitor || null;
@@ -195,8 +196,18 @@
   }
 
   function applyBottomViewportInset() {
-    const insetPx = readBottomViewportInset();
-    global.document?.documentElement?.style?.setProperty("--funo-bottom-viewport-inset", `${insetPx}px`);
+    if (bottomViewportInsetFramePending) return;
+    bottomViewportInsetFramePending = true;
+    const flushInset = () => {
+      bottomViewportInsetFramePending = false;
+      const insetPx = readBottomViewportInset();
+      global.document?.documentElement?.style?.setProperty("--funo-bottom-viewport-inset", `${insetPx}px`);
+    };
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(flushInset);
+      return;
+    }
+    flushInset();
   }
 
   function installBottomViewportInsetSync() {
