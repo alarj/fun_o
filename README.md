@@ -100,6 +100,7 @@ Tehnilised detailid on kirjeldatud olemasolevates dokumentides:
 - süsteemiarhitektuur: [docs/system_architecture.md](docs/system_architecture.md)
 - andmemudel (ERD): [docs/erd.md](docs/erd.md)
 - asukohaloogika reeglid: [docs/location_rules.md](docs/location_rules.md)
+- mitme overlay edasiarenduse disainiidee: [docs/multi_overlay_design.md](docs/multi_overlay_design.md)
 - liitumise ja osaluse reeglid: [docs/competitor_join_rules.md](docs/competitor_join_rules.md)
 - teadlikult parandamata Sonar/Gemini leiud: [docs/known_bugs_by_sonar_and_gemini.md](docs/known_bugs_by_sonar_and_gemini.md)
 - backendi API/integreerimisdetailid: [backend/README.md](backend/README.md)

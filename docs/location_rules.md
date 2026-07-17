@@ -186,6 +186,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Kui kaardivaate keskpunkt satub väljapoole overlay kaetud ala, jääb selles vaates nähtavale lihtsalt aluskaart `maaamet_pohikaart`, sest nendes tile-koordinaatides overlay pilte ei eksisteeri.
 - Kui overlay kustutatakse või selle staatus ei ole enam `READY`, eemaldatakse `* <display_name>` võistleja kaardivalikust.
 - Võistleja oma kaart kasutab alati `EPSG:3301` CRS-i.
+- Tulevane võimalik mitme overlay stacki lahendus on kirjeldatud dokumendis `docs/multi_overlay_design.md`; kuni selle realiseerimiseni kehtib siin kirjeldatud ühe aktiivse overlay MVP mudel.
 
 ## 6. KP klikid kaardil ja ligipääsukontroll
 

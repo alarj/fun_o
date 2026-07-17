@@ -427,6 +427,7 @@ erDiagram
 - `competition_map_overlays.attribution` hoiab overlay autoriõiguse/viite teksti, mis liidetakse kaardil aluskaardi attributioniga, kui väärtus ei ole tühi.
 - MVP-s toetab `competition_map_overlays.crs_code` ainult väärtust `EPSG:3301`.
 - MVP-s on ühe võistluse kohta lubatud maksimaalselt üks aktiivne overlay.
+- Võimalik tulevane mitme overlay suund on kirjeldatud eraldi disainidokumendis `docs/multi_overlay_design.md`; see ei muuda käesoleva ERD peatüki MVP tõde enne eraldi realiseerimist.
 - Tiled-versioonis salvestub lähtematerjal `storage_rel_path` alla ja valmis tile-püramiid `tile_storage_rel_path` alla.
 - `processing_status` juhib seda, kas admini kaardivalikusse võib ilmuda dünaamiline `* {display_name}` overlay valik.
 

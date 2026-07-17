@@ -97,6 +97,7 @@ Mida teeb:
 - Kaardifunktsionaalsuse puhul lähtub backendi map-layer konfiguratsioonist (README kirjeldus).
 - Admin UI saab võistlusele lisatud oma kaardi korral dünaamilise kaardivaliku `* {display_name}`, kuid alles siis, kui overlay töötlusstaatus on `READY`.
 - Competitor UI saab samal põhimõttel dünaamilise kaardivaliku `* {display_name}`, mida renderdatakse EPK peale tavalise tile-overlay kihina.
+- Võimalik tulevane mitme overlay stacki arhitektuurisuund on kirjeldatud eraldi dokumendis `docs/multi_overlay_design.md`; käesolev dokument kirjeldab tänast MVP teostust.
 
 Miks nii on tehtud:
 - Staatilise frontendi serveerimine nginx-ist on lihtne ja odav.
