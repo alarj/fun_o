@@ -1233,7 +1233,7 @@ create or replace package body pkg_submissions as
     else
       l_question_type := null;
       l_input_type := null;
-      l_awarded_points := 0;
+      l_awarded_points := 1;
       l_wrong_points := 0;
       l_is_correct := 'Y';
       l_current_event := pkg_common.c_checkpoint_interaction_check_only;
@@ -1464,7 +1464,7 @@ create or replace package body pkg_submissions as
         p_latitude,
         p_longitude,
         p_radius_m,
-        0,
+        l_awarded_points,
         systimestamp,
         systimestamp
       );
