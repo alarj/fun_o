@@ -77,6 +77,7 @@ Expected ORDS JSON responses:
 - `organizers/register` -> `{ "competition_id": 456 }`
 - `submissions` -> `{ "submission_id": 789, "is_correct": "Y|N", "awarded_points": 0, "total_score": 42, "correct_answer_texts": ["..."], "other_correct_answer_texts": ["..."], "total_elapsed_seconds": 2975, "total_distance_m": 2460, "distance_display_allowed": "Y|N", "current_rank": 2 }`
   - request `question_id` on kohustuslik ainult `QUESTION` interactioni jaoks; `CHECK_ONLY` puhul võib selle ära jätta.
+  - eduka `CHECK_ONLY` submiti korral tagastab teenus `awarded_points = 1`.
   - request may include `lang_code`; backend forwards it to ORDS so localized correct-answer texts can be returned for `SINGLE_CHOICE` questions.
   - `correct_answer_texts` contains every correct answer shown to the competitor after submit.
   - `other_correct_answer_texts` contains the remaining correct answers when the competitor answered correctly and more than one correct answer exists.
@@ -1010,6 +1011,7 @@ Competitor map popup flow:
 - for location competitions, `index.html` no longer shows a competitor question list in the middle area; question opening happens from the map only.
 - when the clicked checkpoint interaction is `QUESTION`, frontend opens a lightweight question modal on top of the still-open map and submits through the normal `POST /api/submissions` flow.
 - when the clicked checkpoint interaction is `CHECK_ONLY`, frontend does not open a question modal; it submits the pass-through action directly from the map popup.
+  - successful `CHECK_ONLY` submit is persisted to `submission_events` with `awarded_points = 1`.
 - after a successful submit, the question modal closes first and the existing competitor feedback modal is shown on top of the same map view.
 - if submit fails, the question modal remains open and shows the error in-place; frontend must not reset the underlying map view state because of that failure.
 

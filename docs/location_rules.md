@@ -50,6 +50,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
   - sündmuse tegelik salvestamise aeg läheb `evaluated_at` väljale;
   - enne `mass_start_at` aega ei tohi teisi checkpointi tegevusi lubada.
 - Kui `checkpoint_interaction = CHECK_ONLY`, siis võistleja ei vasta küsimusele, vaid registreerib checkpointi läbimise ühe tegevusega.
+  - eduka läbimise korral salvestub `submission_events.awarded_points = 1`.
 - `START` pealkiri on alati `START`.
 - `FINISH` pealkiri on alati `FINISH`.
 - `START` ja `FINISH` tüüpi olemasolevat KP-d ei saa adminis muuta teiseks liigiks.
@@ -234,6 +235,7 @@ See dokument kirjeldab kokkulepitud ärireegleid, kuidas asukohaandmeid kasutata
 - Kui `checkpoint_interaction='CHECK_ONLY'`, siis küsimuse modali ei avata:
   - kasutaja vajutab tegevusnuppu KP popupis;
   - läbimine registreeritakse kohe `submissions` voo kaudu;
+  - edukal juhul kirjutatakse `submission_events` tabelisse `CHECK_ONLY` sündmus punktidega `1`;
   - edukal juhul avaneb olemasolev feedback modal kaardi peal.
 - `map-checkpoints` peab asukohanõudega KP-de puhul tagastama iga KP kohta efektiivse vastamisraadiuse:
   - kui `checkpoints.radius_m` on määratud, kasutatakse seda;

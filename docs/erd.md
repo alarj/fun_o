@@ -445,6 +445,7 @@ erDiagram
 - `checkpoint_interaction = MASS_START` on lubatud ainult `START` tüüpi checkpointil.
 - Kui `checkpoint_interaction` muudetakse väärtusest `QUESTION` mõneks muuks väärtuseks ja checkpointil on aktiivne küsimus, nõuab süsteem enne muutuse salvestamist eraldi kinnitust; kinnituse järel soft-delete'itakse sama checkpointi aktiivne küsimus.
 - `submission_events` hoiab küsimuseta läbimise/stardi sündmusi (`CHECK_ONLY`, `MASS_START`).
+  - `CHECK_ONLY` sündmuse korral salvestatakse `awarded_points = 1`; tehniline `MASS_START` sündmus jääb `0` punkti peale.
 - `submissions_v` koondab `submissions` ja `submission_events` üheks lugemisvaateks ajajoone, progressi ja tulemuste jaoks.
 - `submitted_at` tähistab ärilist sündmuse aega.
 - `evaluated_at` tähistab süsteemi tegelikku töötlemise või salvestamise aega.
