@@ -280,12 +280,19 @@ function renderCompetitionQrCode(joinUrl) {
       Math.floor(viewportHeight * 0.42)
     )
   );
+  const devicePixelRatio = Math.max(1, Math.min(3, Number(window.devicePixelRatio || 1)));
+  const qrRenderSize = Math.max(qrSize, Math.round(qrSize * devicePixelRatio));
   new window.QRCode(canvas, {
     text: joinUrl,
-    width: qrSize,
-    height: qrSize,
+    width: qrRenderSize,
+    height: qrRenderSize,
     correctLevel: window.QRCode.CorrectLevel.M,
   });
+  const renderedNode = canvas.querySelector("canvas, img, table");
+  if (renderedNode) {
+    renderedNode.style.width = `${qrSize}px`;
+    renderedNode.style.height = `${qrSize}px`;
+  }
 }
 
 function renderCompetitionQrManualJoin(accessCode) {
