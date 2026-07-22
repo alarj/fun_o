@@ -850,25 +850,23 @@ body.admin-booting .wrap {
   padding: 18px 22px 28px;
 }
 .competition-qr-topbar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: flex-end;
   align-items: start;
 }
-.competition-qr-topbar-spacer {
-  min-height: 1px;
-}
 .competition-qr-close-btn {
-  justify-self: end;
+  margin-left: auto;
 }
 .competition-qr-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
+  justify-content: flex-start;
+  gap: 20px;
   min-height: 0;
   text-align: center;
+  padding-top: 42px;
 }
 .competition-qr-title {
   margin: 0;
@@ -878,8 +876,10 @@ body.admin-booting .wrap {
   overflow-wrap: anywhere;
 }
 .competition-qr-canvas {
-  min-width: 280px;
-  min-height: 280px;
+  width: min(68vw, 42vh, 456px);
+  height: min(68vw, 42vh, 456px);
+  min-width: 220px;
+  min-height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -892,15 +892,37 @@ body.admin-booting .wrap {
 .competition-qr-canvas canvas,
 .competition-qr-canvas table {
   display: block;
-  max-width: min(68vw, 420px);
-  max-height: min(68vw, 420px);
+  width: min(calc(100% - 36px), 420px);
+  height: auto;
+  max-width: min(calc(100% - 36px), 420px);
+  max-height: min(calc(100% - 36px), 420px);
 }
 .competition-qr-instructions {
   margin: 0;
-  max-width: min(760px, 92vw);
+  max-width: min(1200px, 96vw);
   font-size: clamp(18px, 2vw, 24px);
   line-height: 1.45;
   color: #39484f;
+  text-wrap: pretty;
+}
+.competition-qr-manual-join {
+  margin: 0;
+  max-width: min(1200px, 96vw);
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.45;
+  color: #39484f;
+}
+.competition-qr-manual-text {
+  display: block;
+}
+.competition-qr-manual-code {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.7em;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #1f2a30;
 }
 
 @media (max-width: 900px) {
@@ -1278,12 +1300,13 @@ body.admin-booting .wrap {
       }
       .competition-qr-content {
         gap: 18px;
+        padding-top: 20px;
       }
       .competition-qr-canvas {
-        min-width: 220px;
-        min-height: 220px;
         width: min(80vw, 360px);
         height: min(80vw, 360px);
+        min-width: 220px;
+        min-height: 220px;
       }
 
       /* Mobile/tablet: keep table usable via horizontal scroll instead of breaking layout */

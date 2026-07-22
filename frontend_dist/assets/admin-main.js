@@ -253,6 +253,7 @@ function buildCompetitionJoinUrl(accessCode) {
 function clearCompetitionQrDialog() {
   showMsg("competitionQrMsg", false, "");
   byId("competitionQrCanvas").replaceChildren();
+  byId("competitionQrManualJoin").innerHTML = "";
 }
 
 function closeCompetitionQrDialog() {
@@ -269,13 +270,33 @@ function renderCompetitionQrCode(joinUrl) {
     showMsg("competitionQrMsg", false, tr("admin.comp.qr_modal.unavailable_msg"));
     return;
   }
-  const qrSize = Math.max(220, Math.min(420, Math.floor(window.innerWidth * 0.34)));
+  const viewportWidth = Math.max(0, Number(window.innerWidth || 0));
+  const viewportHeight = Math.max(0, Number(window.innerHeight || 0));
+  const qrSize = Math.max(
+    220,
+    Math.min(
+      420,
+      Math.floor(viewportWidth * 0.34),
+      Math.floor(viewportHeight * 0.42)
+    )
+  );
   new window.QRCode(canvas, {
     text: joinUrl,
     width: qrSize,
     height: qrSize,
     correctLevel: window.QRCode.CorrectLevel.M,
   });
+}
+
+function renderCompetitionQrManualJoin(accessCode) {
+  const target = byId("competitionQrManualJoin");
+  const template = esc(tr("admin.comp.qr_modal.manual_join_line"));
+  const parts = template.split("{code}");
+  const beforeCode = parts[0] || "";
+  const afterCode = parts.slice(1).join("{code}") || "";
+  const textHtml = `${beforeCode}${afterCode}`.trim();
+  const codeHtml = `<strong class="competition-qr-manual-code">${esc(accessCode)}</strong>`;
+  target.innerHTML = `<span class="competition-qr-manual-text">${textHtml}</span>${codeHtml}`;
 }
 
 function openCompetitionQrDialog() {
@@ -290,6 +311,7 @@ function openCompetitionQrDialog() {
     byId("competitionQrDialog").showModal();
   }
   renderCompetitionQrCode(buildCompetitionJoinUrl(accessCode));
+  renderCompetitionQrManualJoin(accessCode);
 }
 
 function normalizeCompetitionRouteData(route) {
