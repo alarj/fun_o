@@ -290,11 +290,7 @@ function renderCompetitionQrCode(joinUrl) {
 
 function renderCompetitionQrManualJoin(accessCode) {
   const target = byId("competitionQrManualJoin");
-  const template = esc(tr("admin.comp.qr_modal.manual_join_line"));
-  const parts = template.split("{code}");
-  const beforeCode = parts[0] || "";
-  const afterCode = parts.slice(1).join("{code}") || "";
-  const textHtml = `${beforeCode}${afterCode}`.trim();
+  const textHtml = esc(tr("admin.comp.qr_modal.manual_join_line"));
   const codeHtml = `<strong class="competition-qr-manual-code">${esc(accessCode)}</strong>`;
   target.innerHTML = `<span class="competition-qr-manual-text">${textHtml}</span>${codeHtml}`;
 }
