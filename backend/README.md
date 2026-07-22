@@ -144,6 +144,8 @@ Expected ORDS JSON responses:
   - route payload may also contain `current_source_hash` and `is_current` for admin UI state rendering.
 - `admin/questions-overview` -> `{ "items": [...] }`
   - iga checkpointi reas võib olla `checkpoint_interaction`.
+  - admin KP nimekirjas kuvatakse küsimusega seotud tegevusnupp ainult siis, kui `checkpoint_interaction = QUESTION`.
+  - kui `checkpoint_interaction = QUESTION` ja checkpointil on aktiivne küsimus, kuvatakse tegevusena küsimuse muutmine; kui aktiivset küsimust ei ole, kuvatakse tegevusena uue küsimuse loomine.
 - `admin/checkpoints` -> `{ "items": [...] }`
 - `admin/competitions/map-layers` -> `{ "items": [{"layer_code":"..."}] }`
 - `admin/competitions/overlay` (GET) -> `{ "overlay_id":..., "display_name":"...", "attribution":"&copy; ...", "processing_status":"UPLOADED|PROCESSING|READY|FAILED", "tile_min_zoom":..., "tile_max_zoom":..., "crs_code":"EPSG:3301", "bounds_3301":{...}, "width_px":..., "height_px":... }` või tühi objekt, kui aktiivne oma kaart puudub.

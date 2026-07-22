@@ -454,3 +454,5 @@ erDiagram
 - Raja pikkuse arvutusse lähevad ainult aktiivsed KP-d, millel on koordinaadid.
 - Kui `checkpoint_interaction = QUESTION`, siis peab KP-l olema ka vähemalt üks aktiivne küsimus.
 - Kui `checkpoint_interaction <> QUESTION`, siis küsimuse olemasolu raja pikkuse arvutusse kaasamiseks ei nõuta.
+- Admin KP nimekirjas kuvatakse küsimuse tegevusnupp ainult `QUESTION` interactioniga checkpointidel.
+- Kui `QUESTION` checkpointil on aktiivne küsimus, on tegevus `Muuda küsimust`; kui aktiivset küsimust ei ole, on tegevus `Uus küsimus`.
