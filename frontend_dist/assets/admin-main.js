@@ -966,6 +966,10 @@ function renderRows() {
   byId("cpRows").innerHTML = sorted.map((r) => {
     const hasQuestion = !!r.question_id;
     const interaction = normalizeCheckpointInteraction(r.checkpoint_interaction);
+    const showQuestionAction = interaction === "QUESTION";
+    const questionActionLabel = hasQuestion
+      ? tr("admin.cp_table.edit_question_btn")
+      : tr("admin.cp_table.new_question_row_btn");
     const qText = currentUiLang === "en"
       ? (r.text_en || r.text_et || "")
       : (r.text_et || r.text_en || "");
@@ -986,7 +990,9 @@ function renderRows() {
       }</td>
       <td class="actions-col">
         <div class="tools">
-          <button data-act="edit-q" data-cp="${r.checkpoint_id}" ${(hasQuestion && currentCompetitionActive && interaction === "QUESTION") ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_question_btn"))}</button>
+          ${showQuestionAction
+            ? `<button data-act="edit-q" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(questionActionLabel)}</button>`
+            : ""}
           <button data-act="edit-cp" data-cp="${r.checkpoint_id}" ${currentCompetitionActive ? "" : "disabled"}>${esc(tr("admin.cp_table.edit_checkpoint_btn"))}</button>
         </div>
       </td>
@@ -2344,7 +2350,10 @@ byId("cpRows").addEventListener("click", (e) => {
   if (!btn) return;
   const cpId = Number(btn.dataset.cp);
   if (btn.dataset.act === "edit-cp") openCheckpointDialog(cpId);
-  if (btn.dataset.act === "edit-q") openQuestionDialog(cpId, true);
+  if (btn.dataset.act === "edit-q") {
+    const row = checkpointsData.find((x) => Number(x.checkpoint_id) === cpId);
+    openQuestionDialog(cpId, !!row?.question_id);
+  }
 });
 
 byId("cpSave").onclick = () => saveCheckpoint().catch((e) => showMsg("cpMsg", false, humanizeError(e.message, e.details)));
