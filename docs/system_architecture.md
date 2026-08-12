@@ -163,7 +163,7 @@ Miks nii on tehtud:
 - Võrgutus ja sõltuvused (`depends_on`, eraldi `funo_net`) on deklareeritud.
 
 Tehnoloogia:
-- Docker Compose (`version: "3.9"`)
+- Docker Compose
 
 Konteinerid ja rollid:
 - `funo_nginx` (`nginx:1.27-alpine`)
@@ -171,6 +171,7 @@ Konteinerid ja rollid:
   - Kasutab `nginx/default.conf` konfiguratsiooni.
   - On avalik sisenemispunkt (`80`, `443`).
   - Mountib TLS sertifikaadid (`/etc/letsencrypt`) read-only.
+  - Mountib ACME webroot kausta (`/var/www/certbot`) read-only, et hostis jooksev `certbot` saaks `http-01` challenge faile nginx kaudu teenindada.
 - `funo_fastapi` (build `./backend/Dockerfile`)
   - Käitab FastAPI backendi.
   - Loeb keskkonnamuutujad `.env` failist.
@@ -183,6 +184,7 @@ Konteinerid ja rollid:
 Viited:
 - `docker-compose.yml`
 - `nginx/default.conf`
+- `docs/deploy/https-letsencrypt.md`
 
 ## Kihtide koosmõju (koodist tuletatud)
 
