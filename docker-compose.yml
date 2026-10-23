@@ -10,6 +10,7 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./frontend_dist:/usr/share/nginx/html:ro
+      - /home/ubuntu/projektid/err_video_to_text/frontend_dist:/usr/share/nginx/err2text:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
     restart: unless-stopped

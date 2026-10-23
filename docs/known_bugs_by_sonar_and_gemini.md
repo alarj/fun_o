@@ -775,6 +775,35 @@ Millal uuesti hinnata:
 - kui admin-vaatesse lisandub rohkem sama võistluse jooksva oleku peale toetuvat valideerimist;
 - kui `window.__last...` väärtuste hulk kasvab või nende sünkroonsus muutub päriselt hapraks.
 
+### 2a.18 Fun-O ja err_video_to_text ühise serveri deploy-konfiguratsiooni eraldamine
+
+Mõjutatud failid:
+- `docker-compose.yml`
+- `nginx/default.conf`
+
+Praegune seis:
+- Fun-O Nginxi konteiner teenindab lisaks Fun-O-le ka `err2text.fun-o.eu` staatilist kasutajaliidest;
+- `err2text.fun-o.eu/api/` liiklus suunatakse sama Docker-võrgu teenusele `err2text-api:8000`;
+- err_video_to_text frontend ühendatakse konteinerisse serverispetsiifilise absoluutse hostiraja kaudu.
+
+Miks jäi praegune lahendus alles:
+- konfiguratsioon on vajalik samas serveris töötava err_video_to_text rakenduse alamdomeeni teenindamiseks;
+- muudatuste commit'imata jätmine muudaks tootmiskonfiguratsiooni taastamise ja järgmised deployd ebakindlaks;
+- ühise deploy-vastutuse eraldamine ei ole mõistlik teha ilma mõlema rakenduse käivitus- ja võrgukonfiguratsiooni korraga üle tõstmata.
+
+Soovitud lõppseis:
+- tõsta jagatud Nginxi, TLS-i ja Docker Compose'i serverikonfiguratsioon eraldi infra/deploy repositooriumi;
+- jätta Fun-O ja err_video_to_text rakenduserepodesse ainult nende enda rakenduse ehitamise ning käivitamise vastutus;
+- asendada absoluutne frontend-rada keskkonnapõhise ja dokumenteeritud konfiguratsiooniga.
+
+Staatus:
+- vajalik tootmiskonfiguratsioon on säilitatud; infrastruktuuri eraldamine on backlogis
+
+Millal uuesti hinnata:
+- järgmise serveri deploy-struktuuri muudatuse ajal;
+- kui lisandub veel samas Nginxis teenindatavaid rakendusi või alamdomeene;
+- enne serveri kolimist või tootmiskeskkonna nullist taastamist.
+
 ## 3. Kuidas seda dokumenti kasutada
 
 - Kui Sonar või Gemini raporteerib järgmistes commitides uuesti sama leidu, kontrolli esmalt siit, kas tegemist on juba teadlikult aktsepteeritud punktiga.
